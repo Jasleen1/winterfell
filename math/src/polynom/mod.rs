@@ -12,13 +12,10 @@ mod tests;
 
 /// Evaluates polynomial `p` at coordinate `x`
 pub fn eval(p: &[u128], x: u128) -> u128 {
-    let mut y = field::ZERO;
-    let mut power_of_x = field::ONE;
-    for i in 0..p.len() {
-        y = field::add(y, field::mul(p[i], power_of_x));
-        power_of_x = field::mul(power_of_x, x);
-    }
-    y
+    // Horner evaluation
+    p.iter().rev().fold(field::ZERO, |acc, coeff| {
+        field::add(field::mul(acc, x), *coeff)
+    })
 }
 
 // POLYNOMIAL INTERPOLATION
@@ -34,8 +31,8 @@ pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
     let roots = get_zero_roots(xs);
     let mut divisor = [field::ZERO, field::ONE];
     let mut numerators: Vec<Vec<u128>> = Vec::with_capacity(xs.len());
-    for i in 0..xs.len() {
-        divisor[0] = field::neg(xs[i]);
+    for xcoord in xs {
+        divisor[0] = field::neg(*xcoord);
         numerators.push(div(&roots, &divisor));
     }
 
@@ -48,9 +45,11 @@ pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
     let mut result = vec![field::ZERO; xs.len()];
     for i in 0..xs.len() {
         let y_slice = field::mul(ys[i], denominators[i]);
-        for j in 0..xs.len() {
-            if numerators[i][j] != field::ZERO && ys[i] != field::ZERO {
-                result[j] = field::add(result[j], field::mul(numerators[i][j], y_slice));
+        if ys[i] != field::ZERO {
+            for (j, res) in result.iter_mut().enumerate() {
+                if numerators[i][j] != field::ZERO {
+                    *res = field::add(*res, field::mul(numerators[i][j], y_slice));
+                }
             }
         }
     }
@@ -101,8 +100,8 @@ pub fn mul(a: &[u128], b: &[u128]) -> Vec<u128> {
 /// Multiplies every coefficient of polynomial `p` by constant `k`
 pub fn mul_by_const(p: &[u128], k: u128) -> Vec<u128> {
     let mut result = Vec::with_capacity(p.len());
-    for i in 0..p.len() {
-        result.push(field::mul(p[i], k));
+    for coeff in p {
+        result.push(field::mul(*coeff, k));
     }
     result
 }
@@ -187,8 +186,8 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
     a[..(degree_offset + exceptions.len())].copy_from_slice(&result[degree..]);
 
     // fill the rest of the result with 0
-    for i in (degree_offset + exceptions.len())..a.len() {
-        a[i] = field::ZERO;
+    for res in a.iter_mut().skip(degree_offset + exceptions.len()) {
+        *res = field::ZERO;
     }
 }
 

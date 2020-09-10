@@ -79,25 +79,18 @@ impl MerkleTree {
         // populate the proof with leaf node values
         let mut next_indexes: Vec<usize> = Vec::new();
         for index in indexes {
-            let v1 = self.values[index];
-            let v2 = self.values[index + 1];
-
-            // only values for indexes that were explicitly requested are included in values array
-            let input_index1 = index_map.get(&index);
-            let input_index2 = index_map.get(&(index + 1));
-            if input_index1.is_some() {
-                if input_index2.is_some() {
-                    values[*input_index1.unwrap()] = v1;
-                    values[*input_index2.unwrap()] = v2;
-                    nodes.push(Vec::new());
-                } else {
-                    values[*input_index1.unwrap()] = v1;
-                    nodes.push(vec![v2]);
-                }
-            } else {
-                values[*input_index2.unwrap()] = v2;
-                nodes.push(vec![v1]);
-            }
+            let missing: Vec<[u8; 32]> = (index..index + 2)
+                .flat_map(|i| {
+                    let v = self.values[i];
+                    if let Some(idx) = index_map.get(&i) {
+                        values[*idx] = v;
+                        None
+                    } else {
+                        Some(v)
+                    }
+                })
+                .collect();
+            nodes.push(missing);
 
             next_indexes.push((index + n) >> 1);
         }
@@ -142,12 +135,12 @@ impl MerkleTree {
         hash(&buf, &mut v);
 
         let mut index = (index + usize::pow(2, (proof.len() - 1) as u32)) >> 1;
-        for i in 2..proof.len() {
+        for p in proof.iter().skip(2) {
             if index & 1 == 0 {
                 buf[..32].copy_from_slice(&v);
-                buf[32..64].copy_from_slice(&proof[i]);
+                buf[32..64].copy_from_slice(p);
             } else {
-                buf[..32].copy_from_slice(&proof[i]);
+                buf[..32].copy_from_slice(p);
                 buf[32..64].copy_from_slice(&v);
             }
             hash(&buf, &mut v);
