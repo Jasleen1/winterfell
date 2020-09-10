@@ -1,7 +1,9 @@
-use std::slice;
-use std::collections::{ HashMap, BTreeSet };
-use serde::{ Serialize, Deserialize };
 use crate::HashFunction;
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{BTreeSet, HashMap},
+    slice,
+};
 
 #[cfg(test)]
 mod tests;
@@ -9,41 +11,43 @@ mod tests;
 // TYPES AND INTERFACES
 // ================================================================================================
 pub struct MerkleTree {
-    nodes   : Vec<[u8; 32]>,
-    values  : Vec<[u8; 32]>
+    nodes: Vec<[u8; 32]>,
+    values: Vec<[u8; 32]>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchMerkleProof {
-    pub values  : Vec<[u8; 32]>,
-    pub nodes   : Vec<Vec<[u8; 32]>>,
-    pub depth   : u8
+    pub values: Vec<[u8; 32]>,
+    pub nodes: Vec<Vec<[u8; 32]>>,
+    pub depth: u8,
 }
 
 // MERKLE TREE IMPLEMENTATION
 // ================================================================================================
 impl MerkleTree {
-
     /// Creates a new merkle tree from the provide leaves and using the provided hash function.
     pub fn new(leaves: Vec<[u8; 32]>, hash: HashFunction) -> MerkleTree {
-        assert!(leaves.len().is_power_of_two(), "number of leaves must be a power of 2");
+        assert!(
+            leaves.len().is_power_of_two(),
+            "number of leaves must be a power of 2"
+        );
         assert!(leaves.len() >= 2, "a tree must contain at least 2 leaves");
 
         let nodes = build_merkle_nodes(&leaves, hash);
-        return MerkleTree {
-            values  : leaves,
-            nodes   : nodes
-        };
+        MerkleTree {
+            values: leaves,
+            nodes,
+        }
     }
 
     /// Returns the root of the tree
     pub fn root(&self) -> &[u8; 32] {
-        return &self.nodes[1];
+        &self.nodes[1]
     }
 
     /// Returns leaf nodes of the tree
     pub fn leaves(&self) -> &[[u8; 32]] {
-        return &self.values;
+        &self.values
     }
 
     /// Computes merkle path the given leaf index.
@@ -57,10 +61,10 @@ impl MerkleTree {
         let mut index = (index + self.nodes.len()) >> 1;
         while index > 1 {
             proof.push(self.nodes[index ^ 1]);
-            index = index >> 1;
+            index >>= 1;
         }
 
-        return proof;
+        proof
     }
 
     /// Computes merkle paths for the provided indexes and compresses the paths into a single proof.
@@ -75,27 +79,18 @@ impl MerkleTree {
         // populate the proof with leaf node values
         let mut next_indexes: Vec<usize> = Vec::new();
         for index in indexes {
-            let v1 = self.values[index];
-            let v2 = self.values[index + 1];
-
-            // only values for indexes that were explicitly requested are included in values array
-            let input_index1 = index_map.get(&index);
-            let input_index2 = index_map.get(&(index + 1));
-            if input_index1.is_some() {
-                if input_index2.is_some() {
-                    values[*input_index1.unwrap()] = v1;
-                    values[*input_index2.unwrap()] = v2;
-                    nodes.push(Vec::new());
-                }
-                else {
-                    values[*input_index1.unwrap()] = v1;
-                    nodes.push(vec![v2]);
-                }
-            }
-            else {
-                values[*input_index2.unwrap()] = v2;
-                nodes.push(vec![v1]);
-            }
+            let missing: Vec<[u8; 32]> = (index..index + 2)
+                .flat_map(|i| {
+                    let v = self.values[i];
+                    if let Some(idx) = index_map.get(&i) {
+                        values[*idx] = v;
+                        None
+                    } else {
+                        Some(v)
+                    }
+                })
+                .collect();
+            nodes.push(missing);
 
             next_indexes.push((index + n) >> 1);
         }
@@ -111,8 +106,7 @@ impl MerkleTree {
                 let sibling_index = indexes[i] ^ 1;
                 if i + 1 < indexes.len() && indexes[i + 1] == sibling_index {
                     i += 1;
-                }
-                else {
+                } else {
                     nodes[i].push(self.nodes[sibling_index]);
                 }
 
@@ -123,7 +117,11 @@ impl MerkleTree {
             }
         }
 
-        return BatchMerkleProof { values, nodes, depth };
+        BatchMerkleProof {
+            values,
+            nodes,
+            depth,
+        }
     }
 
     /// Checks whether the path for the specified index is valid.
@@ -132,29 +130,33 @@ impl MerkleTree {
         let mut v = [0u8; 32];
 
         let r = index & 1;
-        &buf[0..32].copy_from_slice(&proof[r]);
-        &buf[32..64].copy_from_slice(&proof[1 - r]);
+        buf[..32].copy_from_slice(&proof[r]);
+        buf[32..64].copy_from_slice(&proof[1 - r]);
         hash(&buf, &mut v);
 
         let mut index = (index + usize::pow(2, (proof.len() - 1) as u32)) >> 1;
-        for i in 2..proof.len() {
+        for p in proof.iter().skip(2) {
             if index & 1 == 0 {
-                &buf[0..32].copy_from_slice(&v);
-                &buf[32..64].copy_from_slice(&proof[i]);
-            }
-            else {
-                &buf[0..32].copy_from_slice(&proof[i]);
-                &buf[32..64].copy_from_slice(&v);
+                buf[..32].copy_from_slice(&v);
+                buf[32..64].copy_from_slice(p);
+            } else {
+                buf[..32].copy_from_slice(p);
+                buf[32..64].copy_from_slice(&v);
             }
             hash(&buf, &mut v);
-            index = index >> 1;
+            index >>= 1;
         }
 
-        return v == *root;
+        v == *root
     }
 
     /// Checks whether the batch proof contains merkle paths for the of the specified indexes.
-    pub fn verify_batch(root: &[u8; 32], indexes: &[usize], proof: &BatchMerkleProof, hash: HashFunction) -> bool {
+    pub fn verify_batch(
+        root: &[u8; 32],
+        indexes: &[usize],
+        proof: &BatchMerkleProof,
+        hash: HashFunction,
+    ) -> bool {
         let mut buf = [0u8; 64];
         let mut v: HashMap<usize, [u8; 32]> = HashMap::new();
 
@@ -162,7 +164,9 @@ impl MerkleTree {
         let offset = usize::pow(2, proof.depth as u32);
         let index_map = map_indexes(indexes, offset - 1);
         let indexes = normalize_indexes(indexes);
-        if indexes.len() != proof.nodes.len() { return false; }
+        if indexes.len() != proof.nodes.len() {
+            return false;
+        }
 
         // for each index use values to compute parent nodes
         let mut next_indexes: Vec<usize> = Vec::new();
@@ -171,30 +175,40 @@ impl MerkleTree {
             // copy values of leaf sibling leaf nodes into the buffer
             match index_map.get(&index) {
                 Some(&index1) => {
-                    if proof.values.len() <= index1 { return false }
-                    &buf[0..32].copy_from_slice(&proof.values[index1]);
+                    if proof.values.len() <= index1 {
+                        return false;
+                    }
+                    buf[..32].copy_from_slice(&proof.values[index1]);
                     match index_map.get(&(index + 1)) {
                         Some(&index2) => {
-                            if proof.values.len() <= index2 { return false }
-                            &buf[32..64].copy_from_slice(&proof.values[index2]);
+                            if proof.values.len() <= index2 {
+                                return false;
+                            }
+                            buf[32..64].copy_from_slice(&proof.values[index2]);
                             proof_pointers.push(0);
-                        },
+                        }
                         None => {
-                            if proof.nodes[i].len() < 1 { return false }
-                            &buf[32..64].copy_from_slice(&proof.nodes[i][0]);
+                            if proof.nodes[i].is_empty() {
+                                return false;
+                            }
+                            buf[32..64].copy_from_slice(&proof.nodes[i][0]);
                             proof_pointers.push(1);
                         }
                     }
-                },
+                }
                 None => {
-                    if proof.nodes[i].len() < 1 { return false }
-                    &buf[0..32].copy_from_slice(&proof.nodes[i][0]);
+                    if proof.nodes[i].is_empty() {
+                        return false;
+                    }
+                    buf[..32].copy_from_slice(&proof.nodes[i][0]);
                     match index_map.get(&(index + 1)) {
                         Some(&index2) => {
-                            if proof.values.len() <= index2 { return false }
-                            &buf[32..64].copy_from_slice(&proof.values[index2]);
-                        },
-                        None => return false
+                            if proof.values.len() <= index2 {
+                                return false;
+                            }
+                            buf[32..64].copy_from_slice(&proof.values[index2]);
+                        }
+                        None => return false,
                     }
                     proof_pointers.push(1);
                 }
@@ -204,7 +218,7 @@ impl MerkleTree {
             let mut parent = [0u8; 32];
             hash(&buf, &mut parent);
 
-            let parent_index = offset + index >> 1;
+            let parent_index = (offset + index) >> 1;
             v.insert(parent_index, parent);
             next_indexes.push(parent_index);
         }
@@ -224,13 +238,14 @@ impl MerkleTree {
                 if i + 1 < indexes.len() && indexes[i + 1] == sibling_index {
                     sibling = match v.get(&sibling_index) {
                         Some(sibling) => sibling,
-                        None => return false
+                        None => return false,
                     };
                     i += 1;
-                }
-                else {
+                } else {
                     let pointer = proof_pointers[i];
-                    if proof.nodes[i].len() <= pointer { return false }
+                    if proof.nodes[i].len() <= pointer {
+                        return false;
+                    }
                     sibling = &proof.nodes[i][pointer];
                     proof_pointers[i] += 1;
                 }
@@ -238,17 +253,16 @@ impl MerkleTree {
                 // get the node from the map of hashed nodes
                 let node = match v.get(&node_index) {
                     Some(node) => node,
-                    None => return false
+                    None => return false,
                 };
 
                 // compute parent node from node and sibling
                 if node_index & 1 != 0 {
-                    &buf[0..32].copy_from_slice(sibling);
-                    &buf[32..64].copy_from_slice(node);
-                }
-                else {
-                    &buf[0..32].copy_from_slice(node);
-                    &buf[32..64].copy_from_slice(sibling);
+                    buf[..32].copy_from_slice(sibling);
+                    buf[32..64].copy_from_slice(node);
+                } else {
+                    buf[..32].copy_from_slice(node);
+                    buf[32..64].copy_from_slice(sibling);
                 }
                 let mut parent = [0u8; 32];
                 hash(&buf, &mut parent);
@@ -262,7 +276,7 @@ impl MerkleTree {
             }
         }
 
-        return *root == *v.get(&1).unwrap();
+        *root == *v.get(&1).unwrap()
     }
 }
 
@@ -274,7 +288,9 @@ pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 3
 
     // create un-initialized array to hold all intermediate nodes
     let mut nodes: Vec<[u8; 32]> = Vec::with_capacity(2 * n);
-    unsafe { nodes.set_len(2 * n); }
+    unsafe {
+        nodes.set_len(2 * n);
+    }
     nodes[0] = [0u8; 32];
 
     // re-interpret leaves as an array of two leaves fused together
@@ -293,7 +309,7 @@ pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 3
         hash(&two_nodes[i], &mut nodes[i]);
     }
 
-    return nodes;
+    nodes
 }
 
 fn map_indexes(indexes: &[usize], max_valid: usize) -> HashMap<usize, usize> {
@@ -303,7 +319,7 @@ fn map_indexes(indexes: &[usize], max_valid: usize) -> HashMap<usize, usize> {
         assert!(index <= max_valid, "invalid index {}", index);
     }
     assert!(indexes.len() == map.len(), "repeating indexes detected");
-    return map;
+    map
 }
 
 fn normalize_indexes(indexes: &[usize]) -> Vec<usize> {
@@ -311,5 +327,5 @@ fn normalize_indexes(indexes: &[usize]) -> Vec<usize> {
     for &index in indexes {
         set.insert(index - (index & 1));
     }
-    return set.into_iter().collect();
+    set.into_iter().collect()
 }

@@ -13,8 +13,13 @@ const MAX_LOOP: usize = 256;
 
 /// In-place recursive FFT with permuted output.
 /// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
-pub fn fft_in_place(values: &mut [u128], twiddles: &[u128], count: usize, stride: usize, offset: usize) {
-
+pub fn fft_in_place(
+    values: &mut [u128],
+    twiddles: &[u128],
+    count: usize,
+    stride: usize,
+    offset: usize,
+) {
     let size = values.len() / stride;
     debug_assert!(size.is_power_of_two());
     debug_assert!(offset < stride);
@@ -24,8 +29,7 @@ pub fn fft_in_place(values: &mut [u128], twiddles: &[u128], count: usize, stride
     if size > 2 {
         if stride == count && count < MAX_LOOP {
             fft_in_place(values, twiddles, 2 * count, 2 * stride, offset);
-        }
-        else {
+        } else {
             fft_in_place(values, twiddles, count, 2 * stride, offset);
             fft_in_place(values, twiddles, count, 2 * stride, offset + stride);
         }
@@ -36,7 +40,11 @@ pub fn fft_in_place(values: &mut [u128], twiddles: &[u128], count: usize, stride
     }
 
     let last_offset = offset + size * stride;
-    for (i, offset) in (offset..last_offset).step_by(2 * stride).enumerate().skip(1) {
+    for (i, offset) in (offset..last_offset)
+        .step_by(2 * stride)
+        .enumerate()
+        .skip(1)
+    {
         for j in offset..(offset + count) {
             butterfly_twiddle(values, twiddles[i], j, stride);
         }
@@ -48,12 +56,12 @@ pub fn get_twiddles(root: u128, size: usize) -> Vec<u128> {
     assert!(field::exp(root, size as u128) == field::ONE);
     let mut twiddles = field::get_power_series(root, size / 2);
     permute(&mut twiddles);
-    return twiddles;
+    twiddles
 }
 
 pub fn get_inv_twiddles(root: u128, size: usize) -> Vec<u128> {
     let inv_root = field::exp(root, (size - 1) as u128);
-    return get_twiddles(inv_root, size);
+    get_twiddles(inv_root, size)
 }
 
 pub fn permute(v: &mut [u128]) {
@@ -70,10 +78,12 @@ pub fn permute(v: &mut [u128]) {
 // ================================================================================================
 fn permute_index(size: usize, index: usize) -> usize {
     debug_assert!(index < size);
-    if size == 1 { return 0 }
+    if size == 1 {
+        return 0;
+    }
     debug_assert!(size.is_power_of_two());
     let bits = size.trailing_zeros() as usize;
-    return index.reverse_bits() >> (USIZE_BITS - bits);
+    index.reverse_bits() >> (USIZE_BITS - bits)
 }
 
 #[inline(always)]

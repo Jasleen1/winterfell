@@ -1,4 +1,4 @@
-use crate::{ field, polynom };
+use crate::{field, polynom};
 
 #[test]
 fn fft_in_place() {
@@ -36,7 +36,10 @@ fn fft_in_place() {
     let mut p = field::rand_vector(1024);
     let g = field::get_root_of_unity(1024);
     let roots = field::get_power_series(g, 1024);
-    let expected = roots.iter().map(|x| polynom::eval(&p, *x)).collect::<Vec<u128>>();
+    let expected = roots
+        .iter()
+        .map(|x| polynom::eval(&p, *x))
+        .collect::<Vec<u128>>();
     let twiddles = super::get_twiddles(g, 1024);
     super::fft_in_place(&mut p, &twiddles, 1, 1, 0);
     super::permute(&mut p);

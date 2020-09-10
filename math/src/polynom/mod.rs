@@ -1,6 +1,8 @@
+use crate::{
+    field,
+    utils::{filled_vector, uninit_vector},
+};
 use std::mem;
-use crate::field;
-use crate::utils::{ uninit_vector, filled_vector };
 
 #[cfg(test)]
 mod tests;
@@ -10,13 +12,10 @@ mod tests;
 
 /// Evaluates polynomial `p` at coordinate `x`
 pub fn eval(p: &[u128], x: u128) -> u128 {
-    let mut y = field::ZERO;
-    let mut power_of_x = field::ONE;
-    for i in 0..p.len() {
-        y = field::add(y, field::mul(p[i], power_of_x));
-        power_of_x = field::mul(power_of_x, x);
-    }
-    return y;
+    // Horner evaluation
+    p.iter().rev().fold(field::ZERO, |acc, coeff| {
+        field::add(field::mul(acc, x), *coeff)
+    })
 }
 
 // POLYNOMIAL INTERPOLATION
@@ -24,13 +23,16 @@ pub fn eval(p: &[u128], x: u128) -> u128 {
 
 /// Uses Lagrange interpolation to build a polynomial from X and Y coordinates.
 pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
-    debug_assert!(xs.len() == ys.len(), "Number of X and Y coordinates must be the same");
+    debug_assert!(
+        xs.len() == ys.len(),
+        "Number of X and Y coordinates must be the same"
+    );
 
     let roots = get_zero_roots(xs);
     let mut divisor = [field::ZERO, field::ONE];
     let mut numerators: Vec<Vec<u128>> = Vec::with_capacity(xs.len());
-    for i in 0..xs.len() {
-        divisor[0] = field::neg(xs[i]);
+    for xcoord in xs {
+        divisor[0] = field::neg(*xcoord);
         numerators.push(div(&roots, &divisor));
     }
 
@@ -43,14 +45,16 @@ pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
     let mut result = vec![field::ZERO; xs.len()];
     for i in 0..xs.len() {
         let y_slice = field::mul(ys[i], denominators[i]);
-        for j in 0..xs.len() {
-            if numerators[i][j] != field::ZERO && ys[i] != field::ZERO {
-                result[j] = field::add(result[j], field::mul(numerators[i][j], y_slice));
+        if ys[i] != field::ZERO {
+            for (j, res) in result.iter_mut().enumerate() {
+                if numerators[i][j] != field::ZERO {
+                    *res = field::add(*res, field::mul(numerators[i][j], y_slice));
+                }
             }
         }
     }
 
-    return result;
+    result
 }
 
 // POLYNOMIAL MATH OPERATIONS
@@ -65,7 +69,7 @@ pub fn add(a: &[u128], b: &[u128]) -> Vec<u128> {
         let c2 = if i < b.len() { b[i] } else { field::ZERO };
         result.push(field::add(c1, c2));
     }
-    return result;
+    result
 }
 
 /// Subtracts polynomial `b` from polynomial `a`
@@ -77,7 +81,7 @@ pub fn sub(a: &[u128], b: &[u128]) -> Vec<u128> {
         let c2 = if i < b.len() { b[i] } else { field::ZERO };
         result.push(field::sub(c1, c2));
     }
-    return result;
+    result
 }
 
 /// Multiplies polynomial `a` by polynomial `b`
@@ -90,22 +94,21 @@ pub fn mul(a: &[u128], b: &[u128]) -> Vec<u128> {
             result[i + j] = field::add(result[i + j], s);
         }
     }
-    return result;
+    result
 }
 
 /// Multiplies every coefficient of polynomial `p` by constant `k`
 pub fn mul_by_const(p: &[u128], k: u128) -> Vec<u128> {
     let mut result = Vec::with_capacity(p.len());
-    for i in 0..p.len() {
-        result.push(field::mul(p[i], k));
+    for coeff in p {
+        result.push(field::mul(*coeff, k));
     }
-    return result;
+    result
 }
 
 /// Divides polynomial `a` by polynomial `b`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
 pub fn div(a: &[u128], b: &[u128]) -> Vec<u128> {
-
     let mut apos = degree_of(a);
     let mut a = a.to_vec();
 
@@ -125,7 +128,7 @@ pub fn div(a: &[u128], b: &[u128]) -> Vec<u128> {
         apos = apos.wrapping_sub(1);
     }
 
-    return result;
+    result
 }
 
 /// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method;
@@ -133,7 +136,7 @@ pub fn div(a: &[u128], b: &[u128]) -> Vec<u128> {
 pub fn syn_div(a: &[u128], b: u128) -> Vec<u128> {
     let mut result = a.to_vec();
     syn_div_in_place(&mut result, b);
-    return result;
+    result
 }
 
 /// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method and stores the
@@ -151,7 +154,6 @@ pub fn syn_div_in_place(a: &mut [u128], b: u128) {
 /// Synthetic division method and stores the result in `a`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
 pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u128]) {
-
     // allocate space for the result
     let mut result = filled_vector(a.len(), a.len() + exceptions.len(), field::ZERO);
 
@@ -164,12 +166,13 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
 
     // multiply result by (x - exceptions[i]) in place
     for &exception in exceptions {
-
         // exception term is negative
         let exception = field::neg(exception);
 
         // extend length of result since we are raising degree
-        unsafe { result.set_len(result.len() + 1); }
+        unsafe {
+            result.set_len(result.len() + 1);
+        }
 
         let mut next_term = result[0];
         result[0] = field::ZERO;
@@ -183,7 +186,9 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
     a[..(degree_offset + exceptions.len())].copy_from_slice(&result[degree..]);
 
     // fill the rest of the result with 0
-    for i in (degree_offset + exceptions.len())..a.len() { a[i] = field::ZERO; }
+    for res in a.iter_mut().skip(degree_offset + exceptions.len()) {
+        *res = field::ZERO;
+    }
 }
 
 // DEGREE INFERENCE
@@ -192,9 +197,11 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
 /// Returns degree of the polynomial `poly`
 pub fn degree_of(poly: &[u128]) -> usize {
     for i in (0..poly.len()).rev() {
-        if poly[i] != field::ZERO { return i; }
+        if poly[i] != field::ZERO {
+            return i;
+        }
     }
-    return 0;
+    0
 }
 
 // HELPER FUNCTIONS
@@ -214,5 +221,5 @@ fn get_zero_roots(xs: &[u128]) -> Vec<u128> {
         }
     }
 
-    return result;
+    result
 }
