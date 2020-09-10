@@ -1,5 +1,5 @@
+use num_bigint::BigUint;
 use std::convert::TryInto;
-use num_bigint::{ BigUint };
 
 #[test]
 fn add() {

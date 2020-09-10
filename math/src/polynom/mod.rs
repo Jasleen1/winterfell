@@ -1,6 +1,8 @@
+use crate::{
+    field,
+    utils::{filled_vector, uninit_vector},
+};
 use std::mem;
-use crate::field;
-use crate::utils::{ uninit_vector, filled_vector };
 
 #[cfg(test)]
 mod tests;
@@ -24,7 +26,10 @@ pub fn eval(p: &[u128], x: u128) -> u128 {
 
 /// Uses Lagrange interpolation to build a polynomial from X and Y coordinates.
 pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
-    debug_assert!(xs.len() == ys.len(), "Number of X and Y coordinates must be the same");
+    debug_assert!(
+        xs.len() == ys.len(),
+        "Number of X and Y coordinates must be the same"
+    );
 
     let roots = get_zero_roots(xs);
     let mut divisor = [field::ZERO, field::ONE];
@@ -105,7 +110,6 @@ pub fn mul_by_const(p: &[u128], k: u128) -> Vec<u128> {
 /// Divides polynomial `a` by polynomial `b`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
 pub fn div(a: &[u128], b: &[u128]) -> Vec<u128> {
-
     let mut apos = degree_of(a);
     let mut a = a.to_vec();
 
@@ -151,7 +155,6 @@ pub fn syn_div_in_place(a: &mut [u128], b: u128) {
 /// Synthetic division method and stores the result in `a`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
 pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u128]) {
-
     // allocate space for the result
     let mut result = filled_vector(a.len(), a.len() + exceptions.len(), field::ZERO);
 
@@ -164,12 +167,13 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
 
     // multiply result by (x - exceptions[i]) in place
     for &exception in exceptions {
-
         // exception term is negative
         let exception = field::neg(exception);
 
         // extend length of result since we are raising degree
-        unsafe { result.set_len(result.len() + 1); }
+        unsafe {
+            result.set_len(result.len() + 1);
+        }
 
         let mut next_term = result[0];
         result[0] = field::ZERO;
@@ -183,7 +187,9 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
     a[..(degree_offset + exceptions.len())].copy_from_slice(&result[degree..]);
 
     // fill the rest of the result with 0
-    for i in (degree_offset + exceptions.len())..a.len() { a[i] = field::ZERO; }
+    for i in (degree_offset + exceptions.len())..a.len() {
+        a[i] = field::ZERO;
+    }
 }
 
 // DEGREE INFERENCE
@@ -192,7 +198,9 @@ pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u1
 /// Returns degree of the polynomial `poly`
 pub fn degree_of(poly: &[u128]) -> usize {
     for i in (0..poly.len()).rev() {
-        if poly[i] != field::ZERO { return i; }
+        if poly[i] != field::ZERO {
+            return i;
+        }
     }
     return 0;
 }

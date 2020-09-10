@@ -1,8 +1,9 @@
-use std::ops::Range;
-use std::convert::TryInto;
-use rand::prelude::*;
-use rand::distributions::{ Distribution, Uniform };
-use crate::utils::{ uninit_vector };
+use crate::utils::uninit_vector;
+use rand::{
+    distributions::{Distribution, Uniform},
+    prelude::*,
+};
+use std::{convert::TryInto, ops::Range};
 
 #[cfg(test)]
 mod tests;
@@ -29,7 +30,7 @@ pub const ONE: u128 = 1;
 /// Computes (a + b) % m; a and b are assumed to be valid field elements.
 pub fn add(a: u128, b: u128) -> u128 {
     let z = M - b;
-    return if a < z { M - z + a } else { a - z};
+    return if a < z { M - z + a } else { a - z };
 }
 
 /// Computes (a - b) % m; a and b are assumed to be valid field elements.
@@ -39,37 +40,39 @@ pub fn sub(a: u128, b: u128) -> u128 {
 
 /// Computes (a * b) % m; a and b are assumed to be valid field elements.
 pub fn mul(a: u128, b: u128) -> u128 {
-
-    let (x0, x1, x2) = mul_128x64(a, (b >> 64) as u64);          // x = a * b_hi
-    let (mut x0, mut x1, x2) = mul_reduce(x0, x1, x2);  // x = x - (x >> 128) * m
+    let (x0, x1, x2) = mul_128x64(a, (b >> 64) as u64); // x = a * b_hi
+    let (mut x0, mut x1, x2) = mul_reduce(x0, x1, x2); // x = x - (x >> 128) * m
     if x2 == 1 {
         // if there was an overflow beyond 128 bits, subtract
         // modulus from the result to make sure it fits into
         // 128 bits; this can potentially be removed in favor
         // of checking overflow later
-        let (t0, t1) = sub_modulus(x0, x1);                  // x = x - m
-        x0 = t0; x1 = t1;
+        let (t0, t1) = sub_modulus(x0, x1); // x = x - m
+        x0 = t0;
+        x1 = t1;
     }
 
-    let (y0, y1, y2) = mul_128x64(a, b as u64);                         // y = a * b_lo
+    let (y0, y1, y2) = mul_128x64(a, b as u64); // y = a * b_lo
 
-    let (mut y1, carry) = add64_with_carry(y1, x0, 0);          // y = y + (x << 64)
+    let (mut y1, carry) = add64_with_carry(y1, x0, 0); // y = y + (x << 64)
     let (mut y2, y3) = add64_with_carry(y2, x1, carry);
     if y3 == 1 {
         // if there was an overflow beyond 192 bits, subtract
         // modulus * 2^64 from the result to make sure it fits
         // into 192 bits; this can potentially replace the
         // previous overflow check (but needs to be proven)
-        let (t0, t1) = sub_modulus(y1, y2);              // y = y - (m << 64)
-        y1 = t0; y2 = t1;
+        let (t0, t1) = sub_modulus(y1, y2); // y = y - (m << 64)
+        y1 = t0;
+        y2 = t1;
     }
 
-    let (mut z0, mut z1, z2) = mul_reduce(y0, y1, y2);   // z = y - (y >> 128) * m
+    let (mut z0, mut z1, z2) = mul_reduce(y0, y1, y2); // z = y - (y >> 128) * m
 
     // make sure z is smaller than m
     if z2 == 1 || (z1 == (M >> 64) as u64 && z0 >= (M as u64)) {
-        let (t0, t1) = sub_modulus(z0, z1);                     // z = z - m
-        z0 = t0; z1 = t1;
+        let (t0, t1) = sub_modulus(z0, z1); // z = z - m
+        z0 = t0;
+        z1 = t1;
     }
 
     return ((z1 as u128) << 64) + (z0 as u128);
@@ -84,7 +87,9 @@ pub fn mul_acc(a: &mut [u128], b: &[u128], c: u128) {
 
 /// Computes y such that (x * y) % m = 1; x is assumed to be a valid field element.
 pub fn inv(x: u128) -> u128 {
-    if x == 0 { return 0 };
+    if x == 0 {
+        return 0;
+    };
 
     // initialize v, a, u, and d variables
     let mut v = M;
@@ -92,8 +97,7 @@ pub fn inv(x: u128) -> u128 {
     let (mut u0, mut u1, mut u2) = if x & 1 == 1 {
         // u = x
         (x as u64, (x >> 64) as u64, 0)
-    }
-    else {
+    } else {
         // u = x + m
         add_192x192(x as u64, (x >> 64) as u64, 0, M as u64, (M >> 64) as u64, 0)
     };
@@ -102,20 +106,27 @@ pub fn inv(x: u128) -> u128 {
 
     // compute the inverse
     while v != 1 {
-        while u2 > 0 || ((u0 as u128) + ((u1 as u128) << 64)) > v { // u > v
+        while u2 > 0 || ((u0 as u128) + ((u1 as u128) << 64)) > v {
+            // u > v
             // u = u - v
             let (t0, t1, t2) = sub_192x192(u0, u1, u2, v as u64, (v >> 64) as u64, 0);
-            u0 = t0; u1 = t1; u2 = t2;
+            u0 = t0;
+            u1 = t1;
+            u2 = t2;
 
             // d = d + a
             let (t0, t1, t2) = add_192x192(d0, d1, d2, a0, a1, a2);
-            d0 = t0; d1 = t1; d2 = t2;
+            d0 = t0;
+            d1 = t1;
+            d2 = t2;
 
             while u0 & 1 == 0 {
                 if d0 & 1 == 1 {
                     // d = d + m
                     let (t0, t1, t2) = add_192x192(d0, d1, d2, M as u64, (M >> 64) as u64, 0);
-                    d0 = t0; d1 = t1; d2 = t2;
+                    d0 = t0;
+                    d1 = t1;
+                    d2 = t2;
                 }
 
                 // u = u >> 1
@@ -135,13 +146,17 @@ pub fn inv(x: u128) -> u128 {
 
         // a = a + d
         let (t0, t1, t2) = add_192x192(a0, a1, a2, d0, d1, d2);
-        a0 = t0; a1 = t1; a2 = t2;
+        a0 = t0;
+        a1 = t1;
+        a2 = t2;
 
         while v & 1 == 0 {
             if a0 & 1 == 1 {
                 // a = a + m
                 let (t0, t1, t2) = add_192x192(a0, a1, a2, M as u64, (M >> 64) as u64, 0);
-                a0 = t0; a1 = t1; a2 = t2;
+                a0 = t0;
+                a1 = t1;
+                a2 = t2;
             }
 
             v = v >> 1;
@@ -157,7 +172,9 @@ pub fn inv(x: u128) -> u128 {
     let mut a = (a0 as u128) + ((a1 as u128) << 64);
     while a2 > 0 || a >= M {
         let (t0, t1, t2) = sub_192x192(a0, a1, a2, M as u64, (M >> 64) as u64, 0);
-        a0 = t0; a1 = t1; a2 = t2;
+        a0 = t0;
+        a1 = t1;
+        a2 = t2;
         a = (a0 as u128) + ((a1 as u128) << 64);
     }
 
@@ -186,8 +203,7 @@ pub fn inv_many_fill(values: &[u128], result: &mut [u128]) {
     for i in (0..values.len()).rev() {
         if values[i] == ZERO {
             result[i] = ZERO;
-        }
-        else {
+        } else {
             result[i] = mul(last, result[i]);
             last = mul(last, values[i]);
         }
@@ -202,8 +218,11 @@ pub fn div(a: u128, b: u128) -> u128 {
 
 /// Computes (b^p) % m; b and p are assumed to be valid field elements.
 pub fn exp(b: u128, p: u128) -> u128 {
-    if b == 0 { return 0; }
-    else if p == 0 { return 1; }
+    if b == 0 {
+        return 0;
+    } else if p == 0 {
+        return 1;
+    }
 
     let mut r = 1;
     let mut b = b;
