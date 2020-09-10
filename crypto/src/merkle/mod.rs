@@ -132,18 +132,18 @@ impl MerkleTree {
         let mut v = [0u8; 32];
 
         let r = index & 1;
-        &buf[0..32].copy_from_slice(&proof[r]);
+        &buf[..32].copy_from_slice(&proof[r]);
         &buf[32..64].copy_from_slice(&proof[1 - r]);
         hash(&buf, &mut v);
 
         let mut index = (index + usize::pow(2, (proof.len() - 1) as u32)) >> 1;
         for i in 2..proof.len() {
             if index & 1 == 0 {
-                &buf[0..32].copy_from_slice(&v);
+                &buf[..32].copy_from_slice(&v);
                 &buf[32..64].copy_from_slice(&proof[i]);
             }
             else {
-                &buf[0..32].copy_from_slice(&proof[i]);
+                &buf[..32].copy_from_slice(&proof[i]);
                 &buf[32..64].copy_from_slice(&v);
             }
             hash(&buf, &mut v);
@@ -172,7 +172,7 @@ impl MerkleTree {
             match index_map.get(&index) {
                 Some(&index1) => {
                     if proof.values.len() <= index1 { return false }
-                    &buf[0..32].copy_from_slice(&proof.values[index1]);
+                    &buf[..32].copy_from_slice(&proof.values[index1]);
                     match index_map.get(&(index + 1)) {
                         Some(&index2) => {
                             if proof.values.len() <= index2 { return false }
@@ -188,7 +188,7 @@ impl MerkleTree {
                 },
                 None => {
                     if proof.nodes[i].len() < 1 { return false }
-                    &buf[0..32].copy_from_slice(&proof.nodes[i][0]);
+                    &buf[..32].copy_from_slice(&proof.nodes[i][0]);
                     match index_map.get(&(index + 1)) {
                         Some(&index2) => {
                             if proof.values.len() <= index2 { return false }
@@ -243,11 +243,11 @@ impl MerkleTree {
 
                 // compute parent node from node and sibling
                 if node_index & 1 != 0 {
-                    &buf[0..32].copy_from_slice(sibling);
+                    &buf[..32].copy_from_slice(sibling);
                     &buf[32..64].copy_from_slice(node);
                 }
                 else {
-                    &buf[0..32].copy_from_slice(node);
+                    &buf[..32].copy_from_slice(node);
                     &buf[32..64].copy_from_slice(sibling);
                 }
                 let mut parent = [0u8; 32];
