@@ -3,13 +3,13 @@ pub fn uninit_vector<T>(length: usize) -> Vec<T> {
     unsafe {
         vector.set_len(length);
     }
-    return vector;
+    vector
 }
 
 pub fn filled_vector<T: Copy>(length: usize, capacity: usize, value: T) -> Vec<T> {
     let mut vector = vec![value; capacity];
     vector.truncate(length);
-    return vector;
+    vector
 }
 
 #[cfg(test)]
@@ -20,5 +20,5 @@ pub fn remove_leading_zeros(values: &[u128]) -> Vec<u128> {
         }
     }
 
-    return [].to_vec();
+    [].to_vec()
 }

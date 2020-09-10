@@ -18,7 +18,7 @@ pub fn eval(p: &[u128], x: u128) -> u128 {
         y = field::add(y, field::mul(p[i], power_of_x));
         power_of_x = field::mul(power_of_x, x);
     }
-    return y;
+    y
 }
 
 // POLYNOMIAL INTERPOLATION
@@ -55,7 +55,7 @@ pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
         }
     }
 
-    return result;
+    result
 }
 
 // POLYNOMIAL MATH OPERATIONS
@@ -70,7 +70,7 @@ pub fn add(a: &[u128], b: &[u128]) -> Vec<u128> {
         let c2 = if i < b.len() { b[i] } else { field::ZERO };
         result.push(field::add(c1, c2));
     }
-    return result;
+    result
 }
 
 /// Subtracts polynomial `b` from polynomial `a`
@@ -82,7 +82,7 @@ pub fn sub(a: &[u128], b: &[u128]) -> Vec<u128> {
         let c2 = if i < b.len() { b[i] } else { field::ZERO };
         result.push(field::sub(c1, c2));
     }
-    return result;
+    result
 }
 
 /// Multiplies polynomial `a` by polynomial `b`
@@ -95,7 +95,7 @@ pub fn mul(a: &[u128], b: &[u128]) -> Vec<u128> {
             result[i + j] = field::add(result[i + j], s);
         }
     }
-    return result;
+    result
 }
 
 /// Multiplies every coefficient of polynomial `p` by constant `k`
@@ -104,7 +104,7 @@ pub fn mul_by_const(p: &[u128], k: u128) -> Vec<u128> {
     for i in 0..p.len() {
         result.push(field::mul(p[i], k));
     }
-    return result;
+    result
 }
 
 /// Divides polynomial `a` by polynomial `b`; if the polynomials don't divide evenly,
@@ -129,7 +129,7 @@ pub fn div(a: &[u128], b: &[u128]) -> Vec<u128> {
         apos = apos.wrapping_sub(1);
     }
 
-    return result;
+    result
 }
 
 /// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method;
@@ -137,7 +137,7 @@ pub fn div(a: &[u128], b: &[u128]) -> Vec<u128> {
 pub fn syn_div(a: &[u128], b: u128) -> Vec<u128> {
     let mut result = a.to_vec();
     syn_div_in_place(&mut result, b);
-    return result;
+    result
 }
 
 /// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method and stores the
@@ -202,7 +202,7 @@ pub fn degree_of(poly: &[u128]) -> usize {
             return i;
         }
     }
-    return 0;
+    0
 }
 
 // HELPER FUNCTIONS
@@ -222,5 +222,5 @@ fn get_zero_roots(xs: &[u128]) -> Vec<u128> {
         }
     }
 
-    return result;
+    result
 }

@@ -274,5 +274,5 @@ fn hash_2x1(v1: &[u8; 32], v2: &[u8; 32]) -> [u8; 32] {
 
     let mut result = [0u8; 32];
     hash::blake3(&buf, &mut result);
-    return result;
+    result
 }

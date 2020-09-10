@@ -30,12 +30,20 @@ pub const ONE: u128 = 1;
 /// Computes (a + b) % m; a and b are assumed to be valid field elements.
 pub fn add(a: u128, b: u128) -> u128 {
     let z = M - b;
-    return if a < z { M - z + a } else { a - z };
+    if a < z {
+        M - z + a
+    } else {
+        a - z
+    }
 }
 
 /// Computes (a - b) % m; a and b are assumed to be valid field elements.
 pub fn sub(a: u128, b: u128) -> u128 {
-    return if a < b { M - b + a } else { a - b };
+    if a < b {
+        M - b + a
+    } else {
+        a - b
+    }
 }
 
 /// Computes (a * b) % m; a and b are assumed to be valid field elements.
@@ -75,7 +83,7 @@ pub fn mul(a: u128, b: u128) -> u128 {
         z1 = t1;
     }
 
-    return ((z1 as u128) << 64) + (z0 as u128);
+    ((z1 as u128) << 64) + (z0 as u128)
 }
 
 /// Computes a[i] + b[i] * c for all i and saves result into a.
@@ -132,17 +140,17 @@ pub fn inv(x: u128) -> u128 {
                 // u = u >> 1
                 u0 = (u0 >> 1) | ((u1 & 1) << 63);
                 u1 = (u1 >> 1) | ((u2 & 1) << 63);
-                u2 = u2 >> 1;
+                u2 >>= 1;
 
                 // d = d >> 1
                 d0 = (d0 >> 1) | ((d1 & 1) << 63);
                 d1 = (d1 >> 1) | ((d2 & 1) << 63);
-                d2 = d2 >> 1;
+                d2 >>= 1;
             }
         }
 
         // v = v - u (u is less than v at this point)
-        v = v - ((u0 as u128) + ((u1 as u128) << 64));
+        v -= (u0 as u128) + ((u1 as u128) << 64);
 
         // a = a + d
         let (t0, t1, t2) = add_192x192(a0, a1, a2, d0, d1, d2);
@@ -159,12 +167,12 @@ pub fn inv(x: u128) -> u128 {
                 a2 = t2;
             }
 
-            v = v >> 1;
+            v >>= 1;
 
             // a = a >> 1
             a0 = (a0 >> 1) | ((a1 & 1) << 63);
             a1 = (a1 >> 1) | ((a2 & 1) << 63);
-            a2 = a2 >> 1;
+            a2 >>= 1;
         }
     }
 
@@ -178,14 +186,14 @@ pub fn inv(x: u128) -> u128 {
         a = (a0 as u128) + ((a1 as u128) << 64);
     }
 
-    return a;
+    a
 }
 
 /// Computes multiplicative inverses of all slice elements using batch inversion method.
 pub fn inv_many(values: &[u128]) -> Vec<u128> {
     let mut result = uninit_vector(values.len());
     inv_many_fill(values, &mut result);
-    return result;
+    result
 }
 
 /// Computes multiplicative inverses of all slice elements using batch inversion method
@@ -213,7 +221,7 @@ pub fn inv_many_fill(values: &[u128], result: &mut [u128]) {
 /// Computes y = (a / b) such that (b * y) % m = a; a and b are assumed to be valid field elements.
 pub fn div(a: u128, b: u128) -> u128 {
     let b = inv(b);
-    return mul(a, b);
+    mul(a, b)
 }
 
 /// Computes (b^p) % m; b and p are assumed to be valid field elements.
@@ -233,16 +241,16 @@ pub fn exp(b: u128, p: u128) -> u128 {
         if p & 1 == 1 {
             r = mul(r, b);
         }
-        p = p >> 1;
+        p >>= 1;
         b = mul(b, b);
     }
 
-    return r;
+    r
 }
 
 /// Computes (0 - x) % m; x is assumed to be a valid field element.
 pub fn neg(x: u128) -> u128 {
-    return sub(ZERO, x);
+    sub(ZERO, x)
 }
 
 // ROOT OF UNITY
@@ -252,7 +260,7 @@ pub fn get_root_of_unity(order: usize) -> u128 {
     assert!(order.is_power_of_two(), "order must be a power of 2");
     assert!(order.trailing_zeros() <= 40, "order cannot exceed 2^40");
     let p = 1u128 << (40 - order.trailing_zeros());
-    return exp(G, p);
+    exp(G, p)
 }
 
 /// Generates a vector with values [1, b, b^2, b^3, b^4, ..., b^length].
@@ -262,7 +270,7 @@ pub fn get_power_series(b: u128, length: usize) -> Vec<u128> {
     for i in 1..result.len() {
         result[i] = mul(result[i - 1], b);
     }
-    return result;
+    result
 }
 
 // RANDOMNESS
@@ -272,34 +280,34 @@ pub fn get_power_series(b: u128, length: usize) -> Vec<u128> {
 pub fn rand() -> u128 {
     let range = Uniform::from(RANGE);
     let mut g = thread_rng();
-    return g.sample(range);
+    g.sample(range)
 }
 
 /// Generates a vector of random field elements.
 pub fn rand_vector(length: usize) -> Vec<u128> {
     let range = Uniform::from(RANGE);
     let g = thread_rng();
-    return g.sample_iter(range).take(length).collect();
+    g.sample_iter(range).take(length).collect()
 }
 
 /// Generates a pseudo-random field element from a given `seed`.
 pub fn prng(seed: [u8; 32]) -> u128 {
     let range = Uniform::from(RANGE);
     let mut g = StdRng::from_seed(seed);
-    return range.sample(&mut g);
+    range.sample(&mut g)
 }
 
 /// Generates a vector of pseudo-random field elements from a given `seed`.
 pub fn prng_vector(seed: [u8; 32], length: usize) -> Vec<u128> {
     let range = Uniform::from(RANGE);
     let g = StdRng::from_seed(seed);
-    return g.sample_iter(range).take(length).collect();
+    g.sample_iter(range).take(length).collect()
 }
 
 // TYPE CONVERSIONS
 // --------------------------------------------------------------------------------------------
 pub fn from_bytes(bytes: &[u8]) -> u128 {
-    return u128::from_le_bytes(bytes.try_into().unwrap());
+    u128::from_le_bytes(bytes.try_into().unwrap())
 }
 
 // HELPER FUNCTIONS
@@ -310,21 +318,21 @@ fn mul_128x64(a: u128, b: u64) -> (u64, u64, u64) {
     let z_lo = ((a as u64) as u128) * (b as u128);
     let z_hi = (a >> 64) * (b as u128);
     let z_hi = z_hi + (z_lo >> 64);
-    return (z_lo as u64, z_hi as u64, (z_hi >> 64) as u64);
+    (z_lo as u64, z_hi as u64, (z_hi >> 64) as u64)
 }
 
 #[inline(always)]
 fn mul_reduce(z0: u64, z1: u64, z2: u64) -> (u64, u64, u64) {
     let (q0, q1, q2) = mul_by_modulus(z2);
     let (z0, z1, z2) = sub_192x192(z0, z1, z2, q0, q1, q2);
-    return (z0, z1, z2);
+    (z0, z1, z2)
 }
 
 #[inline(always)]
 fn mul_by_modulus(a: u64) -> (u64, u64, u64) {
     let a_lo = (a as u128).wrapping_mul(M);
     let a_hi = if a == 0 { 0 } else { a - 1 };
-    return (a_lo as u64, (a_lo >> 64) as u64, a_hi);
+    (a_lo as u64, (a_lo >> 64) as u64, a_hi)
 }
 
 #[inline(always)]
@@ -332,7 +340,7 @@ fn sub_modulus(a_lo: u64, a_hi: u64) -> (u64, u64) {
     let mut z = 0u128.wrapping_sub(M);
     z = z.wrapping_add(a_lo as u128);
     z = z.wrapping_add((a_hi as u128) << 64);
-    return (z as u64, (z >> 64) as u64);
+    (z as u64, (z >> 64) as u64)
 }
 
 #[inline(always)]
@@ -340,7 +348,7 @@ fn sub_192x192(a0: u64, a1: u64, a2: u64, b0: u64, b1: u64, b2: u64) -> (u64, u6
     let z0 = (a0 as u128).wrapping_sub(b0 as u128);
     let z1 = (a1 as u128).wrapping_sub((b1 as u128) + (z0 >> 127));
     let z2 = (a2 as u128).wrapping_sub((b2 as u128) + (z1 >> 127));
-    return (z0 as u64, z1 as u64, z2 as u64);
+    (z0 as u64, z1 as u64, z2 as u64)
 }
 
 #[inline(always)]
@@ -348,11 +356,11 @@ fn add_192x192(a0: u64, a1: u64, a2: u64, b0: u64, b1: u64, b2: u64) -> (u64, u6
     let z0 = (a0 as u128) + (b0 as u128);
     let z1 = (a1 as u128) + (b1 as u128) + (z0 >> 64);
     let z2 = (a2 as u128) + (b2 as u128) + (z1 >> 64);
-    return (z0 as u64, z1 as u64, z2 as u64);
+    (z0 as u64, z1 as u64, z2 as u64)
 }
 
 #[inline(always)]
 pub const fn add64_with_carry(a: u64, b: u64, carry: u64) -> (u64, u64) {
     let ret = (a as u128) + (b as u128) + (carry as u128);
-    return (ret as u64, (ret >> 64) as u64);
+    (ret as u64, (ret >> 64) as u64)
 }

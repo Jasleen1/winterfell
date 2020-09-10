@@ -56,12 +56,12 @@ pub fn get_twiddles(root: u128, size: usize) -> Vec<u128> {
     assert!(field::exp(root, size as u128) == field::ONE);
     let mut twiddles = field::get_power_series(root, size / 2);
     permute(&mut twiddles);
-    return twiddles;
+    twiddles
 }
 
 pub fn get_inv_twiddles(root: u128, size: usize) -> Vec<u128> {
     let inv_root = field::exp(root, (size - 1) as u128);
-    return get_twiddles(inv_root, size);
+    get_twiddles(inv_root, size)
 }
 
 pub fn permute(v: &mut [u128]) {
@@ -83,7 +83,7 @@ fn permute_index(size: usize, index: usize) -> usize {
     }
     debug_assert!(size.is_power_of_two());
     let bits = size.trailing_zeros() as usize;
-    return index.reverse_bits() >> (USIZE_BITS - bits);
+    index.reverse_bits() >> (USIZE_BITS - bits)
 }
 
 #[inline(always)]
