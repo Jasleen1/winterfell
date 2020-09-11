@@ -1,4 +1,4 @@
-use crate::utils::uninit_vector;
+use common::utils::uninit_vector;
 use rand::{
     distributions::{Distribution, Uniform},
     prelude::*,

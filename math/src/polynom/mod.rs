@@ -1,7 +1,5 @@
-use crate::{
-    field,
-    utils::{filled_vector, uninit_vector},
-};
+use crate::field;
+use common::utils::{filled_vector, uninit_vector};
 use std::mem;
 
 #[cfg(test)]
