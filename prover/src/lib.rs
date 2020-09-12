@@ -1,9 +1,10 @@
 mod options;
 pub use options::ProofOptions;
 
-mod prover;
-pub use crate::prover::Prover;
+mod evaluator;
+pub use evaluator::ConstraintEvaluator;
 
-mod trace;
+mod monolith;
+pub use monolith::Prover;
 
 mod utils;

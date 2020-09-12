@@ -42,28 +42,28 @@ impl ProofOptions {
             "grinding factor cannot be greater than 32"
         );
 
-        return ProofOptions {
+        ProofOptions {
             num_queries: num_queries as u8,
             blowup_factor: blowup_factor.trailing_zeros() as u8,
             grinding_factor: grinding_factor as u8,
             hash_fn,
-        };
+        }
     }
 
     pub fn num_queries(&self) -> usize {
-        return self.num_queries as usize;
+        self.num_queries as usize
     }
 
     pub fn blowup_factor(&self) -> usize {
-        return 1 << (self.blowup_factor as usize);
+        1 << (self.blowup_factor as usize)
     }
 
     pub fn grinding_factor(&self) -> u32 {
-        return self.grinding_factor as u32;
+        self.grinding_factor as u32
     }
 
     pub fn hash_fn(&self) -> HashFunction {
-        return self.hash_fn;
+        self.hash_fn
     }
 }
 
@@ -81,7 +81,7 @@ mod hash_fn_serialization {
         match *hf as usize {
             f if f == hash::blake3 as usize => s.serialize_u8(0),
             f if f == hash::sha3 as usize => s.serialize_u8(1),
-            _ => Err(ser::Error::custom("unsupported hash function"))?,
+            _ => Err(ser::Error::custom("unsupported hash function")),
         }
     }
 
