@@ -1,4 +1,5 @@
 use crate::field;
+use crate::utils;
 use common::utils::{filled_vector, uninit_vector};
 use std::mem;
 
@@ -8,7 +9,7 @@ mod tests;
 // POLYNOMIAL EVALUATION
 // ================================================================================================
 
-/// Evaluates polynomial `p` at coordinate `x`
+/// Evaluates polynomial `p` at coordinate `x`.
 pub fn eval(p: &[u128], x: u128) -> u128 {
     // Horner evaluation
     p.iter().rev().fold(field::ZERO, |acc, coeff| {
@@ -16,11 +17,16 @@ pub fn eval(p: &[u128], x: u128) -> u128 {
     })
 }
 
+/// Evaluates polynomial `p` at all coordinates in `xs` slice.
+pub fn eval_many(p: &[u128], xs: &[u128]) -> Vec<u128> {
+    xs.iter().map(|x| eval(p, *x)).collect()
+}
+
 // POLYNOMIAL INTERPOLATION
 // ================================================================================================
 
 /// Uses Lagrange interpolation to build a polynomial from X and Y coordinates.
-pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
+pub fn interpolate(xs: &[u128], ys: &[u128], remove_leading_zeros: bool) -> Vec<u128> {
     debug_assert!(
         xs.len() == ys.len(),
         "Number of X and Y coordinates must be the same"
@@ -52,7 +58,11 @@ pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
         }
     }
 
-    result
+    if remove_leading_zeros {
+        utils::remove_leading_zeros(&result)
+    } else {
+        result
+    }
 }
 
 // POLYNOMIAL MATH OPERATIONS

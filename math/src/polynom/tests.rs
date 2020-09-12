@@ -248,7 +248,7 @@ fn syn_div_expanded_in_place() {
     let domain = field::get_power_series(root, ys.len());
 
     // build the polynomial
-    let poly = super::interpolate(&domain, &ys);
+    let poly = super::interpolate(&domain, &ys, false);
 
     // build the divisor polynomial
     let z_poly = vec![field::neg(field::ONE), 0, 0, 0, 1];

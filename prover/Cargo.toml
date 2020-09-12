@@ -1,0 +1,15 @@
+[package]
+name = "prover"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "prover"
+path = "src/lib.rs"
+
+[dependencies]
+math = { path = "../math" }
+crypto = { path = "../crypto" }
+common = { path = "../common" }
+serde = { version = "1.0.114", features = ["derive"] }
+log = "0.4.11"
