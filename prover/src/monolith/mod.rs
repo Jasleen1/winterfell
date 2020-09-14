@@ -1,40 +1,61 @@
-use crate::{ConstraintEvaluator, ProofOptions};
+use crate::{
+    Assertion, AssertionEvaluator, ConstraintEvaluator, ProofOptions, TraceInfo,
+    TransitionEvaluator,
+};
 use log::debug;
 use std::marker::PhantomData;
 use std::time::Instant;
 
 mod types;
-use types::{PolyTable, TraceTable};
+use types::TraceTable;
 
 mod trace;
 use trace::{build_lde_domain, commit_trace, extend_trace};
 
 mod constraints;
-use constraints::evaluate_constraints;
+use constraints::{
+    build_constraint_poly, commit_constraints, evaluate_constraints, extend_constraint_evaluations,
+};
 
-pub struct Prover<E: ConstraintEvaluator> {
+mod fri;
+
+// PROVER
+// ================================================================================================
+
+pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator> {
     options: ProofOptions,
-    _marker: PhantomData<E>,
+    _marker1: PhantomData<T>,
+    _marker2: PhantomData<A>,
 }
 
-impl<E: ConstraintEvaluator> Prover<E> {
-    pub fn new(options: ProofOptions) -> Prover<E> {
+impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
+    pub fn new(options: ProofOptions) -> Prover<T, A> {
         Prover {
             options,
-            _marker: PhantomData,
+            _marker1: PhantomData,
+            _marker2: PhantomData,
         }
     }
 
-    pub fn prove(&self, trace: Vec<Vec<u128>>) {
+    /// Generates a STARK proof that the `trace` satisfies the `assertions` and that it is valid
+    /// in the context of the computation described by this prover.
+    /// TODO: return proof
+    pub fn prove(&self, trace: Vec<Vec<u128>>, assertions: Vec<Assertion>) {
         let trace = TraceTable::new(trace);
-        let trace_length = trace.num_states();
+        validate_assertions(&trace, &assertions);
+
+        // save trace info here, before trace table is extended
+        let trace_info = TraceInfo::new(
+            trace.num_registers(),
+            trace.num_states(),
+            self.options.blowup_factor(),
+        );
 
         // 1 ----- extend execution trace -------------------------------------------------------------
 
         // build LDE domain and LDE twiddles (for FFT evaluation over LDE domain)
         let now = Instant::now();
-        let (lde_domain, lde_twiddles) =
-            build_lde_domain(trace.num_states(), self.options.blowup_factor());
+        let (lde_domain, lde_twiddles) = build_lde_domain(&trace_info);
         debug!(
             "Built LDE domain of {} elements in {} ms",
             lde_domain.len(),
@@ -52,7 +73,7 @@ impl<E: ConstraintEvaluator> Prover<E> {
             now.elapsed().as_millis()
         );
 
-        // 2 ----- Commit to the extended execution trace -----------------------------------------
+        // 2 ----- commit to the extended execution trace -----------------------------------------
         let now = Instant::now();
         let trace_tree = commit_trace(&trace, self.options.hash_fn());
         debug!(
@@ -60,43 +81,73 @@ impl<E: ConstraintEvaluator> Prover<E> {
             now.elapsed().as_millis()
         );
 
-        // 3 ----- Evaluate constraints -----------------------------------------------------------
-        let _now = Instant::now();
-        let evaluator = E::new(
-            *trace_tree.root(),
-            trace_length,
-            self.options.blowup_factor(),
-            vec![],
+        // 3 ----- evaluate constraints -----------------------------------------------------------
+        let now = Instant::now();
+        let evaluator =
+            ConstraintEvaluator::<T, A>::new(*trace_tree.root(), trace_info, &assertions);
+        let constraint_evaluations = evaluate_constraints(&evaluator, &trace, &lde_domain);
+        debug!(
+            "Evaluated constraints over domain of {} elements in {} ms",
+            constraint_evaluations.len(),
+            now.elapsed().as_millis()
         );
-        evaluate_constraints(&evaluator, &trace, &lde_domain);
-        //constraints.evaluate(&trace, &lde_domain);
-        //debug!(
-        //  "Evaluated constraints over domain of {} elements in {} ms",
-        //  10, // TODO
-        //  now.elapsed().as_millis()
-        //);
 
-        // 4 ----- convert constraint evaluations into a polynomial -------------------------------
-        let _now = Instant::now();
-        //let constraint_poly = constraints.combine_polys();
-        //debug!(
-        //    "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
-        //    constraint_poly.len(), // TODO: degree(),
-        //    now.elapsed().as_millis()
-        //);
+        // 4 ----- commit to constraint evaluations -----------------------------------------------
 
-        // 5 ----- evaluate constraint polynomial over LDE domain ---------------------------------
+        // first, build a single constraint polynomial from all constraint evaluations
+        let now = Instant::now();
+        let constraint_poly = build_constraint_poly(constraint_evaluations);
+        debug!(
+            "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
+            constraint_poly.len(), // TODO: degree(),
+            now.elapsed().as_millis()
+        );
 
-        // 6 ----- commit to constraint polynomial evaluations ------------------------------------
+        // then, evaluate constraint polynomial over LDE domain
+        let now = Instant::now();
+        let combined_constraint_evaluations =
+            extend_constraint_evaluations(constraint_poly, &lde_twiddles);
+        debug!(
+            "Evaluated constraint polynomial over LDE domain in {} ms",
+            now.elapsed().as_millis()
+        );
 
-        // 7 ----- build DEEP composition polynomial ----------------------------------------------
+        // finally, commit to constraint polynomial evaluations
+        let now = Instant::now();
+        let _constraint_tree =
+            commit_constraints(&combined_constraint_evaluations, self.options.hash_fn());
+        debug!(
+            "Committed to constraint evaluations over LDE domain {} ms",
+            now.elapsed().as_millis()
+        );
 
-        // 8 ----- evaluate DEEP composition polynomial over LDE domain ---------------------------
+        // 5 ----- build DEEP composition polynomial ----------------------------------------------
 
-        // 9 ----- compute FRI layers for the composition polynomial ------------------------------
+        // 6 ----- evaluate DEEP composition polynomial over LDE domain ---------------------------
 
-        // 10 ---- determine query positions ------------------------------------------------------
+        // 7 ----- compute FRI layers for the composition polynomial ------------------------------
 
-        // 11 ---- build proof object -------------------------------------------------------------
+        // 8 ----- determine query positions ------------------------------------------------------
+
+        // 9 ----- build proof object -------------------------------------------------------------
+    }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+
+fn validate_assertions(trace: &TraceTable, assertions: &[Assertion]) {
+    // TODO: check for duplicated assertions
+    // TODO: eventually, this should return errors instead of panicking
+    assert!(
+        assertions.len() > 0,
+        "at least one assertion must be provided"
+    );
+    for assertion in assertions {
+        assert!(
+            trace.get(assertion.register(), assertion.step()) == assertion.value(),
+            "trace does not satisfy assertion {}",
+            assertion
+        );
     }
 }

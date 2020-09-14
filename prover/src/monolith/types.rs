@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 // TRACE TABLE
 // ================================================================================================
 pub struct TraceTable(Vec<Vec<u128>>);
@@ -37,7 +39,6 @@ impl TraceTable {
         }
     }
 
-    #[cfg(test)]
     pub fn get(&self, register: usize, step: usize) -> u128 {
         self.0[register][step]
     }
@@ -90,4 +91,52 @@ impl PolyTable {
     pub fn get_poly(&self, idx: usize) -> &[u128] {
         &self.0[idx]
     }
+}
+
+// CONSTRAINT EVALUATION TABLE
+// ================================================================================================
+pub struct ConstraintEvaluationTable(Vec<u128>, Vec<u128>, Vec<u128>);
+
+impl ConstraintEvaluationTable {
+    pub fn new(
+        transition: Vec<u128>,
+        input: Vec<u128>,
+        output: Vec<u128>,
+    ) -> ConstraintEvaluationTable {
+        // TODO: verify lengths
+        ConstraintEvaluationTable(transition, input, output)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn transition_evaluations(&self) -> &[u128] {
+        &self.0
+    }
+
+    pub fn input_evaluations(&self) -> &[u128] {
+        &self.1
+    }
+
+    pub fn output_evaluations(&self) -> &[u128] {
+        &self.2
+    }
+}
+
+// FRI LAYER & FRI PROOF
+// ================================================================================================
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriLayer {
+    pub root: [u8; 32],
+    pub values: Vec<[u128; 4]>,
+    pub nodes: Vec<Vec<[u8; 32]>>,
+    pub depth: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriProof {
+    pub layers: Vec<FriLayer>,
+    pub rem_root: [u8; 32],
+    pub rem_values: Vec<u128>,
 }

@@ -1,4 +1,5 @@
-use super::{PolyTable, TraceTable};
+use super::types::{PolyTable, TraceTable};
+use crate::TraceInfo;
 use common::utils::{as_bytes, uninit_vector};
 use crypto::{HashFunction, MerkleTree};
 use math::{fft, field};
@@ -10,11 +11,10 @@ mod tests;
 // ================================================================================================
 
 /// Builds and return evaluation domain and twiddles for STARK proof. Twiddles
-// are used in FFT evaluation are are half the size of evaluation domain.
-pub fn build_lde_domain(trace_length: usize, blowup_factor: usize) -> (Vec<u128>, Vec<u128>) {
-    let domain_size = trace_length * blowup_factor;
-    let root = field::get_root_of_unity(domain_size);
-    let domain = field::get_power_series(root, domain_size);
+// are used in FFT evaluation and are half the size of evaluation domain.
+pub fn build_lde_domain(trace_info: &TraceInfo) -> (Vec<u128>, Vec<u128>) {
+    let root = field::get_root_of_unity(trace_info.lde_domain_size());
+    let domain = field::get_power_series(root, trace_info.lde_domain_size());
 
     // it is more efficient to build by taking half of the domain and permuting it, rather than
     // building twiddles from scratch using fft::get_twiddles()
