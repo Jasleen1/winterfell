@@ -1,6 +1,6 @@
 use common::utils::uninit_vector;
 use rand::{
-    distributions::{Distribution, Uniform},
+    distributions::{DistIter, Distribution, Uniform},
     prelude::*,
 };
 use std::{convert::TryInto, ops::Range};
@@ -299,9 +299,14 @@ pub fn prng(seed: [u8; 32]) -> u128 {
 
 /// Generates a vector of pseudo-random field elements from a given `seed`.
 pub fn prng_vector(seed: [u8; 32], length: usize) -> Vec<u128> {
+    prng_iter(seed).take(length).collect()
+}
+
+/// Return an iterator of pseudo-random field elements generated from a given `seed`.
+pub fn prng_iter(seed: [u8; 32]) -> DistIter<Uniform<u128>, StdRng, u128> {
     let range = Uniform::from(RANGE);
     let g = StdRng::from_seed(seed);
-    g.sample_iter(range).take(length).collect()
+    g.sample_iter(range)
 }
 
 // TYPE CONVERSIONS

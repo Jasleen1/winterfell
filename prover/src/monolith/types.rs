@@ -1,3 +1,5 @@
+use crate::ConstraintDomain;
+use math::polynom;
 use serde::{Deserialize, Serialize};
 
 // TRACE TABLE
@@ -82,7 +84,15 @@ impl PolyTable {
         self.0[0].len()
     }
 
-    #[cfg(test)]
+    /// Evaluates all polynomials the the specified point `x`.
+    pub fn evaluate_at(&self, x: u128) -> Vec<u128> {
+        let mut result = Vec::with_capacity(self.num_polys());
+        for poly in self.0.iter() {
+            result.push(polynom::eval(&poly, x));
+        }
+        result
+    }
+
     pub fn num_polys(&self) -> usize {
         self.0.len()
     }
@@ -91,36 +101,68 @@ impl PolyTable {
     pub fn get_poly(&self, idx: usize) -> &[u128] {
         &self.0[idx]
     }
+
+    pub fn into_vec(self) -> Vec<Vec<u128>> {
+        self.0
+    }
 }
 
 // CONSTRAINT EVALUATION TABLE
 // ================================================================================================
-pub struct ConstraintEvaluationTable(Vec<u128>, Vec<u128>, Vec<u128>);
+pub struct ConstraintEvaluationTable(Vec<Vec<u128>>, Vec<ConstraintDomain>);
 
 impl ConstraintEvaluationTable {
     pub fn new(
         transition: Vec<u128>,
         input: Vec<u128>,
         output: Vec<u128>,
-    ) -> ConstraintEvaluationTable {
+        domains: Vec<ConstraintDomain>,
+    ) -> Self {
         // TODO: verify lengths
-        ConstraintEvaluationTable(transition, input, output)
+        ConstraintEvaluationTable(vec![transition, input, output], domains)
     }
 
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    pub fn transition_evaluations(&self) -> &[u128] {
-        &self.0
-    }
-
-    pub fn input_evaluations(&self) -> &[u128] {
+    pub fn domains(&self) -> &[ConstraintDomain] {
         &self.1
     }
 
+    pub fn transition_evaluations(&self) -> &[u128] {
+        &self.0[0]
+    }
+
+    pub fn input_evaluations(&self) -> &[u128] {
+        &self.0[1]
+    }
+
     pub fn output_evaluations(&self) -> &[u128] {
-        &self.2
+        &self.0[2]
+    }
+
+    pub fn into_vec(self) -> Vec<Vec<u128>> {
+        self.0
+    }
+}
+
+// CONSTRAINT POLYNOMIAL
+// ================================================================================================
+pub struct ConstraintPoly(Vec<u128>);
+
+impl ConstraintPoly {
+    pub fn new(coefficients: Vec<u128>) -> Self {
+        ConstraintPoly(coefficients)
+    }
+
+    pub fn degree(&self) -> usize {
+        // TODO
+        0
+    }
+
+    pub fn into_vec(self) -> Vec<u128> {
+        self.0
     }
 }
 

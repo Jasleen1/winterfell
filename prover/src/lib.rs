@@ -1,10 +1,13 @@
 mod options;
 pub use options::ProofOptions;
 
+mod proof;
+pub use proof::StarkProof;
+
 mod evaluator;
 pub use evaluator::{
-    Assertion, AssertionEvaluator, ConstraintEvaluator, IoAssertionEvaluator, TraceInfo,
-    TransitionEvaluator,
+    Assertion, AssertionEvaluator, ConstraintDomain, ConstraintEvaluator, IoAssertionEvaluator,
+    TraceInfo, TransitionEvaluator,
 };
 
 mod monolith;

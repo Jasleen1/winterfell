@@ -18,6 +18,7 @@ use constraints::{
 };
 
 mod fri;
+mod utils;
 
 // PROVER
 // ================================================================================================
@@ -99,7 +100,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let constraint_poly = build_constraint_poly(constraint_evaluations);
         debug!(
             "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
-            constraint_poly.len(), // TODO: degree(),
+            constraint_poly.degree(),
             now.elapsed().as_millis()
         );
 
@@ -115,7 +116,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // finally, commit to constraint polynomial evaluations
         let now = Instant::now();
         let _constraint_tree =
-            commit_constraints(&combined_constraint_evaluations, self.options.hash_fn());
+            commit_constraints(combined_constraint_evaluations, self.options.hash_fn());
         debug!(
             "Committed to constraint evaluations over LDE domain {} ms",
             now.elapsed().as_millis()

@@ -2,7 +2,7 @@ use common::utils::uninit_vector;
 use math::field;
 
 /// Evaluates degree 3 polynomial `p` at coordinate `x`. This function is about 30% faster than
-/// the `polys::eval` function.
+/// the `polynom::eval` function.
 pub fn eval(p: &[u128], x: u128) -> u128 {
     debug_assert!(p.len() == 4, "Polynomial must have 4 terms");
     let mut y = field::add(p[0], field::mul(p[1], x));
@@ -34,8 +34,8 @@ pub fn evaluate_batch(polys: &[[u128; 4]], x: u128) -> Vec<u128> {
 
 /// Interpolates a set of X, Y coordinates into a batch of degree 3 polynomials.
 ///
-/// This function is many times faster than using `polys::interpolate` function in a loop. This is
-/// primarily due to amortizing inversions over the entire batch.
+/// This function is many times faster than using `polynom::interpolate` function in a loop.
+/// This is primarily due to amortizing inversions over the entire batch.
 pub fn interpolate_batch(xs: &[[u128; 4]], ys: &[[u128; 4]]) -> Vec<[u128; 4]> {
     debug_assert!(
         xs.len() == ys.len(),

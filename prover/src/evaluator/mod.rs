@@ -66,6 +66,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         (t_evaluation, i_evaluation, f_evaluation)
     }
 
+    pub fn constraint_domains(&self) -> Vec<ConstraintDomain> {
+        // TODO: build and save constraint domains at construction time?
+        let x_at_last_step = self.get_x_at(self.trace_length() - 1);
+        vec![
+            ConstraintDomain::from_transition(self.trace_length(), x_at_last_step),
+            ConstraintDomain::from_assertion(1),
+            ConstraintDomain::from_assertion(x_at_last_step),
+        ]
+    }
+
     pub fn max_constraint_degree(&self) -> usize {
         self.max_constraint_degree
     }
@@ -123,6 +133,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             coefficients[num_t_coefficients..].to_vec(),
         )
     }
+
+    // Returns x in the trace domain at the specified step
+    fn get_x_at(&self, step: usize) -> u128 {
+        let trace_root = field::get_root_of_unity(self.trace_length());
+        field::exp(trace_root, step as u128)
+    }
 }
 
 // TRACE INFO
@@ -149,6 +165,44 @@ impl TraceInfo {
 
     pub fn lde_domain_size(&self) -> usize {
         self.length() * self.blowup()
+    }
+}
+
+// CONSTRAINT DOMAIN
+// ================================================================================================
+
+/// Describes constraint domain as a combination of a sparse polynomial and exclusion points.
+/// For example (x^a - 1) / (x - b) can be represented as:
+///   divisor: vec![a, 1]
+///   exclude: vec![b]
+pub struct ConstraintDomain {
+    divisor: Vec<(usize, u128)>,
+    exclude: Vec<u128>,
+}
+
+impl ConstraintDomain {
+    /// Builds domain for transition constraints
+    pub fn from_transition(trace_length: usize, x_at_last_step: u128) -> Self {
+        ConstraintDomain {
+            divisor: vec![(trace_length, 1)],
+            exclude: vec![x_at_last_step],
+        }
+    }
+
+    /// Builds domain for assertion constraint
+    pub fn from_assertion(value: u128) -> Self {
+        ConstraintDomain {
+            divisor: vec![(1, value)],
+            exclude: vec![],
+        }
+    }
+
+    pub fn divisor(&self) -> &[(usize, u128)] {
+        &self.divisor
+    }
+
+    pub fn exclude(&self) -> &[u128] {
+        &self.exclude
     }
 }
 
