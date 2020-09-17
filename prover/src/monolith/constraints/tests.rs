@@ -16,10 +16,10 @@ fn evaluate_constraints() {
     let lde_root = field::get_root_of_unity(domain_size);
     let lde_domain = field::get_power_series(lde_root, domain_size);
     let lde_twiddles = fft::get_twiddles(lde_root, domain_size);
-    let (trace, _) = extend_trace(trace, &lde_twiddles);
+    let (extended_trace, _) = extend_trace(trace, &lde_twiddles);
 
     // commit to the trace
-    let trace_tree = commit_trace(&trace, blake3);
+    let trace_tree = commit_trace(&extended_trace, blake3);
 
     // build constraint evaluator
     let trace_info = TraceInfo::new(2, trace_length, blowup_factor);
@@ -35,39 +35,58 @@ fn evaluate_constraints() {
     );
 
     // evaluate constraints
-    let evaluations = super::evaluate_constraints(&evaluator, &trace, &lde_domain);
+    let evaluations = super::evaluate_constraints(&evaluator, &extended_trace, &lde_domain);
 
-    // all constraint evaluations must represent polynomial with degree = deg(trace)
-    assert_eq!(
-        trace_length - 1,
-        infer_degree(evaluations.transition_evaluations())
-    );
-    assert_eq!(
-        trace_length - 1,
-        infer_degree(evaluations.input_evaluations())
-    );
-    assert_eq!(
-        trace_length - 1,
-        infer_degree(evaluations.output_evaluations())
-    );
+    // transition constraints must be evaluations of degree 15 polynomial
+    assert_eq!(15, infer_degree(evaluations.transition_evaluations()));
+
+    // boundary constraints must be evaluations of degree 9 polynomial
+    assert_eq!(9, infer_degree(evaluations.input_evaluations()));
+    assert_eq!(9, infer_degree(evaluations.output_evaluations()));
+
+    // TODO: clean-up this test
+
+    let stride = 2;
 
     // transition constraint evaluations must be all 0s, except for the last step
-    for &evaluation in evaluations.transition_evaluations().iter().rev().skip(1) {
+    for &evaluation in evaluations
+        .transition_evaluations()
+        .iter()
+        .rev()
+        .skip(stride)
+        .rev()
+        .step_by(stride)
+    {
         assert_eq!(0, evaluation);
     }
-    assert_ne!(0, evaluations.transition_evaluations()[trace_length - 1]);
+    assert_ne!(
+        0,
+        evaluations.transition_evaluations()[(trace_length - 1) * stride]
+    );
 
     // input assertion evaluations must be 0 only at the first step
     assert_eq!(0, evaluations.input_evaluations()[0]);
-    for &evaluation in evaluations.input_evaluations().iter().skip(1) {
+    for &evaluation in evaluations
+        .input_evaluations()
+        .iter()
+        .skip(stride)
+        .step_by(stride)
+    {
         assert_ne!(0, evaluation);
     }
 
     // input assertion evaluations must be 0 only at the first step
-    for &evaluation in evaluations.output_evaluations().iter().rev().skip(1) {
+    for &evaluation in evaluations
+        .output_evaluations()
+        .iter()
+        .rev()
+        .skip(stride)
+        .rev()
+        .step_by(stride)
+    {
         assert_ne!(0, evaluation);
     }
-    assert_eq!(0, evaluations.output_evaluations()[trace_length - 1]);
+    assert_eq!(0, evaluations.output_evaluations()[(trace_length - 1) * 2]);
 }
 
 // HELPER FUNCTIONS

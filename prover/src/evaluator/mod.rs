@@ -66,14 +66,28 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         (t_evaluation, i_evaluation, f_evaluation)
     }
 
-    pub fn constraint_domains(&self) -> Vec<ConstraintDomain> {
-        // TODO: build and save constraint domains at construction time?
+    pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
+        // TODO: build and save constraint divisors at construction time?
         let x_at_last_step = self.get_x_at(self.trace_length() - 1);
         vec![
-            ConstraintDomain::from_transition(self.trace_length(), x_at_last_step),
-            ConstraintDomain::from_assertion(1),
-            ConstraintDomain::from_assertion(x_at_last_step),
+            ConstraintDivisor::from_transition(self.trace_length(), x_at_last_step),
+            ConstraintDivisor::from_assertion(1),
+            ConstraintDivisor::from_assertion(x_at_last_step),
         ]
+    }
+
+    /// Returns size of the constraint evaluation domain.
+    pub fn ce_domain_size(&self) -> usize {
+        // domain for constraint evaluation must be at least a multiple of
+        // max constraint degree; but we also put a floor at 2x so that constraint
+        // composition can work correctly
+        let ce_blowup_factor = std::cmp::max(self.max_constraint_degree, 2);
+        self.trace_length() * ce_blowup_factor
+    }
+
+    /// Returns size of low-degree extension domain.
+    pub fn lde_domain_size(&self) -> usize {
+        self.trace_info.lde_domain_size()
     }
 
     pub fn max_constraint_degree(&self) -> usize {
@@ -168,41 +182,48 @@ impl TraceInfo {
     }
 }
 
-// CONSTRAINT DOMAIN
+// CONSTRAINT DIVISOR
 // ================================================================================================
 
-/// Describes constraint domain as a combination of a sparse polynomial and exclusion points.
+/// Describes constraint divisor as a combination of a sparse polynomial and exclusion points.
 /// For example (x^a - 1) / (x - b) can be represented as:
-///   divisor: vec![a, 1]
+///   numerator: vec![(a, 1)]
 ///   exclude: vec![b]
-pub struct ConstraintDomain {
-    divisor: Vec<(usize, u128)>,
+pub struct ConstraintDivisor {
+    numerator: Vec<(usize, u128)>,
     exclude: Vec<u128>,
 }
 
-impl ConstraintDomain {
-    /// Builds domain for transition constraints
+impl ConstraintDivisor {
+    /// Builds divisor for transition constraints
     pub fn from_transition(trace_length: usize, x_at_last_step: u128) -> Self {
-        ConstraintDomain {
-            divisor: vec![(trace_length, 1)],
+        ConstraintDivisor {
+            numerator: vec![(trace_length, 1)],
             exclude: vec![x_at_last_step],
         }
     }
 
-    /// Builds domain for assertion constraint
+    /// Builds divisor for assertion constraint
     pub fn from_assertion(value: u128) -> Self {
-        ConstraintDomain {
-            divisor: vec![(1, value)],
+        ConstraintDivisor {
+            numerator: vec![(1, value)],
             exclude: vec![],
         }
     }
 
-    pub fn divisor(&self) -> &[(usize, u128)] {
-        &self.divisor
+    pub fn numerator(&self) -> &[(usize, u128)] {
+        &self.numerator
     }
 
     pub fn exclude(&self) -> &[u128] {
         &self.exclude
+    }
+
+    /// Returns the degree of the divisor polynomial
+    pub fn degree(&self) -> usize {
+        let numerator_degree = self.numerator[0].0;
+        let denominator_degree = self.exclude.len();
+        numerator_degree - denominator_degree
     }
 }
 

@@ -81,7 +81,7 @@ pub fn commit_trace(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
 /// Combines trace polynomials for all registers into a single composition polynomial.
 /// The combination is done as follows:
 /// 1. First, state of trace registers at deep points z and z * g are computed;
-/// 2. Then, polynomials T1_i(x) = (T_i(x) - T_i(z)) / (x - z) and 
+/// 2. Then, polynomials T1_i(x) = (T_i(x) - T_i(z)) / (x - z) and
 /// T2_i(x) = (T_i(x) - T_i(z * g)) / (x - z * g) are computed for all i and combined
 /// together into a single polynomial using a pseudo-random linear combination;
 /// 3. Then the degree of the polynomial is adjusted to match the composition degree

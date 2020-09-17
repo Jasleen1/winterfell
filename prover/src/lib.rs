@@ -6,7 +6,7 @@ pub use proof::StarkProof;
 
 mod evaluator;
 pub use evaluator::{
-    Assertion, AssertionEvaluator, ConstraintDomain, ConstraintEvaluator, IoAssertionEvaluator,
+    Assertion, AssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, IoAssertionEvaluator,
     TraceInfo, TransitionEvaluator,
 };
 

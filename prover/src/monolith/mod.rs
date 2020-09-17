@@ -64,19 +64,20 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         );
 
         // extend the trace table; this interpolates each register of the trace into a polynomial,
-        // and then evaluates the polynomial over LDE domain
-        let (trace, trace_polys) = extend_trace(trace, &lde_twiddles);
+        // and then evaluates the polynomial over LDE domain; each of the trace polynomials has
+        // degree = trace_length - 1
+        let (extended_trace, trace_polys) = extend_trace(trace, &lde_twiddles);
         debug!(
             "Extended execution trace of {} registers from {} to {} steps in {} ms",
-            trace.num_registers(),
+            extended_trace.num_registers(),
             trace_polys.poly_size(),
-            trace.num_states(),
+            extended_trace.num_states(),
             now.elapsed().as_millis()
         );
 
         // 2 ----- commit to the extended execution trace -----------------------------------------
         let now = Instant::now();
-        let trace_tree = commit_trace(&trace, self.options.hash_fn());
+        let trace_tree = commit_trace(&extended_trace, self.options.hash_fn());
         debug!(
             "Committed to extended execution trace in {} ms",
             now.elapsed().as_millis()
@@ -84,9 +85,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // 3 ----- evaluate constraints -----------------------------------------------------------
         let now = Instant::now();
-        let evaluator =
-            ConstraintEvaluator::<T, A>::new(*trace_tree.root(), trace_info, &assertions);
-        let constraint_evaluations = evaluate_constraints(&evaluator, &trace, &lde_domain);
+
+        // build constraint evaluator using root of the trace Merkle tree as a seed to draw
+        // random values; these values are used by the evaluator to compute a random linear
+        // combination of constraint evaluations
+        let seed = *trace_tree.root();
+        let evaluator = ConstraintEvaluator::<T, A>::new(seed, trace_info, &assertions);
+
+        // apply constraint evaluator to the extended trace table to generate a
+        // constraint evaluation table
+        let constraint_evaluations = evaluate_constraints(&evaluator, &extended_trace, &lde_domain);
         debug!(
             "Evaluated constraints over domain of {} elements in {} ms",
             constraint_evaluations.len(),

@@ -12,37 +12,60 @@ mod tests;
 // PROCEDURES
 // ================================================================================================
 
+/// Evaluates constraints defined by the constraint evaluator against the extended execution trace.
 pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     evaluator: &ConstraintEvaluator<T, A>,
-    trace: &TraceTable,
+    extended_trace: &TraceTable,
     lde_domain: &Vec<u128>,
 ) -> ConstraintEvaluationTable {
-    let constraint_domain_size = evaluator.trace_length() * evaluator.max_constraint_degree();
+    // constraints are evaluated over a constraint evaluation domain. this is an optimization
+    // because constraint evaluation domain can be many times smaller than the full LDE domain.
+    let ce_domain_size = evaluator.ce_domain_size();
 
-    let mut t_evaluations = uninit_vector(constraint_domain_size);
-    let mut i_evaluations = uninit_vector(constraint_domain_size);
-    let mut f_evaluations = uninit_vector(constraint_domain_size);
+    // allocate space for constraint evaluations
+    // TODO: this should eventually be replaced with Vec<Vec<u128>> so that we don't hard-code
+    // order and number of constraint types. but it needs to be done efficiently so that it
+    // doesn't affect performance too much
+    let mut t_evaluations = uninit_vector(ce_domain_size);
+    let mut i_evaluations = uninit_vector(ce_domain_size);
+    let mut f_evaluations = uninit_vector(ce_domain_size);
 
-    let mut current = vec![0; trace.num_registers()];
-    let mut next = vec![0; trace.num_registers()];
+    // allocate buffers to hold current and next rows of the trace table
+    let mut current = vec![0; extended_trace.num_registers()];
+    let mut next = vec![0; extended_trace.num_registers()];
 
-    let stride = evaluator.blowup_factor() / evaluator.max_constraint_degree();
-    for i in 0..constraint_domain_size {
-        trace.copy_row(i * stride, &mut current);
-        trace.copy_row(((i + 1) * stride) % lde_domain.len(), &mut next);
+    // we already have all the data we need in the extended trace table, but since we are
+    // doing evaluations over a much smaller domain, we only need to read a small subset
+    // of the data. stride specifies how many rows we can skip over.
+    let stride = evaluator.lde_domain_size() / ce_domain_size;
+    let blowup_factor = evaluator.blowup_factor();
+    for i in 0..ce_domain_size {
+        // translate steps in the constraint evaluation domain to steps in LDE domain;
+        // at the last step, next state wraps around and we actually read the first step again
+        let lde_step = i * stride;
+        let next_lde_step = (lde_step + blowup_factor) % lde_domain.len();
+
+        // read current and next rows from the execution trace table into the buffers
+        // TODO: this currently reads each row from trace table twice, and ideally should be fixed
+        extended_trace.copy_row(lde_step, &mut current);
+        extended_trace.copy_row(next_lde_step, &mut next);
+
+        // pass the current and next rows of the trace table through the constraint evaluator
+        // and record the result in respective arrays
+        // TODO: this will be changed once the table structure changes to Vec<Vec<u128>>
         let (t_evaluation, i_evaluation, f_evaluation) =
-            evaluator.evaluate(&current, &next, lde_domain[i * stride], i);
+            evaluator.evaluate(&current, &next, lde_domain[lde_step], i);
         t_evaluations[i] = t_evaluation;
         i_evaluations[i] = i_evaluation;
         f_evaluations[i] = f_evaluation;
     }
 
-    let constraint_domains = evaluator.constraint_domains();
+    // build and return constraint evaluation table
     ConstraintEvaluationTable::new(
         t_evaluations,
         i_evaluations,
         f_evaluations,
-        constraint_domains,
+        evaluator.constraint_divisors(),
     )
 }
 
@@ -107,10 +130,9 @@ pub fn extend_constraint_evaluations(
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
 pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> MerkleTree {
-    // TODO: number of evaluations should be a power of 2 (not just divisible by 2)
     assert!(
-        evaluations.len() % 2 == 0,
-        "number of values must be divisible by 2"
+        evaluations.len().is_power_of_two(),
+        "number of values must be a power of 2"
     );
 
     // reinterpret vector of 16-byte values as a vector of 32-byte arrays; this puts
