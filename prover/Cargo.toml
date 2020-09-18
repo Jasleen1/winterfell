@@ -8,6 +8,7 @@ name = "prover"
 path = "src/lib.rs"
 
 [dependencies]
+hex = "0.4.2"
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }

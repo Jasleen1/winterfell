@@ -6,5 +6,5 @@ pub use composition::{
     evaluate_composition_poly,
 };
 
-mod fri;
+pub mod fri;
 mod quartic;

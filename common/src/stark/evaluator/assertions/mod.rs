@@ -10,7 +10,7 @@ pub trait AssertionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
     fn new(
-        assertions: &Vec<Assertion>,
+        assertions: &[Assertion],
         trace: &TraceInfo,
         composition_degree: usize,
         coefficients: &[u128],

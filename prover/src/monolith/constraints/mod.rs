@@ -1,12 +1,12 @@
 use super::{
-    types::{ConstraintEvaluationTable, ConstraintPoly, TraceTable},
+    types::{ConstraintEvaluationTable, ConstraintPoly, LdeDomain, TraceTable},
     utils,
 };
 use common::{
     stark::{AssertionEvaluator, ConstraintEvaluator, TraceInfo, TransitionEvaluator},
     utils::uninit_vector,
 };
-use crypto::{HashFunction, MerkleTree};
+use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{fft, field, polynom};
 
 #[cfg(test)]
@@ -19,7 +19,7 @@ mod tests;
 pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     evaluator: &ConstraintEvaluator<T, A>,
     extended_trace: &TraceTable,
-    lde_domain: &Vec<u128>,
+    lde_domain: &LdeDomain,
 ) -> ConstraintEvaluationTable {
     // constraints are evaluated over a constraint evaluation domain. this is an optimization
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
@@ -42,6 +42,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     // of the data. stride specifies how many rows we can skip over.
     let stride = evaluator.lde_domain_size() / ce_domain_size;
     let blowup_factor = evaluator.blowup_factor();
+    let lde_domain = lde_domain.values();
     for i in 0..ce_domain_size {
         // translate steps in the constraint evaluation domain to steps in LDE domain;
         // at the last step, next state wraps around and we actually read the first step again
@@ -121,16 +122,16 @@ pub fn build_constraint_poly(
 /// Evaluates constraint polynomial over LDE domain and returns the result
 pub fn extend_constraint_evaluations(
     constraint_poly: &ConstraintPoly,
-    lde_twiddles: &[u128],
+    lde_domain: &LdeDomain,
 ) -> Vec<u128> {
     // first, allocate space for the evaluations and copy polynomial coefficients
     // into the lower part of the vector; the remaining values in the vector must
     // be initialized to 0s
-    let mut evaluations = vec![field::ZERO; lde_twiddles.len() * 2];
+    let mut evaluations = vec![field::ZERO; lde_domain.size()];
     evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
 
     // then use FFT to evaluate the polynomial over LDE domain
-    fft::evaluate_poly(&mut evaluations, &lde_twiddles, true);
+    fft::evaluate_poly(&mut evaluations, &lde_domain.twiddles(), true);
     evaluations
 }
 
@@ -151,6 +152,30 @@ pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> Merk
 
     // build Merkle tree out of evaluations
     MerkleTree::new(evaluations, hash_fn)
+}
+
+/// Returns constraint evaluations at the specified positions along with Merkle
+/// authentication paths from the constraint_tree root to these evaluations.
+/// Since evaluations are compressed into a single field element, the are already
+/// included in Merkle authentication paths.
+pub fn query_constraints(
+    constraint_tree: MerkleTree,
+    trace_positions: &[usize],
+) -> ([u8; 32], BatchMerkleProof) {
+    // first, map trace positions to the corresponding positions in the constraint tree;
+    // we need to do this because we store 2 constraint evaluations per leaf
+    let mut constraint_positions = Vec::with_capacity(trace_positions.len());
+    for &position in trace_positions.iter() {
+        let cp = position / 2;
+        if !constraint_positions.contains(&cp) {
+            constraint_positions.push(cp);
+        }
+    }
+
+    // build Merkle authentication paths to the leaves specified by constraint positions
+    let constraint_proof = constraint_tree.prove_batch(&constraint_positions);
+
+    (*constraint_tree.root(), constraint_proof)
 }
 
 // HELPER FUNCTIONS

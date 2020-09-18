@@ -1,4 +1,4 @@
-use super::quartic;
+use super::{super::types::LdeDomain, quartic};
 use common::{
     stark::{FriLayer, FriProof, ProofOptions},
     utils::{as_bytes, uninit_vector},
@@ -11,7 +11,7 @@ const MAX_REMAINDER_LENGTH: usize = 256;
 
 pub fn reduce(
     evaluations: &[u128],
-    domain: &[u128],
+    lde_domain: &LdeDomain,
     options: &ProofOptions,
 ) -> (Vec<MerkleTree>, Vec<Vec<[u128; 4]>>) {
     let mut tree_results: Vec<MerkleTree> = Vec::new();
@@ -21,6 +21,8 @@ pub fn reduce(
     let mut p_values = quartic::transpose(evaluations, 1);
     let hashed_values = hash_values(&p_values, options.hash_fn());
     let mut p_tree = MerkleTree::new(hashed_values, options.hash_fn());
+
+    let domain = lde_domain.values();
 
     // reduce the degree by 4 at each iteration until the remaining polynomial is small enough
     while p_tree.leaves().len() * 4 > MAX_REMAINDER_LENGTH {
@@ -84,7 +86,7 @@ pub fn build_proof(
             nodes: proof.nodes,
             depth: proof.depth,
         });
-        domain_size = domain_size / 4;
+        domain_size /= 4;
     }
 
     // use the remaining polynomial values directly as proof
@@ -112,8 +114,8 @@ pub fn build_proof(
 fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
     let row_length = column_length / 4;
     let mut result = Vec::new();
-    for i in 0..positions.len() {
-        let ap = positions[i] % row_length;
+    for position in positions {
+        let ap = position % row_length;
         if !result.contains(&ap) {
             result.push(ap);
         }

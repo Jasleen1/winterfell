@@ -170,7 +170,7 @@ pub fn to_quartic_vec(vector: Vec<u128>) -> Vec<[u128; 4]> {
     let p = v.as_mut_ptr();
     let len = v.len() / 4;
     let cap = v.capacity() / 4;
-    return unsafe { Vec::from_raw_parts(p as *mut [u128; 4], len, cap) };
+    unsafe { Vec::from_raw_parts(p as *mut [u128; 4], len, cap) }
 }
 
 // TESTS

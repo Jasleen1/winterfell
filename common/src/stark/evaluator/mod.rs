@@ -22,9 +22,9 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
-    pub fn new(seed: [u8; 32], trace_info: &TraceInfo, assertions: &Vec<Assertion>) -> Self {
+    pub fn new(seed: [u8; 32], trace_info: &TraceInfo, assertions: Vec<Assertion>) -> Self {
         assert!(
-            assertions.len() > 0,
+            !assertions.is_empty(),
             "at least one assertion must be provided"
         );
 
@@ -36,7 +36,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             group_transition_constraints(transition.degrees(), trace_info.length());
 
         let composition_degree = get_composition_degree(trace_info.length(), max_constraint_degree);
-        let assertions = A::new(assertions, trace_info, composition_degree, &a_coefficients);
+        let assertions = A::new(&assertions, trace_info, composition_degree, &a_coefficients);
 
         ConstraintEvaluator {
             transition,

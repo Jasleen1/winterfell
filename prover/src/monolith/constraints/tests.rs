@@ -5,7 +5,6 @@ use crate::{
 };
 use common::stark::{Assertion, ConstraintEvaluator, IoAssertionEvaluator};
 use crypto::hash::blake3;
-use math::{fft, field};
 
 #[test]
 fn evaluate_constraints() {
@@ -85,19 +84,16 @@ fn build_constraint_evaluations(
     trace_length: usize,
     blowup_factor: usize,
 ) -> ConstraintEvaluationTable {
-    let domain_size = trace_length * blowup_factor;
     let trace = build_trace(trace_length);
+    let trace_info = TraceInfo::new(2, trace_length, blowup_factor);
     let result = trace.get(1, trace_length - 1);
-    let lde_root = field::get_root_of_unity(domain_size);
-    let lde_domain = field::get_power_series(lde_root, domain_size);
-    let lde_twiddles = fft::get_twiddles(lde_root, domain_size);
-    let (extended_trace, _) = extend_trace(trace, &lde_twiddles);
+    let lde_domain = super::super::build_lde_domain(&trace_info);
+    let (extended_trace, _) = extend_trace(trace, &lde_domain);
 
     // commit to the trace
     let trace_tree = commit_trace(&extended_trace, blake3);
 
     // build constraint evaluator
-    let trace_info = TraceInfo::new(2, trace_length, blowup_factor);
     let assertions = vec![
         Assertion::new(0, 0, 1),
         Assertion::new(1, 0, 1),
@@ -106,7 +102,7 @@ fn build_constraint_evaluations(
     let evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
         *trace_tree.root(),
         &trace_info,
-        &assertions,
+        assertions,
     );
 
     // evaluate constraints

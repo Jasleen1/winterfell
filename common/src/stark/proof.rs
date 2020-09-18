@@ -12,11 +12,11 @@ pub struct StarkProof {
     domain_depth: u8,
     trace_root: [u8; 32],
     trace_nodes: Vec<Vec<[u8; 32]>>,
-    trace_evaluations: Vec<Vec<u128>>,
+    trace_states: Vec<Vec<u128>>,
     constraint_root: [u8; 32],
     constraint_proof: BatchMerkleProof,
     deep_values: DeepValues,
-    degree_proof: FriProof,
+    fri_proof: FriProof,
     pow_nonce: u64,
     options: ProofOptions,
 }
@@ -47,29 +47,32 @@ pub struct DeepValues {
 impl StarkProof {
     // CONSTRUCTOR
     // -------------------------------------------------------------------------------------------
+    // TODO: would be good to re-factor proof structure so information could be written into it
+    // gradually. Also, maybe it makes sense to move drawing of randomness logic here.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         trace_root: [u8; 32],
         trace_proof: BatchMerkleProof,
-        trace_evaluations: Vec<Vec<u128>>,
+        trace_states: Vec<Vec<u128>>,
         constraint_root: [u8; 32],
         constraint_proof: BatchMerkleProof,
         deep_values: DeepValues,
-        degree_proof: FriProof,
+        fri_proof: FriProof,
         pow_nonce: u64,
         options: ProofOptions,
     ) -> StarkProof {
-        return StarkProof {
+        StarkProof {
             trace_root,
             domain_depth: trace_proof.depth,
             trace_nodes: trace_proof.nodes,
-            trace_evaluations,
+            trace_states,
             constraint_root,
             constraint_proof,
             deep_values,
-            degree_proof,
+            fri_proof,
             pow_nonce,
             options,
-        };
+        }
     }
 
     // TRACE
@@ -81,9 +84,10 @@ impl StarkProof {
 
     pub fn trace_proof(&self) -> BatchMerkleProof {
         let hash = self.options.hash_fn();
-        let mut hashed_states = uninit_vector::<[u8; 32]>(self.trace_evaluations.len());
-        for i in 0..self.trace_evaluations.len() {
-            hash(as_bytes(&self.trace_evaluations[i]), &mut hashed_states[i]);
+        let mut hashed_states = uninit_vector::<[u8; 32]>(self.trace_states.len());
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..self.trace_states.len() {
+            hash(as_bytes(&self.trace_states[i]), &mut hashed_states[i]);
         }
 
         BatchMerkleProof {
@@ -93,15 +97,15 @@ impl StarkProof {
         }
     }
 
-    pub fn trace_evaluations(&self) -> &[Vec<u128>] {
-        &self.trace_evaluations
+    pub fn trace_states(&self) -> &[Vec<u128>] {
+        &self.trace_states
     }
 
     pub fn trace_info(&self) -> TraceInfo {
         let lde_domain_size = usize::pow(2, self.domain_depth as u32);
         let blowup = self.options.blowup_factor();
         let length = lde_domain_size / blowup;
-        let width = self.trace_evaluations[0].len();
+        let width = self.trace_states[0].len();
 
         TraceInfo::new(width, length, blowup)
     }
@@ -130,8 +134,8 @@ impl StarkProof {
     // OTHER PROPERTIES
     // -------------------------------------------------------------------------------------------
 
-    pub fn degree_proof(&self) -> &FriProof {
-        &self.degree_proof
+    pub fn fri_proof(&self) -> &FriProof {
+        &self.fri_proof
     }
 
     pub fn pow_nonce(&self) -> u64 {

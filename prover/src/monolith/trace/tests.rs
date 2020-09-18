@@ -1,6 +1,6 @@
 use common::utils::as_bytes;
 use crypto::{hash::blake3, MerkleTree};
-use math::{fft, field, polynom};
+use math::{field, polynom};
 
 #[test]
 fn new_trace_table() {
@@ -17,11 +17,10 @@ fn new_trace_table() {
 fn extend_trace_table() {
     // build and extend trace table
     let trace_length = 8;
-    let domain_size = trace_length * 4;
-    let trace = build_trace(8);
-    let lde_root = field::get_root_of_unity(domain_size);
-    let lde_twiddles = fft::get_twiddles(lde_root, domain_size);
-    let (trace, trace_polys) = super::extend_trace(trace, &lde_twiddles);
+    let trace_info = build_trace_info(trace_length, 4);
+    let trace = build_trace(trace_length);
+    let lde_domain = super::build_lde_domain(&trace_info);
+    let (trace, trace_polys) = super::extend_trace(trace, &lde_domain);
 
     assert_eq!(2, trace.num_registers());
     assert_eq!(32, trace.num_states());
@@ -40,14 +39,13 @@ fn extend_trace_table() {
     );
 
     // make sure register values are consistent with trace polynomials
-    let lde_domain = field::get_power_series(lde_root, domain_size);
     assert_eq!(
         trace_polys.get_poly(0),
-        polynom::interpolate(&lde_domain, trace.get_register(0), true)
+        polynom::interpolate(&lde_domain.values(), trace.get_register(0), true)
     );
     assert_eq!(
         trace_polys.get_poly(1),
-        polynom::interpolate(&lde_domain, trace.get_register(1), true)
+        polynom::interpolate(&lde_domain.values(), trace.get_register(1), true)
     );
 }
 
@@ -55,11 +53,10 @@ fn extend_trace_table() {
 fn commit_trace_table() {
     // build and extend trace table
     let trace_length = 8;
-    let domain_size = trace_length * 4;
+    let trace_info = build_trace_info(trace_length, 4);
     let trace = build_trace(8);
-    let lde_root = field::get_root_of_unity(domain_size);
-    let lde_twiddles = fft::get_twiddles(lde_root, domain_size);
-    let (trace, _) = super::extend_trace(trace, &lde_twiddles);
+    let lde_domain = super::build_lde_domain(&trace_info);
+    let (trace, _) = super::extend_trace(trace, &lde_domain);
 
     // commit to the trace
     let trace_tree = super::commit_trace(&trace, blake3);
@@ -82,7 +79,14 @@ fn commit_trace_table() {
     assert_eq!(expected_tree.root(), trace_tree.root())
 }
 
+// HELPER FUNCTIONS
+// ================================================================================================
+
 fn build_trace(length: usize) -> super::TraceTable {
     let trace = crate::tests::build_fib_trace(length * 2);
     super::TraceTable::new(trace)
+}
+
+fn build_trace_info(length: usize, blowup: usize) -> super::TraceInfo {
+    super::TraceInfo::new(2, length, blowup)
 }

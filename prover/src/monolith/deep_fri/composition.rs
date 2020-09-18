@@ -1,5 +1,5 @@
 use super::{
-    types::{CompositionPoly, ConstraintPoly, PolyTable},
+    types::{CompositionPoly, ConstraintPoly, LdeDomain, PolyTable},
     utils,
 };
 use common::stark::{CompositionCoefficients, DeepValues};
@@ -70,18 +70,18 @@ pub fn compose_trace_polys(
 
     // divide the two composition polynomials by (x - z) and (x - z * g) respectively,
     // and add the resulting polynomials together; the output of this step is a single
-    // trace polynomial T(x) and deg(T(x)) = trace_length - 1
+    // trace polynomial T(x) and deg(T(x)) = trace_length - 2
     polynom::syn_div_in_place(&mut t1_composition, z);
     polynom::syn_div_in_place(&mut t2_composition, next_z);
     utils::add_in_place(&mut t1_composition, &t2_composition);
     let trace_poly = t1_composition;
+    debug_assert_eq!(trace_length - 2, polynom::degree_of(&trace_poly));
 
     // we need to make sure that the degree of trace polynomial T(x) matches the degree
     // of composition polynomial; to do this, we compute a linear combination of T(x)
     // with itself multiplied by x^p, where p is the incremental degree needed to match
     // the composition degree.
-    let composition_degree = composition_poly.degree();
-    let incremental_degree = get_incremental_trace_degree(composition_degree, trace_length);
+    let incremental_degree = composition_poly.degree() - (trace_length - 2);
 
     // The next few lines are an optimized way of computing:
     // C(x) = T(x) * k_1 + T(x) * x^incremental_degree * k_2
@@ -126,13 +126,17 @@ pub fn compose_constraint_poly(
 
     // add C(x) * K into the result
     let composition_poly = composition_poly.coefficients_mut();
-    utils::mul_acc(composition_poly, &constraint_poly, cc.constraints);
+    utils::mul_acc(
+        &mut composition_poly[..constraint_poly.len()],
+        &constraint_poly,
+        cc.constraints,
+    );
 }
 
 /// Evaluates DEEP composition polynomial over LDE domain.
-pub fn evaluate_composition_poly(poly: CompositionPoly, lde_twiddles: &Vec<u128>) -> Vec<u128> {
+pub fn evaluate_composition_poly(poly: CompositionPoly, lde_domain: &LdeDomain) -> Vec<u128> {
     let mut evaluations = poly.into_vec();
-    fft::evaluate_poly(&mut evaluations, lde_twiddles, true);
+    fft::evaluate_poly(&mut evaluations, lde_domain.twiddles(), true);
     evaluations
 }
 
@@ -140,12 +144,8 @@ pub fn evaluate_composition_poly(poly: CompositionPoly, lde_twiddles: &Vec<u128>
 // ================================================================================================
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
-fn acc_poly(accumulator: &mut Vec<u128>, poly: &Vec<u128>, value: u128, k: u128) {
+fn acc_poly(accumulator: &mut Vec<u128>, poly: &[u128], value: u128, k: u128) {
     utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = field::mul(value, k);
     accumulator[0] = field::sub(accumulator[0], adjusted_tz);
-}
-
-fn get_incremental_trace_degree(composition_degree: usize, trace_length: usize) -> usize {
-    composition_degree - (trace_length - 2)
 }

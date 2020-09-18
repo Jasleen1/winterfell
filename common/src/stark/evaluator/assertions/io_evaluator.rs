@@ -17,7 +17,7 @@ impl AssertionEvaluator for IoAssertionEvaluator {
     const MAX_CONSTRAINTS: usize = 128;
 
     fn new(
-        assertions: &Vec<Assertion>,
+        assertions: &[Assertion],
         trace: &TraceInfo,
         composition_degree: usize,
         coefficients: &[u128],
@@ -124,5 +124,5 @@ fn get_constraint_adjustment_degree(trace_length: usize, composition_degree: usi
     let divisor_degree = 1;
     let target_degree = composition_degree + divisor_degree;
     let boundary_constraint_degree = trace_length - 1;
-    return (target_degree - boundary_constraint_degree) as u128;
+    (target_degree - boundary_constraint_degree) as u128
 }

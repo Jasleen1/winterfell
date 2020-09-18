@@ -33,7 +33,7 @@ pub fn group_transition_constraints(
 
     let mut result = Vec::new();
     for (degree, constraints) in groups.iter().enumerate() {
-        if constraints.len() == 0 {
+        if constraints.is_empty() {
             continue;
         }
         let constraint_degree = (trace_length - 1) * degree;

@@ -1,9 +1,9 @@
-use super::types::{PolyTable, TraceTable};
+use super::types::{LdeDomain, PolyTable, TraceTable};
 use common::{
     stark::TraceInfo,
     utils::{as_bytes, uninit_vector},
 };
-use crypto::{HashFunction, MerkleTree};
+use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{fft, field};
 
 #[cfg(test)]
@@ -12,9 +12,8 @@ mod tests;
 // PROCEDURES
 // ================================================================================================
 
-/// Builds and return evaluation domain and twiddles for STARK proof. Twiddles
-// are used in FFT evaluation and are half the size of evaluation domain.
-pub fn build_lde_domain(trace_info: &TraceInfo) -> (Vec<u128>, Vec<u128>) {
+/// Builds and return evaluation domain for STARK proof.
+pub fn build_lde_domain(trace_info: &TraceInfo) -> LdeDomain {
     let root = field::get_root_of_unity(trace_info.lde_domain_size());
     let domain = field::get_power_series(root, trace_info.lde_domain_size());
 
@@ -23,18 +22,16 @@ pub fn build_lde_domain(trace_info: &TraceInfo) -> (Vec<u128>, Vec<u128>) {
     let mut twiddles = domain[..(domain.len() / 2)].to_vec();
     fft::permute(&mut twiddles);
 
-    (domain, twiddles)
+    LdeDomain::new(domain, twiddles)
 }
 
 /// Extends all registers of the trace table to the length of the evaluation domain;
 /// The extension is done by first interpolating a register into a polynomial and then
 /// evaluating the polynomial over the evaluation domain.
-pub fn extend_trace(trace: TraceTable, lde_twiddles: &[u128]) -> (TraceTable, PolyTable) {
-    // evaluation domain size is twice the number of twiddles
-    let domain_size = lde_twiddles.len() * 2;
+pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, PolyTable) {
     let trace_length = trace.num_states();
     assert!(
-        domain_size > trace_length,
+        lde_domain.size() > trace_length,
         "evaluation domain must be larger than execution trace length"
     );
 
@@ -51,11 +48,11 @@ pub fn extend_trace(trace: TraceTable, lde_twiddles: &[u128]) -> (TraceTable, Po
         fft::interpolate_poly(poly, &trace_twiddles, true);
 
         // allocate space to hold extended evaluations and copy the polynomial into it
-        let mut register = vec![field::ZERO; domain_size];
+        let mut register = vec![field::ZERO; lde_domain.size()];
         register[..poly.len()].copy_from_slice(&poly);
 
         // evaluate the polynomial over extended domain
-        fft::evaluate_poly(&mut register, &lde_twiddles, true);
+        fft::evaluate_poly(&mut register, &lde_domain.twiddles(), true);
         trace.push(register);
     }
 
@@ -79,6 +76,26 @@ pub fn commit_trace(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
     MerkleTree::new(hashed_states, hash)
 }
 
-pub fn query_trace(_trace: TraceTable, _trace_tree: MerkleTree, _positions: Vec<usize>) {
-    // TODO
+/// Returns trace table rows at the specified positions along with Merkle
+/// authentication paths from the trace_tree root to these rows.
+pub fn query_trace(
+    trace: TraceTable,
+    trace_tree: MerkleTree,
+    positions: &[usize],
+) -> ([u8; 32], BatchMerkleProof, Vec<Vec<u128>>) {
+    // allocate memory for queried trace states
+    let mut trace_states = Vec::with_capacity(positions.len());
+
+    // copy values from the trace table at the specified positions into rows
+    // and append the rows to trace_states
+    let trace = trace.into_vec();
+    for &i in positions.iter() {
+        let row = trace.iter().map(|r| r[i]).collect();
+        trace_states.push(row);
+    }
+
+    // build Merkle authentication paths to the leaves specified by positions
+    let trace_proof = trace_tree.prove_batch(&positions);
+
+    (*trace_tree.root(), trace_proof, trace_states)
 }

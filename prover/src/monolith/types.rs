@@ -8,7 +8,7 @@ pub struct TraceTable(Vec<Vec<u128>>);
 impl TraceTable {
     pub fn new(registers: Vec<Vec<u128>>) -> Self {
         assert!(
-            registers.len() > 0,
+            !registers.is_empty(),
             "execution trace must consist of at least one register"
         );
         let trace_length = registers[0].len();
@@ -54,6 +54,36 @@ impl TraceTable {
     }
 }
 
+// LOW DEGREE EXTENSION DOMAIN
+// ================================================================================================
+pub struct LdeDomain(Vec<u128>, Vec<u128>);
+
+impl LdeDomain {
+    pub fn new(values: Vec<u128>, twiddles: Vec<u128>) -> Self {
+        assert!(
+            values.len().is_power_of_two(),
+            "Size of LDE domain must be a power of 2"
+        );
+        assert!(
+            twiddles.len() * 2 == values.len(),
+            "Twiddles must be half the size of the domain"
+        );
+        LdeDomain(values, twiddles)
+    }
+
+    pub fn size(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn twiddles(&self) -> &[u128] {
+        &self.1
+    }
+
+    pub fn values(&self) -> &[u128] {
+        &self.0
+    }
+}
+
 // POLYNOMIAL TABLE
 // ================================================================================================
 pub struct PolyTable(Vec<Vec<u128>>);
@@ -61,7 +91,7 @@ pub struct PolyTable(Vec<Vec<u128>>);
 impl PolyTable {
     pub fn new(polys: Vec<Vec<u128>>) -> Self {
         assert!(
-            polys.len() > 0,
+            !polys.is_empty(),
             "polynomial table must contain at least one polynomial"
         );
         let poly_size = polys[0].len();
@@ -108,11 +138,13 @@ impl PolyTable {
 
 // CONSTRAINT EVALUATION TABLE
 // ================================================================================================
+#[allow(dead_code)]
 pub struct ConstraintEvaluationTable {
     evaluations: Vec<Vec<u128>>,
     divisors: Vec<ConstraintDivisor>,
 }
 
+#[allow(dead_code)] // TODO: remove this once constructor takes Vec<Vec<u128>>
 impl ConstraintEvaluationTable {
     pub fn new(
         transition: Vec<u128>,
@@ -204,6 +236,7 @@ impl CompositionPoly {
         self.1
     }
 
+    #[allow(dead_code)] // TODO: remove
     pub fn len(&self) -> usize {
         self.0.len()
     }
