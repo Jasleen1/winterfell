@@ -8,7 +8,37 @@ mod tests;
 const USIZE_BITS: usize = 0_usize.count_zeros() as usize;
 const MAX_LOOP: usize = 256;
 
-// PUBLIC FUNCTIONS
+// POLYNOMIAL EVALUATION AND INTERPOLATION
+// ================================================================================================
+
+/// Evaluates polynomial `p` using FFT algorithm; the evaluation is done in-place, meaning
+/// `p` is updated with results of the evaluation.
+///
+/// If `unpermute` parameter is set to false, the evaluations will be left in permuted state.
+pub fn evaluate_poly(p: &mut [u128], twiddles: &[u128], unpermute: bool) {
+    debug_assert!(p.len() == twiddles.len() * 2, "Invalid number of twiddles");
+    fft_in_place(p, &twiddles, 1, 1, 0);
+    if unpermute {
+        permute(p);
+    }
+}
+
+/// Uses FFT algorithm to interpolate a polynomial from provided values `v`; the interpolation
+/// is done in-place, meaning `v` is updated with polynomial coefficients.
+///
+/// If `unpermute` parameter is set to false, the evaluations will be left in permuted state.
+pub fn interpolate_poly(v: &mut [u128], inv_twiddles: &[u128], unpermute: bool) {
+    fft_in_place(v, &inv_twiddles, 1, 1, 0);
+    let inv_length = field::inv(v.len() as u128);
+    for e in v.iter_mut() {
+        *e = field::mul(*e, inv_length);
+    }
+    if unpermute {
+        permute(v);
+    }
+}
+
+// CORE FFT ALGORITHM
 // ================================================================================================
 
 /// In-place recursive FFT with permuted output.

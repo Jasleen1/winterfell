@@ -1,7 +1,5 @@
-use crate::{
-    field,
-    utils::{filled_vector, uninit_vector},
-};
+use crate::field;
+use crate::utils;
 use std::mem;
 
 #[cfg(test)]
@@ -10,7 +8,7 @@ mod tests;
 // POLYNOMIAL EVALUATION
 // ================================================================================================
 
-/// Evaluates polynomial `p` at coordinate `x`
+/// Evaluates polynomial `p` at coordinate `x`.
 pub fn eval(p: &[u128], x: u128) -> u128 {
     // Horner evaluation
     p.iter().rev().fold(field::ZERO, |acc, coeff| {
@@ -18,11 +16,16 @@ pub fn eval(p: &[u128], x: u128) -> u128 {
     })
 }
 
+/// Evaluates polynomial `p` at all coordinates in `xs` slice.
+pub fn eval_many(p: &[u128], xs: &[u128]) -> Vec<u128> {
+    xs.iter().map(|x| eval(p, *x)).collect()
+}
+
 // POLYNOMIAL INTERPOLATION
 // ================================================================================================
 
 /// Uses Lagrange interpolation to build a polynomial from X and Y coordinates.
-pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
+pub fn interpolate(xs: &[u128], ys: &[u128], remove_leading_zeros: bool) -> Vec<u128> {
     debug_assert!(
         xs.len() == ys.len(),
         "Number of X and Y coordinates must be the same"
@@ -54,7 +57,11 @@ pub fn interpolate(xs: &[u128], ys: &[u128]) -> Vec<u128> {
         }
     }
 
-    result
+    if remove_leading_zeros {
+        utils::remove_leading_zeros(&result)
+    } else {
+        result
+    }
 }
 
 // POLYNOMIAL MATH OPERATIONS
@@ -155,7 +162,7 @@ pub fn syn_div_in_place(a: &mut [u128], b: u128) {
 /// the remainder is ignored.
 pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u128]) {
     // allocate space for the result
-    let mut result = filled_vector(a.len(), a.len() + exceptions.len(), field::ZERO);
+    let mut result = utils::filled_vector(a.len(), a.len() + exceptions.len(), field::ZERO);
 
     // compute a / (x^degree - 1)
     result.copy_from_slice(&a);
@@ -208,7 +215,7 @@ pub fn degree_of(poly: &[u128]) -> usize {
 // ================================================================================================
 fn get_zero_roots(xs: &[u128]) -> Vec<u128> {
     let mut n = xs.len() + 1;
-    let mut result = uninit_vector(n);
+    let mut result = utils::uninit_vector(n);
 
     n -= 1;
     result[n] = field::ONE;

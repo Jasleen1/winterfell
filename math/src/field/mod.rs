@@ -1,6 +1,6 @@
-use crate::utils::uninit_vector;
+use super::utils;
 use rand::{
-    distributions::{Distribution, Uniform},
+    distributions::{DistIter, Distribution, Uniform},
     prelude::*,
 };
 use std::{convert::TryInto, ops::Range};
@@ -191,7 +191,7 @@ pub fn inv(x: u128) -> u128 {
 
 /// Computes multiplicative inverses of all slice elements using batch inversion method.
 pub fn inv_many(values: &[u128]) -> Vec<u128> {
-    let mut result = uninit_vector(values.len());
+    let mut result = utils::uninit_vector(values.len());
     inv_many_fill(values, &mut result);
     result
 }
@@ -265,7 +265,7 @@ pub fn get_root_of_unity(order: usize) -> u128 {
 
 /// Generates a vector with values [1, b, b^2, b^3, b^4, ..., b^length].
 pub fn get_power_series(b: u128, length: usize) -> Vec<u128> {
-    let mut result = uninit_vector(length);
+    let mut result = utils::uninit_vector(length);
     result[0] = ONE;
     for i in 1..result.len() {
         result[i] = mul(result[i - 1], b);
@@ -299,9 +299,14 @@ pub fn prng(seed: [u8; 32]) -> u128 {
 
 /// Generates a vector of pseudo-random field elements from a given `seed`.
 pub fn prng_vector(seed: [u8; 32], length: usize) -> Vec<u128> {
+    prng_iter(seed).take(length).collect()
+}
+
+/// Return an iterator of pseudo-random field elements generated from a given `seed`.
+pub fn prng_iter(seed: [u8; 32]) -> DistIter<Uniform<u128>, StdRng, u128> {
     let range = Uniform::from(RANGE);
     let g = StdRng::from_seed(seed);
-    g.sample_iter(range).take(length).collect()
+    g.sample_iter(range)
 }
 
 // TYPE CONVERSIONS

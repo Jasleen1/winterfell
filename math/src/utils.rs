@@ -1,3 +1,6 @@
+// VECTOR FUNCTIONS
+// ================================================================================================
+
 pub fn uninit_vector<T>(length: usize) -> Vec<T> {
     let mut vector = Vec::with_capacity(length);
     unsafe {
@@ -12,7 +15,6 @@ pub fn filled_vector<T: Copy>(length: usize, capacity: usize, value: T) -> Vec<T
     vector
 }
 
-#[cfg(test)]
 pub fn remove_leading_zeros(values: &[u128]) -> Vec<u128> {
     for i in (0..values.len()).rev() {
         if values[i] != 0 {

@@ -1,0 +1,15 @@
+[package]
+name = "prover"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "prover"
+path = "src/lib.rs"
+
+[dependencies]
+hex = "0.4.2"
+math = { path = "../math" }
+crypto = { path = "../crypto" }
+common = { path = "../common" }
+log = "0.4.11"
