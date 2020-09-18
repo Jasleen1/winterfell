@@ -1,10 +1,11 @@
-use super::types::{ConstraintEvaluationTable, ConstraintPoly, TraceTable};
-use crate::{AssertionEvaluator, ConstraintEvaluator, TransitionEvaluator};
+use super::{
+    types::{ConstraintEvaluationTable, ConstraintPoly, TraceTable},
+    utils,
+};
+use crate::{AssertionEvaluator, ConstraintEvaluator, TraceInfo, TransitionEvaluator};
 use common::utils::uninit_vector;
 use crypto::{HashFunction, MerkleTree};
 use math::{fft, field, polynom};
-
-use super::utils;
 
 #[cfg(test)]
 mod tests;
@@ -71,37 +72,37 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 
 /// Interpolates all constraint evaluations into polynomials and combines all these
 /// polynomials into a single polynomial
-pub fn build_constraint_poly(evaluations: ConstraintEvaluationTable) -> ConstraintPoly {
-    let trace_length = 8usize; // TODO
-    let evaluation_domain_size = 8usize; // TODO
-    let x_at_last_step = 1u128; // TODO
+pub fn build_constraint_poly(
+    evaluations: ConstraintEvaluationTable,
+    trace_info: &TraceInfo,
+) -> ConstraintPoly {
+    let ce_domain_size = evaluations.domain_size();
+    let trace_length = trace_info.length();
+    let x_at_last_step = get_x_at_last_step(trace_length);
 
-    let combination_root = field::get_root_of_unity(evaluation_domain_size);
-    let inv_twiddles = fft::get_inv_twiddles(combination_root, evaluation_domain_size);
+    let ce_domain_root = field::get_root_of_unity(ce_domain_size);
+    let inv_twiddles = fft::get_inv_twiddles(ce_domain_root, ce_domain_size);
 
-    // TODO: switch to domain-based evaluation to avoid this type of destructuring
+    // TODO: switch to divisor-based evaluation to avoid this type of destructuring
     let mut evaluations = evaluations.into_vec();
     let mut f_evaluations = evaluations.remove(2);
     let mut i_evaluations = evaluations.remove(1);
     let mut t_evaluations = evaluations.remove(0);
 
-    let mut combined_poly = uninit_vector(evaluation_domain_size);
+    let mut combined_poly = uninit_vector(ce_domain_size);
 
-    // 1 ----- boundary constraints for the initial step --------------------------------------
     // interpolate initial step boundary constraint combination into a polynomial, divide the
     // polynomial by Z(x) = (x - 1), and add it to the result
     fft::interpolate_poly(&mut i_evaluations, &inv_twiddles, true);
     polynom::syn_div_in_place(&mut i_evaluations, field::ONE);
     combined_poly.copy_from_slice(&i_evaluations);
 
-    // 2 ----- boundary constraints for the final step ----------------------------------------
     // interpolate final step boundary constraint combination into a polynomial, divide the
     // polynomial by Z(x) = (x - x_at_last_step), and add it to the result
     fft::interpolate_poly(&mut f_evaluations, &inv_twiddles, true);
     polynom::syn_div_in_place(&mut f_evaluations, x_at_last_step);
     utils::add_in_place(&mut combined_poly, &f_evaluations);
 
-    // 3 ----- transition constraints ---------------------------------------------------------
     // interpolate transition constraint combination into a polynomial, divide the polynomial
     // by Z(x) = (x^steps - 1) / (x - x_at_last_step), and add it to the result
     fft::interpolate_poly(&mut t_evaluations, &inv_twiddles, true);
@@ -113,15 +114,14 @@ pub fn build_constraint_poly(evaluations: ConstraintEvaluationTable) -> Constrai
 
 /// Evaluates constraint polynomial over LDE domain and returns the result
 pub fn extend_constraint_evaluations(
-    constraint_poly: ConstraintPoly,
+    constraint_poly: &ConstraintPoly,
     lde_twiddles: &[u128],
 ) -> Vec<u128> {
     // first, allocate space for the evaluations and copy polynomial coefficients
     // into the lower part of the vector; the remaining values in the vector must
     // be initialized to 0s
     let mut evaluations = vec![field::ZERO; lde_twiddles.len() * 2];
-    let constraint_poly = constraint_poly.into_vec();
-    evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly);
+    evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
 
     // then use FFT to evaluate the polynomial over LDE domain
     fft::evaluate_poly(&mut evaluations, &lde_twiddles, true);
@@ -145,4 +145,11 @@ pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> Merk
 
     // build Merkle tree out of evaluations
     MerkleTree::new(evaluations, hash_fn)
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+fn get_x_at_last_step(trace_length: usize) -> u128 {
+    let trace_root = field::get_root_of_unity(trace_length);
+    field::exp(trace_root, (trace_length - 1) as u128)
 }

@@ -13,7 +13,7 @@ pub fn eval(p: &[u128], x: u128) -> u128 {
     let x3 = field::mul(x2, x);
     y = field::add(y, field::mul(p[3], x3));
 
-    return y;
+    y
 }
 
 /// Evaluates a batch of degree 3 polynomials at the provided X coordinate.
@@ -29,7 +29,7 @@ pub fn evaluate_batch(polys: &[[u128; 4]], x: u128) -> Vec<u128> {
         result[i] = eval(&polys[i], x);
     }
 
-    return result;
+    result
 }
 
 /// Interpolates a set of X, Y coordinates into a batch of degree 3 polynomials.
@@ -136,7 +136,7 @@ pub fn interpolate_batch(xs: &[[u128; 4]], ys: &[[u128; 4]]) -> Vec<[u128; 4]> {
         result[i][3] = field::add(result[i][3], field::mul(inv_y, equations[j + 3][3]));
     }
 
-    return result;
+    result
 }
 
 pub fn transpose(vector: &[u128], stride: usize) -> Vec<[u128; 4]> {
@@ -157,7 +157,7 @@ pub fn transpose(vector: &[u128], stride: usize) -> Vec<[u128; 4]> {
         ];
     }
 
-    return result;
+    result
 }
 
 /// Re-interprets a vector of integers as a vector of quartic elements.

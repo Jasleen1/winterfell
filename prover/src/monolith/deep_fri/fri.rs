@@ -1,11 +1,12 @@
-use super::types::{FriLayer, FriProof};
+use super::{
+    super::types::{FriLayer, FriProof},
+    quartic,
+};
 use crate::ProofOptions;
 use common::utils::{as_bytes, uninit_vector};
 use crypto::{HashFunction, MerkleTree};
 use math::field;
 use std::mem;
-
-mod quartic;
 
 const MAX_REMAINDER_LENGTH: usize = 256;
 
@@ -121,7 +122,7 @@ fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usi
     result
 }
 
-fn hash_values(values: &Vec<[u128; 4]>, hash: HashFunction) -> Vec<[u8; 32]> {
+fn hash_values(values: &[[u128; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
     let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
     for i in 0..values.len() {
         hash(as_bytes(&values[i]), &mut result[i]);

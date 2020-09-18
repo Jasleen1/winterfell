@@ -30,7 +30,7 @@ fn evaluate_constraints() {
     ];
     let evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
         *trace_tree.root(),
-        trace_info,
+        &trace_info,
         &assertions,
     );
 

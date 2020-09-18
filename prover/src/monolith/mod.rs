@@ -17,7 +17,9 @@ use constraints::{
     build_constraint_poly, commit_constraints, evaluate_constraints, extend_constraint_evaluations,
 };
 
-mod fri;
+mod deep_fri;
+use deep_fri::{compose_constraint_poly, compose_trace_polys, draw_z_and_coefficients};
+
 mod utils;
 
 // PROVER
@@ -90,14 +92,14 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // random values; these values are used by the evaluator to compute a random linear
         // combination of constraint evaluations
         let seed = *trace_tree.root();
-        let evaluator = ConstraintEvaluator::<T, A>::new(seed, trace_info, &assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(seed, &trace_info, &assertions);
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
         let constraint_evaluations = evaluate_constraints(&evaluator, &extended_trace, &lde_domain);
         debug!(
             "Evaluated constraints over domain of {} elements in {} ms",
-            constraint_evaluations.len(),
+            constraint_evaluations.domain_size(),
             now.elapsed().as_millis()
         );
 
@@ -105,7 +107,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // first, build a single constraint polynomial from all constraint evaluations
         let now = Instant::now();
-        let constraint_poly = build_constraint_poly(constraint_evaluations);
+        let constraint_poly = build_constraint_poly(constraint_evaluations, &trace_info);
         debug!(
             "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
             constraint_poly.degree(),
@@ -115,7 +117,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // then, evaluate constraint polynomial over LDE domain
         let now = Instant::now();
         let combined_constraint_evaluations =
-            extend_constraint_evaluations(constraint_poly, &lde_twiddles);
+            extend_constraint_evaluations(&constraint_poly, &lde_twiddles);
         debug!(
             "Evaluated constraint polynomial over LDE domain in {} ms",
             now.elapsed().as_millis()
@@ -123,7 +125,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // finally, commit to constraint polynomial evaluations
         let now = Instant::now();
-        let _constraint_tree =
+        let constraint_tree =
             commit_constraints(combined_constraint_evaluations, self.options.hash_fn());
         debug!(
             "Committed to constraint evaluations over LDE domain {} ms",
@@ -131,6 +133,27 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         );
 
         // 5 ----- build DEEP composition polynomial ----------------------------------------------
+        let now = Instant::now();
+
+        let seed = *constraint_tree.root();
+        let (z, coefficients) = draw_z_and_coefficients(seed, trace_info.width());
+
+        let mut composition_poly = vec![0; trace_info.lde_domain_size()];
+
+        let _deep_values = compose_trace_polys(
+            &mut composition_poly,
+            evaluator.deep_composition_degree(),
+            trace_polys,
+            z,
+            &coefficients,
+        );
+
+        compose_constraint_poly(&mut composition_poly, constraint_poly, z, &coefficients);
+
+        debug!(
+            "Built DEEP composition polynomial in {} ms",
+            now.elapsed().as_millis()
+        );
 
         // 6 ----- evaluate DEEP composition polynomial over LDE domain ---------------------------
 
@@ -149,7 +172,7 @@ fn validate_assertions(trace: &TraceTable, assertions: &[Assertion]) {
     // TODO: check for duplicated assertions
     // TODO: eventually, this should return errors instead of panicking
     assert!(
-        assertions.len() > 0,
+        !assertions.is_empty(),
         "at least one assertion must be provided"
     );
     for assertion in assertions {

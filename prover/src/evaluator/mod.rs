@@ -24,7 +24,7 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
-    pub fn new(seed: [u8; 32], trace_info: TraceInfo, assertions: &Vec<Assertion>) -> Self {
+    pub fn new(seed: [u8; 32], trace_info: &TraceInfo, assertions: &Vec<Assertion>) -> Self {
         assert!(
             assertions.len() > 0,
             "at least one assertion must be provided"
@@ -32,18 +32,18 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
         // TODO: switch over to an iterator to generate coefficients
         let (t_coefficients, a_coefficients) = Self::build_coefficients(seed);
-        let transition = T::new(&trace_info, &t_coefficients);
+        let transition = T::new(trace_info, &t_coefficients);
         let max_constraint_degree = *transition.degrees().iter().max().unwrap();
         let transition_degree_map =
             group_transition_constraints(transition.degrees(), trace_info.length());
 
         let composition_degree = get_composition_degree(trace_info.length(), max_constraint_degree);
-        let assertions = A::new(assertions, &trace_info, composition_degree, &a_coefficients);
+        let assertions = A::new(assertions, trace_info, composition_degree, &a_coefficients);
 
         ConstraintEvaluator {
             transition,
             assertions,
-            trace_info,
+            trace_info: *trace_info,
             max_constraint_degree,
             transition_degree_map,
         }
@@ -158,6 +158,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 // TRACE INFO
 // ================================================================================================
 
+#[derive(Copy, Clone)]
 pub struct TraceInfo(usize, usize, usize);
 
 impl TraceInfo {

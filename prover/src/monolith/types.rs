@@ -128,7 +128,7 @@ impl ConstraintEvaluationTable {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn domain_size(&self) -> usize {
         self.evaluations[0].len()
     }
 
@@ -165,6 +165,14 @@ impl ConstraintPoly {
     pub fn degree(&self) -> usize {
         // TODO
         0
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn coefficients(&self) -> &[u128] {
+        &self.0
     }
 
     pub fn into_vec(self) -> Vec<u128> {

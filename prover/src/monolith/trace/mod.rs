@@ -1,9 +1,8 @@
 use super::types::{PolyTable, TraceTable};
-use super::utils;
 use crate::TraceInfo;
 use common::utils::{as_bytes, uninit_vector};
 use crypto::{HashFunction, MerkleTree};
-use math::{fft, field, polynom};
+use math::{fft, field};
 
 #[cfg(test)]
 mod tests;
@@ -78,82 +77,6 @@ pub fn commit_trace(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
     MerkleTree::new(hashed_states, hash)
 }
 
-/// Combines trace polynomials for all registers into a single composition polynomial.
-/// The combination is done as follows:
-/// 1. First, state of trace registers at deep points z and z * g are computed;
-/// 2. Then, polynomials T1_i(x) = (T_i(x) - T_i(z)) / (x - z) and
-/// T2_i(x) = (T_i(x) - T_i(z * g)) / (x - z * g) are computed for all i and combined
-/// together into a single polynomial using a pseudo-random linear combination;
-/// 3. Then the degree of the polynomial is adjusted to match the composition degree
-pub fn combine_trace_polys(
-    polys: PolyTable,
-    z: u128,
-    cc: &CompositionCoefficients,
-) -> (Vec<u128>, Vec<u128>, Vec<u128>) {
-    let trace_length = polys.poly_size();
-
-    let g = field::get_root_of_unity(trace_length);
-    let next_z = field::mul(z, g);
-
-    // compute state of registers at deep points z and z * g
-    let trace_state1 = polys.evaluate_at(z);
-    let trace_state2 = polys.evaluate_at(next_z);
-
-    let mut t1_composition = vec![field::ZERO; trace_length];
-    let mut t2_composition = vec![field::ZERO; trace_length];
-
-    // combine trace polynomials into 2 composition polynomials T1(x) and T2(x)
-    let polys = polys.into_vec();
-    for i in 0..polys.len() {
-        // compute T1(x) = (T(x) - T(z)), multiply it by a pseudo-random coefficient,
-        // and add the result into composition polynomial
-        utils::mul_acc(&mut t1_composition, &polys[i], cc.trace1[i]);
-        let adjusted_tz = field::mul(trace_state1[i], cc.trace1[i]);
-        t1_composition[0] = field::sub(t1_composition[0], adjusted_tz);
-
-        // compute T2(x) = (T(x) - T(z * g)), multiply it by a pseudo-random
-        // coefficient, and add the result into composition polynomial
-        utils::mul_acc(&mut t2_composition, &polys[i], cc.trace2[i]);
-        let adjusted_tz = field::mul(trace_state2[i], cc.trace2[i]);
-        t2_composition[0] = field::sub(t2_composition[0], adjusted_tz);
-    }
-
-    // divide the two composition polynomials by (x - z) and (x - z * g)
-    // respectively and add the resulting polynomials together
-    polynom::syn_div_in_place(&mut t1_composition, z);
-    polynom::syn_div_in_place(&mut t2_composition, next_z);
-    utils::add_in_place(&mut t1_composition, &t2_composition);
-
-    // adjust the degree of the polynomial to match the degree parameter by computing
-    // C(x) = T(x) * k_1 + T(x) * x^incremental_degree * k_2
-    let poly_size = 0; // TODO: utils::get_composition_degree(trace_length).next_power_of_two();
-    let mut composition_poly = vec![0; poly_size]; // TODO: filled_vector(poly_size, self.domain_size(), field::ZERO);
-    let incremental_degree = 0; // TODO: utils::get_incremental_trace_degree(trace_length);
-                                // this is equivalent to T(x) * k_1
-    utils::mul_acc(
-        &mut composition_poly[..trace_length],
-        &t1_composition,
-        cc.t1_degree,
-    );
-    // this is equivalent to T(x) * x^incremental_degree * k_2
-    utils::mul_acc(
-        &mut composition_poly[incremental_degree..(incremental_degree + trace_length)],
-        &t1_composition,
-        cc.t2_degree,
-    );
-
-    (composition_poly, trace_state1, trace_state2)
-}
-
 pub fn query_trace(_trace: TraceTable, _trace_tree: MerkleTree, _positions: Vec<usize>) {
     // TODO
-}
-
-// TODO: move to a better location
-pub struct CompositionCoefficients {
-    pub trace1: Vec<u128>,
-    pub trace2: Vec<u128>,
-    pub t1_degree: u128,
-    pub t2_degree: u128,
-    pub constraints: u128,
 }
