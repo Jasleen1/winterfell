@@ -6,7 +6,7 @@ use math::polynom;
 pub struct TraceTable(Vec<Vec<u128>>);
 
 impl TraceTable {
-    pub fn new(registers: Vec<Vec<u128>>) -> TraceTable {
+    pub fn new(registers: Vec<Vec<u128>>) -> Self {
         assert!(
             registers.len() > 0,
             "execution trace must consist of at least one register"
@@ -59,7 +59,7 @@ impl TraceTable {
 pub struct PolyTable(Vec<Vec<u128>>);
 
 impl PolyTable {
-    pub fn new(polys: Vec<Vec<u128>>) -> PolyTable {
+    pub fn new(polys: Vec<Vec<u128>>) -> Self {
         assert!(
             polys.len() > 0,
             "polynomial table must contain at least one polynomial"
@@ -154,16 +154,15 @@ impl ConstraintEvaluationTable {
 
 // CONSTRAINT POLYNOMIAL
 // ================================================================================================
-pub struct ConstraintPoly(Vec<u128>);
+pub struct ConstraintPoly(Vec<u128>, usize);
 
 impl ConstraintPoly {
-    pub fn new(coefficients: Vec<u128>) -> Self {
-        ConstraintPoly(coefficients)
+    pub fn new(coefficients: Vec<u128>, degree: usize) -> Self {
+        ConstraintPoly(coefficients, degree)
     }
 
     pub fn degree(&self) -> usize {
-        // TODO
-        0
+        self.1
     }
 
     pub fn len(&self) -> usize {
@@ -172,6 +171,45 @@ impl ConstraintPoly {
 
     pub fn coefficients(&self) -> &[u128] {
         &self.0
+    }
+
+    /// Evaluates the polynomial the the specified point `x`.
+    pub fn evaluate_at(&self, x: u128) -> u128 {
+        polynom::eval(&self.0, x)
+    }
+
+    pub fn into_vec(self) -> Vec<u128> {
+        self.0
+    }
+}
+
+// COMPOSITION POLYNOMIAL
+// ================================================================================================
+pub struct CompositionPoly(Vec<u128>, usize);
+
+impl CompositionPoly {
+    pub fn new(lde_domain_size: usize, degree: usize) -> Self {
+        assert!(
+            lde_domain_size.is_power_of_two(),
+            "LDE domain size must be a power of 2"
+        );
+        assert!(
+            lde_domain_size > degree,
+            "LDE domain size must be greater than degree"
+        );
+        CompositionPoly(vec![0; lde_domain_size], degree)
+    }
+
+    pub fn degree(&self) -> usize {
+        self.1
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn coefficients_mut(&mut self) -> &mut [u128] {
+        &mut self.0
     }
 
     pub fn into_vec(self) -> Vec<u128> {

@@ -80,6 +80,7 @@ pub fn build_constraint_poly(
 ) -> ConstraintPoly {
     let ce_domain_size = evaluations.domain_size();
     let trace_length = trace_info.length();
+    let constraint_poly_degree = ce_domain_size - trace_length;
     let x_at_last_step = get_x_at_last_step(trace_length);
 
     let ce_domain_root = field::get_root_of_unity(ce_domain_size);
@@ -97,21 +98,24 @@ pub fn build_constraint_poly(
     // polynomial by Z(x) = (x - 1), and add it to the result
     fft::interpolate_poly(&mut i_evaluations, &inv_twiddles, true);
     polynom::syn_div_in_place(&mut i_evaluations, field::ONE);
+    debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&i_evaluations));
     combined_poly.copy_from_slice(&i_evaluations);
 
     // interpolate final step boundary constraint combination into a polynomial, divide the
     // polynomial by Z(x) = (x - x_at_last_step), and add it to the result
     fft::interpolate_poly(&mut f_evaluations, &inv_twiddles, true);
     polynom::syn_div_in_place(&mut f_evaluations, x_at_last_step);
+    debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&f_evaluations));
     utils::add_in_place(&mut combined_poly, &f_evaluations);
 
     // interpolate transition constraint combination into a polynomial, divide the polynomial
     // by Z(x) = (x^steps - 1) / (x - x_at_last_step), and add it to the result
     fft::interpolate_poly(&mut t_evaluations, &inv_twiddles, true);
     polynom::syn_div_expanded_in_place(&mut t_evaluations, trace_length, &[x_at_last_step]);
+    debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&t_evaluations));
     utils::add_in_place(&mut combined_poly, &t_evaluations);
 
-    ConstraintPoly::new(combined_poly)
+    ConstraintPoly::new(combined_poly, constraint_poly_degree)
 }
 
 /// Evaluates constraint polynomial over LDE domain and returns the result

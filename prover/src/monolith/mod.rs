@@ -7,7 +7,7 @@ use std::marker::PhantomData;
 use std::time::Instant;
 
 mod types;
-use types::TraceTable;
+use types::{CompositionPoly, TraceTable};
 
 mod trace;
 use trace::{build_lde_domain, commit_trace, extend_trace};
@@ -18,7 +18,10 @@ use constraints::{
 };
 
 mod deep_fri;
-use deep_fri::{compose_constraint_poly, compose_trace_polys, draw_z_and_coefficients};
+use deep_fri::{
+    compose_constraint_poly, compose_trace_polys, draw_z_and_coefficients,
+    evaluate_composition_poly,
+};
 
 mod utils;
 
@@ -135,19 +138,22 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 5 ----- build DEEP composition polynomial ----------------------------------------------
         let now = Instant::now();
 
+        // use root of the constraint tree to draw an out-of-domain point z from the entire field,
+        // and also draw random coefficients to use during polynomial composition
         let seed = *constraint_tree.root();
         let (z, coefficients) = draw_z_and_coefficients(seed, trace_info.width());
 
-        let mut composition_poly = vec![0; trace_info.lde_domain_size()];
-
-        let _deep_values = compose_trace_polys(
-            &mut composition_poly,
+        // allocate memory for the composition polynomial
+        let mut composition_poly = CompositionPoly::new(
+            trace_info.lde_domain_size(),
             evaluator.deep_composition_degree(),
-            trace_polys,
-            z,
-            &coefficients,
         );
 
+        // combine all trace polynomials together and merge them into the composition polynomial
+        let _deep_values =
+            compose_trace_polys(&mut composition_poly, trace_polys, z, &coefficients);
+
+        // merge constraint polynomial into the composition polynomial
         compose_constraint_poly(&mut composition_poly, constraint_poly, z, &coefficients);
 
         debug!(
@@ -156,6 +162,18 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         );
 
         // 6 ----- evaluate DEEP composition polynomial over LDE domain ---------------------------
+        let now = Instant::now();
+        let composition_poly_evaluations =
+            evaluate_composition_poly(composition_poly, &lde_twiddles);
+        debug_assert_eq!(
+            evaluator.deep_composition_degree(),
+            utils::infer_degree(&composition_poly_evaluations)
+        );
+        debug!(
+            "Evaluated DEEP composition polynomial over domain of {} elements in {} ms",
+            evaluator.lde_domain_size(),
+            now.elapsed().as_millis()
+        );
 
         // 7 ----- compute FRI layers for the composition polynomial ------------------------------
 
