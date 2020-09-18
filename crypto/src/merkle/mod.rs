@@ -1,5 +1,4 @@
-use crate::HashFunction;
-use common::utils::uninit_vector;
+use crate::{utils, HashFunction};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -288,7 +287,7 @@ pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 3
     let n = leaves.len() / 2;
 
     // create un-initialized array to hold all intermediate nodes
-    let mut nodes = uninit_vector(2 * n);
+    let mut nodes = utils::uninit_vector(2 * n);
     nodes[0] = [0u8; 32];
 
     // re-interpret leaves as an array of two leaves fused together

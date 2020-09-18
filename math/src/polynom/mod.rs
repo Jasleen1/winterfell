@@ -1,6 +1,5 @@
 use crate::field;
 use crate::utils;
-use common::utils::{filled_vector, uninit_vector};
 use std::mem;
 
 #[cfg(test)]
@@ -163,7 +162,7 @@ pub fn syn_div_in_place(a: &mut [u128], b: u128) {
 /// the remainder is ignored.
 pub fn syn_div_expanded_in_place(a: &mut [u128], degree: usize, exceptions: &[u128]) {
     // allocate space for the result
-    let mut result = filled_vector(a.len(), a.len() + exceptions.len(), field::ZERO);
+    let mut result = utils::filled_vector(a.len(), a.len() + exceptions.len(), field::ZERO);
 
     // compute a / (x^degree - 1)
     result.copy_from_slice(&a);
@@ -216,7 +215,7 @@ pub fn degree_of(poly: &[u128]) -> usize {
 // ================================================================================================
 fn get_zero_roots(xs: &[u128]) -> Vec<u128> {
     let mut n = xs.len() + 1;
-    let mut result = uninit_vector(n);
+    let mut result = utils::uninit_vector(n);
 
     n -= 1;
     result[n] = field::ONE;

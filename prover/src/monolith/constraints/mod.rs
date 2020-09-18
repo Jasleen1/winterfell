@@ -2,8 +2,10 @@ use super::{
     types::{ConstraintEvaluationTable, ConstraintPoly, TraceTable},
     utils,
 };
-use crate::{AssertionEvaluator, ConstraintEvaluator, TraceInfo, TransitionEvaluator};
-use common::utils::uninit_vector;
+use common::{
+    stark::{AssertionEvaluator, ConstraintEvaluator, TraceInfo, TransitionEvaluator},
+    utils::uninit_vector,
+};
 use crypto::{HashFunction, MerkleTree};
 use math::{fft, field, polynom};
 

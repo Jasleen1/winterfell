@@ -1,6 +1,6 @@
-use common::utils::as_bytes;
 use criterion::{criterion_group, BenchmarkId, Criterion};
 use math::{fft, field};
+use rand::Rng;
 use std::time::Duration;
 
 const SIZES: [usize; 3] = [262_144, 524_288, 1_048_576];
@@ -48,8 +48,5 @@ fn get_twiddles(c: &mut Criterion) {
 criterion_group!(group, fft_poly, get_twiddles);
 
 fn get_seed() -> [u8; 32] {
-    let seed = [field::rand(), field::rand()];
-    let mut result = [0; 32];
-    result.copy_from_slice(as_bytes(&seed));
-    result
+    rand::thread_rng().gen::<[u8; 32]>()
 }

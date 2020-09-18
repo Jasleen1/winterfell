@@ -11,5 +11,4 @@ path = "src/lib.rs"
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
-serde = { version = "1.0.114", features = ["derive"] }
 log = "0.4.11"

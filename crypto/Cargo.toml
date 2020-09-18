@@ -15,7 +15,6 @@ harness = false
 blake3 = "0.3.6"
 sha3 = "0.9.1"
 serde = { version = "1.0.114", features = ["derive"] }
-common = { path = "../common" }
 
 [dev-dependencies]
 criterion = "0.3.3"

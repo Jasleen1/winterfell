@@ -1,8 +1,7 @@
-use crate::{
-    evaluator::FibEvaluator,
-    monolith::{commit_trace, extend_trace},
-    Assertion, ConstraintEvaluator, IoAssertionEvaluator, TraceInfo,
-};
+use super::TraceInfo;
+use crate::monolith::{commit_trace, extend_trace};
+use crate::tests::{build_fib_trace, FibEvaluator};
+use common::stark::{Assertion, ConstraintEvaluator, IoAssertionEvaluator};
 use crypto::hash::blake3;
 use math::{fft, field};
 
@@ -92,7 +91,7 @@ fn evaluate_constraints() {
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_trace(length: usize) -> super::TraceTable {
-    let trace = crate::utils::build_fib_trace(length * 2);
+    let trace = build_fib_trace(length * 2);
     super::TraceTable::new(trace)
 }
 

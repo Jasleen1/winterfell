@@ -1,5 +1,5 @@
-use crate::{ProofOptions, TraceInfo};
-use common::utils::{as_bytes, uninit_vector};
+use super::{ProofOptions, TraceInfo};
+use crate::utils::{as_bytes, uninit_vector};
 use crypto::BatchMerkleProof;
 use serde::{Deserialize, Serialize};
 

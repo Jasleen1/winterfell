@@ -1,5 +1,19 @@
-use super::{TraceInfo, TransitionEvaluator};
-use math::field::{add, mul, sub};
+use common::stark::{TraceInfo, TransitionEvaluator};
+use math::field::{self, add, mul, sub};
+
+pub fn build_fib_trace(length: usize) -> Vec<Vec<u128>> {
+    assert!(length.is_power_of_two(), "length must be a power of 2");
+
+    let mut reg1 = vec![field::ONE];
+    let mut reg2 = vec![field::ONE];
+
+    for i in 0..(length / 2 - 1) {
+        reg1.push(add(reg1[i], reg2[i]));
+        reg2.push(add(reg1[i], mul(2, reg2[i])));
+    }
+
+    vec![reg1, reg2]
+}
 
 pub struct FibEvaluator {
     constraint_degrees: Vec<usize>,

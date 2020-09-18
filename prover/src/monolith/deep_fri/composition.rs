@@ -1,6 +1,8 @@
-use super::super::types::{ConstraintPoly, PolyTable};
-use super::super::utils;
-use crate::proof::DeepValues;
+use super::{
+    types::{ConstraintPoly, PolyTable},
+    utils,
+};
+use common::stark::DeepValues;
 use math::{field, polynom};
 
 // COMPOSITION COEFFICIENTS

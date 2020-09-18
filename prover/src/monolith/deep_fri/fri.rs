@@ -1,9 +1,8 @@
-use super::{
-    super::types::{FriLayer, FriProof},
-    quartic,
+use super::quartic;
+use common::{
+    stark::{FriLayer, FriProof, ProofOptions},
+    utils::{as_bytes, uninit_vector},
 };
-use crate::ProofOptions;
-use common::utils::{as_bytes, uninit_vector};
 use crypto::{HashFunction, MerkleTree};
 use math::field;
 use std::mem;

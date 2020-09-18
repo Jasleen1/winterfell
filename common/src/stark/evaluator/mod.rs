@@ -1,3 +1,4 @@
+use super::TraceInfo;
 use math::field;
 
 mod transition;
@@ -5,9 +6,6 @@ pub use transition::{group_transition_constraints, TransitionEvaluator};
 
 mod assertions;
 pub use assertions::{Assertion, AssertionEvaluator, IoAssertionEvaluator};
-
-#[cfg(test)]
-pub use transition::tests::FibEvaluator;
 
 #[cfg(test)]
 mod tests;
@@ -152,34 +150,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     fn get_x_at(&self, step: usize) -> u128 {
         let trace_root = field::get_root_of_unity(self.trace_length());
         field::exp(trace_root, step as u128)
-    }
-}
-
-// TRACE INFO
-// ================================================================================================
-
-#[derive(Copy, Clone)]
-pub struct TraceInfo(usize, usize, usize);
-
-impl TraceInfo {
-    pub fn new(width: usize, length: usize, blowup: usize) -> Self {
-        TraceInfo(width, length, blowup)
-    }
-
-    pub fn width(&self) -> usize {
-        self.0
-    }
-
-    pub fn length(&self) -> usize {
-        self.1
-    }
-
-    pub fn blowup(&self) -> usize {
-        self.2
-    }
-
-    pub fn lde_domain_size(&self) -> usize {
-        self.length() * self.blowup()
     }
 }
 

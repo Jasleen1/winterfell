@@ -6,3 +6,8 @@ edition = "2018"
 [lib]
 name = "common"
 path = "src/lib.rs"
+
+[dependencies]
+math = { path = "../math" }
+crypto = { path = "../crypto" }
+serde = { version = "1.0.115", features = ["derive"] }

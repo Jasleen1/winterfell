@@ -13,7 +13,6 @@ harness = false
 
 [dependencies]
 rand = "0.7.3"
-common = { path = "../common" }
 
 [dev-dependencies]
 criterion = "0.3.3"

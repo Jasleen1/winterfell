@@ -1,4 +1,4 @@
-use crate::{
+use common::stark::{
     Assertion, AssertionEvaluator, ConstraintEvaluator, ProofOptions, TraceInfo,
     TransitionEvaluator,
 };

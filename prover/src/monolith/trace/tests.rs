@@ -83,6 +83,6 @@ fn commit_trace_table() {
 }
 
 fn build_trace(length: usize) -> super::TraceTable {
-    let trace = crate::utils::build_fib_trace(length * 2);
+    let trace = crate::tests::build_fib_trace(length * 2);
     super::TraceTable::new(trace)
 }

@@ -1,6 +1,8 @@
 use super::types::{PolyTable, TraceTable};
-use crate::TraceInfo;
-use common::utils::{as_bytes, uninit_vector};
+use common::{
+    stark::TraceInfo,
+    utils::{as_bytes, uninit_vector},
+};
 use crypto::{HashFunction, MerkleTree};
 use math::{fft, field};
 

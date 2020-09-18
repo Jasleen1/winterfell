@@ -1,6 +1,5 @@
-use crate::ConstraintDivisor;
+use common::stark::ConstraintDivisor;
 use math::polynom;
-use serde::{Deserialize, Serialize};
 
 // TRACE TABLE
 // ================================================================================================
@@ -178,21 +177,4 @@ impl ConstraintPoly {
     pub fn into_vec(self) -> Vec<u128> {
         self.0
     }
-}
-
-// FRI LAYER & FRI PROOF
-// ================================================================================================
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FriLayer {
-    pub root: [u8; 32],
-    pub values: Vec<[u128; 4]>,
-    pub nodes: Vec<Vec<[u8; 32]>>,
-    pub depth: u8,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FriProof {
-    pub layers: Vec<FriLayer>,
-    pub rem_root: [u8; 32],
-    pub rem_values: Vec<u128>,
 }

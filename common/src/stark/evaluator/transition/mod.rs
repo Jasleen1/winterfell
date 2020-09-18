@@ -1,8 +1,5 @@
 use super::{get_composition_degree, TraceInfo};
 
-#[cfg(test)]
-pub mod tests;
-
 // TRANSITION EVALUATOR TRAIT
 // ================================================================================================
 
