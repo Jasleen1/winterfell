@@ -1,8 +1,16 @@
 use log::debug;
+use prover::StarkProof;
 use std::time::Instant;
 use std::{env, io::Write};
 
 mod fibonacci;
+
+// TYPES AND INTERFACES
+// ================================================================================================
+
+pub trait Example {
+    fn prove(&self, n: usize, blowup_factor: usize, num_queries: usize) -> StarkProof;
+}
 
 // EXAMPLE RUNNER
 // ================================================================================================
@@ -17,25 +25,23 @@ fn main() {
     // determine the example to run based on command-line arguments
     let args: Vec<String> = env::args().collect();
     let (example, n, blowup_factor, num_queries) = parse_args(args);
+    let example = match example.as_str() {
+        "fib" => fibonacci::get_example(),
+        _ => panic!("example name '{}' is not valid", example),
+    };
 
     debug!("============================================================");
-    match example.as_str() {
-        "fib" => {
-            // generate proof
-            let now = Instant::now();
-            let proof = fibonacci::prove(n, blowup_factor, num_queries);
-            debug!(
-                "---------------------\n\
-                Proof generated in {} ms",
-                now.elapsed().as_millis()
-            );
-
-            let proof_bytes = bincode::serialize(&proof).unwrap();
-            debug!("Proof size: {} KB", proof_bytes.len() / 1024);
-            println!("Proof security: {} bits", proof.security_level(true));
-        }
-        _ => panic!("example name '{}' is not valid", example),
-    }
+    // generate proof
+    let now = Instant::now();
+    let proof = example.prove(n, blowup_factor, num_queries);
+    debug!(
+        "---------------------\nProof generated in {} ms",
+        now.elapsed().as_millis()
+    );
+    let proof_bytes = bincode::serialize(&proof).unwrap();
+    debug!("Proof size: {} KB", proof_bytes.len() / 1024);
+    println!("Proof security: {} bits", proof.security_level(true));
+    // TODO: verify the proof
     debug!("============================================================");
 }
 
@@ -44,9 +50,9 @@ fn main() {
 
 fn parse_args(args: Vec<String>) -> (String, usize, usize, usize) {
     if args.len() < 2 {
-        ("fib".to_string(), 1_048_576, 0, 0)
+        ("fib".to_string(), 0, 0, 0)
     } else if args.len() < 3 {
-        (args[1].to_string(), 1_048_576, 0, 0)
+        (args[1].to_string(), 0, 0, 0)
     } else if args.len() < 4 {
         let n = args[2].parse().unwrap();
         (args[1].to_string(), n, 0, 0)

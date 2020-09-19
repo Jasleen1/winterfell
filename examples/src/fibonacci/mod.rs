@@ -1,3 +1,4 @@
+use super::Example;
 use log::debug;
 use prover::{
     crypto::hash::blake3,
@@ -7,50 +8,64 @@ use prover::{
 };
 use std::time::Instant;
 
-pub fn prove(
-    sequence_length: usize,
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-) -> StarkProof {
-    // apply defaults for blowup_factor and num_queries
-    if blowup_factor == 0 {
-        blowup_factor = 8;
+// FIBONACCI EXAMPLE
+// ================================================================================================
+pub fn get_example() -> Box<dyn Example> {
+    Box::new(FibExample())
+}
+
+pub struct FibExample();
+
+impl Example for FibExample {
+    fn prove(
+        &self,
+        mut sequence_length: usize,
+        mut blowup_factor: usize,
+        mut num_queries: usize,
+    ) -> StarkProof {
+        // apply defaults
+        if sequence_length == 0 {
+            sequence_length = 1_048_576;
+        }
+        if blowup_factor == 0 {
+            blowup_factor = 8;
+        }
+        if num_queries == 0 {
+            num_queries = 32;
+        }
+
+        debug!(
+            "Generating proof for computing Fibonacci sequence up to {}th term\n\
+            ---------------------",
+            sequence_length
+        );
+
+        // generate execution trace
+        let now = Instant::now();
+        let trace = build_fib_trace(sequence_length);
+
+        let trace_width = trace.len();
+        let trace_length = trace[0].len();
+        let result = trace[1][trace_length - 1];
+        debug!(
+            "Generated execution trace of {} registers and {} steps in {} ms",
+            trace_width,
+            trace_length,
+            now.elapsed().as_millis()
+        );
+
+        // instantiate the prover
+        let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
+        let prover = Prover::<FibEvaluator, IoAssertionEvaluator>::new(options);
+
+        // Generate the proof
+        let assertions = vec![
+            Assertion::new(0, 0, 1),
+            Assertion::new(1, 0, 1),
+            Assertion::new(1, trace_length - 1, result),
+        ];
+        prover.prove(trace, assertions)
     }
-    if num_queries == 0 {
-        num_queries = 32;
-    }
-
-    debug!(
-        "Generating proof for computing Fibonacci sequence up to {}th term\n\
-        ---------------------",
-        sequence_length
-    );
-
-    // generate execution trace
-    let now = Instant::now();
-    let trace = build_fib_trace(sequence_length);
-
-    let trace_width = trace.len();
-    let trace_length = trace[0].len();
-    let result = trace[1][trace_length - 1];
-    debug!(
-        "Generated execution trace of {} registers and {} steps in {} ms",
-        trace_width,
-        trace_length,
-        now.elapsed().as_millis()
-    );
-
-    let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
-    let prover = Prover::<FibEvaluator, IoAssertionEvaluator>::new(options);
-
-    // Generate the proof
-    let assertions = vec![
-        Assertion::new(0, 0, 1),
-        Assertion::new(1, 0, 1),
-        Assertion::new(1, trace_length - 1, result),
-    ];
-
-    prover.prove(trace, assertions)
 }
 
 // FIBONACCI TRACE BUILDER
