@@ -9,12 +9,13 @@ use serde::{Deserialize, Serialize};
 // TODO: custom serialization should reduce size by 5% - 10%
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StarkProof {
-    domain_depth: u8,
+    lde_domain_depth: u8,
     trace_root: [u8; 32],
     trace_nodes: Vec<Vec<[u8; 32]>>,
     trace_states: Vec<Vec<u128>>,
     constraint_root: [u8; 32],
     constraint_proof: BatchMerkleProof,
+    max_constraint_degree: u8,
     deep_values: DeepValues,
     fri_proof: FriProof,
     pow_nonce: u64,
@@ -56,6 +57,7 @@ impl StarkProof {
         trace_states: Vec<Vec<u128>>,
         constraint_root: [u8; 32],
         constraint_proof: BatchMerkleProof,
+        max_constraint_degree: usize,
         deep_values: DeepValues,
         fri_proof: FriProof,
         pow_nonce: u64,
@@ -63,11 +65,12 @@ impl StarkProof {
     ) -> StarkProof {
         StarkProof {
             trace_root,
-            domain_depth: trace_proof.depth,
+            lde_domain_depth: trace_proof.depth,
             trace_nodes: trace_proof.nodes,
             trace_states,
             constraint_root,
             constraint_proof,
+            max_constraint_degree: max_constraint_degree as u8,
             deep_values,
             fri_proof,
             pow_nonce,
@@ -93,7 +96,7 @@ impl StarkProof {
         BatchMerkleProof {
             nodes: self.trace_nodes.clone(),
             values: hashed_states,
-            depth: self.domain_depth,
+            depth: self.lde_domain_depth,
         }
     }
 
@@ -102,7 +105,7 @@ impl StarkProof {
     }
 
     pub fn trace_info(&self) -> TraceInfo {
-        let lde_domain_size = usize::pow(2, self.domain_depth as u32);
+        let lde_domain_size = usize::pow(2, self.lde_domain_depth as u32);
         let blowup = self.options.blowup_factor();
         let length = lde_domain_size / blowup;
         let width = self.trace_states[0].len();
@@ -144,5 +147,31 @@ impl StarkProof {
 
     pub fn options(&self) -> &ProofOptions {
         &self.options
+    }
+
+    // SECURITY LEVEL
+    // -------------------------------------------------------------------------------------------
+    pub fn security_level(&self, optimistic: bool) -> u32 {
+        // conjectured security requires half the queries as compared to proven security
+        let num_queries = if optimistic {
+            self.options.num_queries()
+        } else {
+            self.options.num_queries() / 2
+        };
+
+        let one_over_rho = (self.options.blowup_factor()
+            / self.max_constraint_degree.next_power_of_two() as usize)
+            as u32;
+        let security_per_query = 31 - one_over_rho.leading_zeros(); // same as log2(one_over_rho)
+
+        let mut result1 = security_per_query * num_queries as u32;
+        if result1 >= 80 {
+            result1 += self.options.grinding_factor() as u32;
+        }
+
+        // log2(field size) - log2(extended trace length)
+        let result2 = (128 - self.lde_domain_depth) as u32;
+
+        std::cmp::min(result1, result2)
     }
 }

@@ -137,7 +137,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let constraint_tree =
             commit_constraints(combined_constraint_evaluations, self.options.hash_fn());
         debug!(
-            "Committed to constraint evaluations over LDE domain {} ms",
+            "Committed to constraint evaluations over LDE domain in {} ms",
             now.elapsed().as_millis()
         );
 
@@ -240,6 +240,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             trace_states,
             constraint_root,
             constraint_proof,
+            evaluator.max_constraint_degree(),
             deep_values,
             fri_proof,
             pow_nonce,
