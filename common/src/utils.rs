@@ -27,6 +27,15 @@ pub fn as_bytes<T>(values: &[T]) -> &[u8] {
     result
 }
 
+// MATH
+// ================================================================================================
+
+pub fn log2(x: usize) -> u32 {
+    assert!(x.is_power_of_two(), "x must be a power of two");
+    let num_bits = (std::mem::size_of::<usize>() * 8) as u32;
+    num_bits - x.leading_zeros() - 1
+}
+
 // TESTS
 // ================================================================================================
 #[cfg(test)]

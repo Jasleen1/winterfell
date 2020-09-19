@@ -48,9 +48,9 @@ impl Example for FibExample {
         let trace_length = trace[0].len();
         let result = trace[1][trace_length - 1];
         debug!(
-            "Generated execution trace of {} registers and {} steps in {} ms",
+            "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace_width,
-            trace_length,
+            trace_length.trailing_zeros(),
             now.elapsed().as_millis()
         );
 

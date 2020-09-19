@@ -1,6 +1,9 @@
-use common::stark::{
-    compute_trace_query_positions, Assertion, AssertionEvaluator, ConstraintEvaluator,
-    ProofOptions, StarkProof, TraceInfo, TransitionEvaluator,
+use common::{
+    stark::{
+        compute_trace_query_positions, Assertion, AssertionEvaluator, ConstraintEvaluator,
+        ProofOptions, StarkProof, TraceInfo, TransitionEvaluator,
+    },
+    utils::log2,
 };
 use log::debug;
 use std::marker::PhantomData;
@@ -69,8 +72,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
         let lde_domain = build_lde_domain(&trace_info);
         debug!(
-            "Built LDE domain of {} elements in {} ms",
-            lde_domain.size(),
+            "Built LDE domain of 2^{} elements in {} ms",
+            log2(lde_domain.size()),
             now.elapsed().as_millis()
         );
 
@@ -79,10 +82,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // degree = trace_length - 1
         let (extended_trace, trace_polys) = extend_trace(trace, &lde_domain);
         debug!(
-            "Extended execution trace of {} registers from {} to {} steps in {} ms",
+            "Extended execution trace of {} registers from 2^{} to 2^{} steps ({}x blowup) in {} ms",
             extended_trace.num_registers(),
-            trace_polys.poly_size(),
-            extended_trace.num_states(),
+            log2(trace_polys.poly_size()),
+            log2(extended_trace.num_states()),
+            trace_info.blowup(),
             now.elapsed().as_millis()
         );
 
@@ -90,7 +94,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
         let trace_tree = commit_trace(&extended_trace, self.options.hash_fn());
         debug!(
-            "Committed to extended execution trace in {} ms",
+            "Committed to extended execution trace by building a Merkle tree of depth {} in {} ms",
+            trace_tree.depth(),
             now.elapsed().as_millis()
         );
 
@@ -107,8 +112,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // constraint evaluation table
         let constraint_evaluations = evaluate_constraints(&evaluator, &extended_trace, &lde_domain);
         debug!(
-            "Evaluated constraints over domain of {} elements in {} ms",
-            constraint_evaluations.domain_size(),
+            "Evaluated constraints over domain of 2^{} elements in {} ms",
+            log2(constraint_evaluations.domain_size()),
             now.elapsed().as_millis()
         );
 
@@ -128,7 +133,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let combined_constraint_evaluations =
             extend_constraint_evaluations(&constraint_poly, &lde_domain);
         debug!(
-            "Evaluated constraint polynomial over LDE domain in {} ms",
+            "Evaluated constraint polynomial over LDE domain (2^{} elements) in {} ms",
+            log2(combined_constraint_evaluations.len()),
             now.elapsed().as_millis()
         );
 
@@ -137,7 +143,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let constraint_tree =
             commit_constraints(combined_constraint_evaluations, self.options.hash_fn());
         debug!(
-            "Committed to constraint evaluations over LDE domain in {} ms",
+            "Committed to constraint evaluations by building a Merkle tree of depth {} in {} ms",
+            constraint_tree.depth(),
             now.elapsed().as_millis()
         );
 
@@ -163,7 +170,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         compose_constraint_poly(&mut composition_poly, constraint_poly, z, &coefficients);
 
         debug!(
-            "Built DEEP composition polynomial in {} ms",
+            "Built DEEP composition polynomial of degree {} in {} ms",
+            composition_poly.degree(),
             now.elapsed().as_millis()
         );
 
@@ -175,8 +183,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             utils::infer_degree(&composed_evaluations)
         );
         debug!(
-            "Evaluated DEEP composition polynomial over domain of {} elements in {} ms",
-            evaluator.lde_domain_size(),
+            "Evaluated DEEP composition polynomial over LDE domain (2^{} elements) in {} ms",
+            log2(evaluator.lde_domain_size()),
             now.elapsed().as_millis()
         );
 

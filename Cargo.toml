@@ -4,5 +4,6 @@ members = [
   "crypto",
   "math",
   "prover",
+  "verifier",
   "examples"
 ]
