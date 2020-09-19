@@ -79,7 +79,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // domain for constraint evaluation must be at least a multiple of
         // max constraint degree; but we also put a floor at 2x so that constraint
         // composition can work correctly
-        let ce_blowup_factor = std::cmp::max(self.max_constraint_degree, 2);
+        let ce_blowup_factor = std::cmp::max(self.max_constraint_degree.next_power_of_two(), 2);
         self.trace_length() * ce_blowup_factor
     }
 
@@ -93,7 +93,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     }
 
     pub fn deep_composition_degree(&self) -> usize {
-        get_composition_degree(self.trace_length(), self.max_constraint_degree()) - 1
+        get_composition_degree(self.trace_length(), self.max_constraint_degree) - 1
     }
 
     pub fn trace_length(&self) -> usize {

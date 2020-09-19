@@ -14,15 +14,14 @@ pub fn prove(
 ) -> StarkProof {
     // apply defaults for blowup_factor and num_queries
     if blowup_factor == 0 {
-        blowup_factor = 4;
+        blowup_factor = 8;
     }
     if num_queries == 0 {
-        num_queries = 24;
+        num_queries = 32;
     }
 
     debug!(
-        "============================================================\n\
-        Generating proof for computing Fibonacci sequence up to {}th term\n\
+        "Generating proof for computing Fibonacci sequence up to {}th term\n\
         ---------------------",
         sequence_length
     );

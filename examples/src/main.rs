@@ -4,6 +4,9 @@ use std::{env, io::Write};
 
 mod fibonacci;
 
+// EXAMPLE RUNNER
+// ================================================================================================
+
 fn main() {
     // configure logging
     env_logger::Builder::new()
@@ -15,6 +18,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let (example, n, blowup_factor, num_queries) = parse_args(args);
 
+    debug!("============================================================");
     match example.as_str() {
         "fib" => {
             // generate proof
@@ -27,11 +31,16 @@ fn main() {
             );
 
             let proof_bytes = bincode::serialize(&proof).unwrap();
-            println!("Proof size: {} KB", proof_bytes.len() / 1024);
+            debug!("Proof size: {} KB", proof_bytes.len() / 1024);
+            println!("Proof security: {} bits", proof.security_level(true));
         }
         _ => panic!("example name '{}' is not valid", example),
     }
+    debug!("============================================================");
 }
+
+// HELPER FUNCTIONS
+// ================================================================================================
 
 fn parse_args(args: Vec<String>) -> (String, usize, usize, usize) {
     if args.len() < 2 {
