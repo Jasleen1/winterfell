@@ -124,6 +124,10 @@ impl StarkProof {
         self.constraint_proof.clone()
     }
 
+    pub fn max_constraint_degree(&self) -> usize {
+        self.max_constraint_degree as usize
+    }
+
     // DEEP VALUES
     // -------------------------------------------------------------------------------------------
     pub fn get_state_at_z1(&self) -> &[u128] {

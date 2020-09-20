@@ -1,7 +1,7 @@
 use common::{
     stark::{
-        compute_trace_query_positions, Assertion, AssertionEvaluator, ConstraintEvaluator,
-        ProofOptions, StarkProof, TraceInfo, TransitionEvaluator,
+        compute_trace_query_positions, draw_z_and_coefficients, Assertion, AssertionEvaluator,
+        ConstraintEvaluator, ProofOptions, StarkProof, TraceInfo, TransitionEvaluator,
     },
     utils::log2,
 };
@@ -22,10 +22,7 @@ use constraints::{
 };
 
 mod deep_fri;
-use deep_fri::{
-    compose_constraint_poly, compose_trace_polys, draw_z_and_coefficients,
-    evaluate_composition_poly, fri,
-};
+use deep_fri::{compose_constraint_poly, compose_trace_polys, evaluate_composition_poly, fri};
 
 mod utils;
 

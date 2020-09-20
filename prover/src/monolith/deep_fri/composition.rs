@@ -8,19 +8,6 @@ use math::{fft, field, polynom};
 // PROCEDURES
 // ================================================================================================
 
-/// Uses the provided `seed` to draw a random element from the entire field, and also
-/// draws pseudo-random values which will be used as linear combination coefficients
-/// for polynomial composition.
-pub fn draw_z_and_coefficients(
-    seed: [u8; 32],
-    trace_width: usize,
-) -> (u128, CompositionCoefficients) {
-    let mut prng = field::prng_iter(seed);
-    let z = prng.next().unwrap();
-    let coefficients = CompositionCoefficients::new(&mut prng, trace_width);
-    (z, coefficients)
-}
-
 /// Combines all trace polynomials into a single polynomial and saves the result into
 /// the composition polynomial. The combination is done as follows:
 /// 1. First, state of trace registers at deep points z and z * g are computed;
