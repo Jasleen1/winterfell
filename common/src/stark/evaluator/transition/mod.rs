@@ -9,6 +9,8 @@ pub trait TransitionEvaluator {
     fn new(trace: &TraceInfo, coefficients: &[u128]) -> Self;
 
     fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128>;
+    fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128>;
+
     fn degrees(&self) -> &[usize];
     fn composition_coefficients(&self) -> &[u128];
 }

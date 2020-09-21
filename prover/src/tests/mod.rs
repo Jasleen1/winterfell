@@ -39,6 +39,10 @@ impl TransitionEvaluator for FibEvaluator {
     // --------------------------------------------------------------------------------------------
 
     fn evaluate(&self, current: &[u128], next: &[u128], _step: usize) -> Vec<u128> {
+        self.evaluate_at(current, next, 0)
+    }
+
+    fn evaluate_at(&self, current: &[u128], next: &[u128], _x: u128) -> Vec<u128> {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());

@@ -1,6 +1,6 @@
 use super::{Assertion, AssertionEvaluator, TraceInfo};
 use math::field::{self, add, mul, sub};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 // INPUT/OUTPUT ASSERTION EVALUATOR
 // ================================================================================================
@@ -85,8 +85,9 @@ fn group_assertions(
     trace_length: usize,
     trace_width: usize,
 ) -> (Vec<Assertion>, Vec<Assertion>) {
-    let mut inputs = HashMap::new();
-    let mut outputs = HashMap::new();
+    // BTReeMap ensure that assertions are always stored in consistent order
+    let mut inputs = BTreeMap::new();
+    let mut outputs = BTreeMap::new();
 
     // TODO: ideally we should build arrays of tuples (register, value, coefficient); this way
     // we don't need to maintain separate arrays for coefficients

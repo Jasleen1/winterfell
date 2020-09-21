@@ -7,6 +7,7 @@ use prover::{
     TransitionEvaluator,
 };
 use std::time::Instant;
+use verifier::Verifier;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
@@ -22,7 +23,7 @@ impl Example for FibExample {
         mut sequence_length: usize,
         mut blowup_factor: usize,
         mut num_queries: usize,
-    ) -> StarkProof {
+    ) -> (StarkProof, Vec<Assertion>) {
         // apply defaults
         if sequence_length == 0 {
             sequence_length = 1_048_576;
@@ -48,9 +49,9 @@ impl Example for FibExample {
         let trace_length = trace[0].len();
         let result = trace[1][trace_length - 1];
         debug!(
-            "Generated execution trace of {} registers and {} steps in {} ms",
+            "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace_width,
-            trace_length,
+            trace_length.trailing_zeros(),
             now.elapsed().as_millis()
         );
 
@@ -64,7 +65,13 @@ impl Example for FibExample {
             Assertion::new(1, 0, 1),
             Assertion::new(1, trace_length - 1, result),
         ];
-        prover.prove(trace, assertions)
+        (prover.prove(trace, assertions.clone()), assertions)
+    }
+
+    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
+        // TODO: clean up
+        let verifier = Verifier::<FibEvaluator, IoAssertionEvaluator>::new(proof.options().clone());
+        verifier.verify(proof, assertions)
     }
 }
 
@@ -115,6 +122,10 @@ impl TransitionEvaluator for FibEvaluator {
     // --------------------------------------------------------------------------------------------
 
     fn evaluate(&self, current: &[u128], next: &[u128], _step: usize) -> Vec<u128> {
+        self.evaluate_at(current, next, 0)
+    }
+
+    fn evaluate_at(&self, current: &[u128], next: &[u128], _x: u128) -> Vec<u128> {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());

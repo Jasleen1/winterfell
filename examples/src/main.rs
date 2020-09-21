@@ -1,5 +1,5 @@
 use log::debug;
-use prover::StarkProof;
+use prover::{Assertion, StarkProof};
 use std::time::Instant;
 use std::{env, io::Write};
 
@@ -9,7 +9,13 @@ mod fibonacci;
 // ================================================================================================
 
 pub trait Example {
-    fn prove(&self, n: usize, blowup_factor: usize, num_queries: usize) -> StarkProof;
+    fn prove(
+        &self,
+        n: usize,
+        blowup_factor: usize,
+        num_queries: usize,
+    ) -> (StarkProof, Vec<Assertion>);
+    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String>;
 }
 
 // EXAMPLE RUNNER
@@ -33,15 +39,22 @@ fn main() {
     debug!("============================================================");
     // generate proof
     let now = Instant::now();
-    let proof = example.prove(n, blowup_factor, num_queries);
+    let (proof, assertions) = example.prove(n, blowup_factor, num_queries);
     debug!(
         "---------------------\nProof generated in {} ms",
         now.elapsed().as_millis()
     );
     let proof_bytes = bincode::serialize(&proof).unwrap();
     debug!("Proof size: {} KB", proof_bytes.len() / 1024);
-    println!("Proof security: {} bits", proof.security_level(true));
-    // TODO: verify the proof
+    debug!("Proof security: {} bits", proof.security_level(true));
+
+    // verify the proof
+    debug!("---------------------");
+    let now = Instant::now();
+    match example.verify(proof, assertions) {
+        Ok(_) => debug!("Proof verified in {} ms", now.elapsed().as_millis()),
+        Err(msg) => debug!("Failed to verify proof: {}", msg),
+    }
     debug!("============================================================");
 }
 

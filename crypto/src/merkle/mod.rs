@@ -40,12 +40,17 @@ impl MerkleTree {
         }
     }
 
-    /// Returns the root of the tree
+    /// Returns the root of the tree.
     pub fn root(&self) -> &[u8; 32] {
         &self.nodes[1]
     }
 
-    /// Returns leaf nodes of the tree
+    /// Returns depth of the tree.
+    pub fn depth(&self) -> usize {
+        self.values.len().trailing_zeros() as usize
+    }
+
+    /// Returns leaf nodes of the tree.
     pub fn leaves(&self) -> &[[u8; 32]] {
         &self.values
     }

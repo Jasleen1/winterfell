@@ -64,6 +64,17 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         (t_evaluation, i_evaluation, f_evaluation)
     }
 
+    pub fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> (u128, u128, u128) {
+        // evaluate transition constraints and merge them into a single value
+        let t_evaluations = self.transition.evaluate_at(current, next, x);
+        let t_evaluation = self.merge_transition_evaluations(&t_evaluations, x);
+
+        // evaluate boundary constraints defined by assertions
+        let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
+
+        (t_evaluation, i_evaluation, f_evaluation)
+    }
+
     pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
         // TODO: build and save constraint divisors at construction time?
         let x_at_last_step = self.get_x_at(self.trace_length() - 1);

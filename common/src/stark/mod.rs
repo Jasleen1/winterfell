@@ -8,7 +8,7 @@ mod trace_info;
 pub use trace_info::TraceInfo;
 
 mod composition;
-pub use composition::CompositionCoefficients;
+pub use composition::{draw_z_and_coefficients, CompositionCoefficients};
 
 mod evaluator;
 pub use evaluator::{
