@@ -23,7 +23,7 @@ pub fn compose_registers(
     let incremental_degree = (composition_degree - (proof.trace_info().length() - 2)) as u128;
 
     let mut result = Vec::with_capacity(trace_states.len());
-    for (registers, &position) in trace_states.into_iter().zip(positions) {
+    for (registers, &position) in trace_states.iter().zip(positions) {
         let x = field::exp(lde_root, position as u128);
 
         let mut composition = field::ZERO;
@@ -47,7 +47,7 @@ pub fn compose_registers(
         result.push(composition);
     }
 
-    return result;
+    result
 }
 
 pub fn compose_constraints(
@@ -82,5 +82,5 @@ pub fn compose_constraints(
         result.push(mul(composition, cc.constraints));
     }
 
-    return result;
+    result
 }

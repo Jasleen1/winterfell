@@ -82,8 +82,8 @@ pub fn verify(
 
         // update variables for the next iteration of the loop
         domain_root = field::exp(domain_root, 4);
-        max_degree_plus_1 = max_degree_plus_1 / 4;
-        domain_size = domain_size / 4;
+        max_degree_plus_1 /= 4;
+        domain_size /= 4;
         mem::swap(&mut positions, &mut augmented_positions);
     }
 
@@ -98,12 +98,12 @@ pub fn verify(
     }
 
     // make sure the remainder values satisfy the degree
-    return verify_remainder(
+    verify_remainder(
         &proof.rem_values,
         max_degree_plus_1,
         domain_root,
         options.blowup_factor(),
-    );
+    )
 }
 
 fn verify_remainder(
@@ -130,16 +130,14 @@ fn verify_remainder(
     let domain = field::get_power_series(domain_root, remainder.len());
     let mut xs = Vec::with_capacity(max_degree_plus_1);
     let mut ys = Vec::with_capacity(max_degree_plus_1);
-    for i in 0..max_degree_plus_1 {
-        let p = positions[i];
+    for &p in positions.iter().take(max_degree_plus_1) {
         xs.push(domain[p]);
         ys.push(remainder[p]);
     }
     let poly = polynom::interpolate(&xs, &ys, false);
 
     // check that polynomial evaluates correctly for all other points in the remainder
-    for i in max_degree_plus_1..positions.len() {
-        let p = positions[i];
+    for &p in positions.iter().skip(max_degree_plus_1) {
         if polynom::eval(&poly, domain[p]) != remainder[p] {
             return Err(format!(
                 "remainder is not a valid degree {} polynomial",
@@ -148,13 +146,13 @@ fn verify_remainder(
         }
     }
 
-    return Ok(true);
+    Ok(true)
 }
 
 // HELPER FUNCTIONS
 // ================================================================================================
 fn get_column_values(
-    values: &Vec<[u128; 4]>,
+    values: &[[u128; 4]],
     positions: &[usize],
     augmented_positions: &[usize],
     column_length: usize,
@@ -171,15 +169,15 @@ fn get_column_values(
         result.push(value);
     }
 
-    return result;
+    result
 }
 
 fn build_layer_merkle_proof(layer: &FriLayer, options: &ProofOptions) -> BatchMerkleProof {
-    return BatchMerkleProof {
+    BatchMerkleProof {
         values: hash_values(&layer.values, options.hash_fn()),
         nodes: layer.nodes.clone(),
         depth: layer.depth,
-    };
+    }
 }
 
 /// TODO: same as in prover. move to common?

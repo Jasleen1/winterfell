@@ -10,6 +10,9 @@ use std::marker::PhantomData;
 mod composition;
 use composition::{compose_constraints, compose_registers};
 
+mod constraints;
+use constraints::evaluate_constraints;
+
 mod fri;
 
 // VERIFIER
@@ -73,7 +76,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // 3 ----- Compute constraint evaluations at OOD point z ----------------------------------
 
-        //derive OOD point z and composition coefficients from the root of the constraint tree
+        // derive OOD point z and composition coefficients from the root of the constraint tree
+        // TODO: separate drawing of z and building of coefficients?
         let (z, coefficients) = draw_z_and_coefficients(constraint_root, trace_info.width());
 
         let evaluator = ConstraintEvaluator::<T, A>::new(trace_root, &trace_info, assertions);
@@ -104,7 +108,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
             .map(|(&t, c)| field::add(t, c))
             .collect::<Vec<u128>>();
 
-        // 6 ----- Verify low-degree proof -------------------------------------------------------------
+        // 5 ----- Verify low-degree proof -------------------------------------------------------------
         let max_degree = get_composition_degree(trace_info.length(), proof.max_constraint_degree());
 
         match fri::verify(
@@ -136,35 +140,4 @@ pub fn map_trace_to_constraint_positions(positions: &[usize]) -> Vec<usize> {
 // TODO: same as in prover. consolidate.
 fn get_composition_degree(trace_length: usize, max_constraint_degree: usize) -> usize {
     std::cmp::max(max_constraint_degree - 1, 1) * trace_length - 1
-}
-
-fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
-    evaluator: ConstraintEvaluator<T, A>,
-    state1: &[u128],
-    state2: &[u128],
-    x: u128,
-) -> u128 {
-    let (t_value, i_value, f_value) = evaluator.evaluate_at(state1, state2, x);
-
-    // Z(x) = x - 1
-    let z = field::sub(x, field::ONE);
-    let mut result = field::div(i_value, z);
-
-    // Z(x) = x - x_at_last_step
-    let z = field::sub(x, get_x_at_last_step(evaluator.trace_length()));
-    result = field::add(result, field::div(f_value, z));
-
-    // Z(x) = (x^steps - 1) / (x - x_at_last_step)
-    let z = field::div(
-        field::sub(field::exp(x, evaluator.trace_length() as u128), field::ONE),
-        z,
-    );
-    result = field::add(result, field::div(t_value, z));
-
-    result
-}
-
-fn get_x_at_last_step(trace_length: usize) -> u128 {
-    let trace_root = field::get_root_of_unity(trace_length);
-    field::exp(trace_root, (trace_length - 1) as u128)
 }
