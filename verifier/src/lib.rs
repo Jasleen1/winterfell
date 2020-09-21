@@ -11,7 +11,6 @@ mod composition;
 use composition::{compose_constraints, compose_registers};
 
 mod fri;
-mod quartic;
 
 // VERIFIER
 // ================================================================================================

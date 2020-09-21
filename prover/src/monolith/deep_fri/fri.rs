@@ -1,10 +1,10 @@
-use super::{super::types::LdeDomain, quartic};
+use super::super::types::LdeDomain;
 use common::{
     stark::{FriLayer, FriProof, ProofOptions},
     utils::{as_bytes, uninit_vector},
 };
 use crypto::{HashFunction, MerkleTree};
-use math::field;
+use math::{field, quartic};
 use std::mem;
 
 const MAX_REMAINDER_LENGTH: usize = 256;

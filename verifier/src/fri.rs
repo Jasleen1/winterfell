@@ -1,10 +1,9 @@
-use super::quartic;
 use common::{
     stark::{FriLayer, FriProof, ProofOptions},
     utils::{as_bytes, uninit_vector},
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{field, polynom};
+use math::{field, polynom, quartic};
 use std::mem;
 
 // VERIFIER
