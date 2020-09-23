@@ -1,5 +1,5 @@
 use common::{
-    stark::{FriLayer, FriProof, ProofOptions},
+    stark::{FriLayer, FriProof, ProofContext},
     utils::{as_bytes, uninit_vector},
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -10,12 +10,13 @@ use std::mem;
 // ================================================================================================
 
 pub fn verify(
+    context: &ProofContext,
     proof: &FriProof,
     evaluations: &[u128],
     positions: &[usize],
-    max_degree: usize,
-    options: &ProofOptions,
 ) -> Result<bool, String> {
+    let hash_fn = context.options().hash_fn();
+    let max_degree = context.deep_composition_degree();
     let domain_size = usize::pow(2, proof.layers[0].depth as u32) * 4;
     let domain_root = field::get_root_of_unity(domain_size);
 
@@ -46,13 +47,8 @@ pub fn verify(
         }
 
         // verify Merkle proof for the layer
-        let merkle_proof = build_layer_merkle_proof(&layer, options);
-        if !MerkleTree::verify_batch(
-            &layer.root,
-            &augmented_positions,
-            &merkle_proof,
-            options.hash_fn(),
-        ) {
+        let merkle_proof = build_layer_merkle_proof(&layer, hash_fn);
+        if !MerkleTree::verify_batch(&layer.root, &augmented_positions, &merkle_proof, hash_fn) {
             return Err(format!(
                 "verification of Merkle proof failed at layer {}",
                 depth
@@ -102,7 +98,7 @@ pub fn verify(
         &proof.rem_values,
         max_degree_plus_1,
         domain_root,
-        options.blowup_factor(),
+        context.options().blowup_factor(),
     )
 }
 
@@ -172,9 +168,9 @@ fn get_column_values(
     result
 }
 
-fn build_layer_merkle_proof(layer: &FriLayer, options: &ProofOptions) -> BatchMerkleProof {
+fn build_layer_merkle_proof(layer: &FriLayer, hash_fn: HashFunction) -> BatchMerkleProof {
     BatchMerkleProof {
-        values: hash_values(&layer.values, options.hash_fn()),
+        values: hash_values(&layer.values, hash_fn),
         nodes: layer.nodes.clone(),
         depth: layer.depth,
     }

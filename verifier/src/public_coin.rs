@@ -1,4 +1,4 @@
-use common::stark::{FriProof, ProofContext, PublicCoin};
+use common::stark::{Commitments, FriProof, ProofContext, PublicCoin};
 use crypto::HashFunction;
 
 pub struct VerifierCoin {
@@ -9,17 +9,12 @@ pub struct VerifierCoin {
 }
 
 impl VerifierCoin {
-    pub fn new(
-        context: &ProofContext,
-        trace_root: [u8; 32],
-        constraint_root: [u8; 32],
-        fri_proof: &FriProof,
-    ) -> Self {
+    pub fn new(context: &ProofContext, commitments: &Commitments, fri_proof: &FriProof) -> Self {
         let hash_fn = context.options().hash_fn();
         VerifierCoin {
             context: context.clone(),
-            constraint_seed: trace_root,
-            composition_seed: constraint_root,
+            constraint_seed: commitments.trace_root,
+            composition_seed: commitments.constraint_root,
             query_seed: build_query_seed(fri_proof, hash_fn),
         }
     }

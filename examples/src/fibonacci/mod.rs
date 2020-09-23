@@ -70,7 +70,7 @@ impl Example for FibExample {
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
         // TODO: clean up
-        let verifier = Verifier::<FibEvaluator, IoAssertionEvaluator>::new(proof.options.clone());
+        let verifier = Verifier::<FibEvaluator, IoAssertionEvaluator>::new();
         verifier.verify(proof, assertions)
     }
 }

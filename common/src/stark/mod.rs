@@ -2,7 +2,7 @@ mod options;
 pub use options::ProofOptions;
 
 mod proof;
-pub use proof::{DeepValues, FriLayer, FriProof, StarkProof};
+pub use proof::{Commitments, Context, DeepValues, FriLayer, FriProof, Queries, StarkProof};
 
 mod trace_info;
 pub use trace_info::TraceInfo;
