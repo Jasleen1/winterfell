@@ -113,15 +113,13 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         // 4 ----- Verify low-degree proof -------------------------------------------------------------
         // make sure that evaluations we computed in the previous step are in fact evaluations
         // of a polynomial of degree equal to deep_composition_degree
-        match fri::verify(
+        fri::verify(
             &context,
             proof.read_fri_proof(),
             &evaluations,
             &query_positions,
-        ) {
-            Ok(result) => Ok(result),
-            Err(msg) => Err(format!("verification of low-degree proof failed: {}", msg)),
-        }
+        )
+        .map_err(|msg| format!("verification of low-degree proof failed: {}", msg))
     }
 }
 

@@ -6,6 +6,7 @@ edition = "2018"
 [lib]
 name = "crypto"
 path = "src/lib.rs"
+bench = false
 
 [[bench]]
 name = "all"
@@ -18,3 +19,4 @@ serde = { version = "1.0.114", features = ["derive"] }
 
 [dev-dependencies]
 criterion = "0.3.3"
+proptest = "0.10.1"

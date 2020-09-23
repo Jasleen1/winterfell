@@ -1,21 +1,29 @@
 #[derive(Copy, Clone)]
-pub struct TraceInfo(usize, usize, usize);
+pub struct TraceInfo {
+    width: usize,
+    length: usize,
+    blowup: usize,
+}
 
 impl TraceInfo {
     pub fn new(width: usize, length: usize, blowup: usize) -> Self {
-        TraceInfo(width, length, blowup)
+        TraceInfo {
+            width,
+            length,
+            blowup,
+        }
     }
 
     pub fn width(&self) -> usize {
-        self.0
+        self.width
     }
 
     pub fn length(&self) -> usize {
-        self.1
+        self.length
     }
 
     pub fn blowup(&self) -> usize {
-        self.2
+        self.blowup
     }
 
     pub fn lde_domain_size(&self) -> usize {
