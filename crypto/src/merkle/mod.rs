@@ -10,6 +10,7 @@ mod tests;
 
 // TYPES AND INTERFACES
 // ================================================================================================
+#[derive(Debug)]
 pub struct MerkleTree {
     nodes: Vec<[u8; 32]>,
     values: Vec<[u8; 32]>,
