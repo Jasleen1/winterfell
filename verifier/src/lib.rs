@@ -1,6 +1,6 @@
 use common::stark::{
     Assertion, AssertionEvaluator, CompositionCoefficients, ConstraintEvaluator, DeepValues,
-    ProofContext, ProofOptions, PublicCoin, StarkProof, TransitionEvaluator,
+    ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
 };
 
 use math::field::{self, add, div, exp, mul, sub};
@@ -18,17 +18,15 @@ use proof::StarkProofImpl;
 // ================================================================================================
 
 pub struct Verifier<T: TransitionEvaluator, A: AssertionEvaluator> {
-    options: ProofOptions,
     _marker1: PhantomData<T>,
     _marker2: PhantomData<A>,
 }
 
+#[allow(clippy::new_without_default)]
 impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
-    /// Creates a new verifier for the specified `options`. Generic parameters T and A
-    /// define specifics of the computation for this verifier.
-    pub fn new(options: ProofOptions) -> Verifier<T, A> {
+    /// Creates a new verifier for a computation defined by generic parameters T and A.
+    pub fn new() -> Verifier<T, A> {
         Verifier {
-            options,
             _marker1: PhantomData,
             _marker2: PhantomData,
         }
@@ -116,11 +114,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         // make sure that evaluations we computed in the previous step are in fact evaluations
         // of a polynomial of degree equal to deep_composition_degree
         match fri::verify(
+            &context,
             proof.read_fri_proof(),
             &evaluations,
             &query_positions,
-            context.deep_composition_degree(),
-            &self.options,
         ) {
             Ok(result) => Ok(result),
             Err(msg) => Err(format!("verification of low-degree proof failed: {}", msg)),

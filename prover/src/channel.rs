@@ -1,4 +1,6 @@
-use common::stark::{DeepValues, FriProof, ProofContext, PublicCoin, StarkProof};
+use common::stark::{
+    Commitments, Context, DeepValues, FriProof, ProofContext, PublicCoin, Queries, StarkProof,
+};
 use crypto::BatchMerkleProof;
 
 pub struct ProverChannel {
@@ -54,17 +56,23 @@ impl ProverChannel {
         fri_proof: FriProof,
     ) -> StarkProof {
         StarkProof {
-            trace_root: self.trace_root.unwrap(),
-            lde_domain_depth: trace_paths.depth,
-            trace_nodes: trace_paths.nodes,
-            trace_states,
-            constraint_root: self.constraint_root.unwrap(),
-            constraint_proof: constraint_paths,
-            max_constraint_degree: self.context.max_constraint_degree() as u8,
+            context: Context {
+                lde_domain_depth: trace_paths.depth,
+                max_constraint_degree: self.context.max_constraint_degree() as u8,
+                options: self.context().options().clone(),
+            },
+            commitments: Commitments {
+                trace_root: self.trace_root.unwrap(),
+                constraint_root: self.constraint_root.unwrap(),
+            },
+            queries: Queries {
+                trace_paths: trace_paths.nodes,
+                trace_states,
+                constraint_proof: constraint_paths,
+            },
             deep_values,
             fri_proof,
             pow_nonce: 0,
-            options: self.context().options().clone(),
         }
     }
 }

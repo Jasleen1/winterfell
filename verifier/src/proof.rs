@@ -17,25 +17,21 @@ pub trait StarkProofImpl {
 
 impl StarkProofImpl for StarkProof {
     fn read_context(&self) -> ProofContext {
-        let trace_width = self.trace_states[0].len();
+        let context = &self.context;
+        let trace_width = self.deep_values.trace_at_z1.len();
         let trace_length =
-            usize::pow(2, self.lde_domain_depth as u32) / self.options.blowup_factor();
+            usize::pow(2, context.lde_domain_depth as u32) / context.options.blowup_factor();
 
         ProofContext::new(
             trace_width,
             trace_length,
-            self.max_constraint_degree as usize,
-            self.options.clone(),
+            context.max_constraint_degree as usize,
+            context.options.clone(),
         )
     }
 
     fn init_public_coin(&self, context: &ProofContext) -> VerifierCoin {
-        VerifierCoin::new(
-            context,
-            self.trace_root,
-            self.constraint_root,
-            &self.fri_proof,
-        )
+        VerifierCoin::new(context, &self.commitments, &self.fri_proof)
     }
 
     fn read_deep_values(&self) -> &DeepValues {
@@ -43,26 +39,32 @@ impl StarkProofImpl for StarkProof {
     }
 
     fn read_trace_states(&self, positions: &[usize]) -> Result<Vec<Vec<u128>>, String> {
-        let hash_fn = self.options.hash_fn();
+        let queries = &self.queries;
+        let hash_fn = self.context.options.hash_fn();
 
-        let mut hashed_states = uninit_vector::<[u8; 32]>(self.trace_states.len());
+        let mut hashed_states = uninit_vector::<[u8; 32]>(queries.trace_states.len());
         #[allow(clippy::needless_range_loop)]
-        for i in 0..self.trace_states.len() {
-            hash_fn(as_bytes(&self.trace_states[i]), &mut hashed_states[i]);
+        for i in 0..queries.trace_states.len() {
+            hash_fn(as_bytes(&queries.trace_states[i]), &mut hashed_states[i]);
         }
 
         let trace_proof = BatchMerkleProof {
-            nodes: self.trace_nodes.clone(),
+            nodes: queries.trace_paths.clone(),
             values: hashed_states,
-            depth: self.lde_domain_depth,
+            depth: self.context.lde_domain_depth,
         };
 
-        if !MerkleTree::verify_batch(&self.trace_root, positions, &trace_proof, hash_fn) {
+        if !MerkleTree::verify_batch(
+            &self.commitments.trace_root,
+            positions,
+            &trace_proof,
+            hash_fn,
+        ) {
             return Err(String::from("verification of trace Merkle proof failed"));
         }
 
         // TODO: get rid of this unnecessary copying
-        let trace_states = self
+        let trace_states = queries
             .trace_states
             .iter()
             .map(|s| s.iter().copied().collect())
@@ -72,12 +74,14 @@ impl StarkProofImpl for StarkProof {
     }
 
     fn read_constraint_evaluations(&self, positions: &[usize]) -> Result<Vec<u128>, String> {
-        let hash_fn = self.options.hash_fn();
+        let queries = &self.queries;
+        let hash_fn = self.context.options.hash_fn();
+
         let c_positions = map_trace_to_constraint_positions(positions);
         if !MerkleTree::verify_batch(
-            &self.constraint_root,
+            &self.commitments.constraint_root,
             &c_positions,
-            &self.constraint_proof,
+            &queries.constraint_proof,
             hash_fn,
         ) {
             return Err(String::from(
@@ -87,7 +91,7 @@ impl StarkProofImpl for StarkProof {
 
         // build constraint evaluation values from the leaves of constraint Merkle proof
         let mut evaluations: Vec<u128> = Vec::with_capacity(positions.len());
-        let leaves = &self.constraint_proof.values;
+        let leaves = &queries.constraint_proof.values;
         for &position in positions.iter() {
             let leaf_idx = c_positions.iter().position(|&v| v == position / 2).unwrap();
             let element_start = (position % 2) * 16;
