@@ -1,6 +1,6 @@
 use common::stark::{
-    compute_trace_query_positions, draw_z_and_coefficients, Assertion, AssertionEvaluator,
-    ConstraintEvaluator, ProofOptions, StarkProof, TransitionEvaluator,
+    Assertion, AssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions, PublicCoin,
+    StarkProof, TransitionEvaluator,
 };
 use crypto::MerkleTree;
 use math::field;
@@ -14,6 +14,9 @@ mod constraints;
 use constraints::evaluate_constraints;
 
 mod fri;
+
+mod public_coin;
+use public_coin::VerifierCoin;
 
 // VERIFIER
 // ================================================================================================
@@ -37,32 +40,30 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let trace_info = proof.trace_info();
         let hash_fn = self.options.hash_fn();
 
+        // build context and public coin
+        // TODO: move into proof implementation
+        let context = ProofContext::new(
+            trace_info.width(),
+            trace_info.length(),
+            proof.max_constraint_degree(),
+            proof.options().clone(),
+        );
+        let coin = VerifierCoin::new(
+            &context,
+            *proof.trace_root(),
+            *proof.constraint_root(),
+            proof.fri_proof(),
+        );
+
         // 1 ----- Verify proof of work and determine query positions -----------------------------
-        let fri_proof = proof.fri_proof();
-        let mut fri_roots: Vec<u8> = Vec::new();
-        for layer in fri_proof.layers.iter() {
-            layer.root.iter().for_each(|&v| fri_roots.push(v));
-        }
-        fri_proof.rem_root.iter().for_each(|&v| fri_roots.push(v));
 
-        let mut seed = [0u8; 32];
-        hash_fn(&fri_roots, &mut seed);
-        /*
-        // TODO
-        let seed = match utils::verify_pow_nonce(seed, proof.pow_nonce(), &self.options) {
-            Ok(seed) => seed,
-            Err(msg) => return Err(msg)
-        };
-        */
-
-        let t_positions =
-            compute_trace_query_positions(seed, trace_info.lde_domain_size(), &self.options);
-        let c_positions = map_trace_to_constraint_positions(&t_positions);
+        let query_positions = coin.draw_query_positions();
+        let c_positions = map_trace_to_constraint_positions(&query_positions);
 
         // 2 ----- Verify trace and constraint Merkle proofs --------------------------------------
         let trace_root = *proof.trace_root();
         let trace_proof = proof.trace_proof();
-        if !MerkleTree::verify_batch(&trace_root, &t_positions, &trace_proof, hash_fn) {
+        if !MerkleTree::verify_batch(&trace_root, &query_positions, &trace_proof, hash_fn) {
             return Err(String::from("verification of trace Merkle proof failed"));
         }
 
@@ -76,10 +77,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // 3 ----- Compute constraint evaluations at OOD point z ----------------------------------
 
-        // derive OOD point z and composition coefficients from the root of the constraint tree
-        // TODO: separate drawing of z and building of coefficients?
-        let (z, coefficients) = draw_z_and_coefficients(constraint_root, trace_info.width());
+        // draw a pseudo-random out-of-domain point z
+        let z = coin.draw_z();
 
+        // build constraint evaluator
         let evaluator = ConstraintEvaluator::<T, A>::new(trace_root, &trace_info, assertions);
 
         // evaluate constraints at z
@@ -92,11 +93,13 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // 4 ----- Compute composition polynomial evaluations -------------------------------------
 
+        let coefficients = coin.draw_composition_coefficients();
+
         // compute composition values separately for trace and constraints, and then add them together
-        let t_composition = compose_registers(&proof, &t_positions, z, &coefficients);
+        let t_composition = compose_registers(&proof, &query_positions, z, &coefficients);
         let c_composition = compose_constraints(
             &proof,
-            &t_positions,
+            &query_positions,
             &c_positions,
             z,
             constraint_evaluation_at_z,
@@ -112,9 +115,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let max_degree = get_composition_degree(trace_info.length(), proof.max_constraint_degree());
 
         match fri::verify(
-            &fri_proof,
+            &proof.fri_proof(),
             &evaluations,
-            &t_positions,
+            &query_positions,
             max_degree,
             &self.options,
         ) {
