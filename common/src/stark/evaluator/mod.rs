@@ -93,7 +93,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
         // TODO: build and save constraint divisors at construction time?
-        let x_at_last_step = self.get_x_at(self.trace_length() - 1);
+        let x_at_last_step = self.get_x_at_last_step();
         vec![
             ConstraintDivisor::from_transition(self.trace_length(), x_at_last_step),
             ConstraintDivisor::from_assertion(1),
@@ -125,6 +125,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn blowup_factor(&self) -> usize {
         self.trace_info.blowup()
+    }
+
+    pub fn get_x_at_last_step(&self) -> u128 {
+        self.get_x_at(self.trace_length() - 1)
     }
 
     // HELPER METHODS

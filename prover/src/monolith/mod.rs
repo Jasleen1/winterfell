@@ -41,9 +41,9 @@ pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator> {
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
-    // Creates a new prover for the specified `options`. Generic parameters T and A
-    // define specifics of the computation for this prover.
-    // TODO: set a default value for A?
+    /// Creates a new prover for the specified `options`. Generic parameters T and A
+    /// define specifics of the computation for this prover.
+    /// TODO: set a default value for A?
     pub fn new(options: ProofOptions) -> Prover<T, A> {
         Prover {
             options,
@@ -53,7 +53,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
     }
 
     /// Generates a STARK proof attesting that the `trace` satisfies the `assertions` and that
-    // it is valid in the context of the computation described by this prover.
+    /// it is valid in the context of the computation described by this prover.
     pub fn prove(&self, trace: Vec<Vec<u128>>, assertions: Vec<Assertion>) -> StarkProof {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);
