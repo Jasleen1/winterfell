@@ -1,4 +1,4 @@
-use super::TraceInfo;
+use super::{ProofContext, PublicCoin, TraceInfo};
 use math::field;
 
 mod transition;
@@ -22,26 +22,42 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
-    pub fn new(seed: [u8; 32], trace_info: &TraceInfo, assertions: Vec<Assertion>) -> Self {
+    pub fn new<C: PublicCoin>(
+        coin: &C,
+        context: &ProofContext,
+        assertions: Vec<Assertion>,
+    ) -> Self {
         assert!(
             !assertions.is_empty(),
             "at least one assertion must be provided"
         );
 
+        // TODO: switch over to using proof context
+        let trace_info = TraceInfo::new(
+            context.trace_width(),
+            context.trace_length(),
+            context.options().blowup_factor(),
+        );
+
         // TODO: switch over to an iterator to generate coefficients
-        let (t_coefficients, a_coefficients) = Self::build_coefficients(seed);
-        let transition = T::new(trace_info, &t_coefficients);
+        let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
+        let transition = T::new(&trace_info, &t_coefficients);
         let max_constraint_degree = *transition.degrees().iter().max().unwrap();
         let transition_degree_map =
             group_transition_constraints(transition.degrees(), trace_info.length());
 
         let composition_degree = get_composition_degree(trace_info.length(), max_constraint_degree);
-        let assertions = A::new(&assertions, trace_info, composition_degree, &a_coefficients);
+        let assertions = A::new(
+            &assertions,
+            &trace_info,
+            composition_degree,
+            &a_coefficients,
+        );
 
         ConstraintEvaluator {
             transition,
             assertions,
-            trace_info: *trace_info,
+            trace_info,
             max_constraint_degree,
             transition_degree_map,
         }
@@ -77,7 +93,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
         // TODO: build and save constraint divisors at construction time?
-        let x_at_last_step = self.get_x_at(self.trace_length() - 1);
+        let x_at_last_step = self.get_x_at_last_step();
         vec![
             ConstraintDivisor::from_transition(self.trace_length(), x_at_last_step),
             ConstraintDivisor::from_assertion(1),
@@ -103,16 +119,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.max_constraint_degree
     }
 
-    pub fn deep_composition_degree(&self) -> usize {
-        get_composition_degree(self.trace_length(), self.max_constraint_degree) - 1
-    }
-
     pub fn trace_length(&self) -> usize {
         self.trace_info.length()
     }
 
     pub fn blowup_factor(&self) -> usize {
         self.trace_info.blowup()
+    }
+
+    pub fn get_x_at_last_step(&self) -> u128 {
+        self.get_x_at(self.trace_length() - 1)
     }
 
     // HELPER METHODS
@@ -146,11 +162,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         result
     }
 
-    fn build_coefficients(seed: [u8; 32]) -> (Vec<u128>, Vec<u128>) {
+    fn build_coefficients<C: PublicCoin>(coin: &C) -> (Vec<u128>, Vec<u128>) {
         let num_t_coefficients = T::MAX_CONSTRAINTS * 2;
         let num_a_coefficients = A::MAX_CONSTRAINTS * 2;
 
-        let coefficients = field::prng_vector(seed, num_t_coefficients + num_a_coefficients);
+        let coefficients =
+            coin.draw_constraint_coefficients(num_t_coefficients + num_a_coefficients);
         (
             coefficients[..num_t_coefficients].to_vec(),
             coefficients[num_t_coefficients..].to_vec(),

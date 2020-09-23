@@ -70,7 +70,7 @@ impl Example for FibExample {
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
         // TODO: clean up
-        let verifier = Verifier::<FibEvaluator, IoAssertionEvaluator>::new(proof.options().clone());
+        let verifier = Verifier::<FibEvaluator, IoAssertionEvaluator>::new(proof.options.clone());
         verifier.verify(proof, assertions)
     }
 }
@@ -105,6 +105,7 @@ pub struct FibEvaluator {
 
 impl TransitionEvaluator for FibEvaluator {
     const MAX_CONSTRAINTS: usize = 2;
+    const MAX_CONSTRAINT_DEGREE: usize = 1;
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------

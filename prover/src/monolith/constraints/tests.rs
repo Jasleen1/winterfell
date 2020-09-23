@@ -1,9 +1,12 @@
-use super::{utils::infer_degree, ConstraintEvaluationTable, TraceInfo};
+use super::{utils::infer_degree, ConstraintEvaluationTable};
 use crate::{
-    monolith::{commit_trace, extend_trace},
+    channel::ProverChannel,
+    monolith::{build_trace_tree, extend_trace},
     tests::{build_fib_trace, FibEvaluator},
 };
-use common::stark::{Assertion, ConstraintEvaluator, IoAssertionEvaluator};
+use common::stark::{
+    Assertion, ConstraintEvaluator, IoAssertionEvaluator, ProofContext, ProofOptions,
+};
 use crypto::hash::blake3;
 
 #[test]
@@ -70,10 +73,10 @@ fn build_constraint_poly() {
     // evaluate constraints
     let trace_length = 8;
     let blowup_factor = 4;
+    let context = build_proof_context(trace_length, blowup_factor);
     let evaluations = build_constraint_evaluations(trace_length, blowup_factor);
 
-    let trace_info = TraceInfo::new(2, trace_length, blowup_factor);
-    let constraint_poly = super::build_constraint_poly(evaluations, &trace_info);
+    let constraint_poly = super::build_constraint_poly(evaluations, &context);
 
     assert_eq!(8, constraint_poly.degree());
 }
@@ -84,14 +87,18 @@ fn build_constraint_evaluations(
     trace_length: usize,
     blowup_factor: usize,
 ) -> ConstraintEvaluationTable {
+    // build proof context
+    let context = build_proof_context(trace_length, blowup_factor);
+
     let trace = build_trace(trace_length);
-    let trace_info = TraceInfo::new(2, trace_length, blowup_factor);
     let result = trace.get(1, trace_length - 1);
-    let lde_domain = super::super::build_lde_domain(&trace_info);
+    let lde_domain = super::super::build_lde_domain(&context);
     let (extended_trace, _) = extend_trace(trace, &lde_domain);
 
     // commit to the trace
-    let trace_tree = commit_trace(&extended_trace, blake3);
+    let mut channel = ProverChannel::new(&context);
+    let trace_tree = build_trace_tree(&extended_trace, blake3);
+    channel.commit_trace(*trace_tree.root());
 
     // build constraint evaluator
     let assertions = vec![
@@ -100,9 +107,7 @@ fn build_constraint_evaluations(
         Assertion::new(1, trace_length - 1, result),
     ];
     let evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
-        *trace_tree.root(),
-        &trace_info,
-        assertions,
+        &channel, &context, assertions,
     );
 
     // evaluate constraints
@@ -112,4 +117,9 @@ fn build_constraint_evaluations(
 fn build_trace(length: usize) -> super::TraceTable {
     let trace = build_fib_trace(length * 2);
     super::TraceTable::new(trace)
+}
+
+fn build_proof_context(trace_length: usize, blowup: usize) -> ProofContext {
+    let options = ProofOptions::new(32, blowup, 0, blake3);
+    ProofContext::new(2, trace_length, 1, options)
 }

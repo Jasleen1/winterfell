@@ -8,7 +8,7 @@ mod trace_info;
 pub use trace_info::TraceInfo;
 
 mod composition;
-pub use composition::{draw_z_and_coefficients, CompositionCoefficients};
+pub use composition::CompositionCoefficients;
 
 mod evaluator;
 pub use evaluator::{
@@ -16,5 +16,8 @@ pub use evaluator::{
     TransitionEvaluator,
 };
 
-mod queries;
-pub use queries::compute_trace_query_positions;
+mod context;
+pub use context::ProofContext;
+
+mod public_coin;
+pub use public_coin::PublicCoin;

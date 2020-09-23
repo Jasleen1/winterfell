@@ -3,7 +3,7 @@ use super::{
     utils,
 };
 use common::{
-    stark::{AssertionEvaluator, ConstraintEvaluator, TraceInfo, TransitionEvaluator},
+    stark::{AssertionEvaluator, ConstraintEvaluator, ProofContext, TransitionEvaluator},
     utils::uninit_vector,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -77,11 +77,11 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 /// polynomials into a single polynomial
 pub fn build_constraint_poly(
     evaluations: ConstraintEvaluationTable,
-    trace_info: &TraceInfo,
+    context: &ProofContext,
 ) -> ConstraintPoly {
     let ce_domain_size = evaluations.domain_size();
-    let trace_length = trace_info.length();
-    let constraint_poly_degree = ce_domain_size - trace_length;
+    let trace_length = context.trace_length();
+    let constraint_poly_degree = context.composition_degree();
     let x_at_last_step = get_x_at_last_step(trace_length);
 
     let ce_domain_root = field::get_root_of_unity(ce_domain_size);
@@ -136,7 +136,7 @@ pub fn extend_constraint_evaluations(
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
-pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> MerkleTree {
+pub fn build_constraint_tree(evaluations: Vec<u128>, hash_fn: HashFunction) -> MerkleTree {
     assert!(
         evaluations.len().is_power_of_two(),
         "number of values must be a power of 2"
@@ -161,7 +161,7 @@ pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> Merk
 pub fn query_constraints(
     constraint_tree: MerkleTree,
     trace_positions: &[usize],
-) -> ([u8; 32], BatchMerkleProof) {
+) -> BatchMerkleProof {
     // first, map trace positions to the corresponding positions in the constraint tree;
     // we need to do this because we store 2 constraint evaluations per leaf
     let mut constraint_positions = Vec::with_capacity(trace_positions.len());
@@ -173,9 +173,7 @@ pub fn query_constraints(
     }
 
     // build Merkle authentication paths to the leaves specified by constraint positions
-    let constraint_proof = constraint_tree.prove_batch(&constraint_positions);
-
-    (*constraint_tree.root(), constraint_proof)
+    constraint_tree.prove_batch(&constraint_positions)
 }
 
 // HELPER FUNCTIONS
