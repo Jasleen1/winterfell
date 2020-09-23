@@ -60,7 +60,7 @@ pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, P
 }
 
 /// Builds a Merkle tree out of trace table rows (hash of each row becomes a leaf in the tree).
-pub fn commit_trace(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
+pub fn build_trace_tree(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
     // allocate vector to store row hashes
     let mut hashed_states = uninit_vector::<[u8; 32]>(trace.num_states());
 
@@ -82,7 +82,7 @@ pub fn query_trace(
     trace: TraceTable,
     trace_tree: MerkleTree,
     positions: &[usize],
-) -> ([u8; 32], BatchMerkleProof, Vec<Vec<u128>>) {
+) -> (BatchMerkleProof, Vec<Vec<u128>>) {
     // allocate memory for queried trace states
     let mut trace_states = Vec::with_capacity(positions.len());
 
@@ -97,5 +97,5 @@ pub fn query_trace(
     // build Merkle authentication paths to the leaves specified by positions
     let trace_proof = trace_tree.prove_batch(&positions);
 
-    (*trace_tree.root(), trace_proof, trace_states)
+    (trace_proof, trace_states)
 }

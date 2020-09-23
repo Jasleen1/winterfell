@@ -136,7 +136,7 @@ pub fn extend_constraint_evaluations(
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
-pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> MerkleTree {
+pub fn build_constraint_tree(evaluations: Vec<u128>, hash_fn: HashFunction) -> MerkleTree {
     assert!(
         evaluations.len().is_power_of_two(),
         "number of values must be a power of 2"
@@ -161,7 +161,7 @@ pub fn commit_constraints(evaluations: Vec<u128>, hash_fn: HashFunction) -> Merk
 pub fn query_constraints(
     constraint_tree: MerkleTree,
     trace_positions: &[usize],
-) -> ([u8; 32], BatchMerkleProof) {
+) -> BatchMerkleProof {
     // first, map trace positions to the corresponding positions in the constraint tree;
     // we need to do this because we store 2 constraint evaluations per leaf
     let mut constraint_positions = Vec::with_capacity(trace_positions.len());
@@ -173,9 +173,7 @@ pub fn query_constraints(
     }
 
     // build Merkle authentication paths to the leaves specified by constraint positions
-    let constraint_proof = constraint_tree.prove_batch(&constraint_positions);
-
-    (*constraint_tree.root(), constraint_proof)
+    constraint_tree.prove_batch(&constraint_positions)
 }
 
 // HELPER FUNCTIONS

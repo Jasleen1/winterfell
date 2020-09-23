@@ -1,7 +1,7 @@
 use common::{
     stark::{
         Assertion, AssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions, PublicCoin,
-        StarkProof, TraceInfo, TransitionEvaluator,
+        StarkProof, TransitionEvaluator,
     },
     utils::log2,
 };
@@ -13,12 +13,12 @@ mod types;
 use types::{CompositionPoly, TraceTable};
 
 mod trace;
-use trace::{build_lde_domain, commit_trace, extend_trace, query_trace};
+use trace::{build_lde_domain, build_trace_tree, extend_trace, query_trace};
 
 mod constraints;
 use constraints::{
-    build_constraint_poly, commit_constraints, evaluate_constraints, extend_constraint_evaluations,
-    query_constraints,
+    build_constraint_poly, build_constraint_tree, evaluate_constraints,
+    extend_constraint_evaluations, query_constraints,
 };
 
 mod deep_fri;
@@ -58,22 +58,19 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);
 
-        // TODO: get max_constraint_degree from TransitionEvaluator
+        // create context to hold basic parameters for the computation; the context is also
+        // used as a single source for such parameters as domain sizes, constraint degrees etc.
         let context = ProofContext::new(
             trace.num_registers(),
             trace.num_states(),
-            1,
+            T::MAX_CONSTRAINT_DEGREE,
             self.options.clone(),
         );
 
+        // create a channel; this simulates interaction between the prover and the verifier;
+        // the channel will be used to commit to values and to draw randomness that should
+        // come from the verifier
         let mut channel = ProverChannel::new(&context);
-
-        // save trace info here, before trace table is extended
-        let trace_info = TraceInfo::new(
-            trace.num_registers(),
-            trace.num_states(),
-            self.options.blowup_factor(),
-        );
 
         // 1 ----- extend execution trace -------------------------------------------------------------
 
@@ -87,7 +84,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         );
 
         // extend the execution trace; this interpolates each register of the trace into a polynomial,
-        // and then evaluates the polynomial over LDE domain; each of the trace polynomials has
+        // and then evaluates the polynomial over the LDE domain; each of the trace polynomials has
         // degree = trace_length - 1
         let (extended_trace, trace_polys) = extend_trace(trace, &lde_domain);
         debug!(
@@ -101,7 +98,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // 2 ----- commit to the extended execution trace -----------------------------------------
         let now = Instant::now();
-        let trace_tree = commit_trace(&extended_trace, self.options.hash_fn());
+        let trace_tree = build_trace_tree(&extended_trace, self.options.hash_fn());
         channel.commit_trace(*trace_tree.root());
         debug!(
             "Committed to extended execution trace by building a Merkle tree of depth {} in {} ms",
@@ -112,10 +109,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 3 ----- evaluate constraints -----------------------------------------------------------
         let now = Instant::now();
 
-        // build constraint evaluator using root of the trace Merkle tree as a seed to draw
-        // random values; these values are used by the evaluator to compute a random linear
+        // build constraint evaluator; the channel is passed in for the evaluator to draw random
+        // values from; these values are used by the evaluator to compute a random linear
         // combination of constraint evaluations
-        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, &trace_info, assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, &context, assertions);
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
@@ -137,7 +134,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             now.elapsed().as_millis()
         );
 
-        // then, evaluate constraint polynomial over LDE domain
+        // then, evaluate constraint polynomial over the LDE domain
         let now = Instant::now();
         let combined_constraint_evaluations =
             extend_constraint_evaluations(&constraint_poly, &lde_domain);
@@ -150,7 +147,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // finally, commit to constraint polynomial evaluations
         let now = Instant::now();
         let constraint_tree =
-            commit_constraints(combined_constraint_evaluations, self.options.hash_fn());
+            build_constraint_tree(combined_constraint_evaluations, self.options.hash_fn());
         channel.commit_constraints(*constraint_tree.root());
         debug!(
             "Committed to constraint evaluations by building a Merkle tree of depth {} in {} ms",
@@ -164,9 +161,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // draw an out-of-domain point z from the entire field,
         let z = channel.draw_z();
 
-        // allocate memory for the composition polynomial
-        let mut composition_poly =
-            CompositionPoly::new(context.lde_domain_size(), context.deep_composition_degree());
+        // allocate memory for the composition polynomial; this will allocate enough memory to
+        // hold composition polynomial evaluations over the LDE domain (done in the next step)
+        let mut composition_poly = CompositionPoly::new(&context);
 
         // draw random coefficients to use during polynomial composition
         let coefficients = channel.draw_composition_coefficients();
@@ -188,12 +185,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
         let composed_evaluations = evaluate_composition_poly(composition_poly, &lde_domain);
         debug_assert_eq!(
-            evaluator.deep_composition_degree(),
+            context.deep_composition_degree(),
             utils::infer_degree(&composed_evaluations)
         );
         debug!(
             "Evaluated DEEP composition polynomial over LDE domain (2^{} elements) in {} ms",
-            log2(evaluator.lde_domain_size()),
+            log2(context.lde_domain_size()),
             now.elapsed().as_millis()
         );
 
@@ -217,13 +214,13 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         }
 
         // commit to FRI layers
-        let pow_nonce = channel.commit_fri(fri_roots);
+        channel.commit_fri(fri_roots);
 
         // generate pseudo-random query positions
-        let positions = channel.draw_query_positions();
+        let query_positions = channel.draw_query_positions();
         debug!(
             "Determined {} query positions in {} ms",
-            positions.len(),
+            query_positions.len(),
             now.elapsed().as_millis()
         );
 
@@ -231,31 +228,24 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
 
         // generate FRI proof
-        let fri_proof = fri::build_proof(fri_trees, fri_values, &positions);
+        let fri_proof = fri::build_proof(fri_trees, fri_values, &query_positions);
 
         // query the execution trace at the selected position; for each query, we need the
-        // state of the trace at that position + Merkle authentication path from trace_root
-        let (trace_root, trace_proof, trace_states) =
-            query_trace(extended_trace, trace_tree, &positions);
+        // state of the trace at that position + Merkle authentication path
+        let (trace_paths, trace_states) = query_trace(extended_trace, trace_tree, &query_positions);
 
-        // query the constraint evaluations at the selected positions; for each query, we
-        // need just a Merkle authentication path from constraint_root. this is because
-        // constraint evaluations for each step are merged into a single value and Merkle
-        // authentication paths contain these values already
-        let (constraint_root, constraint_proof) = query_constraints(constraint_tree, &positions);
+        // query the constraint evaluations at the selected positions; for each query, we need just
+        // a Merkle authentication path. this is because constraint evaluations for each step are
+        // merged into a single value and Merkle authentication paths contain these values already
+        let constraint_paths = query_constraints(constraint_tree, &query_positions);
 
         // build the proof object
-        let proof = StarkProof::new(
-            trace_root,
-            trace_proof,
+        let proof = channel.build_proof(
+            trace_paths,
             trace_states,
-            constraint_root,
-            constraint_proof,
-            evaluator.max_constraint_degree(),
+            constraint_paths,
             deep_values,
             fri_proof,
-            pow_nonce,
-            self.options.clone(),
         );
         debug!("Built proof object in {} ms", now.elapsed().as_millis());
 

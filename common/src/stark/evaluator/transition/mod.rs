@@ -5,6 +5,7 @@ use super::{get_composition_degree, TraceInfo};
 
 pub trait TransitionEvaluator {
     const MAX_CONSTRAINTS: usize;
+    const MAX_CONSTRAINT_DEGREE: usize;
 
     fn new(trace: &TraceInfo, coefficients: &[u128]) -> Self;
 

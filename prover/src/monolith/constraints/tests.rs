@@ -1,7 +1,7 @@
-use super::{super::TraceInfo, utils::infer_degree, ConstraintEvaluationTable};
+use super::{utils::infer_degree, ConstraintEvaluationTable};
 use crate::{
     channel::ProverChannel,
-    monolith::{commit_trace, extend_trace},
+    monolith::{build_trace_tree, extend_trace},
     tests::{build_fib_trace, FibEvaluator},
 };
 use common::stark::{
@@ -88,7 +88,6 @@ fn build_constraint_evaluations(
     blowup_factor: usize,
 ) -> ConstraintEvaluationTable {
     // build proof context
-    let trace_info = TraceInfo::new(2, trace_length, blowup_factor);
     let context = build_proof_context(trace_length, blowup_factor);
 
     let trace = build_trace(trace_length);
@@ -98,7 +97,7 @@ fn build_constraint_evaluations(
 
     // commit to the trace
     let mut channel = ProverChannel::new(&context);
-    let trace_tree = commit_trace(&extended_trace, blake3);
+    let trace_tree = build_trace_tree(&extended_trace, blake3);
     channel.commit_trace(*trace_tree.root());
 
     // build constraint evaluator
@@ -108,9 +107,7 @@ fn build_constraint_evaluations(
         Assertion::new(1, trace_length - 1, result),
     ];
     let evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
-        &channel,
-        &trace_info,
-        assertions,
+        &channel, &context, assertions,
     );
 
     // evaluate constraints

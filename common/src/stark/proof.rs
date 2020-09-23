@@ -9,17 +9,17 @@ use serde::{Deserialize, Serialize};
 // TODO: custom serialization should reduce size by 5% - 10%
 #[derive(Clone, Serialize, Deserialize)]
 pub struct StarkProof {
-    lde_domain_depth: u8,
-    trace_root: [u8; 32],
-    trace_nodes: Vec<Vec<[u8; 32]>>,
-    trace_states: Vec<Vec<u128>>,
-    constraint_root: [u8; 32],
-    constraint_proof: BatchMerkleProof,
-    max_constraint_degree: u8,
-    deep_values: DeepValues,
-    fri_proof: FriProof,
-    pow_nonce: u64,
-    options: ProofOptions,
+    pub lde_domain_depth: u8,
+    pub trace_root: [u8; 32],
+    pub trace_nodes: Vec<Vec<[u8; 32]>>,
+    pub trace_states: Vec<Vec<u128>>,
+    pub constraint_root: [u8; 32],
+    pub constraint_proof: BatchMerkleProof,
+    pub max_constraint_degree: u8,
+    pub deep_values: DeepValues,
+    pub fri_proof: FriProof,
+    pub pow_nonce: u64,
+    pub options: ProofOptions,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

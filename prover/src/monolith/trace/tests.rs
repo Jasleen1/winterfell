@@ -62,7 +62,7 @@ fn commit_trace_table() {
     let (trace, _) = super::extend_trace(trace, &lde_domain);
 
     // commit to the trace
-    let trace_tree = super::commit_trace(&trace, blake3);
+    let trace_tree = super::build_trace_tree(&trace, blake3);
 
     // build Merkle tree from trace rows
     let mut hashed_states = Vec::new();

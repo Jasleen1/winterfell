@@ -21,6 +21,7 @@ pub struct FibEvaluator {
 }
 
 impl TransitionEvaluator for FibEvaluator {
+    const MAX_CONSTRAINT_DEGREE: usize = 1;
     const MAX_CONSTRAINTS: usize = 2;
 
     // CONSTRUCTOR

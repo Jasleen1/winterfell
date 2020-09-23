@@ -1,4 +1,4 @@
-use common::stark::ConstraintDivisor;
+use common::stark::{ConstraintDivisor, ProofContext};
 use math::polynom;
 
 // TRACE TABLE
@@ -220,16 +220,11 @@ impl ConstraintPoly {
 pub struct CompositionPoly(Vec<u128>, usize);
 
 impl CompositionPoly {
-    pub fn new(lde_domain_size: usize, degree: usize) -> Self {
-        assert!(
-            lde_domain_size.is_power_of_two(),
-            "LDE domain size must be a power of 2"
-        );
-        assert!(
-            lde_domain_size > degree,
-            "LDE domain size must be greater than degree"
-        );
-        CompositionPoly(vec![0; lde_domain_size], degree)
+    pub fn new(context: &ProofContext) -> Self {
+        CompositionPoly(
+            vec![0; context.lde_domain_size()],
+            context.deep_composition_degree(),
+        )
     }
 
     pub fn degree(&self) -> usize {

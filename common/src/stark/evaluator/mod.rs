@@ -1,4 +1,4 @@
-use super::{PublicCoin, TraceInfo};
+use super::{ProofContext, PublicCoin, TraceInfo};
 use math::field;
 
 mod transition;
@@ -24,7 +24,7 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     pub fn new<C: PublicCoin>(
         coin: &C,
-        trace_info: &TraceInfo,
+        context: &ProofContext,
         assertions: Vec<Assertion>,
     ) -> Self {
         assert!(
@@ -32,20 +32,32 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             "at least one assertion must be provided"
         );
 
+        // TODO: switch over to using proof context
+        let trace_info = TraceInfo::new(
+            context.trace_width(),
+            context.trace_length(),
+            context.options().blowup_factor(),
+        );
+
         // TODO: switch over to an iterator to generate coefficients
         let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
-        let transition = T::new(trace_info, &t_coefficients);
+        let transition = T::new(&trace_info, &t_coefficients);
         let max_constraint_degree = *transition.degrees().iter().max().unwrap();
         let transition_degree_map =
             group_transition_constraints(transition.degrees(), trace_info.length());
 
         let composition_degree = get_composition_degree(trace_info.length(), max_constraint_degree);
-        let assertions = A::new(&assertions, trace_info, composition_degree, &a_coefficients);
+        let assertions = A::new(
+            &assertions,
+            &trace_info,
+            composition_degree,
+            &a_coefficients,
+        );
 
         ConstraintEvaluator {
             transition,
             assertions,
-            trace_info: *trace_info,
+            trace_info,
             max_constraint_degree,
             transition_degree_map,
         }
@@ -105,10 +117,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn max_constraint_degree(&self) -> usize {
         self.max_constraint_degree
-    }
-
-    pub fn deep_composition_degree(&self) -> usize {
-        get_composition_degree(self.trace_length(), self.max_constraint_degree) - 1
     }
 
     pub fn trace_length(&self) -> usize {

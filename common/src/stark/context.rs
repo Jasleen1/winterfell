@@ -92,6 +92,10 @@ impl ProofContext {
         self.composition_degree() - 1
     }
 
+    pub fn max_constraint_degree(&self) -> usize {
+        self.max_constraint_degree
+    }
+
     // OTHER PROPERTIES
     // --------------------------------------------------------------------------------------------
 

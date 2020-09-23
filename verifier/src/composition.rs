@@ -1,9 +1,9 @@
-use super::get_composition_degree;
-use common::stark::{CompositionCoefficients, StarkProof};
+use common::stark::{CompositionCoefficients, ProofContext, StarkProof};
 use math::field::{self, add, div, mul, sub};
 
 pub fn compose_registers(
     proof: &StarkProof,
+    context: &ProofContext,
     positions: &[usize],
     z: u128,
     cc: &CompositionCoefficients,
@@ -18,8 +18,7 @@ pub fn compose_registers(
     let trace_states = proof.trace_states();
 
     // TODO: this is computed in several paces; consolidate
-    let composition_degree =
-        get_composition_degree(proof.trace_info().length(), proof.max_constraint_degree());
+    let composition_degree = context.deep_composition_degree();
     let incremental_degree = (composition_degree - (proof.trace_info().length() - 2)) as u128;
 
     let mut result = Vec::with_capacity(trace_states.len());

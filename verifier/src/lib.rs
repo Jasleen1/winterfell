@@ -37,14 +37,13 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
     }
 
     pub fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
-        let trace_info = proof.trace_info();
         let hash_fn = self.options.hash_fn();
 
         // build context and public coin
         // TODO: move into proof implementation
         let context = ProofContext::new(
-            trace_info.width(),
-            trace_info.length(),
+            proof.trace_info().width(),
+            proof.trace_info().length(),
             proof.max_constraint_degree(),
             proof.options().clone(),
         );
@@ -81,7 +80,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let z = coin.draw_z();
 
         // build constraint evaluator
-        let evaluator = ConstraintEvaluator::<T, A>::new(&coin, &trace_info, assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(&coin, &context, assertions);
 
         // evaluate constraints at z
         let constraint_evaluation_at_z = evaluate_constraints(
@@ -96,7 +95,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let coefficients = coin.draw_composition_coefficients();
 
         // compute composition values separately for trace and constraints, and then add them together
-        let t_composition = compose_registers(&proof, &query_positions, z, &coefficients);
+        let t_composition = compose_registers(&proof, &context, &query_positions, z, &coefficients);
         let c_composition = compose_constraints(
             &proof,
             &query_positions,
@@ -112,13 +111,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
             .collect::<Vec<u128>>();
 
         // 5 ----- Verify low-degree proof -------------------------------------------------------------
-        let max_degree = get_composition_degree(trace_info.length(), proof.max_constraint_degree());
-
         match fri::verify(
             &proof.fri_proof(),
             &evaluations,
             &query_positions,
-            max_degree,
+            context.deep_composition_degree(),
             &self.options,
         ) {
             Ok(result) => Ok(result),
@@ -138,9 +135,4 @@ pub fn map_trace_to_constraint_positions(positions: &[usize]) -> Vec<usize> {
         }
     }
     result
-}
-
-// TODO: same as in prover. consolidate.
-fn get_composition_degree(trace_length: usize, max_constraint_degree: usize) -> usize {
-    std::cmp::max(max_constraint_degree - 1, 1) * trace_length - 1
 }
