@@ -1,4 +1,4 @@
-# STARK Prover
+# STARK prover
 This crate contains implementations of STARK provers all exposing the same public interface.
 
 ## Provers
@@ -18,11 +18,12 @@ where:
 * `AssertionEvaluator` describes how assertion constraints for the computation are to be evaluated.
 * `options` defines basic properties for proof generation such as: number of queries, blowup factor, grinding factor, and hash function to be used during proof generation. These properties directly inform such metrics as proof generation time, proof size, and proof security level.
 
-Once a prover is instantiated, you can use it to generate proofs like so:
+Once the prover is instantiated, you can use it to generate proofs like so:
 ```Rust
 let proof = prover.prove(execution_trace, assertions);
 ```
 where:
+
 * `execution_trace` is a two-dimensional matrix describing the trace resulting fro executing the computation against specific inputs (see more [here](#Execution-trace)).
 * `assertions` is a list of assertions which must hold against the execution trace for the computation to be valid (see more [here](#Assertions)).
 
