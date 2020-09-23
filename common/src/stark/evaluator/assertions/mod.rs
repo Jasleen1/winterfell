@@ -22,23 +22,31 @@ pub trait AssertionEvaluator {
 // ================================================================================================
 
 #[derive(Debug, Clone, Copy)]
-pub struct Assertion(usize, usize, u128);
+pub struct Assertion {
+    register: usize,
+    step: usize,
+    value: u128,
+}
 
 impl Assertion {
     pub fn new(register: usize, step: usize, value: u128) -> Assertion {
-        Assertion(register, step, value)
+        Assertion {
+            register,
+            step,
+            value,
+        }
     }
 
     pub fn register(&self) -> usize {
-        self.0
+        self.register
     }
 
     pub fn step(&self) -> usize {
-        self.1
+        self.step
     }
 
     pub fn value(&self) -> u128 {
-        self.2
+        self.value
     }
 }
 
@@ -47,9 +55,7 @@ impl std::fmt::Display for Assertion {
         write!(
             f,
             "trace({}, {}) == {}",
-            self.register(),
-            self.step(),
-            self.value()
+            self.register, self.step, self.value
         )
     }
 }
