@@ -6,6 +6,7 @@ edition = "2018"
 [lib]
 name = "math"
 path = "src/lib.rs"
+bench = false
 
 [[bench]]
 name = "all"
