@@ -1,7 +1,7 @@
 use common::{
     stark::{
-        compute_trace_query_positions, draw_z_and_coefficients, Assertion, AssertionEvaluator,
-        ConstraintEvaluator, ProofOptions, StarkProof, TraceInfo, TransitionEvaluator,
+        Assertion, AssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions, PublicCoin,
+        StarkProof, TraceInfo, TransitionEvaluator,
     },
     utils::log2,
 };
@@ -23,6 +23,8 @@ use constraints::{
 
 mod deep_fri;
 use deep_fri::{compose_constraint_poly, compose_trace_polys, evaluate_composition_poly, fri};
+
+use crate::channel::ProverChannel;
 
 mod utils;
 
@@ -56,6 +58,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);
 
+        // TODO: get max_constraint_degree from TransitionEvaluator
+        let context = ProofContext::new(
+            trace.num_registers(),
+            trace.num_states(),
+            1,
+            self.options.clone(),
+        );
+
+        let mut channel = ProverChannel::new(&context);
+
         // save trace info here, before trace table is extended
         let trace_info = TraceInfo::new(
             trace.num_registers(),
@@ -67,7 +79,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // build LDE domain; this is used later for polynomial evaluations
         let now = Instant::now();
-        let lde_domain = build_lde_domain(&trace_info);
+        let lde_domain = build_lde_domain(&context);
         debug!(
             "Built LDE domain of 2^{} elements in {} ms",
             log2(lde_domain.size()),
@@ -83,13 +95,14 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             extended_trace.num_registers(),
             log2(trace_polys.poly_size()),
             log2(extended_trace.num_states()),
-            trace_info.blowup(),
+            context.options().blowup_factor(),
             now.elapsed().as_millis()
         );
 
         // 2 ----- commit to the extended execution trace -----------------------------------------
         let now = Instant::now();
         let trace_tree = commit_trace(&extended_trace, self.options.hash_fn());
+        channel.commit_trace(*trace_tree.root());
         debug!(
             "Committed to extended execution trace by building a Merkle tree of depth {} in {} ms",
             trace_tree.depth(),
@@ -102,8 +115,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // build constraint evaluator using root of the trace Merkle tree as a seed to draw
         // random values; these values are used by the evaluator to compute a random linear
         // combination of constraint evaluations
-        let seed = *trace_tree.root();
-        let evaluator = ConstraintEvaluator::<T, A>::new(seed, &trace_info, assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, &trace_info, assertions);
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
@@ -118,7 +130,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // first, build a single constraint polynomial from all constraint evaluations
         let now = Instant::now();
-        let constraint_poly = build_constraint_poly(constraint_evaluations, &trace_info);
+        let constraint_poly = build_constraint_poly(constraint_evaluations, &context);
         debug!(
             "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
             constraint_poly.degree(),
@@ -139,6 +151,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
         let constraint_tree =
             commit_constraints(combined_constraint_evaluations, self.options.hash_fn());
+        channel.commit_constraints(*constraint_tree.root());
         debug!(
             "Committed to constraint evaluations by building a Merkle tree of depth {} in {} ms",
             constraint_tree.depth(),
@@ -148,16 +161,15 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 5 ----- build DEEP composition polynomial ----------------------------------------------
         let now = Instant::now();
 
-        // use root of the constraint tree to draw an out-of-domain point z from the entire field,
-        // and also draw random coefficients to use during polynomial composition
-        let seed = *constraint_tree.root();
-        let (z, coefficients) = draw_z_and_coefficients(seed, trace_info.width());
+        // draw an out-of-domain point z from the entire field,
+        let z = channel.draw_z();
 
         // allocate memory for the composition polynomial
-        let mut composition_poly = CompositionPoly::new(
-            trace_info.lde_domain_size(),
-            evaluator.deep_composition_degree(),
-        );
+        let mut composition_poly =
+            CompositionPoly::new(context.lde_domain_size(), context.deep_composition_degree());
+
+        // draw random coefficients to use during polynomial composition
+        let coefficients = channel.draw_composition_coefficients();
 
         // combine all trace polynomials together and merge them into the composition polynomial;
         // deep_values are trace states at two out-of-domain points, and will go into the proof
@@ -204,20 +216,14 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             tree.root().iter().for_each(|&v| fri_roots.push(v));
         }
 
-        // derive a seed from the combined roots
-        let mut seed = [0u8; 32];
-        self.options.hash_fn()(&fri_roots, &mut seed);
-
-        // apply proof-of-work to get a new seed
-        let pow_nonce = 0;
-        // TODO: let (seed, pow_nonce) = utils::find_pow_nonce(seed, &options);
+        // commit to FRI layers
+        let pow_nonce = channel.commit_fri(fri_roots);
 
         // generate pseudo-random query positions
-        let positions = compute_trace_query_positions(seed, lde_domain.size(), &self.options);
+        let positions = channel.draw_query_positions();
         debug!(
-            "Determined {} query positions from seed {} in {} ms",
+            "Determined {} query positions in {} ms",
             positions.len(),
-            hex::encode(seed),
             now.elapsed().as_millis()
         );
 

@@ -3,7 +3,7 @@ use super::{
     utils,
 };
 use common::{
-    stark::{AssertionEvaluator, ConstraintEvaluator, TraceInfo, TransitionEvaluator},
+    stark::{AssertionEvaluator, ConstraintEvaluator, ProofContext, TransitionEvaluator},
     utils::uninit_vector,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -77,11 +77,11 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 /// polynomials into a single polynomial
 pub fn build_constraint_poly(
     evaluations: ConstraintEvaluationTable,
-    trace_info: &TraceInfo,
+    context: &ProofContext,
 ) -> ConstraintPoly {
     let ce_domain_size = evaluations.domain_size();
-    let trace_length = trace_info.length();
-    let constraint_poly_degree = ce_domain_size - trace_length;
+    let trace_length = context.trace_length();
+    let constraint_poly_degree = context.composition_degree();
     let x_at_last_step = get_x_at_last_step(trace_length);
 
     let ce_domain_root = field::get_root_of_unity(ce_domain_size);

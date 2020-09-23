@@ -1,4 +1,4 @@
-use super::TraceInfo;
+use super::{PublicCoin, TraceInfo};
 use math::field;
 
 mod transition;
@@ -22,14 +22,18 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
-    pub fn new(seed: [u8; 32], trace_info: &TraceInfo, assertions: Vec<Assertion>) -> Self {
+    pub fn new<C: PublicCoin>(
+        coin: &C,
+        trace_info: &TraceInfo,
+        assertions: Vec<Assertion>,
+    ) -> Self {
         assert!(
             !assertions.is_empty(),
             "at least one assertion must be provided"
         );
 
         // TODO: switch over to an iterator to generate coefficients
-        let (t_coefficients, a_coefficients) = Self::build_coefficients(seed);
+        let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
         let transition = T::new(trace_info, &t_coefficients);
         let max_constraint_degree = *transition.degrees().iter().max().unwrap();
         let transition_degree_map =
@@ -146,11 +150,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         result
     }
 
-    fn build_coefficients(seed: [u8; 32]) -> (Vec<u128>, Vec<u128>) {
+    fn build_coefficients<C: PublicCoin>(coin: &C) -> (Vec<u128>, Vec<u128>) {
         let num_t_coefficients = T::MAX_CONSTRAINTS * 2;
         let num_a_coefficients = A::MAX_CONSTRAINTS * 2;
 
-        let coefficients = field::prng_vector(seed, num_t_coefficients + num_a_coefficients);
+        let coefficients =
+            coin.draw_constraint_coefficients(num_t_coefficients + num_a_coefficients);
         (
             coefficients[..num_t_coefficients].to_vec(),
             coefficients[num_t_coefficients..].to_vec(),

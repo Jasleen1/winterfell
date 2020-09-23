@@ -1,4 +1,7 @@
-use common::utils::as_bytes;
+use common::{
+    stark::{ProofContext, ProofOptions},
+    utils::as_bytes,
+};
 use crypto::{hash::blake3, MerkleTree};
 use math::{field, polynom};
 
@@ -17,9 +20,9 @@ fn new_trace_table() {
 fn extend_trace_table() {
     // build and extend trace table
     let trace_length = 8;
-    let trace_info = build_trace_info(trace_length, 4);
+    let context = build_proof_context(trace_length, 4);
     let trace = build_trace(trace_length);
-    let lde_domain = super::build_lde_domain(&trace_info);
+    let lde_domain = super::build_lde_domain(&context);
     let (trace, trace_polys) = super::extend_trace(trace, &lde_domain);
 
     assert_eq!(2, trace.num_registers());
@@ -53,9 +56,9 @@ fn extend_trace_table() {
 fn commit_trace_table() {
     // build and extend trace table
     let trace_length = 8;
-    let trace_info = build_trace_info(trace_length, 4);
-    let trace = build_trace(8);
-    let lde_domain = super::build_lde_domain(&trace_info);
+    let context = build_proof_context(trace_length, 4);
+    let trace = build_trace(trace_length);
+    let lde_domain = super::build_lde_domain(&context);
     let (trace, _) = super::extend_trace(trace, &lde_domain);
 
     // commit to the trace
@@ -87,6 +90,7 @@ fn build_trace(length: usize) -> super::TraceTable {
     super::TraceTable::new(trace)
 }
 
-fn build_trace_info(length: usize, blowup: usize) -> super::TraceInfo {
-    super::TraceInfo::new(2, length, blowup)
+fn build_proof_context(trace_length: usize, blowup: usize) -> ProofContext {
+    let options = ProofOptions::new(32, blowup, 0, blake3);
+    ProofContext::new(2, trace_length, 1, options)
 }

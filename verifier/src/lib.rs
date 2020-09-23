@@ -81,7 +81,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let z = coin.draw_z();
 
         // build constraint evaluator
-        let evaluator = ConstraintEvaluator::<T, A>::new(trace_root, &trace_info, assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(&coin, &trace_info, assertions);
 
         // evaluate constraints at z
         let constraint_evaluation_at_z = evaluate_constraints(

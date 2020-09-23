@@ -1,6 +1,6 @@
 use super::types::{LdeDomain, PolyTable, TraceTable};
 use common::{
-    stark::TraceInfo,
+    stark::ProofContext,
     utils::{as_bytes, uninit_vector},
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -13,9 +13,9 @@ mod tests;
 // ================================================================================================
 
 /// Builds and return evaluation domain for STARK proof.
-pub fn build_lde_domain(trace_info: &TraceInfo) -> LdeDomain {
-    let root = field::get_root_of_unity(trace_info.lde_domain_size());
-    let domain = field::get_power_series(root, trace_info.lde_domain_size());
+pub fn build_lde_domain(context: &ProofContext) -> LdeDomain {
+    let domain =
+        field::get_power_series(context.generators().lde_domain, context.lde_domain_size());
 
     // it is more efficient to build by taking half of the domain and permuting it, rather than
     // building twiddles from scratch using fft::get_twiddles()
