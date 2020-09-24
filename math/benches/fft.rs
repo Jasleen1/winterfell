@@ -1,4 +1,4 @@
-use criterion::{criterion_group, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use math::{fft, field};
 use rand::Rng;
 use std::time::Duration;
@@ -45,7 +45,8 @@ fn get_twiddles(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(group, fft_poly, get_twiddles);
+criterion_group!(fft_group, fft_poly, get_twiddles);
+criterion_main!(fft_group);
 
 fn get_seed() -> [u8; 32] {
     rand::thread_rng().gen::<[u8; 32]>()

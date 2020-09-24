@@ -7,7 +7,11 @@ edition = "2018"
 bench = false
 
 [[bench]]
-name = "all"
+name = "fft"
+harness = false
+
+[[bench]]
+name = "field"
 harness = false
 
 [dependencies]

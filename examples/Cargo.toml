@@ -22,5 +22,5 @@ verifier = { path = "../verifier" }
 criterion = "0.3.3"
 
 [[bench]]
-name = "all"
+name = "fibonacci"
 harness = false

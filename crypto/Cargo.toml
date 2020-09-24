@@ -7,7 +7,7 @@ edition = "2018"
 bench = false
 
 [[bench]]
-name = "all"
+name = "hash"
 harness = false
 
 [dependencies]
