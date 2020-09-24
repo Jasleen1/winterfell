@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2018"
 
 [lib]
-name = "winterfell"
-path = "src/lib.rs"
+bench = false
 
-[[bench]]
-name = "all"
-harness = false
+[[bin]]
+name = "fibonacci"
+path = "src/main.rs"
+bench = false
 
 [dependencies]
 log = "0.4.11"
@@ -20,3 +20,7 @@ verifier = { path = "../verifier" }
 
 [dev-dependencies]
 criterion = "0.3.3"
+
+[[bench]]
+name = "fibonacci"
+harness = false

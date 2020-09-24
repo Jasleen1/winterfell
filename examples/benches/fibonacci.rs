@@ -1,4 +1,4 @@
-use criterion::{criterion_group, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 use winterfell::fibonacci;
 
@@ -18,4 +18,5 @@ fn fibonacci(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(group, fibonacci);
+criterion_group!(fibonacci_group, fibonacci);
+criterion_main!(fibonacci_group);

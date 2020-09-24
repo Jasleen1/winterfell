@@ -27,6 +27,21 @@ jobs:
         with:
           command: test
 
+  benchmark:
+    name: Run benchmark on stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: jasonwilliams/criterion-compare-action@move_to_actions
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest

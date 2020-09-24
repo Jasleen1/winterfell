@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [lib]
-name = "prover"
-path = "src/lib.rs"
+bench = false
 
 [dependencies]
 hex = "0.4.2"

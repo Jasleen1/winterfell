@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use math::field;
 
 pub fn add(c: &mut Criterion) {
@@ -30,4 +30,5 @@ pub fn inv(c: &mut Criterion) {
     c.bench_function("inv", |bench| bench.iter(|| field::inv(black_box(x))));
 }
 
-criterion_group!(group, add, mul, exp, inv);
+criterion_group!(field_group, add, mul, exp, inv);
+criterion_main!(field_group);

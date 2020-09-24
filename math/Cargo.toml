@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2018"
 
 [lib]
-name = "math"
-path = "src/lib.rs"
 bench = false
 
 [[bench]]
-name = "all"
+name = "fft"
+harness = false
+
+[[bench]]
+name = "field"
 harness = false
 
 [dependencies]

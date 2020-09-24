@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use crypto::hash;
 
 pub fn blake3(c: &mut Criterion) {
@@ -25,4 +25,5 @@ pub fn sha3(c: &mut Criterion) {
     });
 }
 
-criterion_group!(group, blake3, sha3);
+criterion_group!(hash_group, blake3, sha3);
+criterion_main!(hash_group);
