@@ -6,13 +6,8 @@ use common::stark::{
 use math::field::{self, add, div, exp, mul, sub};
 use std::marker::PhantomData;
 
+mod channel;
 mod fri;
-
-mod public_coin;
-use public_coin::VerifierCoin;
-
-mod proof;
-use proof::StarkProofImpl;
 
 // VERIFIER
 // ================================================================================================
@@ -35,24 +30,25 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
     /// Verifies the STARK `proof` attesting the assertions are valid in the context of
     /// the computation described by the verifier.
     pub fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
-        // reads the computation context from the proof. The context contains basic parameters
-        // such as trace length, domain sizes, constraint degrees etc.
-        let context = proof.read_context();
+        // initializes a channel which is used to simulate interaction between the prover
+        // and the verifier; the verifier can read the values written by the prover into the
+        // channel, and also draws random values which the prover uses during proof construction
+        let channel = channel::VerifierChannel::new(proof);
 
-        // initializes a public coin which is used to simulate interaction between the prover
-        // and the verifier
-        let coin = proof.init_public_coin(&context);
+        // reads the computation context from the channel. The context contains basic parameters
+        // such as trace length, domain sizes, constraint degrees etc.
+        let context = channel.read_context();
 
         // 1 ----- Compute constraint evaluations at OOD point z ----------------------------------
 
-        // draw a pseudo-random out-of-domain point z
-        let z = coin.draw_z();
+        // draw a pseudo-random out-of-domain point for DEEP composition
+        let z = channel.draw_deep_point();
 
         // build constraint evaluator
-        let evaluator = ConstraintEvaluator::<T, A>::new(&coin, &context, assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions);
 
         // evaluate constraints at z
-        let deep_values = proof.read_deep_values();
+        let deep_values = channel.read_deep_values();
         let constraint_evaluation_at_z = evaluate_constraints_at(
             evaluator,
             &deep_values.trace_at_z1,
@@ -62,8 +58,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // 2 ----- Read queried trace states and constraint evaluations ---------------------------
 
-        // use the public coin to determine query positions
-        let query_positions = coin.draw_query_positions();
+        // draw pseudo-random query positions
+        let query_positions = channel.draw_query_positions();
 
         // compute LDE domain coordinates for all query positions
         let g_lde = context.generators().lde_domain;
@@ -74,15 +70,15 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // read trace states and constraint evaluations at the queried positions; this also
         // checks that Merkle authentication paths for the states and evaluations are valid
-        let trace_states = proof.read_trace_states(&query_positions)?;
-        let constraint_evaluations = proof.read_constraint_evaluations(&query_positions)?;
+        let trace_states = channel.read_trace_states(&query_positions)?;
+        let constraint_evaluations = channel.read_constraint_evaluations(&query_positions)?;
 
         // 3 ----- Compute composition polynomial evaluations -------------------------------------
 
         // draw coefficients for computing random linear combination of trace and constraint
         // polynomials; the result of this linear combination are evaluations of deep composition
         // polynomial
-        let coefficients = coin.draw_composition_coefficients();
+        let coefficients = channel.draw_composition_coefficients();
 
         // compute composition of trace registers
         let t_composition = compose_registers(
@@ -112,14 +108,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // 4 ----- Verify low-degree proof -------------------------------------------------------------
         // make sure that evaluations we computed in the previous step are in fact evaluations
-        // of a polynomial of degree equal to deep_composition_degree
-        fri::verify(
-            &context,
-            proof.read_fri_proof(),
-            &evaluations,
-            &query_positions,
-        )
-        .map_err(|msg| format!("verification of low-degree proof failed: {}", msg))
+        // of a polynomial of degree equal to context.deep_composition_degree()
+        fri::verify(&context, &channel, &evaluations, &query_positions)
+            .map_err(|msg| format!("verification of low-degree proof failed: {}", msg))
     }
 }
 
@@ -156,7 +147,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 /// TODO: add comments
 fn compose_registers(
     context: &ProofContext,
-    trace_states: Vec<Vec<u128>>,
+    trace_states: &[Vec<u128>],
     x_coordinates: &[u128],
     deep_values: &DeepValues,
     z: u128,

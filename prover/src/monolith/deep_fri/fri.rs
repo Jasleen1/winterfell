@@ -1,46 +1,50 @@
 use super::super::types::LdeDomain;
-use common::{
-    stark::{FriLayer, FriProof, ProofOptions},
-    utils::{as_bytes, uninit_vector},
+use crate::channel::ProverChannel;
+use common::stark::{
+    fri_utils::{get_augmented_positions, hash_values},
+    FriLayer, FriProof, ProofContext, PublicCoin,
 };
-use crypto::{HashFunction, MerkleTree};
+use crypto::MerkleTree;
 use math::{field, quartic};
 use std::mem;
 
-const MAX_REMAINDER_LENGTH: usize = 256;
-
 pub fn reduce(
+    context: &ProofContext,
+    channel: &mut ProverChannel,
     evaluations: &[u128],
     lde_domain: &LdeDomain,
-    options: &ProofOptions,
 ) -> (Vec<MerkleTree>, Vec<Vec<[u128; 4]>>) {
+    let hash_fn = context.options().hash_fn();
+
     let mut tree_results: Vec<MerkleTree> = Vec::new();
     let mut value_results: Vec<Vec<[u128; 4]>> = Vec::new();
 
     // transpose evaluations into a matrix with 4 columns and put its rows into a Merkle tree
     let mut p_values = quartic::transpose(evaluations, 1);
-    let hashed_values = hash_values(&p_values, options.hash_fn());
-    let mut p_tree = MerkleTree::new(hashed_values, options.hash_fn());
+    let hashed_values = hash_values(&p_values, hash_fn);
+    let mut p_tree = MerkleTree::new(hashed_values, hash_fn);
 
     let domain = lde_domain.values();
 
     // reduce the degree by 4 at each iteration until the remaining polynomial is small enough
-    while p_tree.leaves().len() * 4 > MAX_REMAINDER_LENGTH {
+    for depth in 0..context.num_fri_layers() {
+        // commit to the FRI layer
+        channel.commit_fri_layer(*p_tree.root());
+
         // build polynomials from each row of the polynomial value matrix
-        let depth = tree_results.len() as u32;
-        let xs = quartic::transpose(domain, usize::pow(4, depth));
+        let xs = quartic::transpose(domain, usize::pow(4, depth as u32));
         let polys = quartic::interpolate_batch(&xs, &p_values);
 
         // select a pseudo-random x coordinate and evaluate each row polynomial at that x
-        let special_x = field::prng(*p_tree.root());
+        let special_x = channel.draw_fri_point(depth as usize);
         let column = quartic::evaluate_batch(&polys, special_x);
 
         // break the column in a polynomial value matrix for the next layer
         let mut c_values = quartic::transpose(&column, 1);
 
         // put the resulting matrix into a Merkle tree
-        let hashed_values = hash_values(&c_values, options.hash_fn());
-        let mut c_tree = MerkleTree::new(hashed_values, options.hash_fn());
+        let hashed_values = hash_values(&c_values, hash_fn);
+        let mut c_tree = MerkleTree::new(hashed_values, hash_fn);
 
         // set p_tree = c_tree and p_values = c_values for the next iteration of the loop
         mem::swap(&mut c_tree, &mut p_tree);
@@ -51,7 +55,18 @@ pub fn reduce(
         value_results.push(c_values);
     }
 
-    // add the tree at the last layer (the remainder)
+    // commit to the last FRI layer
+    channel.commit_fri_layer(*p_tree.root());
+
+    // make sure remainder length does not exceed max allowed value
+    debug_assert!(
+        p_values.len() * 4 <= ProofContext::MAX_FRI_REMAINDER_LENGTH,
+        "last FRI layer cannot exceed {} elements, but was {} elements",
+        ProofContext::MAX_FRI_REMAINDER_LENGTH,
+        p_values.len() * 4
+    );
+
+    // add the tree at the last layer (the remainder) to the result
     tree_results.push(p_tree);
     value_results.push(p_values);
 
@@ -81,16 +96,14 @@ pub fn build_proof(
         }
 
         layers.push(FriLayer {
-            root: *tree.root(),
             values: queried_values,
-            nodes: proof.nodes,
+            paths: proof.nodes,
             depth: proof.depth,
         });
         domain_size /= 4;
     }
 
     // use the remaining polynomial values directly as proof
-    let last_tree = &trees[trees.len() - 1];
     let last_values = &values[values.len() - 1];
     let n = last_values.len();
     let mut remainder = vec![field::ZERO; n * 4];
@@ -103,30 +116,6 @@ pub fn build_proof(
 
     FriProof {
         layers,
-        rem_root: *last_tree.root(),
         rem_values: remainder,
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
-    let row_length = column_length / 4;
-    let mut result = Vec::new();
-    for position in positions {
-        let ap = position % row_length;
-        if !result.contains(&ap) {
-            result.push(ap);
-        }
-    }
-    result
-}
-
-fn hash_values(values: &[[u128; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
-    let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
-    for i in 0..values.len() {
-        hash(as_bytes(&values[i]), &mut result[i]);
-    }
-    result
 }
