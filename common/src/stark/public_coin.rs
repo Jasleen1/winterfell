@@ -10,6 +10,7 @@ pub trait PublicCoin {
     fn context(&self) -> &ProofContext;
     fn constraint_seed(&self) -> [u8; 32];
     fn composition_seed(&self) -> [u8; 32];
+    fn fri_layer_seed(&self, layer_depth: usize) -> [u8; 32];
     fn query_seed(&self) -> [u8; 32];
 
     // DRAW METHODS
@@ -21,7 +22,7 @@ pub trait PublicCoin {
     }
 
     /// Draws a point from the entire field using PRNG seeded with composition seed.
-    fn draw_z(&self) -> u128 {
+    fn draw_deep_point(&self) -> u128 {
         field::prng(self.composition_seed())
     }
 
@@ -31,6 +32,10 @@ pub trait PublicCoin {
         let mut prng = field::prng_iter(self.composition_seed());
         prng.next().unwrap(); // skip z
         CompositionCoefficients::new(&mut prng, self.context().trace_width())
+    }
+
+    fn draw_fri_point(&self, layer_depth: usize) -> u128 {
+        field::prng(self.fri_layer_seed(layer_depth))
     }
 
     /// Draws a set of unique query positions using PRNG seeded with query seed. The positions

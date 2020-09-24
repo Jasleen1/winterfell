@@ -25,6 +25,11 @@ pub struct Generators {
 // ================================================================================================
 
 impl ProofContext {
+    // CONSTANTS
+    // --------------------------------------------------------------------------------------------
+    const MAX_FRI_REMAINDER_LENGTH: usize = 256;
+    const FRI_FOLDING_FACTOR: usize = 4;
+
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
@@ -98,6 +103,18 @@ impl ProofContext {
 
     // OTHER PROPERTIES
     // --------------------------------------------------------------------------------------------
+
+    pub fn num_fri_layers(&self) -> usize {
+        let mut result = 0;
+        let mut domain_size = self.lde_domain_size();
+
+        while domain_size > Self::MAX_FRI_REMAINDER_LENGTH {
+            domain_size /= Self::FRI_FOLDING_FACTOR;
+            result += 1;
+        }
+
+        result
+    }
 
     pub fn options(&self) -> &ProofOptions {
         &self.options

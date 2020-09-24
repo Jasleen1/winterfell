@@ -1,8 +1,6 @@
-use common::{
-    stark::{FriLayer, FriProof, ProofContext},
-    utils::{as_bytes, uninit_vector},
-};
-use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
+use super::channel::VerifierChannel;
+use common::stark::{ProofContext, PublicCoin};
+
 use math::{field, polynom, quartic};
 use std::mem;
 
@@ -11,14 +9,13 @@ use std::mem;
 
 pub fn verify(
     context: &ProofContext,
-    proof: &FriProof,
+    channel: &VerifierChannel,
     evaluations: &[u128],
     positions: &[usize],
 ) -> Result<bool, String> {
-    let hash_fn = context.options().hash_fn();
     let max_degree = context.deep_composition_degree();
-    let domain_size = usize::pow(2, proof.layers[0].depth as u32) * 4;
-    let domain_root = field::get_root_of_unity(domain_size);
+    let domain_size = context.lde_domain_size();
+    let domain_root = context.generators().lde_domain;
 
     // powers of the given root of unity 1, p, p^2, p^3 such that p^4 = 1
     let quartic_roots = [
@@ -35,22 +32,14 @@ pub fn verify(
     let mut positions = positions.to_vec();
     let mut evaluations = evaluations.to_vec();
 
-    for (depth, layer) in proof.layers.iter().enumerate() {
+    for depth in 0..context.num_fri_layers() {
         let mut augmented_positions = get_augmented_positions(&positions, domain_size);
+        let layer_values = channel.read_fri_queries(depth, &augmented_positions)?;
         let column_values =
-            get_column_values(&layer.values, &positions, &augmented_positions, domain_size);
+            get_column_values(layer_values, &positions, &augmented_positions, domain_size);
         if evaluations != column_values {
             return Err(format!(
                 "evaluations did not match column value at depth {}",
-                depth
-            ));
-        }
-
-        // verify Merkle proof for the layer
-        let merkle_proof = build_layer_merkle_proof(&layer, hash_fn);
-        if !MerkleTree::verify_batch(&layer.root, &augmented_positions, &merkle_proof, hash_fn) {
-            return Err(format!(
-                "verification of Merkle proof failed at layer {}",
                 depth
             ));
         }
@@ -68,10 +57,10 @@ pub fn verify(
         }
 
         // interpolate x and y values into row polynomials
-        let row_polys = quartic::interpolate_batch(&xs, &layer.values);
+        let row_polys = quartic::interpolate_batch(&xs, layer_values);
 
         // calculate the pseudo-random x coordinate
-        let special_x = field::prng(layer.root);
+        let special_x = channel.draw_fri_point(depth);
 
         // check that when the polynomials are evaluated at x, the result is equal to the corresponding column value
         evaluations = quartic::evaluate_batch(&row_polys, special_x);
@@ -85,8 +74,9 @@ pub fn verify(
 
     // 2 ----- verify the remainder of the FRI proof ----------------------------------------------
 
+    let remainder = channel.read_fri_remainder();
     for (&position, evaluation) in positions.iter().zip(evaluations) {
-        if proof.rem_values[position] != evaluation {
+        if remainder[position] != evaluation {
             return Err(String::from(
                 "remainder values are inconsistent with values of the last column",
             ));
@@ -95,7 +85,7 @@ pub fn verify(
 
     // make sure the remainder values satisfy the degree
     verify_remainder(
-        &proof.rem_values,
+        remainder,
         max_degree_plus_1,
         domain_root,
         context.options().blowup_factor(),
@@ -168,14 +158,6 @@ fn get_column_values(
     result
 }
 
-fn build_layer_merkle_proof(layer: &FriLayer, hash_fn: HashFunction) -> BatchMerkleProof {
-    BatchMerkleProof {
-        values: hash_values(&layer.values, hash_fn),
-        nodes: layer.nodes.clone(),
-        depth: layer.depth,
-    }
-}
-
 /// TODO: same as in prover. move to common?
 fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
     let row_length = column_length / 4;
@@ -185,15 +167,6 @@ fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usi
         if !result.contains(&ap) {
             result.push(ap);
         }
-    }
-    result
-}
-
-/// TODO: same as in prover. move to common?
-fn hash_values(values: &[[u128; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
-    let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
-    for i in 0..values.len() {
-        hash(as_bytes(&values[i]), &mut result[i]);
     }
     result
 }

@@ -159,7 +159,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
 
         // draw an out-of-domain point z from the entire field,
-        let z = channel.draw_z();
+        let z = channel.draw_deep_point();
 
         // allocate memory for the composition polynomial; this will allocate enough memory to
         // hold composition polynomial evaluations over the LDE domain (done in the next step)

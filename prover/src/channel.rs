@@ -55,6 +55,12 @@ impl ProverChannel {
         deep_values: DeepValues,
         fri_proof: FriProof,
     ) -> StarkProof {
+        let mut fri_roots = Vec::new();
+        for layer in fri_proof.layers.iter() {
+            fri_roots.push(layer.root);
+        }
+        fri_roots.push(fri_proof.rem_root);
+
         StarkProof {
             context: Context {
                 lde_domain_depth: trace_paths.depth,
@@ -64,6 +70,7 @@ impl ProverChannel {
             commitments: Commitments {
                 trace_root: self.trace_root.unwrap(),
                 constraint_root: self.constraint_root.unwrap(),
+                fri_roots,
             },
             queries: Queries {
                 trace_paths: trace_paths.nodes,
@@ -93,6 +100,10 @@ impl PublicCoin for ProverChannel {
             "composition seed is not set"
         );
         self.constraint_root.unwrap()
+    }
+
+    fn fri_layer_seed(&self, _layer_depth: usize) -> [u8; 32] {
+        panic!("not implemented");
     }
 
     fn query_seed(&self) -> [u8; 32] {
