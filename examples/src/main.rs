@@ -1,22 +1,8 @@
 use log::debug;
-use prover::{Assertion, StarkProof};
 use std::time::Instant;
 use std::{env, io::Write};
 
-mod fibonacci;
-
-// TYPES AND INTERFACES
-// ================================================================================================
-
-pub trait Example {
-    fn prove(
-        &self,
-        n: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-    ) -> (StarkProof, Vec<Assertion>);
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String>;
-}
+use winterfell::fibonacci;
 
 // EXAMPLE RUNNER
 // ================================================================================================
