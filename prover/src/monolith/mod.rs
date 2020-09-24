@@ -197,7 +197,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 7 ----- compute FRI layers for the composition polynomial ------------------------------
         let now = Instant::now();
         let (fri_trees, fri_values) =
-            fri::reduce(&composed_evaluations, &lde_domain, &self.options);
+            fri::reduce(&context, &mut channel, &composed_evaluations, &lde_domain);
         debug!(
             "Computed {} FRI layers from composition polynomial evaluations in {} ms",
             fri_trees.len(),
@@ -206,15 +206,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // 8 ----- determine query positions ------------------------------------------------------
         let now = Instant::now();
-
-        // combine all FRI layer roots into a single vector
-        let mut fri_roots: Vec<u8> = Vec::new();
-        for tree in fri_trees.iter() {
-            tree.root().iter().for_each(|&v| fri_roots.push(v));
-        }
-
-        // commit to FRI layers
-        channel.commit_fri(fri_roots);
 
         // generate pseudo-random query positions
         let query_positions = channel.draw_query_positions();

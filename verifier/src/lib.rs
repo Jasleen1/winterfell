@@ -32,7 +32,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
     pub fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
         // initializes a channel which is used to simulate interaction between the prover
         // and the verifier; the verifier can read the values written by the prover into the
-        // channel, and also draw random values which the prover uses during proof construction
+        // channel, and also draws random values which the prover uses during proof construction
         let channel = channel::VerifierChannel::new(proof);
 
         // reads the computation context from the channel. The context contains basic parameters
@@ -108,7 +108,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // 4 ----- Verify low-degree proof -------------------------------------------------------------
         // make sure that evaluations we computed in the previous step are in fact evaluations
-        // of a polynomial of degree equal to deep_composition_degree
+        // of a polynomial of degree equal to context.deep_composition_degree()
         fri::verify(&context, &channel, &evaluations, &query_positions)
             .map_err(|msg| format!("verification of low-degree proof failed: {}", msg))
     }

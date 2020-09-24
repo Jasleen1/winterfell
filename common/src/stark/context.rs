@@ -27,8 +27,8 @@ pub struct Generators {
 impl ProofContext {
     // CONSTANTS
     // --------------------------------------------------------------------------------------------
-    const MAX_FRI_REMAINDER_LENGTH: usize = 256;
-    const FRI_FOLDING_FACTOR: usize = 4;
+    pub const MAX_FRI_REMAINDER_LENGTH: usize = 256;
+    pub const FRI_FOLDING_FACTOR: usize = 4;
 
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
