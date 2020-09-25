@@ -1,5 +1,8 @@
 use sha3::Digest;
 
+mod rescue;
+pub use rescue::{rescue_d, rescue_s};
+
 /// Wrapper around blake3 hash function
 pub fn blake3(values: &[u8], result: &mut [u8]) {
     debug_assert!(
