@@ -1,4 +1,4 @@
-use common::stark::{TraceInfo, TransitionEvaluator};
+use common::stark::{ProofContext, TransitionEvaluator};
 use math::field::{self, add, mul, sub};
 
 pub fn build_fib_trace(length: usize) -> Vec<Vec<u128>> {
@@ -26,7 +26,7 @@ impl TransitionEvaluator for FibEvaluator {
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(_trace: &TraceInfo, coefficients: &[u128]) -> Self {
+    fn new(_context: &ProofContext, coefficients: &[u128]) -> Self {
         let constraint_degrees = vec![1, 1];
         let composition_coefficients = coefficients[..4].to_vec();
 

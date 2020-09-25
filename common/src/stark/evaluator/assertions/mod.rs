@@ -1,4 +1,4 @@
-use super::TraceInfo;
+use super::ProofContext;
 
 mod io_evaluator;
 pub use io_evaluator::IoAssertionEvaluator;
@@ -11,7 +11,7 @@ pub trait AssertionEvaluator {
 
     fn new(
         assertions: &[Assertion],
-        trace: &TraceInfo,
+        context: &ProofContext,
         composition_degree: usize,
         coefficients: &[u128],
     ) -> Self;

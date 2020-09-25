@@ -1,4 +1,4 @@
-use super::{get_composition_degree, TraceInfo};
+use super::ProofContext;
 
 // TRANSITION EVALUATOR TRAIT
 // ================================================================================================
@@ -7,7 +7,7 @@ pub trait TransitionEvaluator {
     const MAX_CONSTRAINTS: usize;
     const MAX_CONSTRAINT_DEGREE: usize;
 
-    fn new(trace: &TraceInfo, coefficients: &[u128]) -> Self;
+    fn new(context: &ProofContext, coefficients: &[u128]) -> Self;
 
     fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128>;
     fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128>;
@@ -20,10 +20,11 @@ pub trait TransitionEvaluator {
 // ================================================================================================
 
 pub fn group_transition_constraints(
+    composition_degree: usize,
     degrees: &[usize],
     trace_length: usize,
 ) -> Vec<(u128, Vec<usize>)> {
-    let max_constraint_degree = *degrees.iter().max().unwrap();
+    let max_constraint_degree = degrees.iter().max().unwrap();
 
     let mut groups: Vec<_> = (0..max_constraint_degree + 1).map(|_| Vec::new()).collect();
 
@@ -31,7 +32,6 @@ pub fn group_transition_constraints(
         groups[degree].push(i);
     }
 
-    let composition_degree = get_composition_degree(trace_length, max_constraint_degree);
     let target_degree = get_constraint_target_degree(trace_length, composition_degree);
 
     let mut result = Vec::new();

@@ -3,7 +3,7 @@ use log::debug;
 use prover::{
     crypto::hash::blake3,
     math::field::{self, add, mul, sub},
-    Assertion, IoAssertionEvaluator, ProofOptions, Prover, StarkProof, TraceInfo,
+    Assertion, IoAssertionEvaluator, ProofOptions, Prover, StarkProof, ProofContext,
     TransitionEvaluator,
 };
 use std::time::Instant;
@@ -109,7 +109,7 @@ impl TransitionEvaluator for FibEvaluator {
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(_trace: &TraceInfo, coefficients: &[u128]) -> Self {
+    fn new(_context: &ProofContext, coefficients: &[u128]) -> Self {
         let constraint_degrees = vec![1, 1];
         let composition_coefficients = coefficients[..4].to_vec();
 

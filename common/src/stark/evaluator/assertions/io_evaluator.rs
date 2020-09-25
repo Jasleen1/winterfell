@@ -1,4 +1,4 @@
-use super::{Assertion, AssertionEvaluator, TraceInfo};
+use super::{Assertion, AssertionEvaluator, ProofContext};
 use math::field::{self, add, mul, sub};
 use std::collections::BTreeMap;
 
@@ -18,12 +18,12 @@ impl AssertionEvaluator for IoAssertionEvaluator {
 
     fn new(
         assertions: &[Assertion],
-        trace: &TraceInfo,
+        context: &ProofContext,
         composition_degree: usize,
         coefficients: &[u128],
     ) -> Self {
         let (input_assertions, output_assertions) =
-            group_assertions(&assertions, trace.length(), trace.width());
+            group_assertions(&assertions, context.trace_length(), context.trace_width());
 
         let i_coefficient_num = input_assertions.len() * 2;
         let input_coefficients = coefficients[..i_coefficient_num].to_vec();
@@ -37,7 +37,7 @@ impl AssertionEvaluator for IoAssertionEvaluator {
             output_assertions,
             input_coefficients,
             output_coefficients,
-            degree_adjustment: get_constraint_adjustment_degree(trace.length(), composition_degree),
+            degree_adjustment: get_constraint_adjustment_degree(context.trace_length(), composition_degree),
         }
     }
 
