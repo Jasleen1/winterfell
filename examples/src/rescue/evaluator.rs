@@ -1,18 +1,24 @@
-use common::utils::filled_vector;
 use prover::{
     math::{
         fft,
-        field::{self, sub, add},
+        field::{self, add, exp, sub},
+        polynom,
     },
     ProofContext, TransitionEvaluator,
 };
 
 use super::{
     rescue::{apply_inv_mds, apply_mds, apply_sbox, ARK},
-    CYCLE_LENGTH,
+    CYCLE_LENGTH, STATE_WIDTH,
 };
 
-const STATE_WIDTH: usize = 4;
+use crate::utils::{are_equal, extend_cyclic_values, is_zero, transpose, EvaluationResult};
+
+// CONSTANTS
+// ================================================================================================
+
+/// Specifies steps on which Rescue transition function is applied.
+const CYCLE_MASK: [u128; CYCLE_LENGTH] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0];
 
 // RESCUE TRANSITION CONSTRAINT EVALUATOR
 // ================================================================================================
@@ -20,8 +26,11 @@ const STATE_WIDTH: usize = 4;
 pub struct RescueEvaluator {
     constraint_degrees: Vec<usize>,
     composition_coefficients: Vec<u128>,
+    mask_constants: Vec<u128>,
+    mask_poly: Vec<u128>,
     ark_constants: Vec<Vec<u128>>,
     ark_polys: Vec<Vec<u128>>,
+    trace_length: usize,
 }
 
 impl TransitionEvaluator for RescueEvaluator {
@@ -31,60 +40,87 @@ impl TransitionEvaluator for RescueEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(context: &ProofContext, coefficients: &[u128]) -> Self {
-        let constraint_degrees = vec![3, 3, 3, 3];
-        let composition_coefficients = coefficients[..8].to_vec();
-        let (ark_polys, ark_constants) = extend_constants(context.ce_blowup_factor());
+        let (inv_twiddles, ev_twiddles) = build_extension_domain(context.ce_blowup_factor());
+
+        // extend the mask constants to match constraint evaluation domain
+        let (mask_poly, mask_constants) =
+            extend_cyclic_values(&CYCLE_MASK, &inv_twiddles, &ev_twiddles);
+
+        // extend Rescue round constants to match constraint evaluation domain
+        let mut ark_polys = Vec::new();
+        let mut ark_evaluations = Vec::new();
+
+        let constants = transpose_ark();
+        for constant in constants.iter() {
+            let (poly, evaluations) = extend_cyclic_values(constant, &inv_twiddles, &ev_twiddles);
+            ark_polys.push(poly);
+            ark_evaluations.push(evaluations);
+        }
+
+        // transpose constant values so that all constants for a single round are stored
+        // in one vector
+        let ark_constants = transpose(ark_evaluations);
 
         RescueEvaluator {
-            constraint_degrees,
-            composition_coefficients,
+            constraint_degrees: vec![4, 4, 4, 4],
+            composition_coefficients: coefficients[..8].to_vec(),
+            mask_poly,
+            mask_constants,
             ark_constants,
             ark_polys,
+            trace_length: context.trace_length(),
         }
     }
 
-    // TRANSITION CONSTRAINTS
+    // CONSTRAINT EVALUATORS
     // --------------------------------------------------------------------------------------------
 
+    /// Evaluates transition constraints at the specified step; this method is invoked only
+    /// during proof generation.
     fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128> {
+        let mut result = vec![0; STATE_WIDTH];
 
+        // determine which rounds constants to use
         let ark = &self.ark_constants[step % self.ark_constants.len()];
 
-        let mut current = current.to_vec();
-        apply_sbox(&mut current);
-        apply_mds(&mut current);
-        for i in 0..STATE_WIDTH {
-            current[i] = add(current[i], ark[i]);
-        }
+        // when hash_flag = 1, constraints for Rescue round are enforced
+        let hash_flag = self.mask_constants[step % self.mask_constants.len()];
+        enforce_rescue_round(&mut result, current, next, &ark, hash_flag);
 
-        let mut next = next.to_vec();
-        for i in 0..STATE_WIDTH {
-            next[i] = sub(next[i], ark[STATE_WIDTH + i]);
-        }
-        apply_inv_mds(&mut next);
-        apply_sbox(&mut next);
+        // when hash_flag = 0, constraints for copying hash values to the next
+        // step are enforced.
+        let copy_flag = sub(field::ONE, hash_flag);
+        enforce_hash_copy(&mut result, current, next, copy_flag);
 
-        are_equal(current, next)
+        result
     }
 
-    fn evaluate_at(&self, current: &[u128], next: &[u128], _x: u128) -> Vec<u128> {
-        let ark = vec![];
+    /// Evaluates transition constraints at the specified x coordinate; this method is
+    /// invoked primarily during proof verification.
+    fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128> {
+        let mut result = vec![0; STATE_WIDTH];
 
-        let mut current = current.to_vec();
-        apply_sbox(&mut current);
-        apply_mds(&mut current);
-        for i in 0..STATE_WIDTH {
-            current[i] = add(current[i], ark[i]);
+        // map x to the corresponding coordinate in constant cycles
+        let num_cycles = (self.trace_length / CYCLE_LENGTH) as u128;
+        let x = exp(x, num_cycles);
+
+        // determine round constants at the specified x coordinate; we do this by
+        // evaluating polynomials for round constants the augmented x coordinate
+        let mut ark = [field::ZERO; 2 * STATE_WIDTH];
+        for (i, poly) in self.ark_polys.iter().enumerate() {
+            ark[i] = polynom::eval(poly, x);
         }
 
-        let mut next = next.to_vec();
-        for i in 0..STATE_WIDTH {
-            next[i] = sub(next[i], ark[STATE_WIDTH + i]);
-        }
-        apply_inv_mds(&mut next);
-        apply_sbox(&mut next);
+        // when hash_flag = 1, constraints for Rescue round are enforced
+        let hash_flag = polynom::eval(&self.mask_poly, x);
+        enforce_rescue_round(&mut result, current, next, &ark, hash_flag);
 
-        are_equal(current, next)
+        // when hash_flag = 0, constraints for copying hash values to the next
+        // step are enforced.
+        let copy_flag = sub(field::ONE, hash_flag);
+        enforce_hash_copy(&mut result, current, next, copy_flag);
+
+        result
     }
 
     // BOILERPLATE
@@ -101,44 +137,62 @@ impl TransitionEvaluator for RescueEvaluator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn are_equal(mut a: Vec<u128>, b: Vec<u128>) -> Vec<u128> {
-    for i in 0..a.len() {
-        a[i] = sub(a[i], b[i]);
+/// when flag = 1, enforces constraints for a single round of Rescue hash functions
+fn enforce_rescue_round(
+    result: &mut [u128],
+    current: &[u128],
+    next: &[u128],
+    ark: &[u128],
+    flag: u128,
+) {
+    // compute the state that should result from applying the first half of Rescue round
+    // to the current state of the computation
+    let mut step1 = [0; STATE_WIDTH];
+    step1.copy_from_slice(current);
+    apply_sbox(&mut step1);
+    apply_mds(&mut step1);
+    for i in 0..STATE_WIDTH {
+        step1[i] = add(step1[i], ark[i]);
     }
-    a
+
+    // compute the state that should result from applying the inverse for the second
+    // half for Rescue round to the next step of the computation
+    let mut step2 = [0; STATE_WIDTH];
+    step2.copy_from_slice(next);
+    for i in 0..STATE_WIDTH {
+        step2[i] = sub(step2[i], ark[STATE_WIDTH + i]);
+    }
+    apply_inv_mds(&mut step2);
+    apply_sbox(&mut step2);
+
+    // make sure that the results are equal
+    for i in 0..STATE_WIDTH {
+        result.agg_constraint(i, flag, are_equal(step2[i], step1[i]));
+    }
 }
 
-fn extend_constants(blowup_factor: usize) -> (Vec<Vec<u128>>, Vec<Vec<u128>>) {
-    let constants = transpose_ark();
+/// when flag = 1, enforces that the next state of the computation is defined like so:
+/// - the first two registers are equal to the values from the previous step
+/// - the other two registers are equal to 0
+fn enforce_hash_copy(result: &mut [u128], current: &[u128], next: &[u128], flag: u128) {
+    result.agg_constraint(0, flag, are_equal(current[0], next[0]));
+    result.agg_constraint(1, flag, are_equal(current[1], next[1]));
+    result.agg_constraint(2, flag, is_zero(next[2]));
+    result.agg_constraint(3, flag, is_zero(next[3]));
+}
 
+// HELPER FUNCTIONS
+// ================================================================================================
+
+fn build_extension_domain(blowup_factor: usize) -> (Vec<u128>, Vec<u128>) {
     let root = field::get_root_of_unity(CYCLE_LENGTH);
     let inv_twiddles = fft::get_inv_twiddles(root, CYCLE_LENGTH);
 
     let domain_size = CYCLE_LENGTH * blowup_factor;
     let domain_root = field::get_root_of_unity(domain_size);
-    let twiddles = fft::get_twiddles(domain_root, domain_size);
+    let ev_twiddles = fft::get_twiddles(domain_root, domain_size);
 
-    let mut polys = Vec::with_capacity(constants.len());
-    let mut evaluations = Vec::with_capacity(constants.len());
-
-    for constant in constants.iter() {
-        let mut extended_constant = filled_vector(CYCLE_LENGTH, domain_size, field::ZERO);
-        extended_constant.copy_from_slice(constant);
-
-        fft::interpolate_poly(&mut extended_constant, &inv_twiddles, true);
-        polys.push(extended_constant.clone());
-
-        unsafe {
-            extended_constant.set_len(extended_constant.capacity());
-        }
-        fft::evaluate_poly(&mut extended_constant, &twiddles, true);
-
-        evaluations.push(extended_constant);
-    }
-
-    evaluations = transpose(evaluations);
-
-    (polys, evaluations)
+    (inv_twiddles, ev_twiddles)
 }
 
 fn transpose_ark() -> Vec<Vec<u128>> {
@@ -147,6 +201,7 @@ fn transpose_ark() -> Vec<Vec<u128>> {
         constants.push(vec![0; CYCLE_LENGTH]);
     }
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..CYCLE_LENGTH {
         for j in 0..(STATE_WIDTH * 2) {
             constants[j][i] = ARK[i][j];
@@ -154,23 +209,4 @@ fn transpose_ark() -> Vec<Vec<u128>> {
     }
 
     constants
-}
-
-fn transpose(values: Vec<Vec<u128>>) -> Vec<Vec<u128>> {
-    let mut result = Vec::new();
-
-    let width = values.len();
-    let length = values[0].len();
-
-    for _ in 0..length {
-        result.push(vec![0; width]);
-    }
-
-    for i in 0..width {
-        for j in 0..length {
-            result[j][i] = values[i][j];
-        }
-    }
-
-    result
 }

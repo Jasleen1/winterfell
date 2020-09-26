@@ -2,6 +2,7 @@ use prover::{Assertion, StarkProof};
 
 pub mod fibonacci;
 pub mod rescue;
+pub mod utils;
 
 // TYPES AND INTERFACES
 // ================================================================================================

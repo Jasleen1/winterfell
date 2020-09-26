@@ -37,7 +37,10 @@ impl AssertionEvaluator for IoAssertionEvaluator {
             output_assertions,
             input_coefficients,
             output_coefficients,
-            degree_adjustment: get_constraint_adjustment_degree(context.trace_length(), composition_degree),
+            degree_adjustment: get_constraint_adjustment_degree(
+                context.trace_length(),
+                composition_degree,
+            ),
         }
     }
 
