@@ -1,4 +1,4 @@
-use super::{ProofContext, PublicCoin, TraceInfo};
+use super::{ProofContext, PublicCoin};
 use math::field;
 
 mod transition;
@@ -16,7 +16,7 @@ mod tests;
 pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
-    trace_info: TraceInfo,
+    context: ProofContext,
     max_constraint_degree: usize,
     transition_degree_map: Vec<(u128, Vec<usize>)>,
 }
@@ -32,32 +32,27 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             "at least one assertion must be provided"
         );
 
-        // TODO: switch over to using proof context
-        let trace_info = TraceInfo::new(
-            context.trace_width(),
-            context.trace_length(),
-            context.options().blowup_factor(),
-        );
-
         // TODO: switch over to an iterator to generate coefficients
         let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
-        let transition = T::new(&trace_info, &t_coefficients);
+        let transition = T::new(context, &t_coefficients);
         let max_constraint_degree = *transition.degrees().iter().max().unwrap();
-        let transition_degree_map =
-            group_transition_constraints(transition.degrees(), trace_info.length());
+        let transition_degree_map = group_transition_constraints(
+            context.composition_degree(),
+            transition.degrees(),
+            context.trace_length(),
+        );
 
-        let composition_degree = get_composition_degree(trace_info.length(), max_constraint_degree);
         let assertions = A::new(
             &assertions,
-            &trace_info,
-            composition_degree,
+            &context,
+            context.composition_degree(),
             &a_coefficients,
         );
 
         ConstraintEvaluator {
             transition,
             assertions,
-            trace_info,
+            context: context.clone(),
             max_constraint_degree,
             transition_degree_map,
         }
@@ -72,6 +67,13 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     ) -> (u128, u128, u128) {
         // evaluate transition constraints and merge them into a single value
         let t_evaluations = self.transition.evaluate(current, next, step);
+
+        // TODO: save individual transition evaluations
+
+        if step % self.context.ce_blowup_factor() == 0 {
+            // TODO check for zeros
+        }
+
         let t_evaluation = self.merge_transition_evaluations(&t_evaluations, x);
 
         // evaluate boundary constraints defined by assertions
@@ -112,7 +114,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     /// Returns size of low-degree extension domain.
     pub fn lde_domain_size(&self) -> usize {
-        self.trace_info.lde_domain_size()
+        self.context.lde_domain_size()
     }
 
     pub fn max_constraint_degree(&self) -> usize {
@@ -120,11 +122,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     }
 
     pub fn trace_length(&self) -> usize {
-        self.trace_info.length()
+        self.context.trace_length()
     }
 
     pub fn blowup_factor(&self) -> usize {
-        self.trace_info.blowup()
+        self.context.lde_domain_size() / self.context.trace_length()
     }
 
     pub fn get_x_at_last_step(&self) -> u128 {
@@ -224,12 +226,4 @@ impl ConstraintDivisor {
         let denominator_degree = self.exclude.len();
         numerator_degree - denominator_degree
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-// TODO: provide explanation
-fn get_composition_degree(trace_length: usize, max_constraint_degree: usize) -> usize {
-    std::cmp::max(max_constraint_degree - 1, 1) * trace_length
 }

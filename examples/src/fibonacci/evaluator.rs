@@ -1,19 +1,11 @@
-use common::stark::{ProofContext, TransitionEvaluator};
-use math::field::{self, add, mul, sub};
+use crate::utils::are_equal;
+use prover::{
+    math::field::{add, mul},
+    ProofContext, TransitionEvaluator,
+};
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<u128>> {
-    assert!(length.is_power_of_two(), "length must be a power of 2");
-
-    let mut reg1 = vec![field::ONE];
-    let mut reg2 = vec![field::ONE];
-
-    for i in 0..(length / 2 - 1) {
-        reg1.push(add(reg1[i], reg2[i]));
-        reg2.push(add(reg1[i], mul(2, reg2[i])));
-    }
-
-    vec![reg1, reg2]
-}
+// FIBONACCI TRANSITION CONSTRAINT EVALUATOR
+// ================================================================================================
 
 pub struct FibEvaluator {
     constraint_degrees: Vec<usize>,
@@ -21,8 +13,8 @@ pub struct FibEvaluator {
 }
 
 impl TransitionEvaluator for FibEvaluator {
-    const MAX_CONSTRAINT_DEGREE: usize = 1;
     const MAX_CONSTRAINTS: usize = 2;
+    const MAX_CONSTRAINT_DEGREE: usize = 1;
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -66,8 +58,4 @@ impl TransitionEvaluator for FibEvaluator {
     fn composition_coefficients(&self) -> &[u128] {
         &self.composition_coefficients
     }
-}
-
-fn are_equal(a: u128, b: u128) -> u128 {
-    sub(a, b)
 }

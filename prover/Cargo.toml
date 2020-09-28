@@ -7,7 +7,6 @@ edition = "2018"
 bench = false
 
 [dependencies]
-hex = "0.4.2"
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
