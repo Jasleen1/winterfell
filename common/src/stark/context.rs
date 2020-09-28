@@ -10,6 +10,7 @@ pub struct ProofContext {
     options: ProofOptions,
     trace_width: usize,
     trace_length: usize,
+    ce_blowup_factor: usize,
     max_constraint_degree: usize,
     generators: Generators,
 }
@@ -47,6 +48,7 @@ impl ProofContext {
         let g_ce = field::get_root_of_unity(ce_domain_size);
 
         // low-degree extension domain generator
+        let ce_blowup_factor = cmp::max(max_constraint_degree, 2).next_power_of_two();
         let lde_domain_size = compute_lde_domain_size(trace_length, options.blowup_factor());
         let g_lde = field::get_root_of_unity(lde_domain_size);
 
@@ -54,6 +56,7 @@ impl ProofContext {
             options,
             trace_width,
             trace_length,
+            ce_blowup_factor,
             max_constraint_degree,
             generators: Generators {
                 trace_domain: g_trace,
@@ -86,7 +89,11 @@ impl ProofContext {
     }
 
     pub fn ce_domain_size(&self) -> usize {
-        compute_ce_domain_size(self.trace_length, self.max_constraint_degree)
+        compute_ce_domain_size(self.trace_length, self.ce_blowup_factor)
+    }
+
+    pub fn ce_blowup_factor(&self) -> usize {
+        self.ce_blowup_factor
     }
 
     pub fn composition_degree(&self) -> usize {
@@ -131,7 +138,6 @@ fn compute_lde_domain_size(trace_length: usize, lde_blowup_factor: usize) -> usi
     trace_length * lde_blowup_factor
 }
 
-fn compute_ce_domain_size(trace_length: usize, max_constraint_degree: usize) -> usize {
-    let blowup = cmp::max(max_constraint_degree, 2).next_power_of_two();
-    trace_length * blowup
+fn compute_ce_domain_size(trace_length: usize, ce_blowup_factor: usize) -> usize {
+    trace_length * ce_blowup_factor
 }

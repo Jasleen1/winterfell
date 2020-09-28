@@ -113,7 +113,7 @@ pub fn build_constraint_poly(
     // by Z(x) = (x^steps - 1) / (x - x_at_last_step), and add it to the result
     fft::interpolate_poly(&mut t_evaluations, &inv_twiddles, true);
     polynom::syn_div_expanded_in_place(&mut t_evaluations, trace_length, &[x_at_last_step]);
-    debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&t_evaluations));
+    //TODO: debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&t_evaluations));
     utils::add_in_place(&mut combined_poly, &t_evaluations);
 
     ConstraintPoly::new(combined_poly, constraint_poly_degree)
