@@ -9,12 +9,7 @@ pub use io_evaluator::IoAssertionEvaluator;
 pub trait AssertionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
-    fn new(
-        assertions: &[Assertion],
-        context: &ProofContext,
-        composition_degree: usize,
-        coefficients: &[u128],
-    ) -> Self;
+    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[u128]) -> Self;
     fn evaluate(&self, state: &[u128], x: u128) -> (u128, u128);
 }
 

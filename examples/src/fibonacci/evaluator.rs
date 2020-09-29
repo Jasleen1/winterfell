@@ -1,14 +1,14 @@
 use crate::utils::are_equal;
 use prover::{
     math::field::{add, mul},
-    ProofContext, TransitionEvaluator,
+    ConstraintDegree, ProofContext, TransitionEvaluator,
 };
 
 // FIBONACCI TRANSITION CONSTRAINT EVALUATOR
 // ================================================================================================
 
 pub struct FibEvaluator {
-    constraint_degrees: Vec<usize>,
+    constraint_degrees: Vec<ConstraintDegree>,
     composition_coefficients: Vec<u128>,
 }
 
@@ -19,12 +19,10 @@ impl TransitionEvaluator for FibEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(_context: &ProofContext, coefficients: &[u128]) -> Self {
-        let constraint_degrees = vec![1, 1];
-        let composition_coefficients = coefficients[..4].to_vec();
-
+        let degree = ConstraintDegree::new(1);
         FibEvaluator {
-            constraint_degrees,
-            composition_coefficients,
+            constraint_degrees: vec![degree.clone(), degree],
+            composition_coefficients: coefficients[..4].to_vec(),
         }
     }
 
@@ -51,7 +49,7 @@ impl TransitionEvaluator for FibEvaluator {
 
     // BOILERPLATE
     // --------------------------------------------------------------------------------------------
-    fn degrees(&self) -> &[usize] {
+    fn degrees(&self) -> &[ConstraintDegree] {
         &self.constraint_degrees
     }
 

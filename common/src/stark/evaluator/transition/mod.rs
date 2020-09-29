@@ -1,4 +1,5 @@
-use super::ProofContext;
+use super::{ConstraintDegree, ProofContext};
+use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT
 // ================================================================================================
@@ -12,7 +13,7 @@ pub trait TransitionEvaluator {
     fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128>;
     fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128>;
 
-    fn degrees(&self) -> &[usize];
+    fn degrees(&self) -> &[ConstraintDegree];
     fn composition_coefficients(&self) -> &[u128];
 }
 
@@ -21,30 +22,22 @@ pub trait TransitionEvaluator {
 
 pub fn group_transition_constraints(
     composition_degree: usize,
-    degrees: &[usize],
+    degrees: &[ConstraintDegree],
     trace_length: usize,
 ) -> Vec<(u128, Vec<usize>)> {
-    let max_constraint_degree = degrees.iter().max().unwrap();
-
-    let mut groups: Vec<_> = (0..max_constraint_degree + 1).map(|_| Vec::new()).collect();
-
-    for (i, &degree) in degrees.iter().enumerate() {
-        groups[degree].push(i);
-    }
-
     let target_degree = get_constraint_target_degree(trace_length, composition_degree);
 
-    let mut result = Vec::new();
-    for (degree, constraints) in groups.iter().enumerate() {
-        if constraints.is_empty() {
-            continue;
-        }
-        let constraint_degree = (trace_length - 1) * degree;
-        let incremental_degree = (target_degree - constraint_degree) as u128;
-        result.push((incremental_degree, constraints.clone()));
+    let mut groups = HashMap::new();
+    for (i, degree) in degrees.iter().enumerate() {
+        let evaluation_degree = degree.get_evaluation_degree(trace_length);
+        let incremental_degree = (target_degree - evaluation_degree) as u128;
+        let group = groups
+            .entry(evaluation_degree)
+            .or_insert((incremental_degree, Vec::new()));
+        group.1.push(i);
     }
 
-    result
+    groups.into_iter().map(|e| e.1).collect()
 }
 
 // HELPER FUNCTIONS

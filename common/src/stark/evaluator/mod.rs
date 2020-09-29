@@ -7,6 +7,9 @@ pub use transition::{group_transition_constraints, TransitionEvaluator};
 mod assertions;
 pub use assertions::{Assertion, AssertionEvaluator, IoAssertionEvaluator};
 
+mod constraints;
+pub use constraints::{ConstraintDegree, ConstraintDivisor};
+
 #[cfg(test)]
 mod tests;
 
@@ -17,7 +20,6 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
     context: ProofContext,
-    max_constraint_degree: usize,
     transition_degree_map: Vec<(u128, Vec<usize>)>,
 }
 
@@ -35,25 +37,18 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // TODO: switch over to an iterator to generate coefficients
         let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
         let transition = T::new(context, &t_coefficients);
-        let max_constraint_degree = *transition.degrees().iter().max().unwrap();
         let transition_degree_map = group_transition_constraints(
             context.composition_degree(),
             transition.degrees(),
             context.trace_length(),
         );
 
-        let assertions = A::new(
-            &assertions,
-            &context,
-            context.composition_degree(),
-            &a_coefficients,
-        );
+        let assertions = A::new(&context, &assertions, &a_coefficients);
 
         ConstraintEvaluator {
             transition,
             assertions,
             context: context.clone(),
-            max_constraint_degree,
             transition_degree_map,
         }
     }
@@ -105,11 +100,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     /// Returns size of the constraint evaluation domain.
     pub fn ce_domain_size(&self) -> usize {
-        // domain for constraint evaluation must be at least a multiple of
-        // max constraint degree; but we also put a floor at 2x so that constraint
-        // composition can work correctly
-        let ce_blowup_factor = std::cmp::max(self.max_constraint_degree.next_power_of_two(), 2);
-        self.trace_length() * ce_blowup_factor
+        self.context.ce_domain_size()
     }
 
     /// Returns size of low-degree extension domain.
@@ -117,16 +108,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.context.lde_domain_size()
     }
 
-    pub fn max_constraint_degree(&self) -> usize {
-        self.max_constraint_degree
-    }
-
     pub fn trace_length(&self) -> usize {
         self.context.trace_length()
     }
 
     pub fn blowup_factor(&self) -> usize {
-        self.context.lde_domain_size() / self.context.trace_length()
+        self.context.options().blowup_factor()
     }
 
     pub fn get_x_at_last_step(&self) -> u128 {
@@ -180,50 +167,5 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     fn get_x_at(&self, step: usize) -> u128 {
         let trace_root = field::get_root_of_unity(self.trace_length());
         field::exp(trace_root, step as u128)
-    }
-}
-
-// CONSTRAINT DIVISOR
-// ================================================================================================
-
-/// Describes constraint divisor as a combination of a sparse polynomial and exclusion points.
-/// For example (x^a - 1) / (x - b) can be represented as:
-///   numerator: vec![(a, 1)]
-///   exclude: vec![b]
-pub struct ConstraintDivisor {
-    numerator: Vec<(usize, u128)>,
-    exclude: Vec<u128>,
-}
-
-impl ConstraintDivisor {
-    /// Builds divisor for transition constraints
-    pub fn from_transition(trace_length: usize, x_at_last_step: u128) -> Self {
-        ConstraintDivisor {
-            numerator: vec![(trace_length, 1)],
-            exclude: vec![x_at_last_step],
-        }
-    }
-
-    /// Builds divisor for assertion constraint
-    pub fn from_assertion(value: u128) -> Self {
-        ConstraintDivisor {
-            numerator: vec![(1, value)],
-            exclude: vec![],
-        }
-    }
-
-    pub fn numerator(&self) -> &[(usize, u128)] {
-        &self.numerator
-    }
-
-    pub fn exclude(&self) -> &[u128] {
-        &self.exclude
-    }
-
-    /// Returns the degree of the divisor polynomial
-    pub fn degree(&self) -> usize {
-        let numerator_degree = self.numerator[0].0;
-        let denominator_degree = self.exclude.len();
-        numerator_degree - denominator_degree
     }
 }

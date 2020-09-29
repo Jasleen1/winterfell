@@ -4,7 +4,7 @@ use prover::{
         field::{self, add, exp, sub},
         polynom,
     },
-    ProofContext, TransitionEvaluator,
+    ConstraintDegree, ProofContext, TransitionEvaluator,
 };
 
 use super::{
@@ -24,7 +24,7 @@ const CYCLE_MASK: [u128; CYCLE_LENGTH] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 // ================================================================================================
 
 pub struct RescueEvaluator {
-    constraint_degrees: Vec<usize>,
+    constraint_degrees: Vec<ConstraintDegree>,
     composition_coefficients: Vec<u128>,
     mask_constants: Vec<u128>,
     mask_poly: Vec<u128>,
@@ -61,8 +61,11 @@ impl TransitionEvaluator for RescueEvaluator {
         // in one vector
         let ark_constants = transpose(ark_evaluations);
 
+        // transition degree is the same for all constraints
+        let degree = ConstraintDegree::with_cycles(3, vec![CYCLE_LENGTH]);
+
         RescueEvaluator {
-            constraint_degrees: vec![4, 4, 4, 4],
+            constraint_degrees: vec![degree; 4],
             composition_coefficients: coefficients[..8].to_vec(),
             mask_poly,
             mask_constants,
@@ -125,7 +128,7 @@ impl TransitionEvaluator for RescueEvaluator {
 
     // BOILERPLATE
     // --------------------------------------------------------------------------------------------
-    fn degrees(&self) -> &[usize] {
+    fn degrees(&self) -> &[ConstraintDegree] {
         &self.constraint_degrees
     }
 

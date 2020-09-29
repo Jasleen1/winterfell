@@ -16,12 +16,7 @@ pub struct IoAssertionEvaluator {
 impl AssertionEvaluator for IoAssertionEvaluator {
     const MAX_CONSTRAINTS: usize = 128;
 
-    fn new(
-        assertions: &[Assertion],
-        context: &ProofContext,
-        composition_degree: usize,
-        coefficients: &[u128],
-    ) -> Self {
+    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[u128]) -> Self {
         let (input_assertions, output_assertions) =
             group_assertions(&assertions, context.trace_length(), context.trace_width());
 
@@ -39,7 +34,7 @@ impl AssertionEvaluator for IoAssertionEvaluator {
             output_coefficients,
             degree_adjustment: get_constraint_adjustment_degree(
                 context.trace_length(),
-                composition_degree,
+                context.composition_degree(),
             ),
         }
     }
