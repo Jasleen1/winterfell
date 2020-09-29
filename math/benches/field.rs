@@ -9,6 +9,14 @@ pub fn add(c: &mut Criterion) {
     });
 }
 
+pub fn sub(c: &mut Criterion) {
+    let x = field::rand();
+    let y = field::rand();
+    c.bench_function("sub", |bench| {
+        bench.iter(|| field::sub(black_box(x), black_box(y)))
+    });
+}
+
 pub fn mul(c: &mut Criterion) {
     let x = field::rand();
     let y = field::rand();
@@ -30,5 +38,5 @@ pub fn inv(c: &mut Criterion) {
     c.bench_function("inv", |bench| bench.iter(|| field::inv(black_box(x))));
 }
 
-criterion_group!(field_group, add, mul, exp, inv);
+criterion_group!(field_group, add, sub, mul, exp, inv);
 criterion_main!(field_group);
