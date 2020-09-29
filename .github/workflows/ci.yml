@@ -38,8 +38,31 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: jasonwilliams/criterion-compare-action@move_to_actions
+      - uses: dorny/paths-filter@v2
+        id: filter
         with:
+          filters: |
+            math:
+              - 'math/**'
+            crypto:
+              - 'crypto/**'
+
+      - name: math benches
+        if: steps.filter.outputs.math == 'true'
+        uses: jasonwilliams/criterion-compare-action@move_to_actions
+        with:
+          cwd: './math/'
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: crypto benches
+        if: steps.filter.outputs.crypto == 'true'
+        uses: jasonwilliams/criterion-compare-action@move_to_actions
+        with:
+          cwd: './crypto/'
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: examples test
+        uses: jasonwilliams/criterion-compare-action@move_to_actions
+        with:
+          cwd: './examples/'
           token: ${{ secrets.GITHUB_TOKEN }}
 
   clippy:
