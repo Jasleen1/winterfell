@@ -69,24 +69,27 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     ConstraintEvaluationTable::new(evaluations, evaluator.constraint_divisors())
 }
 
-/// Interpolates all constraint evaluations into polynomials and combines all these
-/// polynomials into a single polynomial
+/// Interpolates all constraint evaluations into polynomials, divides them by their respective
+/// divisors, and combines the results into a single polynomial
 pub fn build_constraint_poly(
     evaluations: ConstraintEvaluationTable,
     context: &ProofContext,
 ) -> ConstraintPoly {
-    let ce_domain_size = evaluations.domain_size();
+    let ce_domain_size = context.ce_domain_size();
     let constraint_poly_degree = context.composition_degree();
+    let inv_twiddles = fft::get_inv_twiddles(context.generators().ce_domain, ce_domain_size);
 
-    let ce_domain_root = field::get_root_of_unity(ce_domain_size);
-    let inv_twiddles = fft::get_inv_twiddles(ce_domain_root, ce_domain_size);
-
+    // allocate memory for the combined polynomial
     let mut combined_poly = vec![0; ce_domain_size];
 
-    let divisors = evaluations.divisors().to_vec();
-    for (mut evaluations, divisor) in evaluations.into_vec().into_iter().zip(divisors.iter()) {
+    // iterate over all columns of the constraint evaluation table
+    for (mut evaluations, divisor) in evaluations.into_iter() {
+        // interpolate each column into a polynomial
         fft::interpolate_poly(&mut evaluations, &inv_twiddles, true);
-        divide_poly(&mut evaluations, divisor);
+        // divide the polynomial by its divisor
+        divide_poly(&mut evaluations, &divisor);
+        // make sure that the post-division degree of the polynomial matches
+        // the expected degree, and add it to the combined polynomial
         debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&evaluations));
         utils::add_in_place(&mut combined_poly, &evaluations);
     }
@@ -154,13 +157,17 @@ pub fn query_constraints(
 // HELPER FUNCTIONS
 // ================================================================================================
 fn divide_poly(poly: &mut [u128], divisor: &ConstraintDivisor) {
-    if divisor.is_simple() {
-        assert!(divisor.degree() == 1, "TODO");
-        let value = divisor.numerator()[0].1;
-        polynom::syn_div_in_place(poly, value);
-    } else {
-        let numerator_degree = divisor.numerator()[0].0;
+    let numerator = divisor.numerator();
+    assert!(
+        numerator.len() == 1,
+        "complex divisors are not yet supported"
+    );
+    let numerator = numerator[0];
 
+    let numerator_degree = numerator.0;
+    if numerator_degree == 1 {
+        polynom::syn_div_in_place(poly, numerator.1);
+    } else {
         polynom::syn_div_expanded_in_place(poly, numerator_degree, divisor.exclude());
     }
 }

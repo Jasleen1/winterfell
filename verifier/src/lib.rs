@@ -125,18 +125,18 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     x: u128,
 ) -> u128 {
     let (t_value, i_value, f_value) = evaluator.evaluate_at_x(state1, state2, x);
+    // TODO: replace this we getting evaluations from the evaluator directly
+    let evaluations = vec![t_value, i_value, f_value];
 
-    // Z(x) = x - 1
-    let z = sub(x, field::ONE);
-    let mut result = div(i_value, z);
-
-    // Z(x) = x - x_at_last_step
-    let z = sub(x, evaluator.get_x_at_last_step());
-    result = add(result, div(f_value, z));
-
-    // Z(x) = (x^steps - 1) / (x - x_at_last_step)
-    let z = div(sub(exp(x, evaluator.trace_length() as u128), field::ONE), z);
-    result = add(result, div(t_value, z));
+    // iterate over evaluations and divide out values implied by the divisors
+    let mut result = 0;
+    for (evaluation, divisor) in evaluations
+        .into_iter()
+        .zip(evaluator.constraint_divisors().iter())
+    {
+        let v = div(evaluation, divisor.evaluate_at(x));
+        result = add(result, v);
+    }
 
     result
 }

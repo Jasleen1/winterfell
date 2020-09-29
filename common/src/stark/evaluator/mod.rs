@@ -1,5 +1,3 @@
-use std::cmp;
-
 use super::{ProofContext, PublicCoin};
 use math::field;
 
@@ -146,16 +144,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
         // TODO: build and save constraint divisors at construction time?
-        let x_at_last_step = self.get_x_at_last_step();
+        let x_at_last_step = get_x_at_last_step(self.context.trace_length());
         vec![
-            ConstraintDivisor::from_transition(self.trace_length(), x_at_last_step),
+            ConstraintDivisor::from_transition(self.context.trace_length(), x_at_last_step),
             ConstraintDivisor::from_assertion(1),
             ConstraintDivisor::from_assertion(x_at_last_step),
         ]
-    }
-
-    pub fn get_x_at_last_step(&self) -> u128 {
-        self.get_x_at(self.trace_length() - 1)
     }
 
     // HELPER METHODS
@@ -207,12 +201,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         )
     }
 
-    // Returns x in the trace domain at the specified step
-    fn get_x_at(&self, step: usize) -> u128 {
-        let trace_root = field::get_root_of_unity(self.trace_length());
-        field::exp(trace_root, step as u128)
-    }
-
     // DEBUG HELPERS
     // --------------------------------------------------------------------------------------------
 
@@ -250,7 +238,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             let degree = polynom::degree_of(&poly);
             actual_degrees.push(degree);
 
-            max_degree = cmp::max(max_degree, degree);
+            max_degree = std::cmp::max(max_degree, degree);
         }
 
         // make sure expected and actual degrees are equal
@@ -263,7 +251,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
         // make sure evaluation domain size does not exceed the size required by max degree
         let expected_domain_size =
-            cmp::max(max_degree, self.trace_length() + 1).next_power_of_two();
+            std::cmp::max(max_degree, self.trace_length() + 1).next_power_of_two();
         if expected_domain_size != self.ce_domain_size() {
             panic!(
                 "incorrect constraint evaluation domain size; expected {}, actual: {}",
@@ -272,4 +260,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             );
         }
     }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+fn get_x_at_last_step(trace_length: usize) -> u128 {
+    let trace_root = field::get_root_of_unity(trace_length);
+    let last_step = (trace_length - 1) as u128;
+    field::exp(trace_root, last_step)
 }

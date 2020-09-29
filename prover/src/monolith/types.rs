@@ -1,5 +1,6 @@
 use common::stark::{ConstraintDivisor, ProofContext};
 use math::polynom;
+use std::{iter, vec};
 
 // TRACE TABLE
 // ================================================================================================
@@ -164,6 +165,15 @@ impl ConstraintEvaluationTable {
 
     pub fn into_vec(self) -> Vec<Vec<u128>> {
         self.evaluations
+    }
+}
+
+impl IntoIterator for ConstraintEvaluationTable {
+    type Item = (Vec<u128>, ConstraintDivisor);
+    type IntoIter = iter::Zip<vec::IntoIter<Vec<u128>>, vec::IntoIter<ConstraintDivisor>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.evaluations.into_iter().zip(self.divisors.into_iter())
     }
 }
 

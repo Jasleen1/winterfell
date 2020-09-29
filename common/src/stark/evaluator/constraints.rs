@@ -1,3 +1,5 @@
+use math::field;
+
 // CONSTRAINT DEGREE
 // ================================================================================================
 
@@ -71,14 +73,27 @@ impl ConstraintDivisor {
         &self.exclude
     }
 
-    pub fn is_simple(&self) -> bool {
-        self.exclude.is_empty()
-    }
-
     /// Returns the degree of the divisor polynomial
     pub fn degree(&self) -> usize {
         let numerator_degree = self.numerator[0].0;
         let denominator_degree = self.exclude.len();
         numerator_degree - denominator_degree
+    }
+
+    pub fn evaluate_at(&self, x: u128) -> u128 {
+        let mut result = field::ONE;
+
+        for (degree, constant) in self.numerator.iter() {
+            let v = field::exp(x, *degree as u128);
+            let v = field::sub(v, *constant);
+            result = field::mul(result, v);
+        }
+
+        for exception in self.exclude.iter() {
+            let v = field::sub(x, *exception);
+            result = field::div(result, v);
+        }
+
+        result
     }
 }
