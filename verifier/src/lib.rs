@@ -124,7 +124,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     state2: &[u128],
     x: u128,
 ) -> u128 {
-    let (t_value, i_value, f_value) = evaluator.evaluate_at(state1, state2, x);
+    let (t_value, i_value, f_value) = evaluator.evaluate_at_x(state1, state2, x);
 
     // Z(x) = x - 1
     let z = sub(x, field::ONE);

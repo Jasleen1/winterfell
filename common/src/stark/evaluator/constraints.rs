@@ -20,7 +20,7 @@ impl ConstraintDegree {
     }
 
     pub fn get_evaluation_degree(&self, trace_length: usize) -> usize {
-        let mut result = self.base * trace_length;
+        let mut result = self.base * (trace_length - 1);
         for cycle_length in self.cycles.iter() {
             result += (trace_length / cycle_length) * (cycle_length - 1);
         }
@@ -40,6 +40,7 @@ impl ConstraintDegree {
 /// For example (x^a - 1) / (x - b) can be represented as:
 ///   numerator: vec![(a, 1)]
 ///   exclude: vec![b]
+#[derive(Clone)]
 pub struct ConstraintDivisor {
     numerator: Vec<(usize, u128)>,
     exclude: Vec<u128>,
@@ -68,6 +69,10 @@ impl ConstraintDivisor {
 
     pub fn exclude(&self) -> &[u128] {
         &self.exclude
+    }
+
+    pub fn is_simple(&self) -> bool {
+        self.exclude.is_empty()
     }
 
     /// Returns the degree of the divisor polynomial

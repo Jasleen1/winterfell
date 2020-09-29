@@ -11,7 +11,7 @@ pub struct ProofContext {
     trace_width: usize,
     trace_length: usize,
     ce_blowup_factor: usize,
-    max_constraint_degree: usize,
+    max_constraint_degree: usize, // TODO: remove
     generators: Generators,
 }
 
@@ -44,11 +44,11 @@ impl ProofContext {
         let g_trace = field::get_root_of_unity(trace_length);
 
         // constraint evaluation domain generator
-        let ce_domain_size = compute_ce_domain_size(trace_length, max_constraint_degree);
+        let ce_blowup_factor = cmp::max(max_constraint_degree, 2).next_power_of_two();
+        let ce_domain_size = compute_ce_domain_size(trace_length, ce_blowup_factor);
         let g_ce = field::get_root_of_unity(ce_domain_size);
 
         // low-degree extension domain generator
-        let ce_blowup_factor = cmp::max(max_constraint_degree, 2).next_power_of_two();
         let lde_domain_size = compute_lde_domain_size(trace_length, options.blowup_factor());
         let g_lde = field::get_root_of_unity(lde_domain_size);
 

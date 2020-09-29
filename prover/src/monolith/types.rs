@@ -146,15 +146,10 @@ pub struct ConstraintEvaluationTable {
 
 #[allow(dead_code)] // TODO: remove this once constructor takes Vec<Vec<u128>>
 impl ConstraintEvaluationTable {
-    pub fn new(
-        transition: Vec<u128>,
-        input: Vec<u128>,
-        output: Vec<u128>,
-        divisors: Vec<ConstraintDivisor>,
-    ) -> Self {
+    pub fn new(evaluations: Vec<Vec<u128>>, divisors: Vec<ConstraintDivisor>) -> Self {
         // TODO: verify lengths
         ConstraintEvaluationTable {
-            evaluations: vec![transition, input, output],
+            evaluations,
             divisors,
         }
     }
@@ -165,18 +160,6 @@ impl ConstraintEvaluationTable {
 
     pub fn divisors(&self) -> &[ConstraintDivisor] {
         &self.divisors
-    }
-
-    pub fn transition_evaluations(&self) -> &[u128] {
-        &self.evaluations[0]
-    }
-
-    pub fn input_evaluations(&self) -> &[u128] {
-        &self.evaluations[1]
-    }
-
-    pub fn output_evaluations(&self) -> &[u128] {
-        &self.evaluations[2]
     }
 
     pub fn into_vec(self) -> Vec<Vec<u128>> {
