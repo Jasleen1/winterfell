@@ -20,6 +20,7 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
     context: ProofContext,
+    evaluations: Vec<u128>,
     transition_degree_map: Vec<(u128, Vec<usize>)>,
 
     #[cfg(debug_assertions)]
@@ -58,6 +59,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             transition,
             assertions,
             context: context.clone(),
+            evaluations: vec![field::ZERO; 3],
             transition_degree_map,
         }
     }
@@ -72,7 +74,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         next: &[u128],
         x: u128,
         step: usize,
-    ) -> (u128, u128, u128) {
+    ) -> &[u128] {
         // evaluate transition constraints
         let t_evaluations = self.transition.evaluate(current, next, step);
 
@@ -102,11 +104,15 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // evaluate boundary constraints defined by assertions
         let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
 
-        (t_evaluation, i_evaluation, f_evaluation)
+        self.evaluations[0] = t_evaluation;
+        self.evaluations[1] = i_evaluation;
+        self.evaluations[2] = f_evaluation;
+
+        &self.evaluations
     }
 
     /// TODO: add comments
-    pub fn evaluate_at_x(&self, current: &[u128], next: &[u128], x: u128) -> (u128, u128, u128) {
+    pub fn evaluate_at_x(&mut self, current: &[u128], next: &[u128], x: u128) -> &[u128] {
         // evaluate transition constraints and merge them into a single value
         let t_evaluations = self.transition.evaluate_at(current, next, x);
         let t_evaluation = self.merge_transition_evaluations(&t_evaluations, x);
@@ -114,7 +120,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // evaluate boundary constraints defined by assertions
         let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
 
-        (t_evaluation, i_evaluation, f_evaluation)
+        self.evaluations[0] = t_evaluation;
+        self.evaluations[1] = i_evaluation;
+        self.evaluations[2] = f_evaluation;
+
+        &self.evaluations
     }
 
     // ACCESSORS

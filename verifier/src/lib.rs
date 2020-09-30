@@ -119,23 +119,19 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
 /// TODO: move into ConstraintEvaluator?
 pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
-    evaluator: ConstraintEvaluator<T, A>,
+    mut evaluator: ConstraintEvaluator<T, A>,
     state1: &[u128],
     state2: &[u128],
     x: u128,
 ) -> u128 {
-    let (t_value, i_value, f_value) = evaluator.evaluate_at_x(state1, state2, x);
-    // TODO: replace this we getting evaluations from the evaluator directly
-    let evaluations = vec![t_value, i_value, f_value];
+    let divisors = evaluator.constraint_divisors();
+    let evaluations = evaluator.evaluate_at_x(state1, state2, x);
 
     // iterate over evaluations and divide out values implied by the divisors
     let mut result = 0;
-    for (evaluation, divisor) in evaluations
-        .into_iter()
-        .zip(evaluator.constraint_divisors().iter())
-    {
-        let v = div(evaluation, divisor.evaluate_at(x));
-        result = add(result, v);
+    for (&evaluation, divisor) in evaluations.iter().zip(divisors.iter()) {
+        let z = divisor.evaluate_at(x);
+        result = add(result, div(evaluation, z));
     }
 
     result
