@@ -1,4 +1,4 @@
-use super::{Assertion, AssertionEvaluator, ProofContext};
+use super::{Assertion, AssertionEvaluator, ConstraintDivisor, ProofContext};
 use math::field::{self, add, mul, sub};
 use std::collections::BTreeMap;
 
@@ -11,6 +11,7 @@ pub struct IoAssertionEvaluator {
     output_assertions: Vec<Assertion>,
     output_coefficients: Vec<u128>,
     degree_adjustment: u128,
+    divisors: Vec<ConstraintDivisor>,
 }
 
 impl AssertionEvaluator for IoAssertionEvaluator {
@@ -27,6 +28,11 @@ impl AssertionEvaluator for IoAssertionEvaluator {
         let output_coefficients =
             coefficients[i_coefficient_num..(i_coefficient_num + o_coefficients_num)].to_vec();
 
+        let divisors = vec![
+            ConstraintDivisor::from_assertion(context.get_trace_x_at(0)),
+            ConstraintDivisor::from_assertion(context.get_trace_x_at(context.trace_length() - 1)),
+        ];
+
         IoAssertionEvaluator {
             input_assertions,
             output_assertions,
@@ -36,10 +42,11 @@ impl AssertionEvaluator for IoAssertionEvaluator {
                 context.trace_length(),
                 context.composition_degree(),
             ),
+            divisors,
         }
     }
 
-    fn evaluate(&self, state: &[u128], x: u128) -> (u128, u128) {
+    fn evaluate(&self, result: &mut [u128], state: &[u128], x: u128) {
         // compute degree adjustment factor
         let xp = field::exp(x, self.degree_adjustment);
 
@@ -55,7 +62,7 @@ impl AssertionEvaluator for IoAssertionEvaluator {
         }
 
         // raise the degree of adjusted terms and sum all the terms together
-        i_result = add(i_result, mul(result_adj, xp));
+        result[0] = add(i_result, mul(result_adj, xp));
 
         // 2 ----- compute combination of boundary constraints for the last step ------------------
         let mut f_result = field::ZERO;
@@ -69,9 +76,11 @@ impl AssertionEvaluator for IoAssertionEvaluator {
         }
 
         // raise the degree of adjusted terms and sum all the terms together
-        f_result = add(f_result, mul(result_adj, xp));
+        result[1] = add(f_result, mul(result_adj, xp));
+    }
 
-        (i_result, f_result)
+    fn divisors(&self) -> &[ConstraintDivisor] {
+        &self.divisors
     }
 }
 

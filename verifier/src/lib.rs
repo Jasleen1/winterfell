@@ -124,8 +124,14 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     state2: &[u128],
     x: u128,
 ) -> u128 {
+    let evaluations = evaluator.evaluate_at_x(state1, state2, x).to_vec();
     let divisors = evaluator.constraint_divisors();
-    let evaluations = evaluator.evaluate_at_x(state1, state2, x);
+    debug_assert!(
+        divisors.len() == evaluations.len(),
+        "number of divisors ({}) does not match the number of evaluations ({})",
+        divisors.len(),
+        evaluations.len()
+    );
 
     // iterate over evaluations and divide out values implied by the divisors
     let mut result = 0;

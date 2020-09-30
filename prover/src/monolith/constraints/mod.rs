@@ -28,7 +28,8 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
 
-    // allocate space for constraint evaluations
+    // allocate space for constraint evaluations; there should be as many columns in the
+    // table as there are divisors
     let mut evaluation_table: Vec<Vec<u128>> = evaluator
         .constraint_divisors()
         .iter()
@@ -58,8 +59,8 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 
         // pass the current and next rows of the trace table through the constraint evaluator
         // and record the result in the evaluation table
-        let ev = evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i);
-        for (j, &evaluation) in ev.iter().enumerate() {
+        let evaluation_row = evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i);
+        for (j, &evaluation) in evaluation_row.iter().enumerate() {
             evaluation_table[j][i] = evaluation;
         }
     }
@@ -68,7 +69,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     evaluator.validate_transition_degrees();
 
     // build and return constraint evaluation table
-    ConstraintEvaluationTable::new(evaluation_table, evaluator.constraint_divisors())
+    ConstraintEvaluationTable::new(evaluation_table, evaluator.constraint_divisors().to_vec())
 }
 
 /// Interpolates all constraint evaluations into polynomials, divides them by their respective

@@ -1,4 +1,4 @@
-use super::ProofContext;
+use super::{ConstraintDivisor, ProofContext};
 
 mod io_evaluator;
 pub use io_evaluator::IoAssertionEvaluator;
@@ -10,7 +10,8 @@ pub trait AssertionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
     fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[u128]) -> Self;
-    fn evaluate(&self, state: &[u128], x: u128) -> (u128, u128);
+    fn evaluate(&self, result: &mut [u128], state: &[u128], x: u128);
+    fn divisors(&self) -> &[ConstraintDivisor];
 }
 
 // ASSERTION STRUCT

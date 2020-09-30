@@ -21,6 +21,7 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     transition: T,
     context: ProofContext,
     evaluations: Vec<u128>,
+    divisors: Vec<ConstraintDivisor>,
     transition_degree_map: Vec<(u128, Vec<usize>)>,
 
     #[cfg(debug_assertions)]
@@ -52,6 +53,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
         let assertions = A::new(&context, &assertions, &a_coefficients);
 
+        let mut divisors = vec![ConstraintDivisor::from_transition(
+            context.trace_length(),
+            context.get_trace_x_at(context.trace_length() - 1),
+        )];
+        divisors.extend_from_slice(assertions.divisors());
+
         ConstraintEvaluator {
             #[cfg(debug_assertions)]
             t_evaluations: transition.degrees().iter().map(|_| Vec::new()).collect(),
@@ -59,7 +66,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             transition,
             assertions,
             context: context.clone(),
-            evaluations: vec![field::ZERO; 3],
+            evaluations: vec![field::ZERO; divisors.len()],
+            divisors,
             transition_degree_map,
         }
     }
@@ -101,12 +109,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             self.merge_transition_evaluations(&t_evaluations, x)
         };
 
-        // evaluate boundary constraints defined by assertions
-        let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
-
         self.evaluations[0] = t_evaluation;
-        self.evaluations[1] = i_evaluation;
-        self.evaluations[2] = f_evaluation;
+
+        // evaluate boundary constraints defined by assertions and save the result into
+        // the evaluations buffer starting at slot 1
+        self.assertions
+            .evaluate(&mut self.evaluations[1..], current, x);
 
         &self.evaluations
     }
@@ -115,14 +123,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     pub fn evaluate_at_x(&mut self, current: &[u128], next: &[u128], x: u128) -> &[u128] {
         // evaluate transition constraints and merge them into a single value
         let t_evaluations = self.transition.evaluate_at(current, next, x);
-        let t_evaluation = self.merge_transition_evaluations(&t_evaluations, x);
+        self.evaluations[0] = self.merge_transition_evaluations(&t_evaluations, x);
 
-        // evaluate boundary constraints defined by assertions
-        let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
-
-        self.evaluations[0] = t_evaluation;
-        self.evaluations[1] = i_evaluation;
-        self.evaluations[2] = f_evaluation;
+        // evaluate boundary constraints defined by assertions and save the result into
+        // the evaluations buffer starting at slot 1
+        self.assertions
+            .evaluate(&mut self.evaluations[1..], current, x);
 
         &self.evaluations
     }
@@ -152,14 +158,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.context.options().blowup_factor()
     }
 
-    pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
-        // TODO: build and save constraint divisors at construction time?
-        let x_at_last_step = get_x_at_last_step(self.context.trace_length());
-        vec![
-            ConstraintDivisor::from_transition(self.context.trace_length(), x_at_last_step),
-            ConstraintDivisor::from_assertion(1),
-            ConstraintDivisor::from_assertion(x_at_last_step),
-        ]
+    pub fn constraint_divisors(&self) -> &[ConstraintDivisor] {
+        &self.divisors
     }
 
     // HELPER METHODS
@@ -270,12 +270,4 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             );
         }
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-fn get_x_at_last_step(trace_length: usize) -> u128 {
-    let trace_root = field::get_root_of_unity(trace_length);
-    let last_step = (trace_length - 1) as u128;
-    field::exp(trace_root, last_step)
 }

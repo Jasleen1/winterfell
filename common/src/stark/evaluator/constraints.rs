@@ -58,9 +58,9 @@ impl ConstraintDivisor {
     }
 
     /// Builds divisor for assertion constraint
-    pub fn from_assertion(value: u128) -> Self {
+    pub fn from_assertion(x: u128) -> Self {
         ConstraintDivisor {
-            numerator: vec![(1, value)],
+            numerator: vec![(1, x)],
             exclude: vec![],
         }
     }

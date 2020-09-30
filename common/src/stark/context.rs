@@ -130,6 +130,18 @@ impl ProofContext {
     pub fn generators(&self) -> &Generators {
         &self.generators
     }
+
+    // UTILITY FUNCTIONS
+    // --------------------------------------------------------------------------------------------
+
+    pub fn get_trace_x_at(&self, step: usize) -> u128 {
+        debug_assert!(
+            step < self.trace_length,
+            "step must be in the trace domain [0, {})",
+            self.trace_length
+        );
+        field::exp(self.generators.trace_domain, step as u128)
+    }
 }
 
 // HELPER FUNCTIONS
