@@ -20,7 +20,7 @@ pub struct StarkProof {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Context {
     pub lde_domain_depth: u8,
-    pub max_constraint_degree: u8,
+    pub ce_blowup_factor: u8,
     pub options: ProofOptions,
 }
 
@@ -72,9 +72,8 @@ impl StarkProof {
             options.num_queries() / 2
         };
 
-        let one_over_rho = (options.blowup_factor()
-            / self.context.max_constraint_degree.next_power_of_two() as usize)
-            as u32;
+        let one_over_rho =
+            (options.blowup_factor() / self.context.ce_blowup_factor as usize) as u32;
         let security_per_query = 31 - one_over_rho.leading_zeros(); // same as log2(one_over_rho)
 
         let mut result1 = security_per_query * num_queries as u32;

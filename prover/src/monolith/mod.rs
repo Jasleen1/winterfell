@@ -63,7 +63,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let context = ProofContext::new(
             trace.num_registers(),
             trace.num_states(),
-            T::MAX_CONSTRAINT_DEGREE,
+            T::get_ce_blowup_factor(),
             self.options.clone(),
         );
 
@@ -112,11 +112,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // build constraint evaluator; the channel is passed in for the evaluator to draw random
         // values from; these values are used by the evaluator to compute a random linear
         // combination of constraint evaluations
-        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, &context, assertions);
+        let mut evaluator = ConstraintEvaluator::<T, A>::new(&channel, &context, assertions);
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
-        let constraint_evaluations = evaluate_constraints(&evaluator, &extended_trace, &lde_domain);
+        let constraint_evaluations =
+            evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain);
         debug!(
             "Evaluated constraints over domain of 2^{} elements in {} ms",
             log2(constraint_evaluations.domain_size()),

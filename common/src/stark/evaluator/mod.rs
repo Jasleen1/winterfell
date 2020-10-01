@@ -7,6 +7,9 @@ pub use transition::{group_transition_constraints, TransitionEvaluator};
 mod assertions;
 pub use assertions::{Assertion, AssertionEvaluator, IoAssertionEvaluator};
 
+mod constraints;
+pub use constraints::{ConstraintDegree, ConstraintDivisor};
+
 #[cfg(test)]
 mod tests;
 
@@ -17,11 +20,19 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
     context: ProofContext,
-    max_constraint_degree: usize,
+    evaluations: Vec<u128>,
+    t_evaluations: Vec<u128>,
+    divisors: Vec<ConstraintDivisor>,
     transition_degree_map: Vec<(u128, Vec<usize>)>,
+
+    #[cfg(debug_assertions)]
+    t_evaluation_table: Vec<Vec<u128>>,
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
+    // CONSTRUCTOR
+    // --------------------------------------------------------------------------------------------
+
     pub fn new<C: PublicCoin>(
         coin: &C,
         context: &ProofContext,
@@ -32,83 +43,138 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             "at least one assertion must be provided"
         );
 
-        // TODO: switch over to an iterator to generate coefficients
+        // build coefficients for constraint combination
+        // TODO: switch over to an iterator to generate coefficients?
         let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
+
+        // instantiate transition constraint evaluator and group constraints by their
+        // degree for more efficient combination later
+        // TODO: move constraint grouping into transition constraint evaluator?
         let transition = T::new(context, &t_coefficients);
-        let max_constraint_degree = *transition.degrees().iter().max().unwrap();
         let transition_degree_map = group_transition_constraints(
             context.composition_degree(),
             transition.degrees(),
             context.trace_length(),
         );
 
-        let assertions = A::new(
-            &assertions,
-            &context,
-            context.composition_degree(),
-            &a_coefficients,
-        );
+        // instantiate assertion constraint evaluator
+        let assertions = A::new(&context, &assertions, &a_coefficients);
+
+        // determine divisors for all constraints; since divisor for all transition constraints
+        // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
+        // merged into a single value, and the divisor for that value will be first in the list
+        let mut divisors = vec![ConstraintDivisor::from_transition(
+            context.trace_length(),
+            context.get_trace_x_at(context.trace_length() - 1),
+        )];
+        divisors.extend_from_slice(assertions.divisors());
 
         ConstraintEvaluator {
+            // in debug mode, we keep track of all evaluated transition constraints so that
+            // we can verify that their stated degrees match their actual degrees
+            #[cfg(debug_assertions)]
+            t_evaluation_table: transition.degrees().iter().map(|_| Vec::new()).collect(),
+
+            t_evaluations: vec![field::ZERO; transition.degrees().len()],
             transition,
             assertions,
             context: context.clone(),
-            max_constraint_degree,
+            evaluations: vec![field::ZERO; divisors.len()],
+            divisors,
             transition_degree_map,
         }
     }
 
-    pub fn evaluate(
-        &self,
+    // EVALUATION METHODS
+    // --------------------------------------------------------------------------------------------
+
+    /// Evaluates transition and assertion constraints at the specified step in the evaluation
+    /// domain. This method is used exclusively by the prover because some types of constraints
+    /// can be evaluated much more efficiently when the step is known.
+    pub fn evaluate_at_step(
+        &mut self,
         current: &[u128],
         next: &[u128],
         x: u128,
         step: usize,
-    ) -> (u128, u128, u128) {
-        // evaluate transition constraints and merge them into a single value
-        let t_evaluations = self.transition.evaluate(current, next, step);
+    ) -> &[u128] {
+        // reset transition evaluation buffer
+        self.t_evaluations.iter_mut().for_each(|v| *v = field::ZERO);
 
-        if step % self.context.ce_blowup_factor() == 0 {
-            // TODO check for zeros
-            //println!("{}\t{:?}", step, t_evaluations);
+        // evaluate transition constraints and save the results into t_evaluations buffer
+        self.transition
+            .evaluate_at_step(&mut self.t_evaluations, current, next, step);
+
+        // when in debug mode, save transition constraint evaluations before merging them
+        // so that we can check their degrees later
+        #[cfg(debug_assertions)]
+        for (i, column) in self.t_evaluation_table.iter_mut().enumerate() {
+            column.push(self.t_evaluations[i]);
         }
 
-        let t_evaluation = self.merge_transition_evaluations(&t_evaluations, x);
+        // merge transition constraint evaluations into a single value, and save this value
+        // into the first slot of the evaluation buffer. we can do this here because all
+        // transition constraints have the same divisor.
+        // also: if the constraints should evaluate to all zeros at this step (which should
+        // happen on steps which are multiples of ce_blowup_factor), make sure they do
+        self.evaluations[0] = if self.should_evaluate_to_zero_at(step) {
+            let step = step / self.ce_blowup_factor();
+            for &evaluation in self.t_evaluations.iter() {
+                assert!(
+                    evaluation == field::ZERO,
+                    "transition constraint at step {} were not satisfied",
+                    step
+                );
+            }
+            // if all transition constraint evaluations are zeros, the combination is also zero
+            field::ZERO
+        } else {
+            // TODO: move this into transition constraint evaluator?
+            self.merge_transition_evaluations(&self.t_evaluations, x)
+        };
 
-        // evaluate boundary constraints defined by assertions
-        let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
+        // evaluate boundary constraints defined by assertions and save the result into
+        // the evaluations buffer starting at slot 1
+        self.assertions
+            .evaluate(&mut self.evaluations[1..], current, x);
 
-        (t_evaluation, i_evaluation, f_evaluation)
+        &self.evaluations
     }
 
-    pub fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> (u128, u128, u128) {
+    /// Evaluates transition and assertion constraints at the specified x coordinate. This
+    /// method is used to evaluate constraints at an out-of-domain point. At such a point
+    /// there is no `step`, and so the above method cannot be used.
+    pub fn evaluate_at_x(&mut self, current: &[u128], next: &[u128], x: u128) -> &[u128] {
+        // reset transition evaluation buffer
+        self.t_evaluations.iter_mut().for_each(|v| *v = field::ZERO);
+
         // evaluate transition constraints and merge them into a single value
-        let t_evaluations = self.transition.evaluate_at(current, next, x);
-        let t_evaluation = self.merge_transition_evaluations(&t_evaluations, x);
+        self.transition
+            .evaluate_at_x(&mut self.t_evaluations, current, next, x);
+        self.evaluations[0] = self.merge_transition_evaluations(&self.t_evaluations, x);
 
-        // evaluate boundary constraints defined by assertions
-        let (i_evaluation, f_evaluation) = self.assertions.evaluate(current, x);
+        // evaluate boundary constraints defined by assertions and save the result into
+        // the evaluations buffer starting at slot 1
+        self.assertions
+            .evaluate(&mut self.evaluations[1..], current, x);
 
-        (t_evaluation, i_evaluation, f_evaluation)
+        &self.evaluations
     }
 
-    pub fn constraint_divisors(&self) -> Vec<ConstraintDivisor> {
-        // TODO: build and save constraint divisors at construction time?
-        let x_at_last_step = self.get_x_at_last_step();
-        vec![
-            ConstraintDivisor::from_transition(self.trace_length(), x_at_last_step),
-            ConstraintDivisor::from_assertion(1),
-            ConstraintDivisor::from_assertion(x_at_last_step),
-        ]
+    // ACCESSORS
+    // --------------------------------------------------------------------------------------------
+
+    pub fn trace_length(&self) -> usize {
+        self.context.trace_length()
     }
 
     /// Returns size of the constraint evaluation domain.
     pub fn ce_domain_size(&self) -> usize {
-        // domain for constraint evaluation must be at least a multiple of
-        // max constraint degree; but we also put a floor at 2x so that constraint
-        // composition can work correctly
-        let ce_blowup_factor = std::cmp::max(self.max_constraint_degree.next_power_of_two(), 2);
-        self.trace_length() * ce_blowup_factor
+        self.context.ce_domain_size()
+    }
+
+    pub fn ce_blowup_factor(&self) -> usize {
+        self.context.ce_blowup_factor()
     }
 
     /// Returns size of low-degree extension domain.
@@ -116,25 +182,27 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.context.lde_domain_size()
     }
 
-    pub fn max_constraint_degree(&self) -> usize {
-        self.max_constraint_degree
+    pub fn lde_blowup_factor(&self) -> usize {
+        self.context.options().blowup_factor()
     }
 
-    pub fn trace_length(&self) -> usize {
-        self.context.trace_length()
-    }
-
-    pub fn blowup_factor(&self) -> usize {
-        self.context.lde_domain_size() / self.context.trace_length()
-    }
-
-    pub fn get_x_at_last_step(&self) -> u128 {
-        self.get_x_at(self.trace_length() - 1)
+    pub fn constraint_divisors(&self) -> &[ConstraintDivisor] {
+        &self.divisors
     }
 
     // HELPER METHODS
     // --------------------------------------------------------------------------------------------
 
+    #[inline(always)]
+    fn should_evaluate_to_zero_at(&self, step: usize) -> bool {
+        (step & (self.ce_blowup_factor() - 1) == 0) // same as: step % ce_blowup_factor == 0
+        && (step != self.ce_domain_size() - self.ce_blowup_factor())
+    }
+
+    /// Merges all transition constraint evaluations into a single value; we can do this
+    /// because all transition constraint evaluations have the same divisor, and this
+    /// divisor will be applied later to this single value.
+    /// TODO: move into transition constraint evaluator?
     fn merge_transition_evaluations(&self, evaluations: &[u128], x: u128) -> u128 {
         let cc = self.transition.composition_coefficients();
 
@@ -175,54 +243,56 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         )
     }
 
-    // Returns x in the trace domain at the specified step
-    fn get_x_at(&self, step: usize) -> u128 {
-        let trace_root = field::get_root_of_unity(self.trace_length());
-        field::exp(trace_root, step as u128)
-    }
-}
+    // DEBUG HELPERS
+    // --------------------------------------------------------------------------------------------
 
-// CONSTRAINT DIVISOR
-// ================================================================================================
+    #[cfg(debug_assertions)]
+    pub fn validate_transition_degrees(&mut self) {
+        use math::{fft, polynom};
 
-/// Describes constraint divisor as a combination of a sparse polynomial and exclusion points.
-/// For example (x^a - 1) / (x - b) can be represented as:
-///   numerator: vec![(a, 1)]
-///   exclude: vec![b]
-pub struct ConstraintDivisor {
-    numerator: Vec<(usize, u128)>,
-    exclude: Vec<u128>,
-}
+        // collect expected degrees for all transition constraints
+        let expected_degrees: Vec<_> = self
+            .transition
+            .degrees()
+            .iter()
+            .map(|d| d.get_evaluation_degree(self.trace_length()))
+            .collect();
 
-impl ConstraintDivisor {
-    /// Builds divisor for transition constraints
-    pub fn from_transition(trace_length: usize, x_at_last_step: u128) -> Self {
-        ConstraintDivisor {
-            numerator: vec![(trace_length, 1)],
-            exclude: vec![x_at_last_step],
+        // collect actual degrees for all transition constraints by interpolating saved
+        // constraint evaluations into polynomials and checking their degree; also
+        // determine max transition constraint degree
+        let mut actual_degrees = Vec::with_capacity(expected_degrees.len());
+        let mut max_degree = 0;
+        let inv_twiddles = fft::get_inv_twiddles(
+            self.context.generators().ce_domain,
+            self.context.ce_domain_size(),
+        );
+        for evaluations in self.t_evaluation_table.iter() {
+            let mut poly = evaluations.clone();
+            fft::interpolate_poly(&mut poly, &inv_twiddles, true);
+            let degree = polynom::degree_of(&poly);
+            actual_degrees.push(degree);
+
+            max_degree = std::cmp::max(max_degree, degree);
         }
-    }
 
-    /// Builds divisor for assertion constraint
-    pub fn from_assertion(value: u128) -> Self {
-        ConstraintDivisor {
-            numerator: vec![(1, value)],
-            exclude: vec![],
+        // make sure expected and actual degrees are equal
+        if expected_degrees != actual_degrees {
+            panic!(
+                "transition constraint degrees didn't match\nexpected: {:>3?}\nactual:   {:>3?}",
+                expected_degrees, actual_degrees
+            );
         }
-    }
 
-    pub fn numerator(&self) -> &[(usize, u128)] {
-        &self.numerator
-    }
-
-    pub fn exclude(&self) -> &[u128] {
-        &self.exclude
-    }
-
-    /// Returns the degree of the divisor polynomial
-    pub fn degree(&self) -> usize {
-        let numerator_degree = self.numerator[0].0;
-        let denominator_degree = self.exclude.len();
-        numerator_degree - denominator_degree
+        // make sure evaluation domain size does not exceed the size required by max degree
+        let expected_domain_size =
+            std::cmp::max(max_degree, self.trace_length() + 1).next_power_of_two();
+        if expected_domain_size != self.ce_domain_size() {
+            panic!(
+                "incorrect constraint evaluation domain size; expected {}, actual: {}",
+                expected_domain_size,
+                self.ce_domain_size()
+            );
+        }
     }
 }

@@ -63,7 +63,7 @@ impl ProverChannel {
         StarkProof {
             context: Context {
                 lde_domain_depth: trace_paths.depth,
-                max_constraint_degree: self.context.max_constraint_degree() as u8,
+                ce_blowup_factor: self.context.ce_blowup_factor() as u8,
                 options: self.context().options().clone(),
             },
             commitments: Commitments {

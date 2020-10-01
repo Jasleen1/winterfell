@@ -14,22 +14,24 @@ fn evaluate_constraints() {
     // evaluate constraints
     let trace_length = 8;
     let blowup_factor = 4;
-    let evaluations = build_constraint_evaluations(trace_length, blowup_factor);
+    let evaluations = build_constraint_evaluations(trace_length, blowup_factor).into_vec();
+    let transition_evaluations = &evaluations[0];
+    let input_evaluations = &evaluations[1];
+    let output_evaluations = &evaluations[2];
 
     // transition constraints must be evaluations of degree 15 polynomial
-    assert_eq!(15, infer_degree(evaluations.transition_evaluations()));
+    assert_eq!(15, infer_degree(transition_evaluations));
 
     // boundary constraints must be evaluations of degree 9 polynomial
-    assert_eq!(9, infer_degree(evaluations.input_evaluations()));
-    assert_eq!(9, infer_degree(evaluations.output_evaluations()));
+    assert_eq!(9, infer_degree(input_evaluations));
+    assert_eq!(9, infer_degree(output_evaluations));
 
     // TODO: clean-up this test
 
     let stride = 2;
 
     // transition constraint evaluations must be all 0s, except for the last step
-    for &evaluation in evaluations
-        .transition_evaluations()
+    for &evaluation in transition_evaluations
         .iter()
         .rev()
         .skip(stride)
@@ -38,25 +40,16 @@ fn evaluate_constraints() {
     {
         assert_eq!(0, evaluation);
     }
-    assert_ne!(
-        0,
-        evaluations.transition_evaluations()[(trace_length - 1) * stride]
-    );
+    assert_ne!(0, transition_evaluations[(trace_length - 1) * stride]);
 
     // input assertion evaluations must be 0 only at the first step
-    assert_eq!(0, evaluations.input_evaluations()[0]);
-    for &evaluation in evaluations
-        .input_evaluations()
-        .iter()
-        .skip(stride)
-        .step_by(stride)
-    {
+    assert_eq!(0, input_evaluations[0]);
+    for &evaluation in input_evaluations.iter().skip(stride).step_by(stride) {
         assert_ne!(0, evaluation);
     }
 
     // input assertion evaluations must be 0 only at the first step
-    for &evaluation in evaluations
-        .output_evaluations()
+    for &evaluation in output_evaluations
         .iter()
         .rev()
         .skip(stride)
@@ -65,7 +58,7 @@ fn evaluate_constraints() {
     {
         assert_ne!(0, evaluation);
     }
-    assert_eq!(0, evaluations.output_evaluations()[(trace_length - 1) * 2]);
+    assert_eq!(0, output_evaluations[(trace_length - 1) * 2]);
 }
 
 #[test]
@@ -106,12 +99,12 @@ fn build_constraint_evaluations(
         Assertion::new(1, 0, 1),
         Assertion::new(1, trace_length - 1, result),
     ];
-    let evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
+    let mut evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
         &channel, &context, assertions,
     );
 
     // evaluate constraints
-    super::evaluate_constraints(&evaluator, &extended_trace, &lde_domain)
+    super::evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)
 }
 
 fn build_trace(length: usize) -> super::TraceTable {
@@ -121,5 +114,5 @@ fn build_trace(length: usize) -> super::TraceTable {
 
 fn build_proof_context(trace_length: usize, blowup: usize) -> ProofContext {
     let options = ProofOptions::new(32, blowup, 0, blake3);
-    ProofContext::new(2, trace_length, 1, options)
+    ProofContext::new(2, trace_length, 2, options)
 }

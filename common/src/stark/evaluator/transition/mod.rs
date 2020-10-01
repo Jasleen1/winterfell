@@ -1,18 +1,31 @@
-use super::ProofContext;
+use super::{ConstraintDegree, ProofContext};
+use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT
 // ================================================================================================
 
 pub trait TransitionEvaluator {
     const MAX_CONSTRAINTS: usize;
-    const MAX_CONSTRAINT_DEGREE: usize;
 
     fn new(context: &ProofContext, coefficients: &[u128]) -> Self;
 
-    fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128>;
-    fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128>;
+    /// Evaluates transition constraints at the specified `step` of the execution trace extended
+    /// over constraint evaluation domain. The evaluations are saved into the `results` slice. This
+    /// method is used by the prover to evaluate/ constraint for all steps of the execution trace.
+    fn evaluate_at_step(&self, result: &mut [u128], current: &[u128], next: &[u128], step: usize);
 
-    fn degrees(&self) -> &[usize];
+    /// Evaluates transition constraints at the specified `x` coordinate, which could be in or out
+    /// of evaluation domain. The evaluations are saved into the `results` slice. This method is
+    /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
+    fn evaluate_at_x(&self, result: &mut [u128], current: &[u128], next: &[u128], x: u128);
+
+    /// Returns degrees of all individual transition constraints.
+    fn degrees(&self) -> &[ConstraintDegree];
+
+    /// Returns constraint evaluation domain blowup factor required for evaluating
+    /// transition constraints defined by this evaluator.
+    fn get_ce_blowup_factor() -> usize;
+
     fn composition_coefficients(&self) -> &[u128];
 }
 
@@ -21,30 +34,22 @@ pub trait TransitionEvaluator {
 
 pub fn group_transition_constraints(
     composition_degree: usize,
-    degrees: &[usize],
+    degrees: &[ConstraintDegree],
     trace_length: usize,
 ) -> Vec<(u128, Vec<usize>)> {
-    let max_constraint_degree = degrees.iter().max().unwrap();
-
-    let mut groups: Vec<_> = (0..max_constraint_degree + 1).map(|_| Vec::new()).collect();
-
-    for (i, &degree) in degrees.iter().enumerate() {
-        groups[degree].push(i);
-    }
-
     let target_degree = get_constraint_target_degree(trace_length, composition_degree);
 
-    let mut result = Vec::new();
-    for (degree, constraints) in groups.iter().enumerate() {
-        if constraints.is_empty() {
-            continue;
-        }
-        let constraint_degree = (trace_length - 1) * degree;
-        let incremental_degree = (target_degree - constraint_degree) as u128;
-        result.push((incremental_degree, constraints.clone()));
+    let mut groups = HashMap::new();
+    for (i, degree) in degrees.iter().enumerate() {
+        let evaluation_degree = degree.get_evaluation_degree(trace_length);
+        let incremental_degree = (target_degree - evaluation_degree) as u128;
+        let group = groups
+            .entry(evaluation_degree)
+            .or_insert((incremental_degree, Vec::new()));
+        group.1.push(i);
     }
 
-    result
+    groups.into_iter().map(|e| e.1).collect()
 }
 
 // HELPER FUNCTIONS

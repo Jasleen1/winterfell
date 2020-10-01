@@ -1,4 +1,4 @@
-use super::ProofContext;
+use super::{ConstraintDivisor, ProofContext};
 
 mod io_evaluator;
 pub use io_evaluator::IoAssertionEvaluator;
@@ -9,13 +9,14 @@ pub use io_evaluator::IoAssertionEvaluator;
 pub trait AssertionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
-    fn new(
-        assertions: &[Assertion],
-        context: &ProofContext,
-        composition_degree: usize,
-        coefficients: &[u128],
-    ) -> Self;
-    fn evaluate(&self, state: &[u128], x: u128) -> (u128, u128);
+    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[u128]) -> Self;
+
+    /// Evaluates assertion constraints at the specified `x` coordinate. The evaluations are
+    /// saved into the `result` slice. This method is used by both the prover and the verifier.
+    fn evaluate(&self, result: &mut [u128], state: &[u128], x: u128);
+
+    /// Returns divisors for all assertion constraints.
+    fn divisors(&self) -> &[ConstraintDivisor];
 }
 
 // ASSERTION STRUCT

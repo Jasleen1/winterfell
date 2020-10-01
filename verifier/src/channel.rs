@@ -34,7 +34,7 @@ impl VerifierChannel {
         let context = ProofContext::new(
             trace_width,
             trace_length,
-            context.max_constraint_degree as usize,
+            context.ce_blowup_factor as usize,
             context.options,
         );
 

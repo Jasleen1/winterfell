@@ -119,24 +119,26 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
 /// TODO: move into ConstraintEvaluator?
 pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
-    evaluator: ConstraintEvaluator<T, A>,
+    mut evaluator: ConstraintEvaluator<T, A>,
     state1: &[u128],
     state2: &[u128],
     x: u128,
 ) -> u128 {
-    let (t_value, i_value, f_value) = evaluator.evaluate_at(state1, state2, x);
+    let evaluations = evaluator.evaluate_at_x(state1, state2, x).to_vec();
+    let divisors = evaluator.constraint_divisors();
+    debug_assert!(
+        divisors.len() == evaluations.len(),
+        "number of divisors ({}) does not match the number of evaluations ({})",
+        divisors.len(),
+        evaluations.len()
+    );
 
-    // Z(x) = x - 1
-    let z = sub(x, field::ONE);
-    let mut result = div(i_value, z);
-
-    // Z(x) = x - x_at_last_step
-    let z = sub(x, evaluator.get_x_at_last_step());
-    result = add(result, div(f_value, z));
-
-    // Z(x) = (x^steps - 1) / (x - x_at_last_step)
-    let z = div(sub(exp(x, evaluator.trace_length() as u128), field::ONE), z);
-    result = add(result, div(t_value, z));
+    // iterate over evaluations and divide out values implied by the divisors
+    let mut result = 0;
+    for (&evaluation, divisor) in evaluations.iter().zip(divisors.iter()) {
+        let z = divisor.evaluate_at(x);
+        result = add(result, div(evaluation, z));
+    }
 
     result
 }

@@ -3,7 +3,10 @@ use super::{
     utils,
 };
 use common::{
-    stark::{AssertionEvaluator, ConstraintEvaluator, ProofContext, TransitionEvaluator},
+    stark::{
+        AssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, ProofContext,
+        TransitionEvaluator,
+    },
     utils::uninit_vector,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -17,7 +20,7 @@ mod tests;
 
 /// Evaluates constraints defined by the constraint evaluator against the extended execution trace.
 pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
-    evaluator: &ConstraintEvaluator<T, A>,
+    evaluator: &mut ConstraintEvaluator<T, A>,
     extended_trace: &TraceTable,
     lde_domain: &LdeDomain,
 ) -> ConstraintEvaluationTable {
@@ -25,13 +28,13 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
 
-    // allocate space for constraint evaluations
-    // TODO: this should eventually be replaced with Vec<Vec<u128>> so that we don't hard-code
-    // order and number of constraint types. but it needs to be done efficiently so that it
-    // doesn't affect performance too much
-    let mut t_evaluations = uninit_vector(ce_domain_size);
-    let mut i_evaluations = uninit_vector(ce_domain_size);
-    let mut f_evaluations = uninit_vector(ce_domain_size);
+    // allocate space for constraint evaluations; there should be as many columns in the
+    // table as there are divisors
+    let mut evaluation_table: Vec<Vec<u128>> = evaluator
+        .constraint_divisors()
+        .iter()
+        .map(|_| uninit_vector(ce_domain_size))
+        .collect();
 
     // allocate buffers to hold current and next rows of the trace table
     let mut current = vec![0; extended_trace.num_registers()];
@@ -41,7 +44,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     // doing evaluations over a much smaller domain, we only need to read a small subset
     // of the data. stride specifies how many rows we can skip over.
     let stride = evaluator.lde_domain_size() / ce_domain_size;
-    let blowup_factor = evaluator.blowup_factor();
+    let blowup_factor = evaluator.lde_blowup_factor();
     let lde_domain = lde_domain.values();
     for i in 0..ce_domain_size {
         // translate steps in the constraint evaluation domain to steps in LDE domain;
@@ -55,66 +58,44 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
         extended_trace.copy_row(next_lde_step, &mut next);
 
         // pass the current and next rows of the trace table through the constraint evaluator
-        // and record the result in respective arrays
-        // TODO: this will be changed once the table structure changes to Vec<Vec<u128>>
-        let (t_evaluation, i_evaluation, f_evaluation) =
-            evaluator.evaluate(&current, &next, lde_domain[lde_step], i);
-        t_evaluations[i] = t_evaluation;
-        i_evaluations[i] = i_evaluation;
-        f_evaluations[i] = f_evaluation;
+        // and record the result in the evaluation table
+        let evaluation_row = evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i);
+        for (j, &evaluation) in evaluation_row.iter().enumerate() {
+            evaluation_table[j][i] = evaluation;
+        }
     }
 
+    #[cfg(debug_assertions)]
+    evaluator.validate_transition_degrees();
+
     // build and return constraint evaluation table
-    ConstraintEvaluationTable::new(
-        t_evaluations,
-        i_evaluations,
-        f_evaluations,
-        evaluator.constraint_divisors(),
-    )
+    ConstraintEvaluationTable::new(evaluation_table, evaluator.constraint_divisors().to_vec())
 }
 
-/// Interpolates all constraint evaluations into polynomials and combines all these
-/// polynomials into a single polynomial
+/// Interpolates all constraint evaluations into polynomials, divides them by their respective
+/// divisors, and combines the results into a single polynomial
 pub fn build_constraint_poly(
     evaluations: ConstraintEvaluationTable,
     context: &ProofContext,
 ) -> ConstraintPoly {
-    let ce_domain_size = evaluations.domain_size();
-    let trace_length = context.trace_length();
+    let ce_domain_size = context.ce_domain_size();
     let constraint_poly_degree = context.composition_degree();
-    let x_at_last_step = get_x_at_last_step(trace_length);
+    let inv_twiddles = fft::get_inv_twiddles(context.generators().ce_domain, ce_domain_size);
 
-    let ce_domain_root = field::get_root_of_unity(ce_domain_size);
-    let inv_twiddles = fft::get_inv_twiddles(ce_domain_root, ce_domain_size);
+    // allocate memory for the combined polynomial
+    let mut combined_poly = vec![0; ce_domain_size];
 
-    // TODO: switch to divisor-based evaluation to avoid this type of destructuring
-    let mut evaluations = evaluations.into_vec();
-    let mut f_evaluations = evaluations.remove(2);
-    let mut i_evaluations = evaluations.remove(1);
-    let mut t_evaluations = evaluations.remove(0);
-
-    let mut combined_poly = uninit_vector(ce_domain_size);
-
-    // interpolate initial step boundary constraint combination into a polynomial, divide the
-    // polynomial by Z(x) = (x - 1), and add it to the result
-    fft::interpolate_poly(&mut i_evaluations, &inv_twiddles, true);
-    polynom::syn_div_in_place(&mut i_evaluations, field::ONE);
-    debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&i_evaluations));
-    combined_poly.copy_from_slice(&i_evaluations);
-
-    // interpolate final step boundary constraint combination into a polynomial, divide the
-    // polynomial by Z(x) = (x - x_at_last_step), and add it to the result
-    fft::interpolate_poly(&mut f_evaluations, &inv_twiddles, true);
-    polynom::syn_div_in_place(&mut f_evaluations, x_at_last_step);
-    debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&f_evaluations));
-    utils::add_in_place(&mut combined_poly, &f_evaluations);
-
-    // interpolate transition constraint combination into a polynomial, divide the polynomial
-    // by Z(x) = (x^steps - 1) / (x - x_at_last_step), and add it to the result
-    fft::interpolate_poly(&mut t_evaluations, &inv_twiddles, true);
-    polynom::syn_div_expanded_in_place(&mut t_evaluations, trace_length, &[x_at_last_step]);
-    //TODO: debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&t_evaluations));
-    utils::add_in_place(&mut combined_poly, &t_evaluations);
+    // iterate over all columns of the constraint evaluation table
+    for (mut evaluations, divisor) in evaluations.into_iter() {
+        // interpolate each column into a polynomial
+        fft::interpolate_poly(&mut evaluations, &inv_twiddles, true);
+        // divide the polynomial by its divisor
+        divide_poly(&mut evaluations, &divisor);
+        // make sure that the post-division degree of the polynomial matches
+        // the expected degree, and add it to the combined polynomial
+        debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&evaluations));
+        utils::add_in_place(&mut combined_poly, &evaluations);
+    }
 
     ConstraintPoly::new(combined_poly, constraint_poly_degree)
 }
@@ -178,7 +159,18 @@ pub fn query_constraints(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn get_x_at_last_step(trace_length: usize) -> u128 {
-    let trace_root = field::get_root_of_unity(trace_length);
-    field::exp(trace_root, (trace_length - 1) as u128)
+fn divide_poly(poly: &mut [u128], divisor: &ConstraintDivisor) {
+    let numerator = divisor.numerator();
+    assert!(
+        numerator.len() == 1,
+        "complex divisors are not yet supported"
+    );
+    let numerator = numerator[0];
+
+    let numerator_degree = numerator.0;
+    if numerator_degree == 1 {
+        polynom::syn_div_in_place(poly, numerator.1);
+    } else {
+        polynom::syn_div_expanded_in_place(poly, numerator_degree, divisor.exclude());
+    }
 }
