@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
 use winterfell::rescue;
 
-const SIZES: [usize; 3] = [256, 512, 1024];
+const SIZES: [usize; 2] = [256, 512];
 
 fn rescue(c: &mut Criterion) {
     let mut group = c.benchmark_group("rescue");
