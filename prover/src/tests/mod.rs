@@ -37,11 +37,11 @@ impl TransitionEvaluator for FibEvaluator {
     // TRANSITION CONSTRAINTS
     // --------------------------------------------------------------------------------------------
 
-    fn evaluate(&self, current: &[u128], next: &[u128], _step: usize) -> Vec<u128> {
-        self.evaluate_at(current, next, 0)
+    fn evaluate_at_step(&self, result: &mut [u128], current: &[u128], next: &[u128], _step: usize) {
+        self.evaluate_at_x(result, current, next, 0)
     }
 
-    fn evaluate_at(&self, current: &[u128], next: &[u128], _x: u128) -> Vec<u128> {
+    fn evaluate_at_x(&self, result: &mut [u128], current: &[u128], next: &[u128], _x: u128) {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());
@@ -49,10 +49,8 @@ impl TransitionEvaluator for FibEvaluator {
         // constraints of Fibonacci sequence which state that:
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
-        vec![
-            are_equal(next[0], add(current[0], current[1])),
-            are_equal(next[1], add(current[0], mul(2, current[1]))),
-        ]
+        result[0] = are_equal(next[0], add(current[0], current[1]));
+        result[1] = are_equal(next[1], add(current[0], mul(2, current[1])));
     }
 
     // BOILERPLATE

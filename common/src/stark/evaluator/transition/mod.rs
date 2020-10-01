@@ -10,10 +10,19 @@ pub trait TransitionEvaluator {
 
     fn new(context: &ProofContext, coefficients: &[u128]) -> Self;
 
-    fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128>;
-    fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128>;
+    /// Evaluates transition constraints at the specified `step` of the execution trace extended
+    /// over constraint evaluation domain. The evaluations are saved into the `results` slice. This
+    /// method is used by the prover to evaluate/ constraint for all steps of the execution trace.
+    fn evaluate_at_step(&self, result: &mut [u128], current: &[u128], next: &[u128], step: usize);
 
+    /// Evaluates transition constraints at the specified `x` coordinate, which could be in or out
+    /// of evaluation domain. The evaluations are saved into the `results` slice. This method is
+    /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
+    fn evaluate_at_x(&self, result: &mut [u128], current: &[u128], next: &[u128], x: u128);
+
+    /// Returns degrees of all individual transition constraints.
     fn degrees(&self) -> &[ConstraintDegree];
+
     fn composition_coefficients(&self) -> &[u128];
 }
 

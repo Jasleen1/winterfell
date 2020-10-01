@@ -80,29 +80,23 @@ impl TransitionEvaluator for RescueEvaluator {
 
     /// Evaluates transition constraints at the specified step; this method is invoked only
     /// during proof generation.
-    fn evaluate(&self, current: &[u128], next: &[u128], step: usize) -> Vec<u128> {
-        let mut result = vec![0; STATE_WIDTH];
-
+    fn evaluate_at_step(&self, result: &mut [u128], current: &[u128], next: &[u128], step: usize) {
         // determine which rounds constants to use
         let ark = &self.ark_constants[step % self.ark_constants.len()];
 
         // when hash_flag = 1, constraints for Rescue round are enforced
         let hash_flag = self.mask_constants[step % self.mask_constants.len()];
-        enforce_rescue_round(&mut result, current, next, &ark, hash_flag);
+        enforce_rescue_round(result, current, next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
         let copy_flag = sub(field::ONE, hash_flag);
-        enforce_hash_copy(&mut result, current, next, copy_flag);
-
-        result
+        enforce_hash_copy(result, current, next, copy_flag);
     }
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
     /// invoked primarily during proof verification.
-    fn evaluate_at(&self, current: &[u128], next: &[u128], x: u128) -> Vec<u128> {
-        let mut result = vec![0; STATE_WIDTH];
-
+    fn evaluate_at_x(&self, result: &mut [u128], current: &[u128], next: &[u128], x: u128) {
         // map x to the corresponding coordinate in constant cycles
         let num_cycles = (self.trace_length / CYCLE_LENGTH) as u128;
         let x = exp(x, num_cycles);
@@ -116,14 +110,12 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 1, constraints for Rescue round are enforced
         let hash_flag = polynom::eval(&self.mask_poly, x);
-        enforce_rescue_round(&mut result, current, next, &ark, hash_flag);
+        enforce_rescue_round(result, current, next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
         let copy_flag = sub(field::ONE, hash_flag);
-        enforce_hash_copy(&mut result, current, next, copy_flag);
-
-        result
+        enforce_hash_copy(result, current, next, copy_flag);
     }
 
     // BOILERPLATE

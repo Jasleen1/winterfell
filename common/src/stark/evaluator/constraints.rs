@@ -3,6 +3,11 @@ use math::field;
 // CONSTRAINT DEGREE
 // ================================================================================================
 
+/// Describes constraint degree as a combination of multiplications of non-cyclic and cyclic
+/// register multiplications. For example, degree of a constraint which requires multiplication
+/// of two regular registers, and a register with cycle 32 can be represented as:
+///   base: 2
+///   cycles: [32]
 #[derive(Clone)]
 pub struct ConstraintDegree {
     base: usize,
