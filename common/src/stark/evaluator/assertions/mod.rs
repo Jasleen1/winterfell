@@ -14,7 +14,7 @@ pub trait AssertionEvaluator {
     /// Evaluates assertion constraints at the specified `x` coordinate. The evaluations are
     /// saved into the `result` slice. This method is used by both the prover and the verifier.
     fn evaluate(&self, result: &mut [u128], state: &[u128], x: u128);
-    
+
     /// Returns divisors for all assertion constraints.
     fn divisors(&self) -> &[ConstraintDivisor];
 }

@@ -63,7 +63,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let context = ProofContext::new(
             trace.num_registers(),
             trace.num_states(),
-            T::MAX_CONSTRAINT_DEGREE,
+            T::get_ce_blowup_factor(),
             self.options.clone(),
         );
 

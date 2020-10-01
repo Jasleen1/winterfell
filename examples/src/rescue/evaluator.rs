@@ -35,7 +35,6 @@ pub struct RescueEvaluator {
 
 impl TransitionEvaluator for RescueEvaluator {
     const MAX_CONSTRAINTS: usize = 4;
-    const MAX_CONSTRAINT_DEGREE: usize = 4;
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
@@ -116,6 +115,10 @@ impl TransitionEvaluator for RescueEvaluator {
         // step are enforced.
         let copy_flag = sub(field::ONE, hash_flag);
         enforce_hash_copy(result, current, next, copy_flag);
+    }
+
+    fn get_ce_blowup_factor() -> usize {
+        4
     }
 
     // BOILERPLATE

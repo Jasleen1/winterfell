@@ -21,7 +21,6 @@ pub struct FibEvaluator {
 }
 
 impl TransitionEvaluator for FibEvaluator {
-    const MAX_CONSTRAINT_DEGREE: usize = 1;
     const MAX_CONSTRAINTS: usize = 2;
 
     // CONSTRUCTOR
@@ -51,6 +50,10 @@ impl TransitionEvaluator for FibEvaluator {
         // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
         result[0] = are_equal(next[0], add(current[0], current[1]));
         result[1] = are_equal(next[1], add(current[0], mul(2, current[1])));
+    }
+
+    fn get_ce_blowup_factor() -> usize {
+        2
     }
 
     // BOILERPLATE

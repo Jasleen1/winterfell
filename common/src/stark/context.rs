@@ -1,6 +1,5 @@
 use super::ProofOptions;
 use math::field;
-use std::cmp;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -11,7 +10,6 @@ pub struct ProofContext {
     trace_width: usize,
     trace_length: usize,
     ce_blowup_factor: usize,
-    max_constraint_degree: usize, // TODO: remove
     generators: Generators,
 }
 
@@ -37,14 +35,22 @@ impl ProofContext {
     pub fn new(
         trace_width: usize,
         trace_length: usize,
-        max_constraint_degree: usize,
+        ce_blowup_factor: usize,
         options: ProofOptions,
     ) -> Self {
         // trace domain generator
         let g_trace = field::get_root_of_unity(trace_length);
 
         // constraint evaluation domain generator
-        let ce_blowup_factor = cmp::max(max_constraint_degree, 2).next_power_of_two();
+        assert!(
+            ce_blowup_factor > 1,
+            "ce_blowup_factor must be greater than 1"
+        );
+        assert!(
+            ce_blowup_factor.is_power_of_two(),
+            "ce_blowup_factor must be a power of 2; was {}",
+            ce_blowup_factor
+        );
         let ce_domain_size = compute_ce_domain_size(trace_length, ce_blowup_factor);
         let g_ce = field::get_root_of_unity(ce_domain_size);
 
@@ -57,7 +63,6 @@ impl ProofContext {
             trace_width,
             trace_length,
             ce_blowup_factor,
-            max_constraint_degree,
             generators: Generators {
                 trace_domain: g_trace,
                 ce_domain: g_ce,
@@ -102,10 +107,6 @@ impl ProofContext {
 
     pub fn deep_composition_degree(&self) -> usize {
         self.composition_degree() - 1
-    }
-
-    pub fn max_constraint_degree(&self) -> usize {
-        self.max_constraint_degree
     }
 
     // OTHER PROPERTIES

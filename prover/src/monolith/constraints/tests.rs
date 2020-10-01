@@ -114,5 +114,5 @@ fn build_trace(length: usize) -> super::TraceTable {
 
 fn build_proof_context(trace_length: usize, blowup: usize) -> ProofContext {
     let options = ProofOptions::new(32, blowup, 0, blake3);
-    ProofContext::new(2, trace_length, 1, options)
+    ProofContext::new(2, trace_length, 2, options)
 }

@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 pub trait TransitionEvaluator {
     const MAX_CONSTRAINTS: usize;
-    const MAX_CONSTRAINT_DEGREE: usize;
 
     fn new(context: &ProofContext, coefficients: &[u128]) -> Self;
 
@@ -22,6 +21,10 @@ pub trait TransitionEvaluator {
 
     /// Returns degrees of all individual transition constraints.
     fn degrees(&self) -> &[ConstraintDegree];
+
+    /// Returns constraint evaluation domain blowup factor required for evaluating
+    /// transition constraints defined by this evaluator.
+    fn get_ce_blowup_factor() -> usize;
 
     fn composition_coefficients(&self) -> &[u128];
 }

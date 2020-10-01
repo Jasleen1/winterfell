@@ -115,7 +115,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // merge transition constraint evaluations into a single value, and save this value
         // into the first slot of the evaluation buffer. we can do this here because all
         // transition constraints have the same divisor.
-        // also: if the constraints should evaluate to all zeros at this step (which should 
+        // also: if the constraints should evaluate to all zeros at this step (which should
         // happen on steps which are multiples of ce_blowup_factor), make sure they do
         self.evaluations[0] = if self.should_evaluate_to_zero_at(step) {
             let step = step / self.ce_blowup_factor();
