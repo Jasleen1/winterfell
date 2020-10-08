@@ -5,6 +5,7 @@ use rand::{
 };
 use std::{convert::TryInto, ops::Range};
 
+pub mod f128;
 pub mod traits;
 
 #[cfg(test)]

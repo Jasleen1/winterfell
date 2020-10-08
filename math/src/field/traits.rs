@@ -1,7 +1,8 @@
 use core::{
+    convert::TryFrom,
     fmt::{Debug, Display},
     iter::{Product, Sum},
-    ops::{Add, Div, Mul, Neg, Sub},
+    ops::{Add, Div, Mul, Neg, Sub, Shl},
 };
 
 pub trait StarkField:
@@ -33,9 +34,9 @@ pub trait StarkField:
     + From<u32>
     + From<u16>
     + From<u8>
-    + for<'a> From<&'a [u8]>
+    + for<'a> TryFrom<&'a [u8]>
 {
-    type PositiveInteger: Copy + From<usize>;
+    type PositiveInteger: Copy + From<u32> + Shl<usize, Output = Self::PositiveInteger>;
 
     /// Prime modulus of the field. Must be of the form k * 2^n + 1 (a Proth prime).
     /// This ensures that the field has high 2-adicity.
@@ -60,11 +61,12 @@ pub trait StarkField:
     /// The additive identity.
     const ZERO: Self;
 
-    /// Computes a multiplicative inverse of this element.
+    /// Computes a multiplicative inverse of this element. If this element is ZERO
+    /// ZERO is returned.
     fn inv(self) -> Self;
 
     /// Computes a multiplicative inverse of a sequence of elements using batch
-    /// inversion method.
+    /// inversion method. Any ZEROs in the provided sequence are ignored.
     fn inv_many(values: &[Self]) -> Vec<Self> {
         let mut result = Vec::with_capacity(values.len());
         let mut last = Self::ONE;
@@ -100,25 +102,27 @@ pub trait StarkField:
             "order cannot exceed 2^{}",
             Self::TWO_ADICITY
         );
-        Self::exp(Self::TWO_ADIC_ROOT_OF_UNITY, n.into())
+        let power = Self::PositiveInteger::from(1) << (Self::TWO_ADICITY - n);
+        Self::exp(Self::TWO_ADIC_ROOT_OF_UNITY, power)
     }
 
     /// Generates a vector with values [1, b, b^2, b^3, b^4, ..., b^(n-1)].
     fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = Vec::with_capacity(n);
-        result.push(Self::ONE);
+        let mut result = vec![Self::default(); n];
+        result[0] = Self::ONE;
         for i in 1..n {
-            result.push(result[i - 1] * b);
+            result[i] = result[i - 1] * b;
         }
         result
     }
 
-    /// Returns a cryptographically-secure random element drawn from the entire field.
+    /// Returns a cryptographically-secure random element drawn uniformly from
+    // the entire field.
     fn rand() -> Self;
 
-    /// Returns a vector of n elements drawn pseudo-randomly from the entire field based
-    /// on the provided seed.
-    fn prng_vector(seed: &[u8], n: usize) -> Vec<Self>;
+    /// Returns a vector of n pseudo-random elements drawn uniformly from the entire
+    // field based on the provided seed.
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
 
     /// Converts this element into a vector of bytes.
     fn to_bytes(&self) -> Vec<u8>;
