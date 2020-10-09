@@ -2,7 +2,7 @@ use core::{
     convert::TryFrom,
     fmt::{Debug, Display},
     iter::{Product, Sum},
-    ops::{Add, Div, Mul, Neg, Sub, Shl},
+    ops::{Add, Div, Mul, Neg, Shl, Sub},
 };
 
 pub trait StarkField:
@@ -117,13 +117,13 @@ pub trait StarkField:
     }
 
     /// Returns a cryptographically-secure random element drawn uniformly from
-    // the entire field.
+    /// the entire field.
     fn rand() -> Self;
 
     /// Returns a vector of n pseudo-random elements drawn uniformly from the entire
-    // field based on the provided seed.
+    /// field based on the provided seed.
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
 
-    /// Converts this element into a vector of bytes.
+    /// Returns the byte representation of the element in little-endian byte order.
     fn to_bytes(&self) -> Vec<u8>;
 }

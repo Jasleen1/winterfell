@@ -1,4 +1,5 @@
 use super::traits::StarkField;
+use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
@@ -6,7 +7,9 @@ use core::{
     ops::{Add, Div, Mul, Neg, Range, Sub},
 };
 use rand::{distributions::Uniform, prelude::*};
-use crate::utils;
+
+#[cfg(test)]
+mod tests;
 
 // CONSTANTS
 // ================================================================================================
@@ -250,10 +253,20 @@ impl From<u16> for FieldElement {
     }
 }
 
-/// Converts an 8-bit value into a filed element.
 impl From<u8> for FieldElement {
+    /// Converts an 8-bit value into a filed element.
     fn from(value: u8) -> Self {
         FieldElement(value as u128)
+    }
+}
+
+impl From<[u8; 16]> for FieldElement {
+    /// Converts the value encoded in an array of 16 bytes into a field element. The bytes
+    /// are assumed to be in little-endian byte order. If the value is greater than or equal
+    /// to the field modulus, modular reduction is silently preformed.
+    fn from(bytes: [u8; 16]) -> Self {
+        let value = u128::from_le_bytes(bytes);
+        FieldElement::from(value)
     }
 }
 
@@ -261,7 +274,7 @@ impl<'a> TryFrom<&'a [u8]> for FieldElement {
     type Error = String;
 
     /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
-    /// is not a valid field element.
+    /// is not a valid field element. The bytes are assumed to be in little-endian byte order.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         let value = match bytes.try_into() {
             Ok(bytes) => u128::from_le_bytes(bytes),
