@@ -28,6 +28,15 @@ const RANGE: Range<u128> = Range { start: 0, end: M };
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct FieldElement(u128);
 
+impl FieldElement {
+
+    // TODO: move into StarkField trait?
+    pub const fn new(value: u128) -> Self {
+        FieldElement(if value < M { value } else { value - M })
+    }
+
+}
+
 impl StarkField for FieldElement {
     type PositiveInteger = u128;
 
