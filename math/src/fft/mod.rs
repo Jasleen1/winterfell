@@ -1,4 +1,4 @@
-use crate::field;
+use crate::field::{f128::FieldElement, StarkField};
 
 #[cfg(test)]
 mod tests;
@@ -15,7 +15,7 @@ const MAX_LOOP: usize = 256;
 /// `p` is updated with results of the evaluation.
 ///
 /// If `unpermute` parameter is set to false, the evaluations will be left in permuted state.
-pub fn evaluate_poly(p: &mut [u128], twiddles: &[u128], unpermute: bool) {
+pub fn evaluate_poly(p: &mut [FieldElement], twiddles: &[FieldElement], unpermute: bool) {
     debug_assert!(p.len() == twiddles.len() * 2, "Invalid number of twiddles");
     fft_in_place(p, &twiddles, 1, 1, 0);
     if unpermute {
@@ -27,11 +27,11 @@ pub fn evaluate_poly(p: &mut [u128], twiddles: &[u128], unpermute: bool) {
 /// is done in-place, meaning `v` is updated with polynomial coefficients.
 ///
 /// If `unpermute` parameter is set to false, the evaluations will be left in permuted state.
-pub fn interpolate_poly(v: &mut [u128], inv_twiddles: &[u128], unpermute: bool) {
+pub fn interpolate_poly(v: &mut [FieldElement], inv_twiddles: &[FieldElement], unpermute: bool) {
     fft_in_place(v, &inv_twiddles, 1, 1, 0);
-    let inv_length = field::inv(v.len() as u128);
+    let inv_length = FieldElement::inv((v.len() as u64).into());
     for e in v.iter_mut() {
-        *e = field::mul(*e, inv_length);
+        *e = *e * inv_length;
     }
     if unpermute {
         permute(v);
@@ -44,8 +44,8 @@ pub fn interpolate_poly(v: &mut [u128], inv_twiddles: &[u128], unpermute: bool) 
 /// In-place recursive FFT with permuted output.
 /// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
 pub fn fft_in_place(
-    values: &mut [u128],
-    twiddles: &[u128],
+    values: &mut [FieldElement],
+    twiddles: &[FieldElement],
     count: usize,
     stride: usize,
     offset: usize,
@@ -81,20 +81,20 @@ pub fn fft_in_place(
     }
 }
 
-pub fn get_twiddles(root: u128, size: usize) -> Vec<u128> {
+pub fn get_twiddles(root: FieldElement, size: usize) -> Vec<FieldElement> {
     assert!(size.is_power_of_two());
-    assert!(field::exp(root, size as u128) == field::ONE);
-    let mut twiddles = field::get_power_series(root, size / 2);
+    assert!(FieldElement::exp(root, size as u128) == FieldElement::ONE);
+    let mut twiddles = FieldElement::get_power_series(root, size / 2);
     permute(&mut twiddles);
     twiddles
 }
 
-pub fn get_inv_twiddles(root: u128, size: usize) -> Vec<u128> {
-    let inv_root = field::exp(root, (size - 1) as u128);
+pub fn get_inv_twiddles(root: FieldElement, size: usize) -> Vec<FieldElement> {
+    let inv_root = FieldElement::exp(root, (size - 1) as u128);
     get_twiddles(inv_root, size)
 }
 
-pub fn permute(v: &mut [u128]) {
+pub fn permute(v: &mut [FieldElement]) {
     let n = v.len();
     for i in 0..n {
         let j = permute_index(n, i);
@@ -117,20 +117,25 @@ fn permute_index(size: usize, index: usize) -> usize {
 }
 
 #[inline(always)]
-fn butterfly(values: &mut [u128], offset: usize, stride: usize) {
+fn butterfly(values: &mut [FieldElement], offset: usize, stride: usize) {
     let i = offset;
     let j = offset + stride;
     let temp = values[i];
-    values[i] = field::add(temp, values[j]);
-    values[j] = field::sub(temp, values[j]);
+    values[i] = temp + values[j];
+    values[j] = temp - values[j];
 }
 
 #[inline(always)]
-fn butterfly_twiddle(values: &mut [u128], twiddle: u128, offset: usize, stride: usize) {
+fn butterfly_twiddle(
+    values: &mut [FieldElement],
+    twiddle: FieldElement,
+    offset: usize,
+    stride: usize,
+) {
     let i = offset;
     let j = offset + stride;
     let temp = values[i];
-    values[j] = field::mul(values[j], twiddle);
-    values[i] = field::add(temp, values[j]);
-    values[j] = field::sub(temp, values[j]);
+    values[j] = values[j] * twiddle;
+    values[i] = temp + values[j];
+    values[j] = temp - values[j];
 }

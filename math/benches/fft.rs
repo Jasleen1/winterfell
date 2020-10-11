@@ -1,5 +1,8 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use math::{fft, field};
+use math::{
+    fft,
+    field::{f128::FieldElement, StarkField},
+};
 use rand::Rng;
 use std::time::Duration;
 
@@ -11,9 +14,9 @@ fn fft_poly(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(10));
 
     for &size in SIZES.iter() {
-        let root = field::get_root_of_unity(size);
+        let root = FieldElement::get_root_of_unity(size.trailing_zeros() as usize);
         let twiddles = fft::get_twiddles(root, size);
-        let mut p = field::prng_vector(get_seed(), size);
+        let mut p = FieldElement::prng_vector(get_seed(), size);
 
         group.bench_function(BenchmarkId::new("evaluate", size), |bench| {
             bench.iter(|| fft::evaluate_poly(&mut p, &twiddles, true));
@@ -21,9 +24,9 @@ fn fft_poly(c: &mut Criterion) {
     }
 
     for &size in SIZES.iter() {
-        let root = field::get_root_of_unity(size);
+        let root = FieldElement::get_root_of_unity(size.trailing_zeros() as usize);
         let twiddles = fft::get_twiddles(root, size);
-        let mut p = field::prng_vector(get_seed(), size);
+        let mut p = FieldElement::prng_vector(get_seed(), size);
 
         group.bench_function(BenchmarkId::new("evaluate (permuted)", size), |bench| {
             bench.iter(|| fft::evaluate_poly(&mut p, &twiddles, false));
@@ -37,7 +40,7 @@ fn get_twiddles(c: &mut Criterion) {
     let mut group = c.benchmark_group("fft_get_twiddles");
     group.sample_size(10);
     for &size in SIZES.iter() {
-        let root = field::get_root_of_unity(size);
+        let root = FieldElement::get_root_of_unity(size.trailing_zeros() as usize);
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |bench, &size| {
             bench.iter(|| fft::get_twiddles(root, size));
         });
