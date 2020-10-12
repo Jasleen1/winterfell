@@ -1,6 +1,7 @@
 use super::ProofOptions;
 use crypto::BatchMerkleProof;
 use serde::{Deserialize, Serialize};
+use math::field::f128::FieldElement;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -34,13 +35,13 @@ pub struct Commitments {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Queries {
     pub trace_paths: Vec<Vec<[u8; 32]>>,
-    pub trace_states: Vec<Vec<u128>>,
+    pub trace_states: Vec<Vec<FieldElement>>,
     pub constraint_proof: BatchMerkleProof,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriLayer {
-    pub values: Vec<[u128; 4]>,
+    pub values: Vec<[FieldElement; 4]>,
     pub paths: Vec<Vec<[u8; 32]>>,
     pub depth: u8,
 }
@@ -48,13 +49,13 @@ pub struct FriLayer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriProof {
     pub layers: Vec<FriLayer>,
-    pub rem_values: Vec<u128>,
+    pub rem_values: Vec<FieldElement>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeepValues {
-    pub trace_at_z1: Vec<u128>,
-    pub trace_at_z2: Vec<u128>,
+    pub trace_at_z1: Vec<FieldElement>,
+    pub trace_at_z2: Vec<FieldElement>,
 }
 
 // STARK PROOF IMPLEMENTATION

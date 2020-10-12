@@ -8,6 +8,7 @@ use common::{
 use log::debug;
 use std::marker::PhantomData;
 use std::time::Instant;
+use math::field::{f128::FieldElement};
 
 mod types;
 use types::{CompositionPoly, TraceTable};
@@ -54,7 +55,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
     /// Generates a STARK proof attesting that the `trace` satisfies the `assertions` and that
     /// it is valid in the context of the computation described by this prover.
-    pub fn prove(&self, trace: Vec<Vec<u128>>, assertions: Vec<Assertion>) -> StarkProof {
+    pub fn prove(&self, trace: Vec<Vec<FieldElement>>, assertions: Vec<Assertion>) -> StarkProof {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);
 

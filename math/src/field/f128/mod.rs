@@ -10,6 +10,7 @@ use rand::{
     distributions::{DistIter, Uniform},
     prelude::*,
 };
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
@@ -28,7 +29,7 @@ const RANGE: Range<u128> = Range { start: 0, end: M };
 // FIELD ELEMENT
 // ================================================================================================
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct FieldElement(u128);
 
 impl FieldElement {

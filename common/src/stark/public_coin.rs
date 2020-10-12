@@ -23,7 +23,7 @@ pub trait PublicCoin {
 
     /// Draws a point from the entire field using PRNG seeded with composition seed.
     fn draw_deep_point(&self) -> FieldElement {
-        FieldElement::prng_vector(self.composition_seed(), 0)[0]
+        FieldElement::prng_vector(self.composition_seed(), 1)[0]
     }
 
     /// Draws coefficients for building composition polynomial using PRNG seeded with
@@ -35,7 +35,7 @@ pub trait PublicCoin {
     }
 
     fn draw_fri_point(&self, layer_depth: usize) -> FieldElement {
-        FieldElement::prng_vector(self.fri_layer_seed(layer_depth), 0)[0]
+        FieldElement::prng_vector(self.fri_layer_seed(layer_depth), 1)[0]
     }
 
     /// Draws a set of unique query positions using PRNG seeded with query seed. The positions

@@ -10,7 +10,7 @@ use common::{
     utils::uninit_vector,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{fft, field, polynom};
+use math::{fft, field::{StarkField, f128::FieldElement}, polynom};
 
 #[cfg(test)]
 mod tests;
@@ -30,15 +30,15 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 
     // allocate space for constraint evaluations; there should be as many columns in the
     // table as there are divisors
-    let mut evaluation_table: Vec<Vec<u128>> = evaluator
+    let mut evaluation_table: Vec<Vec<FieldElement>> = evaluator
         .constraint_divisors()
         .iter()
         .map(|_| uninit_vector(ce_domain_size))
         .collect();
 
     // allocate buffers to hold current and next rows of the trace table
-    let mut current = vec![0; extended_trace.num_registers()];
-    let mut next = vec![0; extended_trace.num_registers()];
+    let mut current = vec![FieldElement::ZERO; extended_trace.num_registers()];
+    let mut next = vec![FieldElement::ZERO; extended_trace.num_registers()];
 
     // we already have all the data we need in the extended trace table, but since we are
     // doing evaluations over a much smaller domain, we only need to read a small subset
@@ -83,7 +83,7 @@ pub fn build_constraint_poly(
     let inv_twiddles = fft::get_inv_twiddles(context.generators().ce_domain, ce_domain_size);
 
     // allocate memory for the combined polynomial
-    let mut combined_poly = vec![0; ce_domain_size];
+    let mut combined_poly = vec![FieldElement::ZERO; ce_domain_size];
 
     // iterate over all columns of the constraint evaluation table
     for (mut evaluations, divisor) in evaluations.into_iter() {
@@ -104,11 +104,11 @@ pub fn build_constraint_poly(
 pub fn extend_constraint_evaluations(
     constraint_poly: &ConstraintPoly,
     lde_domain: &LdeDomain,
-) -> Vec<u128> {
+) -> Vec<FieldElement> {
     // first, allocate space for the evaluations and copy polynomial coefficients
     // into the lower part of the vector; the remaining values in the vector must
     // be initialized to 0s
-    let mut evaluations = vec![field::ZERO; lde_domain.size()];
+    let mut evaluations = vec![FieldElement::ZERO; lde_domain.size()];
     evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
 
     // then use FFT to evaluate the polynomial over LDE domain
@@ -117,7 +117,7 @@ pub fn extend_constraint_evaluations(
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
-pub fn build_constraint_tree(evaluations: Vec<u128>, hash_fn: HashFunction) -> MerkleTree {
+pub fn build_constraint_tree(evaluations: Vec<FieldElement>, hash_fn: HashFunction) -> MerkleTree {
     assert!(
         evaluations.len().is_power_of_two(),
         "number of values must be a power of 2"
@@ -159,7 +159,7 @@ pub fn query_constraints(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn divide_poly(poly: &mut [u128], divisor: &ConstraintDivisor) {
+fn divide_poly(poly: &mut [FieldElement], divisor: &ConstraintDivisor) {
     let numerator = divisor.numerator();
     assert!(
         numerator.len() == 1,

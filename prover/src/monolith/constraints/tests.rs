@@ -8,6 +8,7 @@ use common::stark::{
     Assertion, ConstraintEvaluator, IoAssertionEvaluator, ProofContext, ProofOptions,
 };
 use crypto::hash::blake3;
+use math::field::{StarkField, f128::FieldElement};
 
 #[test]
 fn evaluate_constraints() {
@@ -38,14 +39,14 @@ fn evaluate_constraints() {
         .rev()
         .step_by(stride)
     {
-        assert_eq!(0, evaluation);
+        assert_eq!(FieldElement::ZERO, evaluation);
     }
-    assert_ne!(0, transition_evaluations[(trace_length - 1) * stride]);
+    assert_ne!(FieldElement::ZERO, transition_evaluations[(trace_length - 1) * stride]);
 
     // input assertion evaluations must be 0 only at the first step
-    assert_eq!(0, input_evaluations[0]);
+    assert_eq!(FieldElement::ZERO, input_evaluations[0]);
     for &evaluation in input_evaluations.iter().skip(stride).step_by(stride) {
-        assert_ne!(0, evaluation);
+        assert_ne!(FieldElement::ZERO, evaluation);
     }
 
     // input assertion evaluations must be 0 only at the first step
@@ -56,9 +57,9 @@ fn evaluate_constraints() {
         .rev()
         .step_by(stride)
     {
-        assert_ne!(0, evaluation);
+        assert_ne!(FieldElement::ZERO, evaluation);
     }
-    assert_eq!(0, output_evaluations[(trace_length - 1) * 2]);
+    assert_eq!(FieldElement::ZERO, output_evaluations[(trace_length - 1) * 2]);
 }
 
 #[test]
@@ -95,8 +96,8 @@ fn build_constraint_evaluations(
 
     // build constraint evaluator
     let assertions = vec![
-        Assertion::new(0, 0, 1),
-        Assertion::new(1, 0, 1),
+        Assertion::new(0, 0, FieldElement::from(1u8)),
+        Assertion::new(1, 0, FieldElement::from(1u8)),
         Assertion::new(1, trace_length - 1, result),
     ];
     let mut evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
