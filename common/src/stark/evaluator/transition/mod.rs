@@ -1,4 +1,5 @@
 use super::{ConstraintDegree, ProofContext};
+use math::field::f128::FieldElement;
 use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT
@@ -7,17 +8,29 @@ use std::collections::HashMap;
 pub trait TransitionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
-    fn new(context: &ProofContext, coefficients: &[u128]) -> Self;
+    fn new(context: &ProofContext, coefficients: &[FieldElement]) -> Self;
 
     /// Evaluates transition constraints at the specified `step` of the execution trace extended
     /// over constraint evaluation domain. The evaluations are saved into the `results` slice. This
     /// method is used by the prover to evaluate/ constraint for all steps of the execution trace.
-    fn evaluate_at_step(&self, result: &mut [u128], current: &[u128], next: &[u128], step: usize);
+    fn evaluate_at_step(
+        &self,
+        result: &mut [FieldElement],
+        current: &[FieldElement],
+        next: &[FieldElement],
+        step: usize,
+    );
 
     /// Evaluates transition constraints at the specified `x` coordinate, which could be in or out
     /// of evaluation domain. The evaluations are saved into the `results` slice. This method is
     /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
-    fn evaluate_at_x(&self, result: &mut [u128], current: &[u128], next: &[u128], x: u128);
+    fn evaluate_at_x(
+        &self,
+        result: &mut [FieldElement],
+        current: &[FieldElement],
+        next: &[FieldElement],
+        x: FieldElement,
+    );
 
     /// Returns degrees of all individual transition constraints.
     fn degrees(&self) -> &[ConstraintDegree];
@@ -26,7 +39,7 @@ pub trait TransitionEvaluator {
     /// transition constraints defined by this evaluator.
     fn get_ce_blowup_factor() -> usize;
 
-    fn composition_coefficients(&self) -> &[u128];
+    fn composition_coefficients(&self) -> &[FieldElement];
 }
 
 // PUBLIC FUNCTIONS

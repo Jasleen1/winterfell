@@ -1,5 +1,5 @@
 use crate::utils::as_bytes;
-use math::field::{StarkField, f128::FieldElement};
+use math::field::{f128::FieldElement, StarkField};
 
 /// Function state is set to 6 field elements or 96 bytes; 4 elements are reserved for rate
 /// and 2 elements are reserved for capacity.

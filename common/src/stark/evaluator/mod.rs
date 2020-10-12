@@ -1,5 +1,5 @@
 use super::{ProofContext, PublicCoin};
-use math::field;
+use math::field::{f128::FieldElement, StarkField};
 
 mod transition;
 pub use transition::{group_transition_constraints, TransitionEvaluator};
@@ -20,13 +20,13 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
     context: ProofContext,
-    evaluations: Vec<u128>,
-    t_evaluations: Vec<u128>,
+    evaluations: Vec<FieldElement>,
+    t_evaluations: Vec<FieldElement>,
     divisors: Vec<ConstraintDivisor>,
     transition_degree_map: Vec<(u128, Vec<usize>)>,
 
     #[cfg(debug_assertions)]
-    t_evaluation_table: Vec<Vec<u128>>,
+    t_evaluation_table: Vec<Vec<FieldElement>>,
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
@@ -75,11 +75,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             #[cfg(debug_assertions)]
             t_evaluation_table: transition.degrees().iter().map(|_| Vec::new()).collect(),
 
-            t_evaluations: vec![field::ZERO; transition.degrees().len()],
+            t_evaluations: vec![FieldElement::ZERO; transition.degrees().len()],
             transition,
             assertions,
             context: context.clone(),
-            evaluations: vec![field::ZERO; divisors.len()],
+            evaluations: vec![FieldElement::ZERO; divisors.len()],
             divisors,
             transition_degree_map,
         }
@@ -93,13 +93,15 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// can be evaluated much more efficiently when the step is known.
     pub fn evaluate_at_step(
         &mut self,
-        current: &[u128],
-        next: &[u128],
-        x: u128,
+        current: &[FieldElement],
+        next: &[FieldElement],
+        x: FieldElement,
         step: usize,
-    ) -> &[u128] {
+    ) -> &[FieldElement] {
         // reset transition evaluation buffer
-        self.t_evaluations.iter_mut().for_each(|v| *v = field::ZERO);
+        self.t_evaluations
+            .iter_mut()
+            .for_each(|v| *v = FieldElement::ZERO);
 
         // evaluate transition constraints and save the results into t_evaluations buffer
         self.transition
@@ -121,13 +123,13 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             let step = step / self.ce_blowup_factor();
             for &evaluation in self.t_evaluations.iter() {
                 assert!(
-                    evaluation == field::ZERO,
+                    evaluation == FieldElement::ZERO,
                     "transition constraint at step {} were not satisfied",
                     step
                 );
             }
             // if all transition constraint evaluations are zeros, the combination is also zero
-            field::ZERO
+            FieldElement::ZERO
         } else {
             // TODO: move this into transition constraint evaluator?
             self.merge_transition_evaluations(&self.t_evaluations, x)
@@ -144,9 +146,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// Evaluates transition and assertion constraints at the specified x coordinate. This
     /// method is used to evaluate constraints at an out-of-domain point. At such a point
     /// there is no `step`, and so the above method cannot be used.
-    pub fn evaluate_at_x(&mut self, current: &[u128], next: &[u128], x: u128) -> &[u128] {
+    pub fn evaluate_at_x(
+        &mut self,
+        current: &[FieldElement],
+        next: &[FieldElement],
+        x: FieldElement,
+    ) -> &[FieldElement] {
         // reset transition evaluation buffer
-        self.t_evaluations.iter_mut().for_each(|v| *v = field::ZERO);
+        self.t_evaluations
+            .iter_mut()
+            .for_each(|v| *v = FieldElement::ZERO);
 
         // evaluate transition constraints and merge them into a single value
         self.transition
@@ -203,35 +212,39 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// because all transition constraint evaluations have the same divisor, and this
     /// divisor will be applied later to this single value.
     /// TODO: move into transition constraint evaluator?
-    fn merge_transition_evaluations(&self, evaluations: &[u128], x: u128) -> u128 {
+    fn merge_transition_evaluations(
+        &self,
+        evaluations: &[FieldElement],
+        x: FieldElement,
+    ) -> FieldElement {
         let cc = self.transition.composition_coefficients();
 
         // there must be two coefficients for each constraint evaluation
         debug_assert_eq!(evaluations.len() * 2, cc.len());
 
-        let mut result = field::ZERO;
+        let mut result = FieldElement::ZERO;
 
         let mut i = 0;
         for (incremental_degree, constraints) in self.transition_degree_map.iter() {
             // for each group of constraints with the same degree, separately compute
             // combinations of D(x) and D(x) * x^p
-            let mut result_adj = field::ZERO;
+            let mut result_adj = FieldElement::ZERO;
             for &constraint_idx in constraints.iter() {
                 let evaluation = evaluations[constraint_idx];
-                result = field::add(result, field::mul(evaluation, cc[i * 2]));
-                result_adj = field::add(result_adj, field::mul(evaluation, cc[i * 2 + 1]));
+                result = result + evaluation * cc[i * 2];
+                result_adj = result_adj + evaluation * cc[i * 2 + 1];
                 i += 1;
             }
 
             // increase the degree of D(x) * x^p
-            let xp = field::exp(x, *incremental_degree);
-            result = field::add(result, field::mul(result_adj, xp));
+            let xp = FieldElement::exp(x, *incremental_degree);
+            result = result + result_adj * xp;
         }
 
         result
     }
 
-    fn build_coefficients<C: PublicCoin>(coin: &C) -> (Vec<u128>, Vec<u128>) {
+    fn build_coefficients<C: PublicCoin>(coin: &C) -> (Vec<FieldElement>, Vec<FieldElement>) {
         let num_t_coefficients = T::MAX_CONSTRAINTS * 2;
         let num_a_coefficients = A::MAX_CONSTRAINTS * 2;
 

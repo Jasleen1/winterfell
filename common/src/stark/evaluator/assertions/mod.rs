@@ -1,4 +1,5 @@
 use super::{ConstraintDivisor, ProofContext};
+use math::field::f128::FieldElement;
 
 mod io_evaluator;
 pub use io_evaluator::IoAssertionEvaluator;
@@ -9,11 +10,12 @@ pub use io_evaluator::IoAssertionEvaluator;
 pub trait AssertionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
-    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[u128]) -> Self;
+    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[FieldElement])
+        -> Self;
 
     /// Evaluates assertion constraints at the specified `x` coordinate. The evaluations are
     /// saved into the `result` slice. This method is used by both the prover and the verifier.
-    fn evaluate(&self, result: &mut [u128], state: &[u128], x: u128);
+    fn evaluate(&self, result: &mut [FieldElement], state: &[FieldElement], x: FieldElement);
 
     /// Returns divisors for all assertion constraints.
     fn divisors(&self) -> &[ConstraintDivisor];
@@ -26,11 +28,11 @@ pub trait AssertionEvaluator {
 pub struct Assertion {
     register: usize,
     step: usize,
-    value: u128,
+    value: FieldElement,
 }
 
 impl Assertion {
-    pub fn new(register: usize, step: usize, value: u128) -> Assertion {
+    pub fn new(register: usize, step: usize, value: FieldElement) -> Assertion {
         Assertion {
             register,
             step,
@@ -46,7 +48,7 @@ impl Assertion {
         self.step
     }
 
-    pub fn value(&self) -> u128 {
+    pub fn value(&self) -> FieldElement {
         self.value
     }
 }

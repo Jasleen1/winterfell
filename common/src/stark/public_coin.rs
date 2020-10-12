@@ -1,5 +1,5 @@
 use super::{CompositionCoefficients, ProofContext};
-use math::field;
+use math::field::{f128::FieldElement, StarkField};
 use rand::distributions::Uniform;
 use rand::prelude::*;
 
@@ -17,25 +17,25 @@ pub trait PublicCoin {
     // --------------------------------------------------------------------------------------------
 
     /// Draw coefficients for combining constraints using PRNG seeded with constraint seed.
-    fn draw_constraint_coefficients(&self, num_coefficients: usize) -> Vec<u128> {
-        field::prng_vector(self.constraint_seed(), num_coefficients)
+    fn draw_constraint_coefficients(&self, num_coefficients: usize) -> Vec<FieldElement> {
+        FieldElement::prng_vector(self.constraint_seed(), num_coefficients)
     }
 
     /// Draws a point from the entire field using PRNG seeded with composition seed.
-    fn draw_deep_point(&self) -> u128 {
-        field::prng(self.composition_seed())
+    fn draw_deep_point(&self) -> FieldElement {
+        FieldElement::prng_vector(self.composition_seed(), 0)[0]
     }
 
     /// Draws coefficients for building composition polynomial using PRNG seeded with
     /// composition seed.
     fn draw_composition_coefficients(&self) -> CompositionCoefficients {
-        let mut prng = field::prng_iter(self.composition_seed());
+        let mut prng = FieldElement::prng_iter(self.composition_seed());
         prng.next().unwrap(); // skip z
         CompositionCoefficients::new(&mut prng, self.context().trace_width())
     }
 
-    fn draw_fri_point(&self, layer_depth: usize) -> u128 {
-        field::prng(self.fri_layer_seed(layer_depth))
+    fn draw_fri_point(&self, layer_depth: usize) -> FieldElement {
+        FieldElement::prng_vector(self.fri_layer_seed(layer_depth), 0)[0]
     }
 
     /// Draws a set of unique query positions using PRNG seeded with query seed. The positions

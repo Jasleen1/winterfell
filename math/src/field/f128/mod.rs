@@ -6,7 +6,10 @@ use core::{
     iter::{Product, Sum},
     ops::{Add, Div, Mul, Neg, Range, Sub},
 };
-use rand::{distributions::Uniform, prelude::*};
+use rand::{
+    distributions::{DistIter, Uniform},
+    prelude::*,
+};
 
 #[cfg(test)]
 mod tests;
@@ -29,12 +32,21 @@ const RANGE: Range<u128> = Range { start: 0, end: M };
 pub struct FieldElement(u128);
 
 impl FieldElement {
-
-    // TODO: move into StarkField trait?
+    /// Creates a new field element from a u128 value. If the value is greater than or equal to
+    /// the field modulus, modular reduction is silently preformed. This function can also be used
+    /// to initialize constants.
+    /// TODO: move into StarkField trait?
     pub const fn new(value: u128) -> Self {
         FieldElement(if value < M { value } else { value - M })
     }
 
+    /// Return an iterator of pseudo-random field elements generated from a given `seed`.
+    /// TODO: remove
+    pub fn prng_iter(seed: [u8; 32]) -> DistIter<Uniform<u128>, StdRng, u128> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range)
+    }
 }
 
 impl StarkField for FieldElement {
@@ -237,7 +249,7 @@ impl From<u128> for FieldElement {
     /// Converts a 128-bit value into a filed element. If the value is greater than or equal to
     /// the field modulus, modular reduction is silently preformed.
     fn from(value: u128) -> Self {
-        FieldElement(if value < M { value } else { value - M })
+        FieldElement::new(value)
     }
 }
 

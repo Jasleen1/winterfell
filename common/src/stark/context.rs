@@ -1,5 +1,5 @@
 use super::ProofOptions;
-use math::field;
+use math::field::{f128::FieldElement, StarkField};
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -15,9 +15,9 @@ pub struct ProofContext {
 
 #[derive(Clone)]
 pub struct Generators {
-    pub trace_domain: u128,
-    pub ce_domain: u128,
-    pub lde_domain: u128,
+    pub trace_domain: FieldElement,
+    pub ce_domain: FieldElement,
+    pub lde_domain: FieldElement,
 }
 
 // PROOF CONTEXT
@@ -39,7 +39,7 @@ impl ProofContext {
         options: ProofOptions,
     ) -> Self {
         // trace domain generator
-        let g_trace = field::get_root_of_unity(trace_length);
+        let g_trace = FieldElement::get_root_of_unity(trace_length.trailing_zeros() as usize);
 
         // constraint evaluation domain generator
         assert!(
@@ -52,11 +52,11 @@ impl ProofContext {
             ce_blowup_factor
         );
         let ce_domain_size = compute_ce_domain_size(trace_length, ce_blowup_factor);
-        let g_ce = field::get_root_of_unity(ce_domain_size);
+        let g_ce = FieldElement::get_root_of_unity(ce_domain_size.trailing_zeros() as usize);
 
         // low-degree extension domain generator
         let lde_domain_size = compute_lde_domain_size(trace_length, options.blowup_factor());
-        let g_lde = field::get_root_of_unity(lde_domain_size);
+        let g_lde = FieldElement::get_root_of_unity(lde_domain_size.trailing_zeros() as usize);
 
         ProofContext {
             options,
@@ -135,13 +135,13 @@ impl ProofContext {
     // UTILITY FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
-    pub fn get_trace_x_at(&self, step: usize) -> u128 {
+    pub fn get_trace_x_at(&self, step: usize) -> FieldElement {
         debug_assert!(
             step < self.trace_length,
             "step must be in the trace domain [0, {})",
             self.trace_length
         );
-        field::exp(self.generators.trace_domain, step as u128)
+        FieldElement::exp(self.generators.trace_domain, step as u128)
     }
 }
 
