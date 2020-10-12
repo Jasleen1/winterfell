@@ -3,7 +3,10 @@ use common::{
     utils::as_bytes,
 };
 use crypto::{hash::blake3, MerkleTree};
-use math::{field::{f128::FieldElement, StarkField}, polynom};
+use math::{
+    field::{f128::FieldElement, StarkField},
+    polynom,
+};
 
 #[test]
 fn new_trace_table() {
@@ -12,10 +15,16 @@ fn new_trace_table() {
     assert_eq!(2, trace.num_registers());
     assert_eq!(8, trace.num_states());
 
-    let expected: Vec<FieldElement> = vec![1u32, 2, 5, 13, 34, 89, 233, 610].into_iter().map(FieldElement::from).collect();
+    let expected: Vec<FieldElement> = vec![1u32, 2, 5, 13, 34, 89, 233, 610]
+        .into_iter()
+        .map(FieldElement::from)
+        .collect();
     assert_eq!(expected, trace.get_register(0));
 
-    let expected: Vec<FieldElement> = vec![1u32, 3, 8, 21, 55, 144, 377, 987].into_iter().map(FieldElement::from).collect();
+    let expected: Vec<FieldElement> = vec![1u32, 3, 8, 21, 55, 144, 377, 987]
+        .into_iter()
+        .map(FieldElement::from)
+        .collect();
     assert_eq!(expected, trace.get_register(1));
 }
 
@@ -36,11 +45,17 @@ fn extend_trace_table() {
     let trace_domain = FieldElement::get_power_series(trace_root, trace_length);
     assert_eq!(2, trace_polys.num_polys());
     assert_eq!(
-        vec![1u32, 2, 5, 13, 34, 89, 233, 610].into_iter().map(FieldElement::from).collect::<Vec<FieldElement>>(),
+        vec![1u32, 2, 5, 13, 34, 89, 233, 610]
+            .into_iter()
+            .map(FieldElement::from)
+            .collect::<Vec<FieldElement>>(),
         polynom::eval_many(trace_polys.get_poly(0), &trace_domain)
     );
     assert_eq!(
-        vec![1u32, 3, 8, 21, 55, 144, 377, 987].into_iter().map(FieldElement::from).collect::<Vec<FieldElement>>(),
+        vec![1u32, 3, 8, 21, 55, 144, 377, 987]
+            .into_iter()
+            .map(FieldElement::from)
+            .collect::<Vec<FieldElement>>(),
         polynom::eval_many(trace_polys.get_poly(1), &trace_domain)
     );
 

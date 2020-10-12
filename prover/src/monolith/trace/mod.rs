@@ -4,7 +4,10 @@ use common::{
     utils::{as_bytes, uninit_vector},
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{fft, field::{StarkField, f128::FieldElement}};
+use math::{
+    fft,
+    field::{f128::FieldElement, StarkField},
+};
 
 #[cfg(test)]
 mod tests;

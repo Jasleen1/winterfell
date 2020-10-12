@@ -1,7 +1,7 @@
 use super::ProofOptions;
 use crypto::BatchMerkleProof;
-use serde::{Deserialize, Serialize};
 use math::field::f128::FieldElement;
+use serde::{Deserialize, Serialize};
 
 // TYPES AND INTERFACES
 // ================================================================================================

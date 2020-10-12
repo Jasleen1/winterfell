@@ -3,7 +3,11 @@ use super::{
     utils,
 };
 use common::stark::{CompositionCoefficients, DeepValues};
-use math::{fft, field::{StarkField, f128::FieldElement}, polynom};
+use math::{
+    fft,
+    field::{f128::FieldElement, StarkField},
+    polynom,
+};
 
 // PROCEDURES
 // ================================================================================================
@@ -121,7 +125,10 @@ pub fn compose_constraint_poly(
 }
 
 /// Evaluates DEEP composition polynomial over LDE domain.
-pub fn evaluate_composition_poly(poly: CompositionPoly, lde_domain: &LdeDomain) -> Vec<FieldElement> {
+pub fn evaluate_composition_poly(
+    poly: CompositionPoly,
+    lde_domain: &LdeDomain,
+) -> Vec<FieldElement> {
     let mut evaluations = poly.into_vec();
     fft::evaluate_poly(&mut evaluations, lde_domain.twiddles(), true);
     evaluations
@@ -131,7 +138,12 @@ pub fn evaluate_composition_poly(poly: CompositionPoly, lde_domain: &LdeDomain) 
 // ================================================================================================
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
-fn acc_poly(accumulator: &mut Vec<FieldElement>, poly: &[FieldElement], value: FieldElement, k: FieldElement) {
+fn acc_poly(
+    accumulator: &mut Vec<FieldElement>,
+    poly: &[FieldElement],
+    value: FieldElement,
+    k: FieldElement,
+) {
     utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = value * k;
     accumulator[0] = accumulator[0] - adjusted_tz;

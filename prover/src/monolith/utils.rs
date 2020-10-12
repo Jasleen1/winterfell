@@ -1,4 +1,8 @@
-use math::{fft, field::{StarkField, f128::FieldElement}, polynom};
+use math::{
+    fft,
+    field::{f128::FieldElement, StarkField},
+    polynom,
+};
 
 /// Computes a[i] + b[i] for all i and stores the results in a.
 pub fn add_in_place(a: &mut [FieldElement], b: &[FieldElement]) {

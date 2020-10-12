@@ -6,9 +6,9 @@ use common::{
     utils::log2,
 };
 use log::debug;
+use math::field::f128::FieldElement;
 use std::marker::PhantomData;
 use std::time::Instant;
-use math::field::{f128::FieldElement};
 
 mod types;
 use types::{CompositionPoly, TraceTable};

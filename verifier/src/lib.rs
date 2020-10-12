@@ -3,7 +3,7 @@ use common::stark::{
     ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
 };
 
-use math::field::{self, add, div, exp, mul, sub};
+use math::field::{f128::FieldElement, StarkField};
 use std::marker::PhantomData;
 
 mod channel;
@@ -63,9 +63,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // compute LDE domain coordinates for all query positions
         let g_lde = context.generators().lde_domain;
-        let x_coordinates: Vec<u128> = query_positions
+        let x_coordinates: Vec<FieldElement> = query_positions
             .iter()
-            .map(|&p| exp(g_lde, p as u128))
+            .map(|&p| FieldElement::exp(g_lde, p as u128))
             .collect();
 
         // read trace states and constraint evaluations at the queried positions; this also
@@ -103,8 +103,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let evaluations = t_composition
             .iter()
             .zip(c_composition)
-            .map(|(&t, c)| add(t, c))
-            .collect::<Vec<u128>>();
+            .map(|(&t, c)| t + c)
+            .collect::<Vec<FieldElement>>();
 
         // 4 ----- Verify low-degree proof -------------------------------------------------------------
         // make sure that evaluations we computed in the previous step are in fact evaluations
@@ -120,10 +120,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 /// TODO: move into ConstraintEvaluator?
 pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     mut evaluator: ConstraintEvaluator<T, A>,
-    state1: &[u128],
-    state2: &[u128],
-    x: u128,
-) -> u128 {
+    state1: &[FieldElement],
+    state2: &[FieldElement],
+    x: FieldElement,
+) -> FieldElement {
     let evaluations = evaluator.evaluate_at_x(state1, state2, x).to_vec();
     let divisors = evaluator.constraint_divisors();
     debug_assert!(
@@ -134,10 +134,10 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     );
 
     // iterate over evaluations and divide out values implied by the divisors
-    let mut result = 0;
+    let mut result = FieldElement::ZERO;
     for (&evaluation, divisor) in evaluations.iter().zip(divisors.iter()) {
         let z = divisor.evaluate_at(x);
-        result = add(result, div(evaluation, z));
+        result = result + evaluation / z;
     }
 
     result
@@ -149,13 +149,13 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 /// TODO: add comments
 fn compose_registers(
     context: &ProofContext,
-    trace_states: &[Vec<u128>],
-    x_coordinates: &[u128],
+    trace_states: &[Vec<FieldElement>],
+    x_coordinates: &[FieldElement],
     deep_values: &DeepValues,
-    z: u128,
+    z: FieldElement,
     cc: &CompositionCoefficients,
-) -> Vec<u128> {
-    let next_z = mul(z, context.generators().trace_domain);
+) -> Vec<FieldElement> {
+    let next_z = z * context.generators().trace_domain;
 
     let trace_at_z1 = &deep_values.trace_at_z1;
     let trace_at_z2 = &deep_values.trace_at_z2;
@@ -166,23 +166,23 @@ fn compose_registers(
 
     let mut result = Vec::with_capacity(trace_states.len());
     for (registers, &x) in trace_states.iter().zip(x_coordinates) {
-        let mut composition = field::ZERO;
+        let mut composition = FieldElement::ZERO;
         for (i, &value) in registers.iter().enumerate() {
             // compute T1(x) = (T(x) - T(z)) / (x - z)
-            let t1 = div(sub(value, trace_at_z1[i]), sub(x, z));
+            let t1 = (value - trace_at_z1[i]) / (x - z);
             // multiply it by a pseudo-random coefficient, and combine with result
-            composition = add(composition, mul(t1, cc.trace1[i]));
+            composition = composition + t1 * cc.trace1[i];
 
             // compute T2(x) = (T(x) - T(z * g)) / (x - z * g)
-            let t2 = div(sub(value, trace_at_z2[i]), sub(x, next_z));
+            let t2 = (value - trace_at_z2[i]) / (x - next_z);
             // multiply it by a pseudo-random coefficient, and combine with result
-            composition = add(composition, mul(t2, cc.trace2[i]));
+            composition = composition + t2 * cc.trace2[i];
         }
 
         // raise the degree to match composition degree
-        let xp = exp(x, incremental_degree);
-        let adj_composition = mul(mul(composition, xp), cc.t2_degree);
-        composition = add(mul(composition, cc.t1_degree), adj_composition);
+        let xp = FieldElement::exp(x, incremental_degree);
+        let adj_composition = composition * xp * cc.t2_degree;
+        composition = composition * cc.t1_degree + adj_composition;
 
         result.push(composition);
     }
@@ -195,19 +195,19 @@ fn compose_registers(
 
 /// TODO: add comments
 fn compose_constraints(
-    evaluations: Vec<u128>,
-    x_coordinates: &[u128],
-    z: u128,
-    evaluation_at_z: u128,
+    evaluations: Vec<FieldElement>,
+    x_coordinates: &[FieldElement],
+    z: FieldElement,
+    evaluation_at_z: FieldElement,
     cc: &CompositionCoefficients,
-) -> Vec<u128> {
+) -> Vec<FieldElement> {
     // divide out deep point from the evaluations
     let mut result = Vec::with_capacity(evaluations.len());
     for (evaluation, &x) in evaluations.into_iter().zip(x_coordinates) {
         // compute C(x) = (P(x) - P(z)) / (x - z)
-        let composition = div(sub(evaluation, evaluation_at_z), sub(x, z));
+        let composition = (evaluation - evaluation_at_z) / (x - z);
         // multiply by pseudo-random coefficient for linear combination
-        result.push(mul(composition, cc.constraints));
+        result.push(composition * cc.constraints);
     }
 
     result

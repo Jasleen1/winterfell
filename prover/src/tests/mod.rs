@@ -1,5 +1,5 @@
 use common::stark::{ConstraintDegree, ProofContext, TransitionEvaluator};
-use math::field::{StarkField, f128::FieldElement};
+use math::field::{f128::FieldElement, StarkField};
 
 pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     assert!(length.is_power_of_two(), "length must be a power of 2");
@@ -36,11 +36,23 @@ impl TransitionEvaluator for FibEvaluator {
     // TRANSITION CONSTRAINTS
     // --------------------------------------------------------------------------------------------
 
-    fn evaluate_at_step(&self, result: &mut [FieldElement], current: &[FieldElement], next: &[FieldElement], _step: usize) {
+    fn evaluate_at_step(
+        &self,
+        result: &mut [FieldElement],
+        current: &[FieldElement],
+        next: &[FieldElement],
+        _step: usize,
+    ) {
         self.evaluate_at_x(result, current, next, FieldElement::ZERO)
     }
 
-    fn evaluate_at_x(&self, result: &mut [FieldElement], current: &[FieldElement], next: &[FieldElement], _x: FieldElement) {
+    fn evaluate_at_x(
+        &self,
+        result: &mut [FieldElement],
+        current: &[FieldElement],
+        next: &[FieldElement],
+        _x: FieldElement,
+    ) {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());

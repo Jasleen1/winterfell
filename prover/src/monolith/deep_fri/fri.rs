@@ -5,7 +5,10 @@ use common::stark::{
     FriLayer, FriProof, ProofContext, PublicCoin,
 };
 use crypto::MerkleTree;
-use math::{field::{StarkField, f128::FieldElement}, quartic};
+use math::{
+    field::{f128::FieldElement, StarkField},
+    quartic,
+};
 use std::mem;
 
 pub fn reduce(

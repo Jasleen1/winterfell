@@ -8,7 +8,7 @@ use common::stark::{
     Assertion, ConstraintEvaluator, IoAssertionEvaluator, ProofContext, ProofOptions,
 };
 use crypto::hash::blake3;
-use math::field::{StarkField, f128::FieldElement};
+use math::field::{f128::FieldElement, StarkField};
 
 #[test]
 fn evaluate_constraints() {
@@ -41,7 +41,10 @@ fn evaluate_constraints() {
     {
         assert_eq!(FieldElement::ZERO, evaluation);
     }
-    assert_ne!(FieldElement::ZERO, transition_evaluations[(trace_length - 1) * stride]);
+    assert_ne!(
+        FieldElement::ZERO,
+        transition_evaluations[(trace_length - 1) * stride]
+    );
 
     // input assertion evaluations must be 0 only at the first step
     assert_eq!(FieldElement::ZERO, input_evaluations[0]);
@@ -59,7 +62,10 @@ fn evaluate_constraints() {
     {
         assert_ne!(FieldElement::ZERO, evaluation);
     }
-    assert_eq!(FieldElement::ZERO, output_evaluations[(trace_length - 1) * 2]);
+    assert_eq!(
+        FieldElement::ZERO,
+        output_evaluations[(trace_length - 1) * 2]
+    );
 }
 
 #[test]

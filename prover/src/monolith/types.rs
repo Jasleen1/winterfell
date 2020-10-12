@@ -1,5 +1,8 @@
 use common::stark::{ConstraintDivisor, ProofContext};
-use math::{polynom, field::{StarkField, f128::FieldElement}};
+use math::{
+    field::{f128::FieldElement, StarkField},
+    polynom,
+};
 use std::{iter, vec};
 
 // TRACE TABLE
