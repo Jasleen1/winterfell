@@ -1,5 +1,5 @@
 use super::{ProofContext, PublicCoin};
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 
 mod transition;
 pub use transition::{group_transition_constraints, TransitionEvaluator};

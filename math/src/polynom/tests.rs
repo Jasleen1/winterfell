@@ -1,5 +1,5 @@
 use crate::{
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     utils::remove_leading_zeros,
 };
 
@@ -200,7 +200,7 @@ fn syn_div_expanded_in_place() {
         .collect();
 
     // build the domain
-    let root = FieldElement::get_root_of_unity(ys.len().trailing_zeros() as usize);
+    let root = FieldElement::get_root_of_unity(ys.len().trailing_zeros());
     let domain = FieldElement::get_power_series(root, ys.len());
 
     // build the polynomial

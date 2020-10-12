@@ -1,4 +1,4 @@
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 
 pub struct CompositionCoefficients {
     pub trace1: Vec<FieldElement>,

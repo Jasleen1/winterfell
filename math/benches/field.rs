@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 use std::convert::TryInto;
 
 pub fn add(c: &mut Criterion) {

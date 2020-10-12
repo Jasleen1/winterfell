@@ -36,7 +36,7 @@ pub trait StarkField:
     + From<u8>
     + for<'a> TryFrom<&'a [u8]>
 {
-    type PositiveInteger: Copy + From<u32> + Shl<usize, Output = Self::PositiveInteger>;
+    type PositiveInteger: Copy + From<u32> + Shl<u32, Output = Self::PositiveInteger>;
 
     /// Prime modulus of the field. Must be of the form k * 2^n + 1 (a Proth prime).
     /// This ensures that the field has high 2-adicity.
@@ -49,7 +49,7 @@ pub trait StarkField:
     const GENERATOR: Self;
 
     /// Let Self::MODULUS = k * 2^n + 1; then, TWO_ADICITY is n.
-    const TWO_ADICITY: usize;
+    const TWO_ADICITY: u32;
 
     /// Let Self::MODULUS = k * 2^n + 1; then, TWO_ADIC_ROOT_OF_UNITY is 2^n root of unity
     /// computed as Self::GENERATOR^k.
@@ -95,7 +95,7 @@ pub trait StarkField:
 
     /// Returns the root of unity of order 2^n. Panics if the root of unity for
     /// the specified order does not exist in this field.
-    fn get_root_of_unity(n: usize) -> Self {
+    fn get_root_of_unity(n: u32) -> Self {
         assert!(n != 0, "cannot get root of unity for n = 0");
         assert!(
             n <= Self::TWO_ADICITY,

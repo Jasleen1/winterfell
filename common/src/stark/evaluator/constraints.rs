@@ -1,4 +1,4 @@
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 
 // CONSTRAINT DEGREE
 // ================================================================================================

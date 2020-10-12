@@ -1,5 +1,5 @@
 use super::{Assertion, AssertionEvaluator, ConstraintDivisor, ProofContext};
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 use std::collections::BTreeMap;
 
 // INPUT/OUTPUT ASSERTION EVALUATOR

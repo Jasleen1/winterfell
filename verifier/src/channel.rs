@@ -4,7 +4,7 @@ use common::{
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{field::f128::FieldElement, quartic};
+use math::{field::FieldElement, quartic};
 
 // TYPES AND INTERFACES
 // ================================================================================================

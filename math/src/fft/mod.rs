@@ -1,4 +1,4 @@
-use crate::field::{f128::FieldElement, StarkField};
+use crate::field::{FieldElement, StarkField};
 
 #[cfg(test)]
 mod tests;

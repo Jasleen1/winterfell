@@ -1,5 +1,5 @@
 use super::{ConstraintDivisor, ProofContext};
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 
 mod io_evaluator;
 pub use io_evaluator::IoAssertionEvaluator;

@@ -12,7 +12,7 @@ use common::{
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     polynom,
 };
 

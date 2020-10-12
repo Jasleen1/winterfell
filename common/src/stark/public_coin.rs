@@ -1,5 +1,5 @@
 use super::{CompositionCoefficients, ProofContext};
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 use rand::distributions::Uniform;
 use rand::prelude::*;
 

@@ -2,7 +2,7 @@ use super::Prover;
 use crate::tests::{build_fib_trace, FibEvaluator};
 use common::stark::{Assertion, IoAssertionEvaluator, ProofOptions};
 use crypto::hash::blake3;
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 
 #[test]
 fn generate_proof() {

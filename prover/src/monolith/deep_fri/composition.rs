@@ -5,7 +5,7 @@ use super::{
 use common::stark::{CompositionCoefficients, DeepValues};
 use math::{
     fft,
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     polynom,
 };
 
@@ -28,7 +28,7 @@ pub fn compose_trace_polys(
     // compute a second out-of-domain point which corresponds to the next
     // computation state in relation to point z
     let trace_length = trace_polys.poly_size();
-    let g = FieldElement::get_root_of_unity(trace_length.trailing_zeros() as usize);
+    let g = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
     let next_z = z * g;
 
     // compute state of registers at deep points z and z * g

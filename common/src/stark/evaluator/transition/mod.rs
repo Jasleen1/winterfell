@@ -1,5 +1,5 @@
 use super::{ConstraintDegree, ProofContext};
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT

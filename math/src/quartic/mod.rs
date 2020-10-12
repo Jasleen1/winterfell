@@ -1,5 +1,5 @@
 use crate::{
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     utils::uninit_vector,
 };
 

@@ -1,5 +1,5 @@
 use super::ProofOptions;
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -39,7 +39,7 @@ impl ProofContext {
         options: ProofOptions,
     ) -> Self {
         // trace domain generator
-        let g_trace = FieldElement::get_root_of_unity(trace_length.trailing_zeros() as usize);
+        let g_trace = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
 
         // constraint evaluation domain generator
         assert!(
@@ -52,11 +52,11 @@ impl ProofContext {
             ce_blowup_factor
         );
         let ce_domain_size = compute_ce_domain_size(trace_length, ce_blowup_factor);
-        let g_ce = FieldElement::get_root_of_unity(ce_domain_size.trailing_zeros() as usize);
+        let g_ce = FieldElement::get_root_of_unity(ce_domain_size.trailing_zeros());
 
         // low-degree extension domain generator
         let lde_domain_size = compute_lde_domain_size(trace_length, options.blowup_factor());
-        let g_lde = FieldElement::get_root_of_unity(lde_domain_size.trailing_zeros() as usize);
+        let g_lde = FieldElement::get_root_of_unity(lde_domain_size.trailing_zeros());
 
         ProofContext {
             options,

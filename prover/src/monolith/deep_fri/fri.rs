@@ -6,7 +6,7 @@ use common::stark::{
 };
 use crypto::MerkleTree;
 use math::{
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     quartic,
 };
 use std::mem;

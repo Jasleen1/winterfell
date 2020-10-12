@@ -2,7 +2,7 @@ use super::channel::VerifierChannel;
 use common::stark::{fri_utils::get_augmented_positions, ProofContext, PublicCoin};
 
 use math::{
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     polynom, quartic,
 };
 use std::mem;

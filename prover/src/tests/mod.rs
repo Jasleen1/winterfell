@@ -1,5 +1,5 @@
 use common::stark::{ConstraintDegree, ProofContext, TransitionEvaluator};
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 
 pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     assert!(length.is_power_of_two(), "length must be a power of 2");

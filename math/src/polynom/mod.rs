@@ -1,4 +1,4 @@
-use crate::field::{f128::FieldElement, StarkField};
+use crate::field::{FieldElement, StarkField};
 use crate::utils;
 use std::mem;
 

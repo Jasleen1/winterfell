@@ -1,6 +1,6 @@
 use super::ProofOptions;
 use crypto::BatchMerkleProof;
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 use serde::{Deserialize, Serialize};
 
 // TYPES AND INTERFACES

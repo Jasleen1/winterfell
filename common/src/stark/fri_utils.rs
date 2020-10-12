@@ -1,6 +1,6 @@
 use crate::utils::{as_bytes, uninit_vector};
 use crypto::HashFunction;
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 
 pub fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
     let row_length = column_length / 4;

@@ -1,18 +1,18 @@
 use super::{rescue, CYCLE_LENGTH, NUM_HASH_ROUNDS};
-use prover::math::field;
+use prover::math::field::{FieldElement, StarkField};
 
-pub fn generate_trace(seed: [u128; 2], iterations: usize) -> Vec<Vec<u128>> {
+pub fn generate_trace(seed: [FieldElement; 2], iterations: usize) -> Vec<Vec<FieldElement>> {
     // allocate memory to hold the trace table
     let trace_length = iterations * CYCLE_LENGTH;
     let mut trace = vec![
-        vec![0; trace_length],
-        vec![0; trace_length],
-        vec![0; trace_length],
-        vec![0; trace_length],
+        vec![FieldElement::ZERO; trace_length],
+        vec![FieldElement::ZERO; trace_length],
+        vec![FieldElement::ZERO; trace_length],
+        vec![FieldElement::ZERO; trace_length],
     ];
 
     // initialize first state of the computation
-    let mut state = [seed[0], seed[1], field::ZERO, field::ZERO];
+    let mut state = [seed[0], seed[1], FieldElement::ZERO, FieldElement::ZERO];
     // copy state into the trace
     for (reg, &val) in state.iter().enumerate() {
         trace[reg][0] = val;
@@ -28,8 +28,8 @@ pub fn generate_trace(seed: [u128; 2], iterations: usize) -> Vec<Vec<u128>> {
         } else {
             state[0] = trace[0][step];
             state[1] = trace[1][step];
-            state[2] = field::ZERO;
-            state[3] = field::ZERO;
+            state[2] = FieldElement::ZERO;
+            state[3] = FieldElement::ZERO;
         }
 
         // copy state into the trace

@@ -1,6 +1,6 @@
 use common::stark::{ConstraintDivisor, ProofContext};
 use math::{
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     polynom,
 };
 use std::{iter, vec};
@@ -142,7 +142,6 @@ impl PolyTable {
 
 // CONSTRAINT EVALUATION TABLE
 // ================================================================================================
-#[allow(dead_code)]
 pub struct ConstraintEvaluationTable {
     evaluations: Vec<Vec<FieldElement>>,
     divisors: Vec<ConstraintDivisor>,
@@ -161,10 +160,12 @@ impl ConstraintEvaluationTable {
         self.evaluations[0].len()
     }
 
+    #[allow(dead_code)]
     pub fn divisors(&self) -> &[ConstraintDivisor] {
         &self.divisors
     }
 
+    #[cfg(test)]
     pub fn into_vec(self) -> Vec<Vec<FieldElement>> {
         self.evaluations
     }

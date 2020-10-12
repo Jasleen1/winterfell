@@ -3,7 +3,7 @@ use common::stark::{
     ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
 };
 
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 use std::marker::PhantomData;
 
 mod channel;

@@ -6,7 +6,7 @@ use common::{
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
 };
 
 #[cfg(test)]
@@ -39,7 +39,7 @@ pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, P
     );
 
     // build trace twiddles for FFT interpolation over trace domain
-    let trace_root = FieldElement::get_root_of_unity(trace_length.trailing_zeros() as usize);
+    let trace_root = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
     let trace_twiddles = fft::get_inv_twiddles(trace_root, trace_length);
 
     let mut polys = trace.into_vec();

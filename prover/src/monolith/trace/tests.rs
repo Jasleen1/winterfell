@@ -4,7 +4,7 @@ use common::{
 };
 use crypto::{hash::blake3, MerkleTree};
 use math::{
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     polynom,
 };
 
@@ -41,7 +41,7 @@ fn extend_trace_table() {
     assert_eq!(32, trace.num_states());
 
     // make sure trace polynomials evaluate to Fibonacci trace
-    let trace_root = FieldElement::get_root_of_unity(trace_length.trailing_zeros() as usize);
+    let trace_root = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
     let trace_domain = FieldElement::get_power_series(trace_root, trace_length);
     assert_eq!(2, trace_polys.num_polys());
     assert_eq!(

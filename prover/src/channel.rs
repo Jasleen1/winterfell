@@ -2,7 +2,7 @@ use common::stark::{
     Commitments, Context, DeepValues, FriProof, ProofContext, PublicCoin, Queries, StarkProof,
 };
 use crypto::{BatchMerkleProof, HashFunction};
-use math::field::f128::FieldElement;
+use math::field::FieldElement;
 
 // TYPES AND INTERFACES
 // ================================================================================================

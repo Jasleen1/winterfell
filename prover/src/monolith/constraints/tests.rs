@@ -8,7 +8,7 @@ use common::stark::{
     Assertion, ConstraintEvaluator, IoAssertionEvaluator, ProofContext, ProofOptions,
 };
 use crypto::hash::blake3;
-use math::field::{f128::FieldElement, StarkField};
+use math::field::{FieldElement, StarkField};
 
 #[test]
 fn evaluate_constraints() {

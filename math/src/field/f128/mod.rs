@@ -67,7 +67,7 @@ impl StarkField for FieldElement {
 
     /// sage: is_odd((MODULUS - 1) / 2^40)
     /// True
-    const TWO_ADICITY: usize = 40;
+    const TWO_ADICITY: u32 = 40;
 
     /// sage: k = (MODULUS - 1) / 2^40
     /// sage: GF(MODULUS).primitive_element()^k

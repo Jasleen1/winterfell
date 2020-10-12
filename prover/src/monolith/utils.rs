@@ -1,6 +1,6 @@
 use math::{
     fft,
-    field::{f128::FieldElement, StarkField},
+    field::{FieldElement, StarkField},
     polynom,
 };
 
@@ -33,7 +33,7 @@ pub fn infer_degree(evaluations: &[FieldElement]) -> usize {
         "number of evaluations must be a power of 2"
     );
     let mut poly = evaluations.to_vec();
-    let root = FieldElement::get_root_of_unity(evaluations.len().trailing_zeros() as usize);
+    let root = FieldElement::get_root_of_unity(evaluations.len().trailing_zeros());
     let inv_twiddles = fft::get_inv_twiddles(root, evaluations.len());
     fft::interpolate_poly(&mut poly, &inv_twiddles, true);
     polynom::degree_of(&poly)

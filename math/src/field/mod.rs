@@ -1,4 +1,5 @@
 mod traits;
 pub use traits::StarkField;
 
-pub mod f128;
+mod f128;
+pub use f128::FieldElement;
