@@ -1,3 +1,5 @@
+use crate::field::{FieldElement, StarkField};
+
 // VECTOR FUNCTIONS
 // ================================================================================================
 
@@ -15,10 +17,10 @@ pub fn filled_vector<T: Copy>(length: usize, capacity: usize, value: T) -> Vec<T
     vector
 }
 
-pub fn remove_leading_zeros(values: &[u128]) -> Vec<u128> {
+pub fn remove_leading_zeros(values: &[FieldElement]) -> Vec<FieldElement> {
     for i in (0..values.len()).rev() {
-        if values[i] != 0 {
-            return values[0..(i + 1)].to_vec();
+        if values[i] != FieldElement::ZERO {
+            return values[..(i + 1)].to_vec();
         }
     }
 

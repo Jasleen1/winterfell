@@ -1,15 +1,15 @@
 use common::stark::{ConstraintDegree, ProofContext, TransitionEvaluator};
-use math::field::{self, add, mul, sub};
+use math::field::{FieldElement, StarkField};
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<u128>> {
+pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     assert!(length.is_power_of_two(), "length must be a power of 2");
 
-    let mut reg1 = vec![field::ONE];
-    let mut reg2 = vec![field::ONE];
+    let mut reg1 = vec![FieldElement::ONE];
+    let mut reg2 = vec![FieldElement::ONE];
 
     for i in 0..(length / 2 - 1) {
-        reg1.push(add(reg1[i], reg2[i]));
-        reg2.push(add(reg1[i], mul(2, reg2[i])));
+        reg1.push(reg1[i] + reg2[i]);
+        reg2.push(reg1[i] + FieldElement::from(2u8) * reg2[i]);
     }
 
     vec![reg1, reg2]
@@ -17,7 +17,7 @@ pub fn build_fib_trace(length: usize) -> Vec<Vec<u128>> {
 
 pub struct FibEvaluator {
     constraint_degrees: Vec<ConstraintDegree>,
-    composition_coefficients: Vec<u128>,
+    composition_coefficients: Vec<FieldElement>,
 }
 
 impl TransitionEvaluator for FibEvaluator {
@@ -25,7 +25,7 @@ impl TransitionEvaluator for FibEvaluator {
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(_context: &ProofContext, coefficients: &[u128]) -> Self {
+    fn new(_context: &ProofContext, coefficients: &[FieldElement]) -> Self {
         let degree = ConstraintDegree::new(1);
         FibEvaluator {
             constraint_degrees: vec![degree.clone(), degree],
@@ -36,11 +36,23 @@ impl TransitionEvaluator for FibEvaluator {
     // TRANSITION CONSTRAINTS
     // --------------------------------------------------------------------------------------------
 
-    fn evaluate_at_step(&self, result: &mut [u128], current: &[u128], next: &[u128], _step: usize) {
-        self.evaluate_at_x(result, current, next, 0)
+    fn evaluate_at_step(
+        &self,
+        result: &mut [FieldElement],
+        current: &[FieldElement],
+        next: &[FieldElement],
+        _step: usize,
+    ) {
+        self.evaluate_at_x(result, current, next, FieldElement::ZERO)
     }
 
-    fn evaluate_at_x(&self, result: &mut [u128], current: &[u128], next: &[u128], _x: u128) {
+    fn evaluate_at_x(
+        &self,
+        result: &mut [FieldElement],
+        current: &[FieldElement],
+        next: &[FieldElement],
+        _x: FieldElement,
+    ) {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());
@@ -48,8 +60,8 @@ impl TransitionEvaluator for FibEvaluator {
         // constraints of Fibonacci sequence which state that:
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
-        result[0] = are_equal(next[0], add(current[0], current[1]));
-        result[1] = are_equal(next[1], add(current[0], mul(2, current[1])));
+        result[0] = are_equal(next[0], current[0] + current[1]);
+        result[1] = are_equal(next[1], current[0] + FieldElement::from(2u8) * current[1]);
     }
 
     fn get_ce_blowup_factor() -> usize {
@@ -62,11 +74,11 @@ impl TransitionEvaluator for FibEvaluator {
         &self.constraint_degrees
     }
 
-    fn composition_coefficients(&self) -> &[u128] {
+    fn composition_coefficients(&self) -> &[FieldElement] {
         &self.composition_coefficients
     }
 }
 
-fn are_equal(a: u128, b: u128) -> u128 {
-    sub(a, b)
+fn are_equal(a: FieldElement, b: FieldElement) -> FieldElement {
+    a - b
 }

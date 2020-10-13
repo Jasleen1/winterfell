@@ -1,29 +1,29 @@
 use common::utils::filled_vector;
 use prover::math::{
     fft,
-    field::{self, add, mul, sub},
+    field::{FieldElement, StarkField},
 };
 
 // CONSTRAINT EVALUATION HELPERS
 // ================================================================================================
 
-pub fn are_equal(a: u128, b: u128) -> u128 {
-    sub(a, b)
+pub fn are_equal(a: FieldElement, b: FieldElement) -> FieldElement {
+    a - b
 }
 
-pub fn is_zero(a: u128) -> u128 {
+pub fn is_zero(a: FieldElement) -> FieldElement {
     a
 }
 
 pub fn extend_cyclic_values(
-    values: &[u128],
-    inv_twiddles: &[u128],
-    ev_twiddles: &[u128],
-) -> (Vec<u128>, Vec<u128>) {
+    values: &[FieldElement],
+    inv_twiddles: &[FieldElement],
+    ev_twiddles: &[FieldElement],
+) -> (Vec<FieldElement>, Vec<FieldElement>) {
     let domain_size = ev_twiddles.len() * 2;
     let cycle_length = values.len();
 
-    let mut extended_values = filled_vector(cycle_length, domain_size, field::ZERO);
+    let mut extended_values = filled_vector(cycle_length, domain_size, FieldElement::ZERO);
     extended_values.copy_from_slice(values);
     fft::interpolate_poly(&mut extended_values, &inv_twiddles, true);
 
@@ -41,18 +41,18 @@ pub fn extend_cyclic_values(
 // ================================================================================================
 
 pub trait EvaluationResult {
-    fn agg_constraint(&mut self, index: usize, flag: u128, value: u128);
+    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement);
 }
 
-impl EvaluationResult for [u128] {
-    fn agg_constraint(&mut self, index: usize, flag: u128, value: u128) {
-        self[index] = add(self[index], mul(flag, value));
+impl EvaluationResult for [FieldElement] {
+    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement) {
+        self[index] = self[index] + flag * value;
     }
 }
 
-impl EvaluationResult for Vec<u128> {
-    fn agg_constraint(&mut self, index: usize, flag: u128, value: u128) {
-        self[index] = add(self[index], mul(flag, value));
+impl EvaluationResult for Vec<FieldElement> {
+    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement) {
+        self[index] = self[index] + flag * value;
     }
 }
 
@@ -60,7 +60,7 @@ impl EvaluationResult for Vec<u128> {
 // ================================================================================================
 
 /// Transposes columns into rows in a 2-dimensional matrix.
-pub fn transpose(values: Vec<Vec<u128>>) -> Vec<Vec<u128>> {
+pub fn transpose(values: Vec<Vec<FieldElement>>) -> Vec<Vec<FieldElement>> {
     let mut result = Vec::new();
 
     let columns = values.len();
@@ -70,7 +70,7 @@ pub fn transpose(values: Vec<Vec<u128>>) -> Vec<Vec<u128>> {
     assert!(rows > 0, "matrix must contain at least one row");
 
     for _ in 0..rows {
-        result.push(vec![0; columns]);
+        result.push(vec![FieldElement::ZERO; columns]);
     }
 
     for (i, column) in values.iter().enumerate() {
@@ -87,11 +87,11 @@ pub fn transpose(values: Vec<Vec<u128>>) -> Vec<Vec<u128>> {
 }
 
 /// Prints out an execution trace
-pub fn print_trace(trace: &[Vec<u128>]) {
+pub fn print_trace(trace: &[Vec<FieldElement>]) {
     let trace_width = trace.len();
     let trace_length = trace[0].len();
 
-    let mut state = vec![0; trace_width];
+    let mut state = vec![FieldElement::ZERO; trace_width];
     for i in 0..trace_length {
         for j in 0..trace_width {
             state[j] = trace[j][i];
@@ -100,11 +100,11 @@ pub fn print_trace(trace: &[Vec<u128>]) {
     }
 }
 
-/// Converts a slice of u128 values into a vector of bytes.
-pub fn to_byte_vec(values: &[u128]) -> Vec<u8> {
+/// Converts a slice of field elements values into a vector of bytes.
+pub fn to_byte_vec(values: &[FieldElement]) -> Vec<u8> {
     let mut result = Vec::with_capacity(values.len() * 16);
     for value in values {
-        result.extend_from_slice(&value.to_le_bytes());
+        result.extend_from_slice(&value.to_bytes());
     }
     result
 }

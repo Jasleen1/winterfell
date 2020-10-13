@@ -3,7 +3,11 @@ use super::{
     utils,
 };
 use common::stark::{CompositionCoefficients, DeepValues};
-use math::{fft, field, polynom};
+use math::{
+    fft,
+    field::{FieldElement, StarkField},
+    polynom,
+};
 
 // PROCEDURES
 // ================================================================================================
@@ -18,14 +22,14 @@ use math::{fft, field, polynom};
 pub fn compose_trace_polys(
     composition_poly: &mut CompositionPoly,
     trace_polys: PolyTable,
-    z: u128,
+    z: FieldElement,
     cc: &CompositionCoefficients,
 ) -> DeepValues {
     // compute a second out-of-domain point which corresponds to the next
     // computation state in relation to point z
     let trace_length = trace_polys.poly_size();
-    let g = field::get_root_of_unity(trace_length);
-    let next_z = field::mul(z, g);
+    let g = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
+    let next_z = z * g;
 
     // compute state of registers at deep points z and z * g
     let trace_state1 = trace_polys.evaluate_at(z);
@@ -33,8 +37,8 @@ pub fn compose_trace_polys(
 
     // combine trace polynomials into 2 composition polynomials T1(x) and T2(x)
     let polys = trace_polys.into_vec();
-    let mut t1_composition = vec![field::ZERO; trace_length];
-    let mut t2_composition = vec![field::ZERO; trace_length];
+    let mut t1_composition = vec![FieldElement::ZERO; trace_length];
+    let mut t2_composition = vec![FieldElement::ZERO; trace_length];
     for i in 0..polys.len() {
         // compute T1(x) = (T(x) - T(z)), multiply it by a pseudo-random
         // coefficient, and add the result into composition polynomial
@@ -100,7 +104,7 @@ pub fn compose_trace_polys(
 pub fn compose_constraint_poly(
     composition_poly: &mut CompositionPoly,
     constraint_poly: ConstraintPoly,
-    z: u128,
+    z: FieldElement,
     cc: &CompositionCoefficients,
 ) {
     // evaluate the polynomial at point z
@@ -108,7 +112,7 @@ pub fn compose_constraint_poly(
 
     // compute C(x) = (P(x) - P(z)) / (x - z)
     let mut constraint_poly = constraint_poly.into_vec();
-    constraint_poly[0] = field::sub(constraint_poly[0], value_at_z);
+    constraint_poly[0] = constraint_poly[0] - value_at_z;
     polynom::syn_div_in_place(&mut constraint_poly, z);
 
     // add C(x) * K into the result
@@ -121,7 +125,10 @@ pub fn compose_constraint_poly(
 }
 
 /// Evaluates DEEP composition polynomial over LDE domain.
-pub fn evaluate_composition_poly(poly: CompositionPoly, lde_domain: &LdeDomain) -> Vec<u128> {
+pub fn evaluate_composition_poly(
+    poly: CompositionPoly,
+    lde_domain: &LdeDomain,
+) -> Vec<FieldElement> {
     let mut evaluations = poly.into_vec();
     fft::evaluate_poly(&mut evaluations, lde_domain.twiddles(), true);
     evaluations
@@ -131,8 +138,13 @@ pub fn evaluate_composition_poly(poly: CompositionPoly, lde_domain: &LdeDomain) 
 // ================================================================================================
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
-fn acc_poly(accumulator: &mut Vec<u128>, poly: &[u128], value: u128, k: u128) {
+fn acc_poly(
+    accumulator: &mut Vec<FieldElement>,
+    poly: &[FieldElement],
+    value: FieldElement,
+    k: FieldElement,
+) {
     utils::mul_acc(accumulator, poly, k);
-    let adjusted_tz = field::mul(value, k);
-    accumulator[0] = field::sub(accumulator[0], adjusted_tz);
+    let adjusted_tz = value * k;
+    accumulator[0] = accumulator[0] - adjusted_tz;
 }

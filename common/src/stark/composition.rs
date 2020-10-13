@@ -1,19 +1,21 @@
+use math::field::FieldElement;
+
 pub struct CompositionCoefficients {
-    pub trace1: Vec<u128>,
-    pub trace2: Vec<u128>,
-    pub t1_degree: u128,
-    pub t2_degree: u128,
-    pub constraints: u128,
+    pub trace1: Vec<FieldElement>,
+    pub trace2: Vec<FieldElement>,
+    pub t1_degree: FieldElement,
+    pub t2_degree: FieldElement,
+    pub constraints: FieldElement,
 }
 
 impl CompositionCoefficients {
     pub fn new<T: Iterator<Item = u128>>(prng: &mut T, trace_width: usize) -> Self {
         CompositionCoefficients {
-            trace1: prng.take(2 * trace_width).collect(),
-            trace2: prng.take(2 * trace_width).collect(),
-            t1_degree: prng.next().unwrap(),
-            t2_degree: prng.next().unwrap(),
-            constraints: prng.next().unwrap(),
+            trace1: prng.take(2 * trace_width).map(FieldElement::from).collect(),
+            trace2: prng.take(2 * trace_width).map(FieldElement::from).collect(),
+            t1_degree: FieldElement::from(prng.next().unwrap()),
+            t2_degree: FieldElement::from(prng.next().unwrap()),
+            constraints: FieldElement::from(prng.next().unwrap()),
         }
     }
 }

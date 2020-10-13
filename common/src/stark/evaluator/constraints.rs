@@ -1,4 +1,4 @@
-use math::field;
+use math::field::{FieldElement, StarkField};
 
 // CONSTRAINT DEGREE
 // ================================================================================================
@@ -49,32 +49,32 @@ impl ConstraintDegree {
 ///   exclude: vec![b]
 #[derive(Clone)]
 pub struct ConstraintDivisor {
-    numerator: Vec<(usize, u128)>,
-    exclude: Vec<u128>,
+    numerator: Vec<(usize, FieldElement)>,
+    exclude: Vec<FieldElement>,
 }
 
 impl ConstraintDivisor {
     /// Builds divisor for transition constraints
-    pub fn from_transition(trace_length: usize, x_at_last_step: u128) -> Self {
+    pub fn from_transition(trace_length: usize, x_at_last_step: FieldElement) -> Self {
         ConstraintDivisor {
-            numerator: vec![(trace_length, 1)],
+            numerator: vec![(trace_length, FieldElement::ONE)],
             exclude: vec![x_at_last_step],
         }
     }
 
     /// Builds divisor for assertion constraint
-    pub fn from_assertion(x: u128) -> Self {
+    pub fn from_assertion(x: FieldElement) -> Self {
         ConstraintDivisor {
             numerator: vec![(1, x)],
             exclude: vec![],
         }
     }
 
-    pub fn numerator(&self) -> &[(usize, u128)] {
+    pub fn numerator(&self) -> &[(usize, FieldElement)] {
         &self.numerator
     }
 
-    pub fn exclude(&self) -> &[u128] {
+    pub fn exclude(&self) -> &[FieldElement] {
         &self.exclude
     }
 
@@ -85,18 +85,18 @@ impl ConstraintDivisor {
         numerator_degree - denominator_degree
     }
 
-    pub fn evaluate_at(&self, x: u128) -> u128 {
-        let mut result = field::ONE;
+    pub fn evaluate_at(&self, x: FieldElement) -> FieldElement {
+        let mut result = FieldElement::ONE;
 
         for (degree, constant) in self.numerator.iter() {
-            let v = field::exp(x, *degree as u128);
-            let v = field::sub(v, *constant);
-            result = field::mul(result, v);
+            let v = FieldElement::exp(x, *degree as u128);
+            let v = v - *constant;
+            result = result * v;
         }
 
         for exception in self.exclude.iter() {
-            let v = field::sub(x, *exception);
-            result = field::div(result, v);
+            let v = x - *exception;
+            result = result / v;
         }
 
         result

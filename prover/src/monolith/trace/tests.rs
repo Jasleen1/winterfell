@@ -3,7 +3,10 @@ use common::{
     utils::as_bytes,
 };
 use crypto::{hash::blake3, MerkleTree};
-use math::{field, polynom};
+use math::{
+    field::{FieldElement, StarkField},
+    polynom,
+};
 
 #[test]
 fn new_trace_table() {
@@ -12,8 +15,17 @@ fn new_trace_table() {
     assert_eq!(2, trace.num_registers());
     assert_eq!(8, trace.num_states());
 
-    assert_eq!(vec![1, 2, 5, 13, 34, 89, 233, 610], trace.get_register(0));
-    assert_eq!(vec![1, 3, 8, 21, 55, 144, 377, 987], trace.get_register(1));
+    let expected: Vec<FieldElement> = vec![1u32, 2, 5, 13, 34, 89, 233, 610]
+        .into_iter()
+        .map(FieldElement::from)
+        .collect();
+    assert_eq!(expected, trace.get_register(0));
+
+    let expected: Vec<FieldElement> = vec![1u32, 3, 8, 21, 55, 144, 377, 987]
+        .into_iter()
+        .map(FieldElement::from)
+        .collect();
+    assert_eq!(expected, trace.get_register(1));
 }
 
 #[test]
@@ -29,15 +41,21 @@ fn extend_trace_table() {
     assert_eq!(32, trace.num_states());
 
     // make sure trace polynomials evaluate to Fibonacci trace
-    let trace_root = field::get_root_of_unity(trace_length);
-    let trace_domain = field::get_power_series(trace_root, trace_length);
+    let trace_root = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
+    let trace_domain = FieldElement::get_power_series(trace_root, trace_length);
     assert_eq!(2, trace_polys.num_polys());
     assert_eq!(
-        vec![1, 2, 5, 13, 34, 89, 233, 610],
+        vec![1u32, 2, 5, 13, 34, 89, 233, 610]
+            .into_iter()
+            .map(FieldElement::from)
+            .collect::<Vec<FieldElement>>(),
         polynom::eval_many(trace_polys.get_poly(0), &trace_domain)
     );
     assert_eq!(
-        vec![1, 3, 8, 21, 55, 144, 377, 987],
+        vec![1u32, 3, 8, 21, 55, 144, 377, 987]
+            .into_iter()
+            .map(FieldElement::from)
+            .collect::<Vec<FieldElement>>(),
         polynom::eval_many(trace_polys.get_poly(1), &trace_domain)
     );
 
@@ -66,7 +84,7 @@ fn commit_trace_table() {
 
     // build Merkle tree from trace rows
     let mut hashed_states = Vec::new();
-    let mut trace_state = vec![field::ZERO; trace.num_registers()];
+    let mut trace_state = vec![FieldElement::ZERO; trace.num_registers()];
     #[allow(clippy::needless_range_loop)]
     for i in 0..trace.num_states() {
         for j in 0..trace.num_registers() {

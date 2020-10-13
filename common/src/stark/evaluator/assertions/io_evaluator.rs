@@ -1,5 +1,5 @@
 use super::{Assertion, AssertionEvaluator, ConstraintDivisor, ProofContext};
-use math::field::{self, add, mul, sub};
+use math::field::{FieldElement, StarkField};
 use std::collections::BTreeMap;
 
 // INPUT/OUTPUT ASSERTION EVALUATOR
@@ -7,9 +7,9 @@ use std::collections::BTreeMap;
 
 pub struct IoAssertionEvaluator {
     input_assertions: Vec<Assertion>,
-    input_coefficients: Vec<u128>,
+    input_coefficients: Vec<FieldElement>,
     output_assertions: Vec<Assertion>,
-    output_coefficients: Vec<u128>,
+    output_coefficients: Vec<FieldElement>,
     degree_adjustment: u128,
     divisors: Vec<ConstraintDivisor>,
 }
@@ -17,7 +17,11 @@ pub struct IoAssertionEvaluator {
 impl AssertionEvaluator for IoAssertionEvaluator {
     const MAX_CONSTRAINTS: usize = 128;
 
-    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[u128]) -> Self {
+    fn new(
+        context: &ProofContext,
+        assertions: &[Assertion],
+        coefficients: &[FieldElement],
+    ) -> Self {
         let (input_assertions, output_assertions) =
             group_assertions(&assertions, context.trace_length(), context.trace_width());
 
@@ -46,37 +50,37 @@ impl AssertionEvaluator for IoAssertionEvaluator {
         }
     }
 
-    fn evaluate(&self, result: &mut [u128], state: &[u128], x: u128) {
+    fn evaluate(&self, result: &mut [FieldElement], state: &[FieldElement], x: FieldElement) {
         // compute degree adjustment factor
-        let xp = field::exp(x, self.degree_adjustment);
+        let xp = FieldElement::exp(x, self.degree_adjustment);
 
         // 1 ----- compute combination of boundary constraints for the first step -----------------
-        let mut i_result = field::ZERO;
-        let mut result_adj = field::ZERO;
+        let mut i_result = FieldElement::ZERO;
+        let mut result_adj = FieldElement::ZERO;
 
         let cc = &self.input_coefficients;
         for (i, assertion) in self.input_assertions.iter().enumerate() {
-            let value = sub(state[assertion.register()], assertion.value());
-            i_result = add(i_result, mul(value, cc[i * 2]));
-            result_adj = add(result_adj, mul(value, cc[i * 2 + 1]));
+            let value = state[assertion.register()] - assertion.value();
+            i_result = i_result + value * cc[i * 2];
+            result_adj = result_adj + value * cc[i * 2 + 1];
         }
 
         // raise the degree of adjusted terms and sum all the terms together
-        result[0] = add(i_result, mul(result_adj, xp));
+        result[0] = i_result + result_adj * xp;
 
         // 2 ----- compute combination of boundary constraints for the last step ------------------
-        let mut f_result = field::ZERO;
-        let mut result_adj = field::ZERO;
+        let mut f_result = FieldElement::ZERO;
+        let mut result_adj = FieldElement::ZERO;
 
         let cc = &self.output_coefficients;
         for (i, assertion) in self.output_assertions.iter().enumerate() {
-            let value = sub(state[assertion.register()], assertion.value());
-            f_result = add(f_result, mul(value, cc[i * 2]));
-            result_adj = add(result_adj, mul(value, cc[i * 2 + 1]));
+            let value = state[assertion.register()] - assertion.value();
+            f_result = f_result + value * cc[i * 2];
+            result_adj = result_adj + value * cc[i * 2 + 1];
         }
 
         // raise the degree of adjusted terms and sum all the terms together
-        result[1] = add(f_result, mul(result_adj, xp));
+        result[1] = f_result + result_adj * xp;
     }
 
     fn divisors(&self) -> &[ConstraintDivisor] {

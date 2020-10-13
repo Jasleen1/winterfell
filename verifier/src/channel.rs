@@ -2,8 +2,9 @@ use common::{
     stark::{fri_utils, Commitments, DeepValues, FriLayer, ProofContext, PublicCoin, StarkProof},
     utils::{as_bytes, log2, uninit_vector},
 };
+use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{field, quartic};
+use math::{field::FieldElement, quartic};
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -12,12 +13,12 @@ pub struct VerifierChannel {
     context: ProofContext,
     commitments: Commitments,
     trace_proof: BatchMerkleProof,
-    trace_queries: Vec<Vec<u128>>,
+    trace_queries: Vec<Vec<FieldElement>>,
     constraint_proof: BatchMerkleProof,
     deep_values: DeepValues,
     fri_proofs: Vec<BatchMerkleProof>,
-    fri_queries: Vec<Vec<[u128; 4]>>,
-    fri_remainder: Vec<u128>,
+    fri_queries: Vec<Vec<[FieldElement; 4]>>,
+    fri_remainder: Vec<FieldElement>,
 }
 
 // VERIFIER CHANNEL IMPLEMENTATION
@@ -77,7 +78,7 @@ impl VerifierChannel {
 
     /// Returns trace states at the specified positions. This also checks if the
     /// trace states are valid against the trace commitment sent by the prover.
-    pub fn read_trace_states(&self, positions: &[usize]) -> Result<&[Vec<u128>], String> {
+    pub fn read_trace_states(&self, positions: &[usize]) -> Result<&[Vec<FieldElement>], String> {
         // make sure the states included in the proof correspond to the trace commitment
         if !MerkleTree::verify_batch(
             &self.commitments.trace_root,
@@ -93,7 +94,10 @@ impl VerifierChannel {
 
     /// Returns constraint evaluations at the specified positions. THis also checks if the
     /// constraint evaluations are valid against the constraint commitment sent by the prover.
-    pub fn read_constraint_evaluations(&self, positions: &[usize]) -> Result<Vec<u128>, String> {
+    pub fn read_constraint_evaluations(
+        &self,
+        positions: &[usize],
+    ) -> Result<Vec<FieldElement>, String> {
         let c_positions = map_trace_to_constraint_positions(positions);
         if !MerkleTree::verify_batch(
             &self.commitments.constraint_root,
@@ -107,13 +111,13 @@ impl VerifierChannel {
         }
 
         // build constraint evaluation values from the leaves of constraint Merkle proof
-        let mut evaluations: Vec<u128> = Vec::with_capacity(positions.len());
+        let mut evaluations: Vec<FieldElement> = Vec::with_capacity(positions.len());
         let leaves = &self.constraint_proof.values;
         for &position in positions.iter() {
             let leaf_idx = c_positions.iter().position(|&v| v == position / 2).unwrap();
             let element_start = (position % 2) * 16;
             let element_bytes = &leaves[leaf_idx][element_start..(element_start + 16)];
-            evaluations.push(field::from_bytes(element_bytes));
+            evaluations.push(FieldElement::try_from(element_bytes).unwrap());
         }
 
         Ok(evaluations)
@@ -126,7 +130,7 @@ impl VerifierChannel {
         &self,
         depth: usize,
         positions: &[usize],
-    ) -> Result<&[[u128; 4]], String> {
+    ) -> Result<&[[FieldElement; 4]], String> {
         let layer_root = self.commitments.fri_roots[depth];
         let layer_proof = &self.fri_proofs[depth];
         if !MerkleTree::verify_batch(
@@ -146,7 +150,7 @@ impl VerifierChannel {
 
     /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
     /// valid against the commitment sent by the prover.
-    pub fn read_fri_remainder(&self) -> Result<&[u128], String> {
+    pub fn read_fri_remainder(&self) -> Result<&[FieldElement], String> {
         // build remainder Merkle tree
         let hash_fn = self.context.options().hash_fn();
         let remainder_values = quartic::transpose(&self.fri_remainder, 1);
@@ -193,7 +197,7 @@ impl PublicCoin for VerifierChannel {
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_trace_proof(
-    trace_states: &[Vec<u128>],
+    trace_states: &[Vec<FieldElement>],
     trace_paths: Vec<Vec<[u8; 32]>>,
     lde_domain_size: usize,
     hash_fn: HashFunction,
@@ -214,7 +218,7 @@ fn build_trace_proof(
 fn build_fri_proofs(
     layers: Vec<FriLayer>,
     hash_fn: HashFunction,
-) -> (Vec<BatchMerkleProof>, Vec<Vec<[u128; 4]>>) {
+) -> (Vec<BatchMerkleProof>, Vec<Vec<[FieldElement; 4]>>) {
     let mut fri_queries = Vec::with_capacity(layers.len());
     let mut fri_proofs = Vec::with_capacity(layers.len());
     for layer in layers.into_iter() {

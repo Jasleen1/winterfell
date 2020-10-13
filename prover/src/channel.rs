@@ -2,6 +2,7 @@ use common::stark::{
     Commitments, Context, DeepValues, FriProof, ProofContext, PublicCoin, Queries, StarkProof,
 };
 use crypto::{BatchMerkleProof, HashFunction};
+use math::field::FieldElement;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -55,7 +56,7 @@ impl ProverChannel {
     pub fn build_proof(
         self,
         trace_paths: BatchMerkleProof,
-        trace_states: Vec<Vec<u128>>,
+        trace_states: Vec<Vec<FieldElement>>,
         constraint_paths: BatchMerkleProof,
         deep_values: DeepValues,
         fri_proof: FriProof,

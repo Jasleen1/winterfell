@@ -2,7 +2,7 @@ use super::Example;
 use log::debug;
 use prover::{
     crypto::hash::blake3,
-    math::field::{self, add, mul},
+    math::field::{FieldElement, StarkField},
     Assertion, IoAssertionEvaluator, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
@@ -63,8 +63,8 @@ impl Example for FibExample {
 
         // Generate the proof
         let assertions = vec![
-            Assertion::new(0, 0, 1),
-            Assertion::new(1, 0, 1),
+            Assertion::new(0, 0, FieldElement::from(1u8)),
+            Assertion::new(1, 0, FieldElement::from(1u8)),
             Assertion::new(1, trace_length - 1, result),
         ];
         (prover.prove(trace, assertions.clone()), assertions)
@@ -79,18 +79,18 @@ impl Example for FibExample {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<u128>> {
+pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
     );
 
-    let mut reg1 = vec![field::ONE];
-    let mut reg2 = vec![field::ONE];
+    let mut reg1 = vec![FieldElement::ONE];
+    let mut reg2 = vec![FieldElement::ONE];
 
     for i in 0..(length / 2 - 1) {
-        reg1.push(add(reg1[i], reg2[i]));
-        reg2.push(add(reg1[i], mul(2, reg2[i])));
+        reg1.push(reg1[i] + reg2[i]);
+        reg2.push(reg1[i] + FieldElement::from(2u8) * reg2[i]);
     }
 
     vec![reg1, reg2]
