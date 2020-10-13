@@ -1,10 +1,13 @@
 use common::{
     stark::{fri_utils, Commitments, DeepValues, FriLayer, ProofContext, PublicCoin, StarkProof},
-    utils::{as_bytes, log2, uninit_vector},
+    utils::{log2, uninit_vector},
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{field::FieldElement, quartic};
+use math::{
+    field::{AsBytes, FieldElement},
+    quartic,
+};
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -205,7 +208,7 @@ fn build_trace_proof(
     let mut hashed_states = uninit_vector::<[u8; 32]>(trace_states.len());
     #[allow(clippy::needless_range_loop)]
     for i in 0..trace_states.len() {
-        hash_fn(as_bytes(&trace_states[i]), &mut hashed_states[i]);
+        hash_fn(trace_states[i].as_slice().as_bytes(), &mut hashed_states[i]);
     }
 
     BatchMerkleProof {

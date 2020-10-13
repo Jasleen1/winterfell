@@ -1,5 +1,4 @@
-use crate::utils::as_bytes;
-use math::field::{FieldElement, StarkField};
+use math::field::{AsBytes, FieldElement, StarkField};
 
 /// Function state is set to 4 field elements or 64 bytes. 2 elements are reserved for rate
 /// and 2 elements are reserved for capacity.
@@ -52,7 +51,7 @@ pub fn rescue_s(values: &[u8], result: &mut [u8]) {
     }
 
     // return the result
-    result.copy_from_slice(as_bytes(&state[..DIGEST_SIZE]));
+    result.copy_from_slice((&state[..DIGEST_SIZE]).as_bytes());
 }
 
 // HELPER FUNCTIONS

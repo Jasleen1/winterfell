@@ -1,10 +1,11 @@
-use super::traits::StarkField;
+use super::traits::{AsBytes, StarkField};
 use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
     iter::{Product, Sum},
     ops::{Add, Div, Mul, Neg, Range, Sub},
+    slice,
 };
 use rand::{
     distributions::{DistIter, Uniform},
@@ -25,6 +26,9 @@ const M: u128 = 340282366920938463463374557953744961537;
 const G: u128 = 23953097886125630542083529559205016746;
 
 const RANGE: Range<u128> = Range { start: 0, end: M };
+
+// Number of bytes needed to represent field element
+const ELEMENT_BYTES: usize = 16;
 
 // FIELD ELEMENT
 // ================================================================================================
@@ -310,6 +314,28 @@ impl<'a> TryFrom<&'a [u8]> for FieldElement {
             ));
         }
         Ok(FieldElement(value))
+    }
+}
+
+impl AsBytes for FieldElement {
+    fn as_bytes(&self) -> &[u8] {
+        // TODO: take endianness into account
+        let self_ptr: *const FieldElement = self;
+        unsafe { slice::from_raw_parts(self_ptr as *const u8, ELEMENT_BYTES) }
+    }
+}
+
+impl AsBytes for &[FieldElement] {
+    fn as_bytes(&self) -> &[u8] {
+        // TODO: take endianness into account
+        unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
+    }
+}
+
+impl AsBytes for &[FieldElement; 4] {
+    fn as_bytes(&self) -> &[u8] {
+        // TODO: take endianness into account
+        unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
     }
 }
 
