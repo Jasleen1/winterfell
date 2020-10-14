@@ -49,24 +49,6 @@ jobs:
             crypto:
               - 'crypto/**'
 
-      - name: math benches
-        if: steps.filter.outputs.math == 'true'
-        uses: jasonwilliams/criterion-compare-action@move_to_actions
-        with:
-          cwd: './math/'
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: crypto benches
-        if: steps.filter.outputs.crypto == 'true'
-        uses: jasonwilliams/criterion-compare-action@move_to_actions
-        with:
-          cwd: './crypto/'
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: examples test
-        uses: jasonwilliams/criterion-compare-action@move_to_actions
-        with:
-          cwd: './examples/'
-          token: ${{ secrets.GITHUB_TOKEN }}
-
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
