@@ -5,6 +5,9 @@ use core::{
     ops::{Add, Div, Mul, Neg, Shl, Sub},
 };
 
+// STARK FIELD
+// ================================================================================================
+
 pub trait StarkField:
     Copy
     + Clone
@@ -35,6 +38,7 @@ pub trait StarkField:
     + From<u16>
     + From<u8>
     + for<'a> TryFrom<&'a [u8]>
+    + AsBytes
 {
     type PositiveInteger: Copy + From<u32> + Shl<u32, Output = Self::PositiveInteger>;
 
@@ -125,5 +129,14 @@ pub trait StarkField:
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
 
     /// Returns the byte representation of the element in little-endian byte order.
-    fn to_bytes(&self) -> Vec<u8>;
+    fn to_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+}
+
+// SERIALIZATION
+// ================================================================================================
+
+pub trait AsBytes {
+    fn as_bytes(&self) -> &[u8];
 }

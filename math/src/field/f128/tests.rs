@@ -127,6 +127,24 @@ fn test_g_is_2_exp_40_root() {
     assert_eq!(exp(G, 1u128 << 40), 1u128)
 }
 
+#[test]
+fn test_array_as_bytes() {
+    let source: &[FieldElement; 4] = &[
+        FieldElement::new(1),
+        FieldElement::new(2),
+        FieldElement::new(3),
+        FieldElement::new(4),
+    ];
+
+    // should convert correctly
+    let expected: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
+    assert_eq!(expected, source.as_bytes());
+}
+
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_seed() -> [u8; 32] {

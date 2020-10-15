@@ -1,10 +1,7 @@
-use common::{
-    stark::{ProofContext, ProofOptions},
-    utils::as_bytes,
-};
+use common::stark::{ProofContext, ProofOptions};
 use crypto::{hash::blake3, MerkleTree};
 use math::{
-    field::{FieldElement, StarkField},
+    field::{AsBytes, FieldElement, StarkField},
     polynom,
 };
 
@@ -91,7 +88,7 @@ fn commit_trace_table() {
             trace_state[j] = trace.get(j, i);
         }
         let mut buf = [0; 32];
-        blake3(as_bytes(&trace_state), &mut buf);
+        blake3(trace_state.as_slice().as_bytes(), &mut buf);
         hashed_states.push(buf);
     }
     let expected_tree = MerkleTree::new(hashed_states, blake3);

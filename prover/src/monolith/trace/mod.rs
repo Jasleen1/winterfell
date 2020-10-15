@@ -1,12 +1,9 @@
 use super::types::{LdeDomain, PolyTable, TraceTable};
-use common::{
-    stark::ProofContext,
-    utils::{as_bytes, uninit_vector},
-};
+use common::{stark::ProofContext, utils::uninit_vector};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{FieldElement, StarkField},
+    field::{AsBytes, FieldElement, StarkField},
 };
 
 #[cfg(test)]
@@ -72,7 +69,7 @@ pub fn build_trace_tree(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
     #[allow(clippy::needless_range_loop)]
     for i in 0..trace.num_states() {
         trace.copy_row(i, &mut trace_state);
-        hash(as_bytes(&trace_state), &mut hashed_states[i]);
+        hash(trace_state.as_slice().as_bytes(), &mut hashed_states[i]);
     }
 
     // build Merkle tree out of hashed rows
