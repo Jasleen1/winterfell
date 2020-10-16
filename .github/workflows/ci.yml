@@ -40,21 +40,13 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            math:
-              - 'math/**'
-            crypto:
-              - 'crypto/**'
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Install minimal nightly with clippy and rustfmt
+      - name: Install minimal nightly with clippy
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -73,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
-      - name: Install minimal nightly with clipy
+      - name: Install minimal nightly with rustfmt
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
