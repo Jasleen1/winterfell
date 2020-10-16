@@ -20,8 +20,11 @@ blake3 = "0.3.7"
 sha3 = "0.9.1"
 serde = { version = "1.0.114", features = ["derive"] }
 math = { path = "../math" }
+kompact = { git = "https://github.com/kompics/kompact.git", version = "0.10.0"}
+bytes = "0.5"
 
 [dev-dependencies]
 criterion = "0.3.3"
 proptest = "0.10.1"
 sha2 = "0.9.1"
+rand = "0.7.3"
