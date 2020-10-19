@@ -14,6 +14,10 @@ harness = false
 name = "lamport"
 harness = false
 
+[[bench]]
+name = "merkle"
+harness = false
+
 [dependencies]
 digest = "0.9.0"
 blake3 = "0.3.7"
