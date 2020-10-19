@@ -7,8 +7,8 @@ mod channel;
 pub mod tests;
 
 pub use common::stark::{
-    Assertion, AssertionEvaluator, ConstraintDegree, IoAssertionEvaluator, ProofContext,
-    ProofOptions, StarkProof, TransitionEvaluator,
+    Assertion, AssertionEvaluator, BasicAssertionEvaluator, ConstraintDegree, IoAssertionEvaluator,
+    ProofContext, ProofOptions, StarkProof, TransitionEvaluator,
 };
 pub use crypto;
 pub use math;

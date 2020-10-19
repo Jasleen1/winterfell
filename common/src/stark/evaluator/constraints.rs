@@ -8,7 +8,7 @@ use math::field::{FieldElement, StarkField};
 /// of two regular registers, and a register with cycle 32 can be represented as:
 ///   base: 2
 ///   cycles: [32]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConstraintDegree {
     base: usize,
     cycles: Vec<usize>,
@@ -47,7 +47,7 @@ impl ConstraintDegree {
 /// For example (x^a - 1) / (x - b) can be represented as:
 ///   numerator: vec![(a, 1)]
 ///   exclude: vec![b]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConstraintDivisor {
     numerator: Vec<(usize, FieldElement)>,
     exclude: Vec<FieldElement>,

@@ -3,8 +3,8 @@ use crate::utils::to_byte_vec;
 use log::debug;
 use prover::crypto::hash::rescue_s;
 use prover::{
-    crypto::hash::blake3, math::field::FieldElement, Assertion, IoAssertionEvaluator, ProofOptions,
-    Prover, StarkProof,
+    crypto::hash::blake3, math::field::FieldElement, Assertion, BasicAssertionEvaluator,
+    ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -88,7 +88,7 @@ impl Example for RescueExample {
 
         // instantiate the prover
         let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
-        let prover = Prover::<RescueEvaluator, IoAssertionEvaluator>::new(options);
+        let prover = Prover::<RescueEvaluator, BasicAssertionEvaluator>::new(options);
 
         // Assert starting and ending values of the hash chain
         let assertions = vec![
@@ -103,7 +103,7 @@ impl Example for RescueExample {
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
-        let verifier = Verifier::<RescueEvaluator, IoAssertionEvaluator>::new();
+        let verifier = Verifier::<RescueEvaluator, BasicAssertionEvaluator>::new();
         verifier.verify(proof, assertions)
     }
 }
