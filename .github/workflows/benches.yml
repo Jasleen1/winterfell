@@ -45,7 +45,7 @@ jobs:
             math:
               - 'math/**'
             crypto:
-              - crypto/**'
+              - 'crypto/**'
       - name: Build benchmark base
         if: success()
         working-directory: ./winterfell
