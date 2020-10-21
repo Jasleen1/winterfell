@@ -1,8 +1,6 @@
 use crate::HashFunction;
-use bytes::BytesMut;
+use bytes::{Bytes, BytesMut};
 use kompact::prelude::*;
-use std::cmp::{Ord, Ordering};
-use std::collections::BinaryHeap;
 use std::slice;
 
 use std::{fmt, ops::Range, sync::Arc};
@@ -44,7 +42,7 @@ struct WorkPart {
 impl WorkPart {
     fn from(work: &Work, range: Range<usize>, output_buffers: Vec<BytesMut>) -> Self {
         WorkPart {
-            data: work.data.clone(),
+            data: work.data.clone(), // clones an Arc
             hasher: work.hasher,
             range,
             output_buffers,
@@ -70,21 +68,6 @@ impl fmt::Debug for WorkPart {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct WorkResult(Vec<BytesMut>, Range<usize>);
 
-// The result_accumulator queue depends on `Ord`.
-// its' a max-heap: the last few elements will be first
-impl Ord for WorkResult {
-    fn cmp(&self, other: &WorkResult) -> Ordering {
-        self.1.start.cmp(&other.1.start)
-    }
-}
-
-// `PartialOrd` needs to be implemented as well.
-impl PartialOrd for WorkResult {
-    fn partial_cmp(&self, other: &WorkResult) -> Option<Ordering> {
-        Some(<WorkResult as Ord>::cmp(self, other))
-    }
-}
-
 struct WorkerPort;
 impl Port for WorkerPort {
     type Indication = WorkResult;
@@ -92,7 +75,13 @@ impl Port for WorkerPort {
 }
 
 #[derive(Clone, Debug)]
-pub struct FinalWorkResult(pub Vec<[u8; 32]>);
+pub enum ResultBytes {
+    Bytes(Bytes),
+    Vec(Vec<[u8; 32]>),
+}
+
+#[derive(Clone, Debug)]
+pub struct FinalWorkResult(ResultBytes);
 
 #[derive(ComponentDefinition)]
 pub struct Manager {
@@ -103,7 +92,7 @@ pub struct Manager {
     worker_refs: Vec<ActorRefStrong<WorkPart>>,
     outstanding_request: Option<Ask<Work, FinalWorkResult>>,
     top_elements: Option<BytesMut>,
-    result_accumulator: BinaryHeap<WorkResult>,
+    result_accumulator: Vec<WorkResult>,
 }
 
 impl Manager {
@@ -116,7 +105,7 @@ impl Manager {
             worker_refs: Vec::with_capacity(num_workers),
             outstanding_request: None,
             top_elements: None,
-            result_accumulator: BinaryHeap::with_capacity(num_workers + 1),
+            result_accumulator: Vec::with_capacity(num_workers + 1),
         }
     }
 }
@@ -159,24 +148,32 @@ impl Require<WorkerPort> for Manager {
                 let ask = self.outstanding_request.take().expect("ask");
                 let work = ask.request();
 
-                let res: Vec<Vec<BytesMut>> =
-                    std::mem::replace(&mut self.result_accumulator, BinaryHeap::new())
-                        .into_iter()
-                        .map(|WorkResult(buffers, _range)| buffers)
-                        .collect();
-                debug_assert!(res.len() == self.num_workers + 1);
+                let mut result_buf: Vec<WorkResult> =
+                    std::mem::replace(&mut self.result_accumulator, Vec::new());
+                result_buf.sort_unstable_by(|WorkResult(_, r1), WorkResult(_, r2)| {
+                    r2.start.cmp(&r1.start)
+                });
+                debug_assert!(result_buf.len() == self.num_workers + 1);
 
                 // assemble the contributions into a level by level Vec
-                let bytes_per_level: Vec<BytesMut> = res
+                let bytes_per_level: Vec<BytesMut> = result_buf
                     .into_iter()
-                    .fold_first(|acc, elem| {
-                        elem.into_iter()
+                    .map(|WorkResult(buffers, _range)| buffers)
+                    .fold(None, |opt_acc, elem| {
+                        if let Some(acc) = opt_acc {
+                        Some(elem.into_iter()
                             .zip(acc)
-                            .map(|(mut e, a)| {
+                            .map(|(mut e, a): (BytesMut, BytesMut)| {
+                                debug_assert!(unsafe { // check that those are contiguous => no copy
+                                    e.as_ptr().add(e.len()) == a.as_ptr()
+                                });
                                 e.unsplit(a);
                                 e
                             })
-                            .collect()
+                                .collect())
+                        } else {
+                            Some(elem)
+                        }
                     })
                     .expect(
                         "BytesMut from (self.num_workers + 1) WorkResults should always be nonempty.",
@@ -190,15 +187,25 @@ impl Require<WorkerPort> for Manager {
 
                 let large_array: BytesMut = bytes_per_level
                     .into_iter()
-                    .fold_first(|acc, mut elem| {
-                        elem.unsplit(acc);
-                        elem
+                    .fold(None, |opt_acc: Option<BytesMut>, mut elem| {
+                        if let Some(acc) = opt_acc {
+                            debug_assert!(unsafe {
+                                // check that those are contiguous => no copy
+                                elem.as_ptr().add(elem.len()) == acc.as_ptr()
+                            });
+                            elem.unsplit(acc);
+                        }
+                        Some(elem)
                     })
                     .expect("distributed Levels on initial work should be nonempty");
 
                 // Now we have everything but the last self.num_workers+1 last elements
                 let mut init_array = std::mem::replace(&mut self.top_elements, None)
                     .expect("init_array should be set up during manager's receive_local");
+                debug_assert!(unsafe {
+                    // check that those are contiguous => no copy
+                    init_array.as_ptr().add(init_array.len()) == large_array.as_ptr()
+                });
                 init_array.unsplit(large_array);
                 let res: &mut [u8] = init_array.as_mut();
                 let n = &work.data.len() / 2;
@@ -211,7 +218,7 @@ impl Require<WorkerPort> for Manager {
                     (work.hasher)(&two_nodes[i], &mut nodes[i]);
                 }
 
-                let reply = FinalWorkResult(nodes.to_vec());
+                let reply = FinalWorkResult(ResultBytes::Bytes(init_array.freeze()));
                 ask.reply(reply).expect("reply");
             }
         } else {
@@ -233,7 +240,8 @@ impl Actor for Manager {
         if self.num_workers == 0 {
             // manager gotta work itself -> very unhappy manager
             let res = super::build_merkle_nodes(&work.data, work.hasher);
-            msg.reply(FinalWorkResult(res.into())).expect("reply");
+            msg.reply(FinalWorkResult(ResultBytes::Vec(res)))
+                .expect("reply");
         } else {
             let len = work.data.len();
             // The task should be evenly split between workers and the manager
@@ -258,7 +266,7 @@ impl Actor for Manager {
                 .into_iter()
                 .enumerate()
                 .for_each(|(index, out_buffers)| {
-                    let start = 0usize + stride * index;
+                    let start = stride * index;
                     if start < len && index < self.num_workers {
                         let end = len.min(start + stride);
                         let range = start..end;
@@ -370,7 +378,7 @@ fn hash_all_levels(
     hasher: HashFunction,
     output_buffers: Vec<BytesMut>,
 ) -> Vec<BytesMut> {
-    debug_assert!(!range.is_empty());
+    debug_assert!(range.start < range.end);
     let mut read_slice: &[[u8; 32]] = data;
 
     let res: Vec<BytesMut> = output_buffers
@@ -433,9 +441,16 @@ pub fn build_merkle_nodes(
     let manager_ref = manager.actor_ref().hold().expect("live");
 
     let work = Work::with(leaves, hasher);
-    let nodes: Vec<[u8; 32]> = manager_ref.ask(Ask::of(work)).wait().0;
+    let nodes: ResultBytes = manager_ref.ask(Ask::of(work)).wait().0;
     system.shutdown().expect("shutdown");
-    nodes
+    match nodes {
+        ResultBytes::Bytes(bb) => {
+            let res =
+                unsafe { slice::from_raw_parts(bb.as_ptr() as *const [u8; 32], bb.len() / 32) };
+            res.into()
+        }
+        ResultBytes::Vec(v) => v,
+    }
 }
 
 #[cfg(test)]
