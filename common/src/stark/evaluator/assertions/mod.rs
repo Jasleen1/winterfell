@@ -1,9 +1,6 @@
 use super::{ConstraintDivisor, ProofContext};
 use math::field::{FieldElement, StarkField};
 
-mod io_evaluator;
-pub use io_evaluator::IoAssertionEvaluator;
-
 mod basic_evaluator;
 pub use basic_evaluator::BasicAssertionEvaluator;
 

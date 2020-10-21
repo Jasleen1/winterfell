@@ -21,9 +21,7 @@ impl AssertionEvaluator for BasicAssertionEvaluator {
         assertions: &[Assertion],
         coefficients: &[FieldElement],
     ) -> Self {
-        let mut constraints = group_assertions(context, assertions, coefficients);
-        constraints.sort_by_key(|c| c.degree_adjustment);
-
+        let constraints = group_assertions(context, assertions, coefficients);
         BasicAssertionEvaluator {
             divisors: constraints.iter().map(|c| c.divisor.clone()).collect(),
             constraints,
@@ -109,7 +107,12 @@ fn group_assertions(
         i += 2;
     }
 
-    groups.into_iter().map(|entry| entry.1).collect()
+    // make sure groups are sorted by adjustment degree
+    let mut groups: Vec<AssertionConstraintGroup> =
+        groups.into_iter().map(|entry| entry.1).collect();
+    groups.sort_by_key(|c| c.degree_adjustment);
+
+    groups
 }
 
 // TESTS
