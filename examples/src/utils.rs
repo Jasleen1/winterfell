@@ -96,7 +96,11 @@ pub fn print_trace(trace: &[Vec<FieldElement>]) {
         for j in 0..trace_width {
             state[j] = trace[j][i];
         }
-        println!("{}\t{:?}", i, state);
+        println!(
+            "{}\t{:?}",
+            i,
+            state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+        );
     }
 }
 

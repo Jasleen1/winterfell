@@ -52,6 +52,11 @@ impl FieldElement {
         let g = StdRng::from_seed(seed);
         g.sample_iter(range)
     }
+
+    /// Returns filed element converted to u128 representation.
+    pub fn as_u128(&self) -> u128 {
+        self.0
+    }
 }
 
 impl StarkField for FieldElement {

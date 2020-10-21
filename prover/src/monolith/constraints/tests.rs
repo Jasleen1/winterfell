@@ -5,7 +5,7 @@ use crate::{
     tests::{build_fib_trace, FibEvaluator},
 };
 use common::stark::{
-    Assertion, ConstraintEvaluator, IoAssertionEvaluator, ProofContext, ProofOptions,
+    Assertion, BasicAssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions,
 };
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
@@ -106,7 +106,7 @@ fn build_constraint_evaluations(
         Assertion::new(1, 0, FieldElement::from(1u8)),
         Assertion::new(1, trace_length - 1, result),
     ];
-    let mut evaluator = ConstraintEvaluator::<FibEvaluator, IoAssertionEvaluator>::new(
+    let mut evaluator = ConstraintEvaluator::<FibEvaluator, BasicAssertionEvaluator>::new(
         &channel, &context, assertions,
     );
 
