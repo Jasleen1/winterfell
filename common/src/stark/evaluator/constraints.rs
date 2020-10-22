@@ -70,6 +70,10 @@ impl ConstraintDivisor {
         }
     }
 
+    pub fn new(numerator: Vec<(usize, FieldElement)>, exclude: Vec<FieldElement>) -> Self {
+        ConstraintDivisor { numerator, exclude }
+    }
+
     pub fn numerator(&self) -> &[(usize, FieldElement)] {
         &self.numerator
     }

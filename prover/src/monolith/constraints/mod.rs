@@ -3,6 +3,7 @@ use super::{
     utils,
 };
 use common::{
+    errors::ProverError,
     stark::{
         AssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, ProofContext,
         TransitionEvaluator,
@@ -27,7 +28,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     evaluator: &mut ConstraintEvaluator<T, A>,
     extended_trace: &TraceTable,
     lde_domain: &LdeDomain,
-) -> ConstraintEvaluationTable {
+) -> Result<ConstraintEvaluationTable, ProverError> {
     // constraints are evaluated over a constraint evaluation domain. this is an optimization
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
@@ -63,7 +64,8 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 
         // pass the current and next rows of the trace table through the constraint evaluator
         // and record the result in the evaluation table
-        let evaluation_row = evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i);
+        let evaluation_row =
+            evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
         for (j, &evaluation) in evaluation_row.iter().enumerate() {
             evaluation_table[j][i] = evaluation;
         }
@@ -73,7 +75,10 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
     evaluator.validate_transition_degrees();
 
     // build and return constraint evaluation table
-    ConstraintEvaluationTable::new(evaluation_table, evaluator.constraint_divisors().to_vec())
+    Ok(ConstraintEvaluationTable::new(
+        evaluation_table,
+        evaluator.constraint_divisors().to_vec(),
+    ))
 }
 
 /// Interpolates all constraint evaluations into polynomials, divides them by their respective
@@ -81,7 +86,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 pub fn build_constraint_poly(
     evaluations: ConstraintEvaluationTable,
     context: &ProofContext,
-) -> ConstraintPoly {
+) -> Result<ConstraintPoly, ProverError> {
     let ce_domain_size = context.ce_domain_size();
     let constraint_poly_degree = context.composition_degree();
     let inv_twiddles = fft::get_inv_twiddles(context.generators().ce_domain, ce_domain_size);
@@ -97,11 +102,16 @@ pub fn build_constraint_poly(
         divide_poly(&mut evaluations, &divisor);
         // make sure that the post-division degree of the polynomial matches
         // the expected degree, and add it to the combined polynomial
-        debug_assert_eq!(constraint_poly_degree, polynom::degree_of(&evaluations));
+        if cfg!(debug_assertions) && constraint_poly_degree != polynom::degree_of(&evaluations) {
+            return Err(ProverError::MismatchedConstraintPolynomialDegree(
+                constraint_poly_degree,
+                polynom::degree_of(&evaluations),
+            ));
+        }
         utils::add_in_place(&mut combined_poly, &evaluations);
     }
 
-    ConstraintPoly::new(combined_poly, constraint_poly_degree)
+    Ok(ConstraintPoly::new(combined_poly, constraint_poly_degree))
 }
 
 /// Evaluates constraint polynomial over LDE domain and returns the result

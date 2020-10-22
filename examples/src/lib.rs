@@ -1,3 +1,4 @@
+use common::errors::VerifierError;
 use prover::{Assertion, StarkProof};
 
 pub mod fibonacci;
@@ -14,5 +15,5 @@ pub trait Example {
         blowup_factor: usize,
         num_queries: usize,
     ) -> (StarkProof, Vec<Assertion>);
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String>;
+    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError>;
 }

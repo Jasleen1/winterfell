@@ -1,4 +1,5 @@
 use super::Example;
+use common::errors::VerifierError;
 use log::debug;
 use prover::{
     crypto::hash::blake3,
@@ -67,10 +68,10 @@ impl Example for FibExample {
             Assertion::new(1, 0, FieldElement::from(1u8)),
             Assertion::new(1, trace_length - 1, result),
         ];
-        (prover.prove(trace, assertions.clone()), assertions)
+        (prover.prove(trace, assertions.clone()).unwrap(), assertions)
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
+    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
         let verifier = Verifier::<FibEvaluator, BasicAssertionEvaluator>::new();
         verifier.verify(proof, assertions)
     }

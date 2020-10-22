@@ -1,4 +1,5 @@
 use super::{ConstraintDivisor, ProofContext};
+use crate::errors::EvaluatorError;
 use math::field::{FieldElement, StarkField};
 
 mod basic_evaluator;
@@ -10,8 +11,13 @@ pub use basic_evaluator::BasicAssertionEvaluator;
 pub trait AssertionEvaluator {
     const MAX_CONSTRAINTS: usize;
 
-    fn new(context: &ProofContext, assertions: &[Assertion], coefficients: &[FieldElement])
-        -> Self;
+    fn new(
+        context: &ProofContext,
+        assertions: &[Assertion],
+        coefficients: &[FieldElement],
+    ) -> Result<Self, EvaluatorError>
+    where
+        Self: Sized;
 
     /// Evaluates assertion constraints at the specified `x` coordinate. The evaluations are
     /// saved into the `result` slice. This method is used by both the prover and the verifier.

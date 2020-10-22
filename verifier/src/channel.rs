@@ -1,4 +1,5 @@
 use common::{
+    errors::VerifierError,
     stark::{fri_utils, Commitments, DeepValues, FriLayer, ProofContext, PublicCoin, StarkProof},
     utils::{log2, uninit_vector},
 };
@@ -81,7 +82,10 @@ impl VerifierChannel {
 
     /// Returns trace states at the specified positions. This also checks if the
     /// trace states are valid against the trace commitment sent by the prover.
-    pub fn read_trace_states(&self, positions: &[usize]) -> Result<&[Vec<FieldElement>], String> {
+    pub fn read_trace_states(
+        &self,
+        positions: &[usize],
+    ) -> Result<&[Vec<FieldElement>], VerifierError> {
         // make sure the states included in the proof correspond to the trace commitment
         if !MerkleTree::verify_batch(
             &self.commitments.trace_root,
@@ -89,7 +93,7 @@ impl VerifierChannel {
             &self.trace_proof,
             self.context.options().hash_fn(),
         ) {
-            return Err(String::from("trace queries did not match the commitment"));
+            return Err(VerifierError::TraceQueryDoesNotMatchCommitment);
         }
 
         Ok(&self.trace_queries)
@@ -100,7 +104,7 @@ impl VerifierChannel {
     pub fn read_constraint_evaluations(
         &self,
         positions: &[usize],
-    ) -> Result<Vec<FieldElement>, String> {
+    ) -> Result<Vec<FieldElement>, VerifierError> {
         let c_positions = map_trace_to_constraint_positions(positions);
         if !MerkleTree::verify_batch(
             &self.commitments.constraint_root,
@@ -108,9 +112,7 @@ impl VerifierChannel {
             &self.constraint_proof,
             self.context.options().hash_fn(),
         ) {
-            return Err(String::from(
-                "constraint queries did not match the commitment",
-            ));
+            return Err(VerifierError::ConstraintQueryDoesNotMatchCommitment);
         }
 
         // build constraint evaluation values from the leaves of constraint Merkle proof

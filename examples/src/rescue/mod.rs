@@ -1,5 +1,6 @@
 use super::Example;
 use crate::utils::to_byte_vec;
+use common::errors::VerifierError;
 use log::debug;
 use prover::crypto::hash::rescue_s;
 use prover::{
@@ -99,10 +100,10 @@ impl Example for RescueExample {
         ];
 
         // generate the proof and return it together with the assertions
-        (prover.prove(trace, assertions.clone()), assertions)
+        (prover.prove(trace, assertions.clone()).unwrap(), assertions)
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
+    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
         let verifier = Verifier::<RescueEvaluator, BasicAssertionEvaluator>::new();
         verifier.verify(proof, assertions)
     }
