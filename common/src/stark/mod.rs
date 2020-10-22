@@ -9,8 +9,8 @@ pub use composition::CompositionCoefficients;
 
 mod evaluator;
 pub use evaluator::{
-    Assertion, AssertionEvaluator, BasicAssertionEvaluator, ConstraintDegree, ConstraintDivisor,
-    ConstraintEvaluator, TransitionEvaluator,
+    Assertion, AssertionEvaluator, ConstraintDegree, ConstraintDivisor, ConstraintEvaluator,
+    DefaultAssertionEvaluator, TransitionEvaluator,
 };
 
 mod context;

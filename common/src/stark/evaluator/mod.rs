@@ -6,7 +6,7 @@ mod transition;
 pub use transition::{group_transition_constraints, TransitionEvaluator};
 
 mod assertions;
-pub use assertions::{Assertion, AssertionEvaluator, BasicAssertionEvaluator};
+pub use assertions::{Assertion, AssertionEvaluator, DefaultAssertionEvaluator};
 
 mod constraints;
 pub use constraints::{ConstraintDegree, ConstraintDivisor};

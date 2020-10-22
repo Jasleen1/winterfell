@@ -1,20 +1,21 @@
-use super::{
-    Assertion, AssertionConstraint, AssertionConstraintGroup, AssertionEvaluator,
-    ConstraintDivisor, ProofContext,
-};
+use super::{Assertion, AssertionEvaluator, ConstraintDivisor, ProofContext};
 use crate::errors::EvaluatorError;
 use math::field::{FieldElement, StarkField};
 use std::collections::BTreeMap;
 
-// INPUT/OUTPUT ASSERTION EVALUATOR
+// DEFAULT ASSERTION EVALUATOR
 // ================================================================================================
 
-pub struct BasicAssertionEvaluator {
+/// Default assertion evaluator enables assertions against arbitrary steps and registers in the
+/// execution trace. However, each assertion becomes a separate constraint, and constraints are
+/// grouped by execution step. Thus, using this evaluator to make assertions against a large number
+/// of steps may be inefficient.
+pub struct DefaultAssertionEvaluator {
     constraints: Vec<AssertionConstraintGroup>,
     divisors: Vec<ConstraintDivisor>,
 }
 
-impl AssertionEvaluator for BasicAssertionEvaluator {
+impl AssertionEvaluator for DefaultAssertionEvaluator {
     const MAX_CONSTRAINTS: usize = 128;
 
     fn new(
@@ -23,7 +24,7 @@ impl AssertionEvaluator for BasicAssertionEvaluator {
         coefficients: &[FieldElement],
     ) -> Result<Self, EvaluatorError> {
         let constraints = group_assertions(context, assertions, coefficients)?;
-        Ok(BasicAssertionEvaluator {
+        Ok(DefaultAssertionEvaluator {
             divisors: constraints.iter().map(|c| c.divisor.clone()).collect(),
             constraints,
         })
@@ -44,6 +45,58 @@ impl AssertionEvaluator for BasicAssertionEvaluator {
 
     fn divisors(&self) -> &[ConstraintDivisor] {
         &self.divisors
+    }
+}
+
+// ASSERTION CONSTRAINT
+// ================================================================================================
+
+#[derive(Debug, Clone)]
+struct AssertionConstraint {
+    register: usize,
+    value: FieldElement,
+}
+
+// ASSERTION CONSTRAINT GROUP
+// ================================================================================================
+
+/// A group of assertion constraints all having the same divisor.
+#[derive(Debug, Clone)]
+struct AssertionConstraintGroup {
+    constraints: Vec<AssertionConstraint>,
+    coefficients: Vec<(FieldElement, FieldElement)>,
+    divisor: ConstraintDivisor,
+    degree_adjustment: u128,
+}
+
+impl AssertionConstraintGroup {
+    fn new(context: &ProofContext, divisor: ConstraintDivisor) -> Self {
+        // We want to make sure that once we divide a constraint polynomial by its divisor, the
+        // degree of the resulting polynomials will be exactly equal to the composition_degree.
+        // Assertion constraint degree is always deg(trace). So, the adjustment degree is simply:
+        // deg(composition) + deg(divisor) - deg(trace)
+        let target_degree = context.composition_degree() + divisor.degree();
+        let degree_adjustment = (target_degree - context.trace_poly_degree()) as u128;
+
+        AssertionConstraintGroup {
+            constraints: Vec::new(),
+            coefficients: Vec::new(),
+            divisor,
+            degree_adjustment,
+        }
+    }
+
+    fn evaluate(&self, state: &[FieldElement], xp: FieldElement) -> FieldElement {
+        let mut result = FieldElement::ZERO;
+        let mut result_adj = FieldElement::ZERO;
+
+        for (constraint, coefficients) in self.constraints.iter().zip(self.coefficients.iter()) {
+            let value = state[constraint.register] - constraint.value;
+            result = result + value * coefficients.0;
+            result_adj = result_adj + value * coefficients.1;
+        }
+
+        result + result_adj * xp
     }
 }
 

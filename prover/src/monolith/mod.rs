@@ -1,8 +1,8 @@
 use common::{
     errors::ProverError,
     stark::{
-        Assertion, AssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions, PublicCoin,
-        StarkProof, TransitionEvaluator,
+        Assertion, AssertionEvaluator, ConstraintEvaluator, DefaultAssertionEvaluator,
+        ProofContext, ProofOptions, PublicCoin, StarkProof, TransitionEvaluator,
     },
     utils::log2,
 };
@@ -36,7 +36,7 @@ mod tests;
 // PROVER
 // ================================================================================================
 
-pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator> {
+pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAssertionEvaluator> {
     options: ProofOptions,
     _marker1: PhantomData<T>,
     _marker2: PhantomData<A>,

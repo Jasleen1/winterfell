@@ -1,7 +1,7 @@
 use common::errors::VerifierError;
 use common::stark::{
     Assertion, AssertionEvaluator, CompositionCoefficients, ConstraintEvaluator, DeepValues,
-    ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
+    DefaultAssertionEvaluator, ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
 };
 
 use math::field::{FieldElement, StarkField};
@@ -13,7 +13,7 @@ mod fri;
 // VERIFIER
 // ================================================================================================
 
-pub struct Verifier<T: TransitionEvaluator, A: AssertionEvaluator> {
+pub struct Verifier<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAssertionEvaluator> {
     _marker1: PhantomData<T>,
     _marker2: PhantomData<A>,
 }

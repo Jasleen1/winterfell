@@ -6,7 +6,8 @@ use crate::{
 };
 use common::errors::*;
 use common::stark::{
-    Assertion, BasicAssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator,
+    Assertion, ConstraintDivisor, ConstraintEvaluator, DefaultAssertionEvaluator,
+    TransitionEvaluator,
 };
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
@@ -297,7 +298,7 @@ fn build_constraint_evaluations<T: TransitionEvaluator>(
 
     // build constraint evaluator
     let mut evaluator =
-        ConstraintEvaluator::<T, BasicAssertionEvaluator>::new(&channel, &context, assertions)?;
+        ConstraintEvaluator::<T, DefaultAssertionEvaluator>::new(&channel, &context, assertions)?;
 
     // evaluate constraints
     super::evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)
