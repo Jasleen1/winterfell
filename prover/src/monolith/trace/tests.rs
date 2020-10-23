@@ -1,4 +1,4 @@
-use common::stark::{ProofContext, ProofOptions};
+use crate::tests::{build_fib_trace, build_proof_context};
 use crypto::{hash::blake3, MerkleTree};
 use math::{
     field::{AsBytes, FieldElement, StarkField},
@@ -7,7 +7,8 @@ use math::{
 
 #[test]
 fn new_trace_table() {
-    let trace = build_trace(8);
+    let trace_length = 8;
+    let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
 
     assert_eq!(2, trace.num_registers());
     assert_eq!(8, trace.num_states());
@@ -29,8 +30,8 @@ fn new_trace_table() {
 fn extend_trace_table() {
     // build and extend trace table
     let trace_length = 8;
-    let context = build_proof_context(trace_length, 4);
-    let trace = build_trace(trace_length);
+    let context = build_proof_context(trace_length, 2, 4);
+    let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let lde_domain = super::build_lde_domain(&context);
     let (trace, trace_polys) = super::extend_trace(trace, &lde_domain);
 
@@ -71,8 +72,8 @@ fn extend_trace_table() {
 fn commit_trace_table() {
     // build and extend trace table
     let trace_length = 8;
-    let context = build_proof_context(trace_length, 4);
-    let trace = build_trace(trace_length);
+    let context = build_proof_context(trace_length, 2, 4);
+    let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let lde_domain = super::build_lde_domain(&context);
     let (trace, _) = super::extend_trace(trace, &lde_domain);
 
@@ -95,17 +96,4 @@ fn commit_trace_table() {
 
     // compare the result
     assert_eq!(expected_tree.root(), trace_tree.root())
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-fn build_trace(length: usize) -> super::TraceTable {
-    let trace = crate::tests::build_fib_trace(length * 2);
-    super::TraceTable::new(trace)
-}
-
-fn build_proof_context(trace_length: usize, blowup: usize) -> ProofContext {
-    let options = ProofOptions::new(32, blowup, 0, blake3);
-    ProofContext::new(2, trace_length, 2, options)
 }

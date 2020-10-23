@@ -1,4 +1,5 @@
 use common::{
+    errors::ProverError,
     stark::{
         Assertion, AssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions, PublicCoin,
         StarkProof, TransitionEvaluator,
@@ -55,7 +56,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
     /// Generates a STARK proof attesting that the `trace` satisfies the `assertions` and that
     /// it is valid in the context of the computation described by this prover.
-    pub fn prove(&self, trace: Vec<Vec<FieldElement>>, assertions: Vec<Assertion>) -> StarkProof {
+    pub fn prove(
+        &self,
+        trace: Vec<Vec<FieldElement>>,
+        assertions: Vec<Assertion>,
+    ) -> Result<StarkProof, ProverError> {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);
 
@@ -113,12 +118,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // build constraint evaluator; the channel is passed in for the evaluator to draw random
         // values from; these values are used by the evaluator to compute a random linear
         // combination of constraint evaluations
-        let mut evaluator = ConstraintEvaluator::<T, A>::new(&channel, &context, assertions);
+        let mut evaluator = ConstraintEvaluator::<T, A>::new(&channel, &context, assertions)?;
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
         let constraint_evaluations =
-            evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain);
+            evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
         debug!(
             "Evaluated constraints over domain of 2^{} elements in {} ms",
             log2(constraint_evaluations.domain_size()),
@@ -129,7 +134,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // first, build a single constraint polynomial from all constraint evaluations
         let now = Instant::now();
-        let constraint_poly = build_constraint_poly(constraint_evaluations, &context);
+        let constraint_poly = build_constraint_poly(constraint_evaluations, &context)?;
         debug!(
             "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
             constraint_poly.degree(),
@@ -242,7 +247,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         );
         debug!("Built proof object in {} ms", now.elapsed().as_millis());
 
-        proof
+        Ok(proof)
     }
 }
 

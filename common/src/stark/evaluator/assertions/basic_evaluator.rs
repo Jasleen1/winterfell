@@ -2,6 +2,7 @@ use super::{
     Assertion, AssertionConstraint, AssertionConstraintGroup, AssertionEvaluator,
     ConstraintDivisor, ProofContext,
 };
+use crate::errors::EvaluatorError;
 use math::field::{FieldElement, StarkField};
 use std::collections::BTreeMap;
 
@@ -20,12 +21,12 @@ impl AssertionEvaluator for BasicAssertionEvaluator {
         context: &ProofContext,
         assertions: &[Assertion],
         coefficients: &[FieldElement],
-    ) -> Self {
-        let constraints = group_assertions(context, assertions, coefficients);
-        BasicAssertionEvaluator {
+    ) -> Result<Self, EvaluatorError> {
+        let constraints = group_assertions(context, assertions, coefficients)?;
+        Ok(BasicAssertionEvaluator {
             divisors: constraints.iter().map(|c| c.divisor.clone()).collect(),
             constraints,
-        }
+        })
     }
 
     fn evaluate(&self, result: &mut [FieldElement], state: &[FieldElement], x: FieldElement) {
@@ -53,7 +54,7 @@ fn group_assertions(
     context: &ProofContext,
     assertions: &[Assertion],
     coefficients: &[FieldElement],
-) -> Vec<AssertionConstraintGroup> {
+) -> Result<Vec<AssertionConstraintGroup>, EvaluatorError> {
     // use BTreeMap to make sure assertions are always grouped in consistent order
     let mut groups = BTreeMap::new();
     let mut i = 0;
@@ -61,16 +62,14 @@ fn group_assertions(
     // iterate over all assertions and group them by step - i.e.: assertions for the first
     // step are grouped together, assertions for the last step are grouped together etc.
     for assertion in assertions {
-        assert!(
-            assertion.register() < context.trace_width(),
-            "invalid register index {}",
-            assertion.register()
-        );
-        assert!(
-            assertion.step() < context.trace_length(),
-            "invalid assertion step {}",
-            assertion.step()
-        );
+        if assertion.register() >= context.trace_width() {
+            return Err(EvaluatorError::InvalidAssertionRegisterIndex(
+                assertion.register(),
+            ));
+        }
+        if assertion.step() >= context.trace_length() {
+            return Err(EvaluatorError::InvalidAssertionStep(assertion.step()));
+        }
 
         // get a group for the assertion step, or create one if one doesn't exist yet
         let group = groups.entry(assertion.step()).or_insert_with(|| {
@@ -85,11 +84,12 @@ fn group_assertions(
             .constraints
             .binary_search_by_key(&assertion.register(), |c| c.register)
         {
-            Ok(_) => panic!(
-                "duplicated assertion for (register={}, step={})",
-                assertion.register(),
-                assertion.step()
-            ),
+            Ok(_) => {
+                return Err(EvaluatorError::DuplicateAssertion(
+                    assertion.register(),
+                    assertion.step(),
+                ))
+            }
             Err(pos) => group.constraints.insert(
                 pos,
                 AssertionConstraint {
@@ -112,7 +112,7 @@ fn group_assertions(
         groups.into_iter().map(|entry| entry.1).collect();
     groups.sort_by_key(|c| c.degree_adjustment);
 
-    groups
+    Ok(groups)
 }
 
 // TESTS
@@ -140,7 +140,8 @@ mod tests {
                 Assertion::new(0, 7, FieldElement::new(5)),
             ],
             &vec![FieldElement::ZERO; 10],
-        );
+        )
+        .unwrap();
 
         let group1 = &groups[0];
         assert_eq!(group1.constraints[0].register, 0);

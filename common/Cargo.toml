@@ -7,7 +7,9 @@ edition = "2018"
 bench = false
 
 [dependencies]
+displaydoc = "0.1.7"
 rand = "0.7.3"
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 serde = { version = "1.0.115", features = ["derive"] }
+thiserror = "1.0.21"

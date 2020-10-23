@@ -1,4 +1,5 @@
 use super::{ProofContext, PublicCoin};
+use crate::errors::*;
 use math::field::{FieldElement, StarkField};
 
 mod transition;
@@ -37,7 +38,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         coin: &C,
         context: &ProofContext,
         assertions: Vec<Assertion>,
-    ) -> Self {
+    ) -> Result<Self, EvaluatorError> {
         assert!(
             !assertions.is_empty(),
             "at least one assertion must be provided"
@@ -58,7 +59,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         );
 
         // instantiate assertion constraint evaluator
-        let assertions = A::new(&context, &assertions, &a_coefficients);
+        let assertions = A::new(&context, &assertions, &a_coefficients)?;
 
         // determine divisors for all constraints; since divisor for all transition constraints
         // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
@@ -69,7 +70,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         )];
         divisors.extend_from_slice(assertions.divisors());
 
-        ConstraintEvaluator {
+        Ok(ConstraintEvaluator {
             // in debug mode, we keep track of all evaluated transition constraints so that
             // we can verify that their stated degrees match their actual degrees
             #[cfg(debug_assertions)]
@@ -82,7 +83,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             evaluations: vec![FieldElement::ZERO; divisors.len()],
             divisors,
             transition_degree_map,
-        }
+        })
     }
 
     // EVALUATION METHODS
@@ -97,7 +98,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         next: &[FieldElement],
         x: FieldElement,
         step: usize,
-    ) -> &[FieldElement] {
+    ) -> Result<&[FieldElement], ProverError> {
         // reset transition evaluation buffer
         self.t_evaluations
             .iter_mut()
@@ -122,11 +123,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.evaluations[0] = if self.should_evaluate_to_zero_at(step) {
             let step = step / self.ce_blowup_factor();
             for &evaluation in self.t_evaluations.iter() {
-                assert!(
-                    evaluation == FieldElement::ZERO,
-                    "transition constraint at step {} were not satisfied",
-                    step
-                );
+                if evaluation != FieldElement::ZERO {
+                    return Err(ProverError::UnsatisfiedTransitionConstraintError(step));
+                }
             }
             // if all transition constraint evaluations are zeros, the combination is also zero
             FieldElement::ZERO
@@ -140,7 +139,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.assertions
             .evaluate(&mut self.evaluations[1..], current, x);
 
-        &self.evaluations
+        Ok(&self.evaluations)
     }
 
     /// Evaluates transition and assertion constraints at the specified x coordinate. This

@@ -1,3 +1,4 @@
+use common::errors::VerifierError;
 use common::stark::{
     Assertion, AssertionEvaluator, CompositionCoefficients, ConstraintEvaluator, DeepValues,
     ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
@@ -29,7 +30,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
     /// Verifies the STARK `proof` attesting the assertions are valid in the context of
     /// the computation described by the verifier.
-    pub fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, String> {
+    pub fn verify(
+        &self,
+        proof: StarkProof,
+        assertions: Vec<Assertion>,
+    ) -> Result<bool, VerifierError> {
         // initializes a channel which is used to simulate interaction between the prover
         // and the verifier; the verifier can read the values written by the prover into the
         // channel, and also draws random values which the prover uses during proof construction
@@ -45,7 +50,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let z = channel.draw_deep_point();
 
         // build constraint evaluator
-        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions);
+        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions)?;
 
         // evaluate constraints at z
         let deep_values = channel.read_deep_values();
@@ -110,7 +115,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         // make sure that evaluations we computed in the previous step are in fact evaluations
         // of a polynomial of degree equal to context.deep_composition_degree()
         fri::verify(&context, &channel, &evaluations, &query_positions)
-            .map_err(|msg| format!("verification of low-degree proof failed: {}", msg))
+            .map_err(VerifierError::VerificationFailed)
     }
 }
 

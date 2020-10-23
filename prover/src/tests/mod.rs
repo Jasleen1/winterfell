@@ -1,4 +1,5 @@
-use common::stark::{ConstraintDegree, ProofContext, TransitionEvaluator};
+use common::stark::{ConstraintDegree, ProofContext, ProofOptions, TransitionEvaluator};
+use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
 
 pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
@@ -13,6 +14,15 @@ pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     }
 
     vec![reg1, reg2]
+}
+
+pub fn build_proof_context(
+    trace_length: usize,
+    ce_blowup_factor: usize,
+    lde_blowup_factor: usize,
+) -> ProofContext {
+    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
+    ProofContext::new(2, trace_length, ce_blowup_factor, options)
 }
 
 pub struct FibEvaluator {
