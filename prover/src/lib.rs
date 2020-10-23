@@ -8,7 +8,7 @@ pub mod tests;
 
 pub use common::stark::{
     Assertion, AssertionEvaluator, ConstraintDegree, ProofContext, ProofOptions, StarkProof,
-    TransitionEvaluator,
+    TransitionConstraintGroup, TransitionEvaluator,
 };
 pub use crypto;
 pub use math;

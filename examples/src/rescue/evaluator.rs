@@ -4,7 +4,7 @@ use prover::{
         field::{FieldElement, StarkField},
         polynom,
     },
-    ConstraintDegree, ProofContext, TransitionEvaluator,
+    ConstraintDegree, ProofContext, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 use super::{
@@ -41,8 +41,7 @@ const CYCLE_MASK: [FieldElement; CYCLE_LENGTH] = [
 // ================================================================================================
 
 pub struct RescueEvaluator {
-    constraint_degrees: Vec<ConstraintDegree>,
-    composition_coefficients: Vec<FieldElement>,
+    constraint_groups: Vec<TransitionConstraintGroup>,
     mask_constants: Vec<FieldElement>,
     mask_poly: Vec<FieldElement>,
     ark_constants: Vec<Vec<FieldElement>>,
@@ -78,11 +77,10 @@ impl TransitionEvaluator for RescueEvaluator {
         let ark_constants = transpose(ark_evaluations);
 
         // transition degree is the same for all constraints
-        let degree = ConstraintDegree::with_cycles(3, vec![CYCLE_LENGTH]);
+        let degrees = vec![ConstraintDegree::with_cycles(3, vec![CYCLE_LENGTH]); 4];
 
         RescueEvaluator {
-            constraint_degrees: vec![degree; 4],
-            composition_coefficients: coefficients[..8].to_vec(),
+            constraint_groups: Self::group_constraints(context, &degrees, coefficients),
             mask_poly,
             mask_constants,
             ark_constants,
@@ -152,12 +150,9 @@ impl TransitionEvaluator for RescueEvaluator {
 
     // BOILERPLATE
     // --------------------------------------------------------------------------------------------
-    fn degrees(&self) -> &[ConstraintDegree] {
-        &self.constraint_degrees
-    }
 
-    fn composition_coefficients(&self) -> &[FieldElement] {
-        &self.composition_coefficients
+    fn constraint_groups(&self) -> &[TransitionConstraintGroup] {
+        &self.constraint_groups
     }
 }
 

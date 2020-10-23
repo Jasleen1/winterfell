@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 /// grouped by execution step. Thus, using this evaluator to make assertions against a large number
 /// of steps may be inefficient.
 pub struct DefaultAssertionEvaluator {
-    constraints: Vec<AssertionConstraintGroup>,
+    constraint_groups: Vec<AssertionConstraintGroup>,
     divisors: Vec<ConstraintDivisor>,
 }
 
@@ -23,20 +23,23 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
         assertions: &[Assertion],
         coefficients: &[FieldElement],
     ) -> Result<Self, EvaluatorError> {
-        let constraints = group_assertions(context, assertions, coefficients)?;
+        let constraint_groups = group_assertions(context, assertions, coefficients)?;
         Ok(DefaultAssertionEvaluator {
-            divisors: constraints.iter().map(|c| c.divisor.clone()).collect(),
-            constraints,
+            divisors: constraint_groups
+                .iter()
+                .map(|c| c.divisor.clone())
+                .collect(),
+            constraint_groups,
         })
     }
 
     fn evaluate(&self, result: &mut [FieldElement], state: &[FieldElement], x: FieldElement) {
-        let mut degree_adjustment = self.constraints[0].degree_adjustment;
+        let mut degree_adjustment = self.constraint_groups[0].degree_adjustment;
         let mut xp = FieldElement::exp(x, degree_adjustment);
 
-        for (i, group) in self.constraints.iter().enumerate() {
-            if self.constraints[i].degree_adjustment != degree_adjustment {
-                degree_adjustment = self.constraints[i].degree_adjustment;
+        for (i, group) in self.constraint_groups.iter().enumerate() {
+            if group.degree_adjustment != degree_adjustment {
+                degree_adjustment = group.degree_adjustment;
                 xp = FieldElement::exp(x, degree_adjustment);
             }
             result[i] = group.evaluate(state, xp);

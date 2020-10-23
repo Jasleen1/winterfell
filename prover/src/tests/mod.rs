@@ -1,4 +1,6 @@
-use common::stark::{ConstraintDegree, ProofContext, ProofOptions, TransitionEvaluator};
+use common::stark::{
+    ConstraintDegree, ProofContext, ProofOptions, TransitionConstraintGroup, TransitionEvaluator,
+};
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
 
@@ -26,8 +28,7 @@ pub fn build_proof_context(
 }
 
 pub struct FibEvaluator {
-    constraint_degrees: Vec<ConstraintDegree>,
-    composition_coefficients: Vec<FieldElement>,
+    constraint_groups: Vec<TransitionConstraintGroup>,
 }
 
 impl TransitionEvaluator for FibEvaluator {
@@ -35,11 +36,10 @@ impl TransitionEvaluator for FibEvaluator {
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(_context: &ProofContext, coefficients: &[FieldElement]) -> Self {
-        let degree = ConstraintDegree::new(1);
+    fn new(context: &ProofContext, coefficients: &[FieldElement]) -> Self {
+        let degrees = vec![ConstraintDegree::new(1); 2];
         FibEvaluator {
-            constraint_degrees: vec![degree.clone(), degree],
-            composition_coefficients: coefficients[..4].to_vec(),
+            constraint_groups: Self::group_constraints(context, &degrees, coefficients),
         }
     }
 
@@ -80,12 +80,8 @@ impl TransitionEvaluator for FibEvaluator {
 
     // BOILERPLATE
     // --------------------------------------------------------------------------------------------
-    fn degrees(&self) -> &[ConstraintDegree] {
-        &self.constraint_degrees
-    }
-
-    fn composition_coefficients(&self) -> &[FieldElement] {
-        &self.composition_coefficients
+    fn constraint_groups(&self) -> &[TransitionConstraintGroup] {
+        &self.constraint_groups
     }
 }
 
