@@ -2,9 +2,10 @@ use common::{
     errors::ProverError,
     stark::{
         Assertion, AssertionEvaluator, ConstraintEvaluator, DefaultAssertionEvaluator,
-        ProofContext, ProofOptions, PublicCoin, StarkProof, TransitionEvaluator,
+        ProofOptions, PublicCoin, StarkProof, TransitionEvaluator,
     },
     utils::log2,
+    ComputationContext,
 };
 use log::debug;
 use math::field::FieldElement;
@@ -66,7 +67,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // create context to hold basic parameters for the computation; the context is also
         // used as a single source for such parameters as domain sizes, constraint degrees etc.
-        let context = ProofContext::new(
+        let context = ComputationContext::new(
             trace.num_registers(),
             trace.num_states(),
             T::get_ce_blowup_factor(),

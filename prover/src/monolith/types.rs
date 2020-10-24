@@ -1,4 +1,4 @@
-use common::stark::{ConstraintDivisor, ProofContext};
+use common::{stark::ConstraintDivisor, ComputationContext};
 use math::{
     field::{FieldElement, StarkField},
     polynom,
@@ -216,7 +216,7 @@ impl ConstraintPoly {
 pub struct CompositionPoly(Vec<FieldElement>, usize);
 
 impl CompositionPoly {
-    pub fn new(context: &ProofContext) -> Self {
+    pub fn new(context: &ComputationContext) -> Self {
         CompositionPoly(
             vec![FieldElement::ZERO; context.lde_domain_size()],
             context.deep_composition_degree(),

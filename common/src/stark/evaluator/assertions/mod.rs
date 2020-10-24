@@ -1,4 +1,4 @@
-use super::{ConstraintDivisor, ProofContext};
+use super::{ComputationContext, ConstraintDivisor, RandomGenerator};
 use crate::errors::EvaluatorError;
 use math::field::FieldElement;
 
@@ -9,12 +9,10 @@ pub use default_evaluator::DefaultAssertionEvaluator;
 // ================================================================================================
 
 pub trait AssertionEvaluator {
-    const MAX_CONSTRAINTS: usize;
-
     fn new(
-        context: &ProofContext,
+        context: &ComputationContext,
         assertions: &[Assertion],
-        coefficients: &[FieldElement],
+        coeff_prng: RandomGenerator,
     ) -> Result<Self, EvaluatorError>
     where
         Self: Sized;

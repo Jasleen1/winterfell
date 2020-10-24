@@ -1,5 +1,5 @@
 use super::types::{LdeDomain, PolyTable, TraceTable};
-use common::{stark::ProofContext, utils::uninit_vector};
+use common::{utils::uninit_vector, ComputationContext};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
@@ -13,7 +13,7 @@ mod tests;
 // ================================================================================================
 
 /// Builds and return evaluation domain for STARK proof.
-pub fn build_lde_domain(context: &ProofContext) -> LdeDomain {
+pub fn build_lde_domain(context: &ComputationContext) -> LdeDomain {
     let domain =
         FieldElement::get_power_series(context.generators().lde_domain, context.lde_domain_size());
 

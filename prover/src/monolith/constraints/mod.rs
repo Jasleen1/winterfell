@@ -4,11 +4,9 @@ use super::{
 };
 use common::{
     errors::ProverError,
-    stark::{
-        AssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, ProofContext,
-        TransitionEvaluator,
-    },
+    stark::{AssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator},
     utils::uninit_vector,
+    ComputationContext,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
@@ -85,7 +83,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 /// divisors, and combines the results into a single polynomial
 pub fn build_constraint_poly(
     evaluations: ConstraintEvaluationTable,
-    context: &ProofContext,
+    context: &ComputationContext,
 ) -> Result<ConstraintPoly, ProverError> {
     let ce_domain_size = context.ce_domain_size();
     let constraint_poly_degree = context.composition_degree();

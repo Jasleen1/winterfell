@@ -46,8 +46,11 @@ pub trait StarkField:
     /// This ensures that the field has high 2-adicity.
     const MODULUS: Self::PositiveInteger;
 
-    /// The number of bits needed to represent the `Self::MODULUS`.
+    /// The number of bits needed to represents `Self::MODULUS`.
     const MODULUS_BITS: u32;
+
+    /// The number of bytes needed to represent `Self::MODULUS`.
+    const MODULUS_BYTES: u32 = (Self::MODULUS_BITS + 7) / 8;
 
     /// A multiplicative generator of the field.
     const GENERATOR: Self;
@@ -127,6 +130,11 @@ pub trait StarkField:
     /// Returns a vector of n pseudo-random elements drawn uniformly from the entire
     /// field based on the provided seed.
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
+
+    /// Returns a field element if the set of bytes forms a valid field element,
+    /// otherwise returns None. This function is primarily intended for sampling
+    /// random field elements from a hash function output.
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
 
     /// Returns the byte representation of the element in little-endian byte order.
     fn to_bytes(&self) -> Vec<u8> {

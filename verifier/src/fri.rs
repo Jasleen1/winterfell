@@ -1,5 +1,8 @@
 use super::channel::VerifierChannel;
-use common::stark::{fri_utils::get_augmented_positions, ProofContext, PublicCoin};
+use common::{
+    stark::{fri_utils::get_augmented_positions, PublicCoin},
+    ComputationContext,
+};
 
 use math::{
     field::{FieldElement, StarkField},
@@ -14,7 +17,7 @@ use std::mem;
 /// with degree <= context.deep_composition_degree() against x coordinates specified by
 /// `positions` slice
 pub fn verify(
-    context: &ProofContext,
+    context: &ComputationContext,
     channel: &VerifierChannel,
     evaluations: &[FieldElement],
     positions: &[usize],

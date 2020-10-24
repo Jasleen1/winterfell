@@ -1,8 +1,8 @@
-use common::errors::VerifierError;
 use common::stark::{
     Assertion, AssertionEvaluator, CompositionCoefficients, ConstraintEvaluator, DeepValues,
-    DefaultAssertionEvaluator, ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
+    DefaultAssertionEvaluator, PublicCoin, StarkProof, TransitionEvaluator,
 };
+use common::{errors::VerifierError, ComputationContext};
 
 use math::field::{FieldElement, StarkField};
 use std::marker::PhantomData;
@@ -153,7 +153,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 
 /// TODO: add comments
 fn compose_registers(
-    context: &ProofContext,
+    context: &ComputationContext,
     trace_states: &[Vec<FieldElement>],
     x_coordinates: &[FieldElement],
     deep_values: &DeepValues,

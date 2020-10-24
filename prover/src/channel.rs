@@ -1,5 +1,6 @@
-use common::stark::{
-    Commitments, Context, DeepValues, FriProof, ProofContext, PublicCoin, Queries, StarkProof,
+use common::{
+    stark::{Commitments, Context, DeepValues, FriProof, PublicCoin, Queries, StarkProof},
+    ComputationContext,
 };
 use crypto::{BatchMerkleProof, HashFunction};
 use math::field::FieldElement;
@@ -8,7 +9,7 @@ use math::field::FieldElement;
 // ================================================================================================
 
 pub struct ProverChannel {
-    context: ProofContext,
+    context: ComputationContext,
     trace_root: Option<[u8; 32]>,
     constraint_root: Option<[u8; 32]>,
     fri_roots: Vec<[u8; 32]>,
@@ -19,7 +20,7 @@ pub struct ProverChannel {
 
 impl ProverChannel {
     /// Creates a new prover channel for the specified proof `context`.
-    pub fn new(context: &ProofContext) -> Self {
+    pub fn new(context: &ComputationContext) -> Self {
         ProverChannel {
             context: context.clone(),
             trace_root: None,
@@ -88,7 +89,7 @@ impl ProverChannel {
 // ================================================================================================
 
 impl PublicCoin for ProverChannel {
-    fn context(&self) -> &ProofContext {
+    fn context(&self) -> &ComputationContext {
         &self.context
     }
 

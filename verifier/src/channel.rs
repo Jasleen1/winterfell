@@ -1,7 +1,8 @@
 use common::{
     errors::VerifierError,
-    stark::{fri_utils, Commitments, DeepValues, FriLayer, ProofContext, PublicCoin, StarkProof},
+    stark::{fri_utils, Commitments, DeepValues, FriLayer, PublicCoin, StarkProof},
     utils::{log2, uninit_vector},
+    ComputationContext,
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -14,7 +15,7 @@ use math::{
 // ================================================================================================
 
 pub struct VerifierChannel {
-    context: ProofContext,
+    context: ComputationContext,
     commitments: Commitments,
     trace_proof: BatchMerkleProof,
     trace_queries: Vec<Vec<FieldElement>>,
@@ -36,7 +37,7 @@ impl VerifierChannel {
         let trace_width = proof.deep_values.trace_at_z1.len();
         let trace_length =
             usize::pow(2, context.lde_domain_depth as u32) / context.options.blowup_factor();
-        let context = ProofContext::new(
+        let context = ComputationContext::new(
             trace_width,
             trace_length,
             context.ce_blowup_factor as usize,
@@ -70,7 +71,7 @@ impl VerifierChannel {
     }
 
     /// Reads proof context from the channel.
-    pub fn read_context(&self) -> &ProofContext {
+    pub fn read_context(&self) -> &ComputationContext {
         &self.context
     }
 
@@ -175,7 +176,7 @@ impl VerifierChannel {
 // PUBLIC COIN IMPLEMENTATION
 // ================================================================================================
 impl PublicCoin for VerifierChannel {
-    fn context(&self) -> &ProofContext {
+    fn context(&self) -> &ComputationContext {
         &self.context
     }
 

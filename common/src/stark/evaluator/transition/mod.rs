@@ -1,4 +1,4 @@
-use super::{ConstraintDegree, ProofContext};
+use super::{ComputationContext, ConstraintDegree, RandomGenerator};
 use math::field::{FieldElement, StarkField};
 use std::collections::HashMap;
 
@@ -6,9 +6,7 @@ use std::collections::HashMap;
 // ================================================================================================
 
 pub trait TransitionEvaluator {
-    const MAX_CONSTRAINTS: usize;
-
-    fn new(context: &ProofContext, coefficients: &[FieldElement]) -> Self;
+    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self;
 
     // ABSTRACT METHODS
     // --------------------------------------------------------------------------------------------
@@ -55,7 +53,6 @@ pub trait TransitionEvaluator {
     }
 
     /// Returns degrees of all individual transition constraints.
-
     fn get_constraint_degrees(&self) -> Vec<ConstraintDegree> {
         let mut degrees = vec![ConstraintDegree::new(1); self.num_constraints()];
         for group in self.constraint_groups() {
@@ -96,9 +93,9 @@ pub trait TransitionEvaluator {
     /// to each constraint. These coefficients will be used to compute random linear combination
     /// of transition constraints during constraint merging.
     fn group_constraints(
-        context: &ProofContext,
+        context: &ComputationContext,
         degrees: &[ConstraintDegree],
-        coefficients: &[FieldElement],
+        mut coeff_prng: RandomGenerator,
     ) -> Vec<TransitionConstraintGroup> {
         // We want to make sure that once we divide constraint polynomials by the divisor,
         // the degree of the resulting polynomial will be exactly equal to the composition_degree.
@@ -120,9 +117,7 @@ pub trait TransitionEvaluator {
                     coefficients: Vec::new(),
                 });
             group.indexes.push(i);
-            group
-                .coefficients
-                .push((coefficients[2 * i], coefficients[2 * i + 1]));
+            group.coefficients.push(coeff_prng.draw_pair());
         }
 
         groups.into_iter().map(|e| e.1).collect()

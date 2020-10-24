@@ -1,7 +1,8 @@
 use crate::utils::are_equal;
 use prover::{
     math::field::{FieldElement, StarkField},
-    ConstraintDegree, ProofContext, TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
 
 // FIBONACCI TRANSITION CONSTRAINT EVALUATOR
@@ -12,14 +13,12 @@ pub struct FibEvaluator {
 }
 
 impl TransitionEvaluator for FibEvaluator {
-    const MAX_CONSTRAINTS: usize = 2;
-
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ProofContext, coefficients: &[FieldElement]) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
         let degrees = vec![ConstraintDegree::new(1); 2];
         FibEvaluator {
-            constraint_groups: Self::group_constraints(context, &degrees, coefficients),
+            constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),
         }
     }
 

@@ -1,5 +1,9 @@
-use common::stark::{
-    ConstraintDegree, ProofContext, ProofOptions, TransitionConstraintGroup, TransitionEvaluator,
+use common::{
+    stark::{
+        ConstraintDegree, ProofOptions, RandomGenerator, TransitionConstraintGroup,
+        TransitionEvaluator,
+    },
+    ComputationContext,
 };
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
@@ -22,9 +26,9 @@ pub fn build_proof_context(
     trace_length: usize,
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
-) -> ProofContext {
+) -> ComputationContext {
     let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
-    ProofContext::new(2, trace_length, ce_blowup_factor, options)
+    ComputationContext::new(2, trace_length, ce_blowup_factor, options)
 }
 
 pub struct FibEvaluator {
@@ -32,14 +36,12 @@ pub struct FibEvaluator {
 }
 
 impl TransitionEvaluator for FibEvaluator {
-    const MAX_CONSTRAINTS: usize = 2;
-
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ProofContext, coefficients: &[FieldElement]) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
         let degrees = vec![ConstraintDegree::new(1); 2];
         FibEvaluator {
-            constraint_groups: Self::group_constraints(context, &degrees, coefficients),
+            constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),
         }
     }
 

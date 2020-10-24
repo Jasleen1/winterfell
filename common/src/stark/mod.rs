@@ -13,10 +13,10 @@ pub use evaluator::{
     DefaultAssertionEvaluator, TransitionConstraintGroup, TransitionEvaluator,
 };
 
-mod context;
-pub use context::ProofContext;
-
 mod public_coin;
 pub use public_coin::PublicCoin;
 
 pub mod fri_utils;
+
+mod random;
+pub use random::RandomGenerator;

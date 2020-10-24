@@ -1,5 +1,5 @@
-use super::{ProofContext, PublicCoin};
-use crate::errors::*;
+use super::{PublicCoin, RandomGenerator};
+use crate::{errors::*, ComputationContext};
 use math::field::{FieldElement, StarkField};
 
 mod transition;
@@ -14,13 +14,18 @@ pub use constraints::{ConstraintDegree, ConstraintDivisor};
 #[cfg(test)]
 mod tests;
 
+// CONSTANTS
+// ================================================================================================
+const TRANSITION_COEFF_OFFSET: u64 = 0;
+const ASSERTION_COEFF_OFFSET: u64 = u32::MAX as u64;
+
 // CONSTRAINT EVALUATOR
 // ================================================================================================
 
 pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
-    context: ProofContext,
+    context: ComputationContext,
     evaluations: Vec<FieldElement>,
     t_evaluations: Vec<FieldElement>,
     divisors: Vec<ConstraintDivisor>,
@@ -35,7 +40,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn new<C: PublicCoin>(
         coin: &C,
-        context: &ProofContext,
+        context: &ComputationContext,
         assertions: Vec<Assertion>,
     ) -> Result<Self, EvaluatorError> {
         assert!(
@@ -43,13 +48,17 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             "at least one assertion must be provided"
         );
 
-        // build coefficients for constraint combination
-        // TODO: switch over to an iterator to generate coefficients?
-        let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
-
         // instantiate transition and assertion constraint evaluators
-        let transition = T::new(context, &t_coefficients);
-        let assertions = A::new(context, &assertions, &a_coefficients)?;
+        let hash_fn = context.options().hash_fn();
+        let transition = T::new(
+            context,
+            RandomGenerator::new(coin.constraint_seed(), TRANSITION_COEFF_OFFSET, hash_fn),
+        );
+        let assertions = A::new(
+            context,
+            &assertions,
+            RandomGenerator::new(coin.constraint_seed(), ASSERTION_COEFF_OFFSET, hash_fn),
+        )?;
 
         // determine divisors for all constraints; since divisor for all transition constraints
         // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
@@ -199,18 +208,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     fn should_evaluate_to_zero_at(&self, step: usize) -> bool {
         (step & (self.ce_blowup_factor() - 1) == 0) // same as: step % ce_blowup_factor == 0
         && (step != self.ce_domain_size() - self.ce_blowup_factor())
-    }
-
-    fn build_coefficients<C: PublicCoin>(coin: &C) -> (Vec<FieldElement>, Vec<FieldElement>) {
-        let num_t_coefficients = T::MAX_CONSTRAINTS * 2;
-        let num_a_coefficients = A::MAX_CONSTRAINTS * 2;
-
-        let coefficients =
-            coin.draw_constraint_coefficients(num_t_coefficients + num_a_coefficients);
-        (
-            coefficients[..num_t_coefficients].to_vec(),
-            coefficients[num_t_coefficients..].to_vec(),
-        )
     }
 
     // DEBUG HELPERS

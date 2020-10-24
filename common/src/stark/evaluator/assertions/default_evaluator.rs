@@ -1,4 +1,6 @@
-use super::{Assertion, AssertionEvaluator, ConstraintDivisor, ProofContext};
+use super::{
+    Assertion, AssertionEvaluator, ComputationContext, ConstraintDivisor, RandomGenerator,
+};
 use crate::errors::EvaluatorError;
 use math::field::{FieldElement, StarkField};
 use std::collections::BTreeMap;
@@ -16,14 +18,12 @@ pub struct DefaultAssertionEvaluator {
 }
 
 impl AssertionEvaluator for DefaultAssertionEvaluator {
-    const MAX_CONSTRAINTS: usize = 128;
-
     fn new(
-        context: &ProofContext,
+        context: &ComputationContext,
         assertions: &[Assertion],
-        coefficients: &[FieldElement],
+        coeff_prng: RandomGenerator,
     ) -> Result<Self, EvaluatorError> {
-        let constraint_groups = group_assertions(context, assertions, coefficients)?;
+        let constraint_groups = group_assertions(context, assertions, coeff_prng)?;
         Ok(DefaultAssertionEvaluator {
             divisors: constraint_groups
                 .iter()
@@ -73,7 +73,7 @@ struct AssertionConstraintGroup {
 }
 
 impl AssertionConstraintGroup {
-    fn new(context: &ProofContext, divisor: ConstraintDivisor) -> Self {
+    fn new(context: &ComputationContext, divisor: ConstraintDivisor) -> Self {
         // We want to make sure that once we divide a constraint polynomial by its divisor, the
         // degree of the resulting polynomials will be exactly equal to the composition_degree.
         // Assertion constraint degree is always deg(trace). So, the adjustment degree is simply:
@@ -107,13 +107,12 @@ impl AssertionConstraintGroup {
 // ================================================================================================
 
 fn group_assertions(
-    context: &ProofContext,
+    context: &ComputationContext,
     assertions: &[Assertion],
-    coefficients: &[FieldElement],
+    mut coeff_prng: RandomGenerator,
 ) -> Result<Vec<AssertionConstraintGroup>, EvaluatorError> {
     // use BTreeMap to make sure assertions are always grouped in consistent order
     let mut groups = BTreeMap::new();
-    let mut i = 0;
 
     // iterate over all assertions and group them by step - i.e.: assertions for the first
     // step are grouped together, assertions for the last step are grouped together etc.
@@ -157,10 +156,7 @@ fn group_assertions(
 
         // add coefficients for the assertion (two coefficients per assertion); these coefficients
         // will be used to compute random linear combination of constraint evaluations
-        group
-            .coefficients
-            .push((coefficients[i], coefficients[i + 1]));
-        i += 2;
+        group.coefficients.push(coeff_prng.draw_pair());
     }
 
     // make sure groups are sorted by adjustment degree
@@ -177,14 +173,17 @@ fn group_assertions(
 #[cfg(test)]
 mod tests {
 
-    use crate::stark::{Assertion, ProofContext, ProofOptions};
+    use crate::{
+        stark::{Assertion, ProofOptions, RandomGenerator},
+        ComputationContext,
+    };
     use crypto::hash::blake3;
-    use math::field::{FieldElement, StarkField};
+    use math::field::FieldElement;
 
     #[test]
     fn group_assertions() {
         let options = ProofOptions::new(32, 4, 0, blake3);
-        let context = ProofContext::new(2, 8, 2, options);
+        let context = ComputationContext::new(2, 8, 2, options);
 
         let groups = super::group_assertions(
             &context,
@@ -195,7 +194,7 @@ mod tests {
                 Assertion::new(0, 4, FieldElement::new(3)),
                 Assertion::new(0, 7, FieldElement::new(5)),
             ],
-            &vec![FieldElement::ZERO; 10],
+            RandomGenerator::new([0; 32], 0, blake3),
         )
         .unwrap();
 

@@ -1,4 +1,5 @@
-use super::{CompositionCoefficients, ProofContext};
+use super::CompositionCoefficients;
+use crate::ComputationContext;
 use math::field::{FieldElement, StarkField};
 use rand::distributions::Uniform;
 use rand::prelude::*;
@@ -7,7 +8,7 @@ pub trait PublicCoin {
     // ABSTRACT METHODS
     // --------------------------------------------------------------------------------------------
 
-    fn context(&self) -> &ProofContext;
+    fn context(&self) -> &ComputationContext;
     fn constraint_seed(&self) -> [u8; 32];
     fn composition_seed(&self) -> [u8; 32];
     fn fri_layer_seed(&self, layer_depth: usize) -> [u8; 32];
@@ -15,11 +16,6 @@ pub trait PublicCoin {
 
     // DRAW METHODS
     // --------------------------------------------------------------------------------------------
-
-    /// Draw coefficients for combining constraints using PRNG seeded with constraint seed.
-    fn draw_constraint_coefficients(&self, num_coefficients: usize) -> Vec<FieldElement> {
-        FieldElement::prng_vector(self.constraint_seed(), num_coefficients)
-    }
 
     /// Draws a point from the entire field using PRNG seeded with composition seed.
     fn draw_deep_point(&self) -> FieldElement {

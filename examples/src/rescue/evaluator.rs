@@ -4,7 +4,8 @@ use prover::{
         field::{FieldElement, StarkField},
         polynom,
     },
-    ConstraintDegree, ProofContext, TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
 
 use super::{
@@ -50,11 +51,9 @@ pub struct RescueEvaluator {
 }
 
 impl TransitionEvaluator for RescueEvaluator {
-    const MAX_CONSTRAINTS: usize = 4;
-
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ProofContext, coefficients: &[FieldElement]) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
         let (inv_twiddles, ev_twiddles) = build_extension_domain(context.ce_blowup_factor());
 
         // extend the mask constants to match constraint evaluation domain
@@ -80,7 +79,7 @@ impl TransitionEvaluator for RescueEvaluator {
         let degrees = vec![ConstraintDegree::with_cycles(3, vec![CYCLE_LENGTH]); 4];
 
         RescueEvaluator {
-            constraint_groups: Self::group_constraints(context, &degrees, coefficients),
+            constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),
             mask_poly,
             mask_constants,
             ark_constants,

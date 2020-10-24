@@ -116,6 +116,13 @@ impl StarkField for FieldElement {
         g.sample_iter(range).take(n).map(FieldElement).collect()
     }
 
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
+        match Self::try_from(bytes) {
+            Ok(value) => Some(value),
+            Err(_) => None,
+        }
+    }
+
     fn to_bytes(&self) -> Vec<u8> {
         self.0.to_le_bytes().to_vec()
     }
