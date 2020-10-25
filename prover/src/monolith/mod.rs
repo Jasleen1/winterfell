@@ -42,7 +42,6 @@ pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAsserti
 impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
     /// Creates a new prover for the specified `options`. Generic parameters T and A
     /// define specifics of the computation for this prover.
-    /// TODO: set a default value for A?
     pub fn new(options: ProofOptions) -> Prover<T, A> {
         Prover {
             options,
@@ -252,7 +251,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 // ================================================================================================
 
 fn validate_assertions(trace: &TraceTable, assertions: &[Assertion]) {
-    // TODO: check for duplicated assertions
     // TODO: eventually, this should return errors instead of panicking
     assert!(
         !assertions.is_empty(),

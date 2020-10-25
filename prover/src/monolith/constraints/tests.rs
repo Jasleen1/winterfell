@@ -69,7 +69,7 @@ fn test_fib_evaluate_constraints_good_case() {
         assert_ne!(FieldElement::ZERO, evaluation);
     }
 
-    // output assertion evaluations must be 0 only at the first step
+    // output assertion evaluations must be 0 only at the last step
     for &evaluation in output_evaluations
         .iter()
         .rev()
@@ -81,7 +81,7 @@ fn test_fib_evaluate_constraints_good_case() {
     }
     assert_eq!(
         FieldElement::ZERO,
-        output_evaluations[(trace_length - 1) * 2]
+        output_evaluations[(trace_length - 1) * ce_blowup_factor]
     );
 }
 
@@ -108,7 +108,9 @@ fn test_fib_invalid_assertions() {
     let input_evaluations = &evaluations[1];
 
     // input assertion evaluation will be non-zero
-    assert_ne!(FieldElement::ZERO, input_evaluations[0]);
+    for &evaluation in input_evaluations.iter() {
+        assert_ne!(FieldElement::ZERO, evaluation);
+    }
 }
 
 #[test]
@@ -254,7 +256,7 @@ fn build_bad_constraint_poly() {
 }
 
 #[test]
-fn build_constraint_poly() {
+fn test_build_constraint_poly() {
     // evaluate constraints
     let trace_length = 8;
     let ce_blowup_factor = 2;

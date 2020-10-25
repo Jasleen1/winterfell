@@ -13,11 +13,6 @@ pub use constraints::{ConstraintDegree, ConstraintDivisor};
 #[cfg(test)]
 mod tests;
 
-// CONSTANTS
-// ================================================================================================
-const TRANSITION_COEFF_OFFSET: u64 = 0;
-const ASSERTION_COEFF_OFFSET: u64 = u32::MAX as u64;
-
 // CONSTRAINT EVALUATOR
 // ================================================================================================
 
@@ -48,16 +43,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         );
 
         // instantiate transition and assertion constraint evaluators
-        let hash_fn = context.options().hash_fn();
-        let transition = T::new(
-            context,
-            RandomGenerator::new(coin.constraint_seed(), TRANSITION_COEFF_OFFSET, hash_fn),
-        );
-        let assertions = A::new(
-            context,
-            &assertions,
-            RandomGenerator::new(coin.constraint_seed(), ASSERTION_COEFF_OFFSET, hash_fn),
-        )?;
+        let transition = T::new(context, coin.get_transition_coefficient_prng());
+        let assertions = A::new(context, &assertions, coin.get_assertion_coefficient_prng())?;
 
         // determine divisors for all constraints; since divisor for all transition constraints
         // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be

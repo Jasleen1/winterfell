@@ -5,6 +5,9 @@ use common::{
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
 
+// FIBONACCI TRACE BUILDER
+// ================================================================================================
+
 pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     assert!(length.is_power_of_two(), "length must be a power of 2");
 
@@ -27,6 +30,9 @@ pub fn build_proof_context(
     let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
     ComputationContext::new(2, trace_length, ce_blowup_factor, options)
 }
+
+// FIBONACCI TRANSITION EVALUATOR
+// ================================================================================================
 
 pub struct FibEvaluator {
     constraint_groups: Vec<TransitionConstraintGroup>,
@@ -83,6 +89,9 @@ impl TransitionEvaluator for FibEvaluator {
         &self.constraint_groups
     }
 }
+
+// HELPER FUNCTIONS
+// ================================================================================================
 
 fn are_equal(a: FieldElement, b: FieldElement) -> FieldElement {
     a - b
