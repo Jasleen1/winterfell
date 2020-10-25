@@ -1,8 +1,5 @@
 use super::channel::VerifierChannel;
-use common::{
-    stark::{fri_utils::get_augmented_positions, PublicCoin},
-    ComputationContext,
-};
+use common::{fri_utils::get_augmented_positions, ComputationContext, PublicCoin};
 
 use math::{
     field::{FieldElement, StarkField},

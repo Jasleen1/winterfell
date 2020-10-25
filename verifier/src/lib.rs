@@ -1,8 +1,10 @@
-use common::stark::{
-    Assertion, AssertionEvaluator, CompositionCoefficients, ConstraintEvaluator, DeepValues,
-    DefaultAssertionEvaluator, PublicCoin, StarkProof, TransitionEvaluator,
+use common::{
+    errors::VerifierError,
+    proof::{DeepValues, StarkProof},
+    Assertion, AssertionEvaluator, ComputationContext, ConstraintEvaluator,
+    DefaultAssertionEvaluator, TransitionEvaluator,
 };
-use common::{errors::VerifierError, ComputationContext};
+use common::{CompositionCoefficients, PublicCoin};
 
 use math::field::{FieldElement, StarkField};
 use std::marker::PhantomData;

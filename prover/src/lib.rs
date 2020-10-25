@@ -7,11 +7,8 @@ mod channel;
 pub mod tests;
 
 pub use common::{
-    stark::{
-        Assertion, AssertionEvaluator, ConstraintDegree, ProofOptions, RandomGenerator, StarkProof,
-        TransitionConstraintGroup, TransitionEvaluator,
-    },
-    ComputationContext,
+    proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext, ConstraintDegree,
+    ProofOptions, RandomGenerator, TransitionConstraintGroup, TransitionEvaluator,
 };
 pub use crypto;
 pub use math;

@@ -1,5 +1,4 @@
-use super::{PublicCoin, RandomGenerator};
-use crate::{errors::*, ComputationContext};
+use crate::{errors::*, ComputationContext, PublicCoin, RandomGenerator};
 use math::field::{FieldElement, StarkField};
 
 mod transition;

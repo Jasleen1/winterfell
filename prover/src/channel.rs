@@ -1,6 +1,6 @@
 use common::{
-    stark::{Commitments, Context, DeepValues, FriProof, PublicCoin, Queries, StarkProof},
-    ComputationContext,
+    proof::{Commitments, Context, DeepValues, FriProof, Queries, StarkProof},
+    ComputationContext, PublicCoin,
 };
 use crypto::{BatchMerkleProof, HashFunction};
 use math::field::FieldElement;

@@ -1,4 +1,4 @@
-use crate::stark::ProofOptions;
+use crate::ProofOptions;
 use math::field::{FieldElement, StarkField};
 
 // TYPES AND INTERFACES

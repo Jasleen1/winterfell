@@ -1,11 +1,9 @@
 use super::super::types::LdeDomain;
 use crate::channel::ProverChannel;
 use common::{
-    stark::{
-        fri_utils::{get_augmented_positions, hash_values},
-        FriLayer, FriProof, PublicCoin,
-    },
-    ComputationContext,
+    fri_utils::{get_augmented_positions, hash_values},
+    proof::{FriLayer, FriProof},
+    ComputationContext, PublicCoin,
 };
 use crypto::MerkleTree;
 use math::{

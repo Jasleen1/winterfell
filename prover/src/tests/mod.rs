@@ -1,9 +1,6 @@
 use common::{
-    stark::{
-        ConstraintDegree, ProofOptions, RandomGenerator, TransitionConstraintGroup,
-        TransitionEvaluator,
-    },
-    ComputationContext,
+    ComputationContext, ConstraintDegree, ProofOptions, RandomGenerator, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};

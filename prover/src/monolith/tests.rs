@@ -1,6 +1,6 @@
 use super::Prover;
 use crate::tests::{build_fib_trace, FibEvaluator};
-use common::stark::{Assertion, ProofOptions};
+use common::{Assertion, ProofOptions};
 use crypto::hash::blake3;
 use math::field::FieldElement;
 

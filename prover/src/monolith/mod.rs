@@ -1,11 +1,7 @@
 use common::{
-    errors::ProverError,
-    stark::{
-        Assertion, AssertionEvaluator, ConstraintEvaluator, DefaultAssertionEvaluator,
-        ProofOptions, PublicCoin, StarkProof, TransitionEvaluator,
-    },
-    utils::log2,
-    ComputationContext,
+    errors::ProverError, proof::StarkProof, utils::log2, Assertion, AssertionEvaluator,
+    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, ProofOptions, PublicCoin,
+    TransitionEvaluator,
 };
 use log::debug;
 use math::field::FieldElement;

@@ -1,8 +1,9 @@
 use common::{
     errors::VerifierError,
-    stark::{fri_utils, Commitments, DeepValues, FriLayer, PublicCoin, StarkProof},
+    fri_utils,
+    proof::{Commitments, DeepValues, FriLayer, StarkProof},
     utils::{log2, uninit_vector},
-    ComputationContext,
+    ComputationContext, PublicCoin,
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};

@@ -1,4 +1,4 @@
-use common::{stark::ConstraintDivisor, ComputationContext};
+use common::{ComputationContext, ConstraintDivisor};
 use math::{
     field::{FieldElement, StarkField},
     polynom,

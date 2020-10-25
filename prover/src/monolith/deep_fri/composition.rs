@@ -2,7 +2,7 @@ use super::{
     types::{CompositionPoly, ConstraintPoly, LdeDomain, PolyTable},
     utils,
 };
-use common::stark::{CompositionCoefficients, DeepValues};
+use common::{proof::DeepValues, CompositionCoefficients};
 use math::{
     fft,
     field::{FieldElement, StarkField},

@@ -4,9 +4,8 @@ use crate::{
     monolith::{build_trace_tree, extend_trace},
     tests::{build_fib_trace, build_proof_context, FibEvaluator},
 };
-use common::errors::*;
-use common::stark::{
-    Assertion, ConstraintDivisor, ConstraintEvaluator, DefaultAssertionEvaluator,
+use common::{
+    errors::*, Assertion, ConstraintDivisor, ConstraintEvaluator, DefaultAssertionEvaluator,
     TransitionEvaluator,
 };
 use crypto::hash::blake3;

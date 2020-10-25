@@ -1,4 +1,4 @@
-use super::ProofOptions;
+use crate::ProofOptions;
 use crypto::BatchMerkleProof;
 use math::field::FieldElement;
 use serde::{Deserialize, Serialize};

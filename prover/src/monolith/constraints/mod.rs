@@ -3,10 +3,8 @@ use super::{
     utils,
 };
 use common::{
-    errors::ProverError,
-    stark::{AssertionEvaluator, ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator},
-    utils::uninit_vector,
-    ComputationContext,
+    errors::ProverError, utils::uninit_vector, AssertionEvaluator, ComputationContext,
+    ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{

@@ -173,10 +173,7 @@ fn group_assertions(
 #[cfg(test)]
 mod tests {
 
-    use crate::{
-        stark::{Assertion, ProofOptions, RandomGenerator},
-        ComputationContext,
-    };
+    use crate::{Assertion, ComputationContext, ProofOptions, RandomGenerator};
     use crypto::hash::blake3;
     use math::field::FieldElement;
 
