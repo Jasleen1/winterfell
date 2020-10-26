@@ -1,10 +1,7 @@
 use common::{
-    errors::ProverError,
-    stark::{
-        Assertion, AssertionEvaluator, ConstraintEvaluator, ProofContext, ProofOptions, PublicCoin,
-        StarkProof, TransitionEvaluator,
-    },
-    utils::log2,
+    errors::ProverError, proof::StarkProof, utils::log2, Assertion, AssertionEvaluator,
+    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, ProofOptions, PublicCoin,
+    TransitionEvaluator,
 };
 use log::debug;
 use math::field::FieldElement;
@@ -36,7 +33,7 @@ mod tests;
 // PROVER
 // ================================================================================================
 
-pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator> {
+pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAssertionEvaluator> {
     options: ProofOptions,
     _marker1: PhantomData<T>,
     _marker2: PhantomData<A>,
@@ -45,7 +42,6 @@ pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator> {
 impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
     /// Creates a new prover for the specified `options`. Generic parameters T and A
     /// define specifics of the computation for this prover.
-    /// TODO: set a default value for A?
     pub fn new(options: ProofOptions) -> Prover<T, A> {
         Prover {
             options,
@@ -66,7 +62,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // create context to hold basic parameters for the computation; the context is also
         // used as a single source for such parameters as domain sizes, constraint degrees etc.
-        let context = ProofContext::new(
+        let context = ComputationContext::new(
             trace.num_registers(),
             trace.num_states(),
             T::get_ce_blowup_factor(),
@@ -255,7 +251,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 // ================================================================================================
 
 fn validate_assertions(trace: &TraceTable, assertions: &[Assertion]) {
-    // TODO: check for duplicated assertions
     // TODO: eventually, this should return errors instead of panicking
     assert!(
         !assertions.is_empty(),

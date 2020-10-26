@@ -4,7 +4,7 @@ use log::debug;
 use prover::{
     crypto::hash::blake3,
     math::field::{FieldElement, StarkField},
-    Assertion, BasicAssertionEvaluator, ProofOptions, Prover, StarkProof,
+    Assertion, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -60,7 +60,7 @@ impl Example for FibExample {
 
         // instantiate the prover
         let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
-        let prover = Prover::<FibEvaluator, BasicAssertionEvaluator>::new(options);
+        let prover = Prover::<FibEvaluator>::new(options);
 
         // Generate the proof
         let assertions = vec![
@@ -72,7 +72,7 @@ impl Example for FibExample {
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
-        let verifier = Verifier::<FibEvaluator, BasicAssertionEvaluator>::new();
+        let verifier = Verifier::<FibEvaluator>::new();
         verifier.verify(proof, assertions)
     }
 }

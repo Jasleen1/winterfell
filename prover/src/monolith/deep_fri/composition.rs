@@ -2,7 +2,7 @@ use super::{
     types::{CompositionPoly, ConstraintPoly, LdeDomain, PolyTable},
     utils,
 };
-use common::stark::{CompositionCoefficients, DeepValues};
+use common::{proof::DeepValues, CompositionCoefficients};
 use math::{
     fft,
     field::{FieldElement, StarkField},
@@ -46,7 +46,7 @@ pub fn compose_trace_polys(
             &mut t1_composition,
             &polys[i],
             trace_state1[i],
-            cc.trace1[i],
+            cc.trace[i].0,
         );
 
         // compute T2(x) = (T(x) - T(z * g)), multiply it by a pseudo-random
@@ -55,7 +55,7 @@ pub fn compose_trace_polys(
             &mut t2_composition,
             &polys[i],
             trace_state2[i],
-            cc.trace2[i],
+            cc.trace[i].1,
         );
     }
 
@@ -83,13 +83,13 @@ pub fn compose_trace_polys(
     utils::mul_acc(
         &mut composition_poly[..trace_length],
         &trace_poly,
-        cc.t1_degree,
+        cc.trace_degree.0,
     );
     // this is equivalent to T(x) * x^incremental_degree * k_2
     utils::mul_acc(
         &mut composition_poly[incremental_degree..(incremental_degree + trace_length)],
         &trace_poly,
-        cc.t2_degree,
+        cc.trace_degree.1,
     );
 
     // trace states at OOD points z and z * g are returned to be included in the proof

@@ -1,8 +1,10 @@
-use common::errors::VerifierError;
-use common::stark::{
-    Assertion, AssertionEvaluator, CompositionCoefficients, ConstraintEvaluator, DeepValues,
-    ProofContext, PublicCoin, StarkProof, TransitionEvaluator,
+use common::{
+    errors::VerifierError,
+    proof::{DeepValues, StarkProof},
+    Assertion, AssertionEvaluator, ComputationContext, ConstraintEvaluator,
+    DefaultAssertionEvaluator, TransitionEvaluator,
 };
+use common::{CompositionCoefficients, PublicCoin};
 
 use math::field::{FieldElement, StarkField};
 use std::marker::PhantomData;
@@ -13,7 +15,7 @@ mod fri;
 // VERIFIER
 // ================================================================================================
 
-pub struct Verifier<T: TransitionEvaluator, A: AssertionEvaluator> {
+pub struct Verifier<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAssertionEvaluator> {
     _marker1: PhantomData<T>,
     _marker2: PhantomData<A>,
 }
@@ -153,7 +155,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 
 /// TODO: add comments
 fn compose_registers(
-    context: &ProofContext,
+    context: &ComputationContext,
     trace_states: &[Vec<FieldElement>],
     x_coordinates: &[FieldElement],
     deep_values: &DeepValues,
@@ -176,18 +178,17 @@ fn compose_registers(
             // compute T1(x) = (T(x) - T(z)) / (x - z)
             let t1 = (value - trace_at_z1[i]) / (x - z);
             // multiply it by a pseudo-random coefficient, and combine with result
-            composition = composition + t1 * cc.trace1[i];
+            composition = composition + t1 * cc.trace[i].0;
 
             // compute T2(x) = (T(x) - T(z * g)) / (x - z * g)
             let t2 = (value - trace_at_z2[i]) / (x - next_z);
             // multiply it by a pseudo-random coefficient, and combine with result
-            composition = composition + t2 * cc.trace2[i];
+            composition = composition + t2 * cc.trace[i].1;
         }
 
         // raise the degree to match composition degree
         let xp = FieldElement::exp(x, incremental_degree);
-        let adj_composition = composition * xp * cc.t2_degree;
-        composition = composition * cc.t1_degree + adj_composition;
+        composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
 
         result.push(composition);
     }

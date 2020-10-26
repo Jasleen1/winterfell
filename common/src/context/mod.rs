@@ -1,11 +1,11 @@
-use super::ProofOptions;
+use crate::ProofOptions;
 use math::field::{FieldElement, StarkField};
 
 // TYPES AND INTERFACES
 // ================================================================================================
 
 #[derive(Clone)]
-pub struct ProofContext {
+pub struct ComputationContext {
     options: ProofOptions,
     trace_width: usize,
     trace_length: usize,
@@ -20,14 +20,15 @@ pub struct Generators {
     pub lde_domain: FieldElement,
 }
 
-// PROOF CONTEXT
+// COMPUTATION CONTEXT
 // ================================================================================================
 
-impl ProofContext {
+impl ComputationContext {
     // CONSTANTS
     // --------------------------------------------------------------------------------------------
     pub const MAX_FRI_REMAINDER_LENGTH: usize = 256;
     pub const FRI_FOLDING_FACTOR: usize = 4;
+    pub const MIN_TRACE_LENGTH: usize = 8;
 
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
@@ -38,36 +39,41 @@ impl ProofContext {
         ce_blowup_factor: usize,
         options: ProofOptions,
     ) -> Self {
-        // trace domain generator
-        let g_trace = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
-
-        // constraint evaluation domain generator
+        assert!(
+            trace_width > 0,
+            "trace_width must be greater than 0; was {}",
+            trace_width
+        );
+        assert!(
+            trace_length >= Self::MIN_TRACE_LENGTH,
+            "trace_length must beat least {}; was {}",
+            Self::MIN_TRACE_LENGTH,
+            trace_length
+        );
+        assert!(
+            trace_length.is_power_of_two(),
+            "trace_length must be a power of 2; was {}",
+            trace_length
+        );
         assert!(
             ce_blowup_factor > 1,
-            "ce_blowup_factor must be greater than 1"
+            "ce_blowup_factor must be greater than 1; was {}",
+            ce_blowup_factor
         );
         assert!(
             ce_blowup_factor.is_power_of_two(),
             "ce_blowup_factor must be a power of 2; was {}",
             ce_blowup_factor
         );
-        let ce_domain_size = compute_ce_domain_size(trace_length, ce_blowup_factor);
-        let g_ce = FieldElement::get_root_of_unity(ce_domain_size.trailing_zeros());
 
-        // low-degree extension domain generator
-        let lde_domain_size = compute_lde_domain_size(trace_length, options.blowup_factor());
-        let g_lde = FieldElement::get_root_of_unity(lde_domain_size.trailing_zeros());
+        let generators = build_generators(trace_length, ce_blowup_factor, options.blowup_factor());
 
-        ProofContext {
+        ComputationContext {
             options,
             trace_width,
             trace_length,
             ce_blowup_factor,
-            generators: Generators {
-                trace_domain: g_trace,
-                ce_domain: g_ce,
-                lde_domain: g_lde,
-            },
+            generators,
         }
     }
 
@@ -153,4 +159,19 @@ fn compute_lde_domain_size(trace_length: usize, lde_blowup_factor: usize) -> usi
 
 fn compute_ce_domain_size(trace_length: usize, ce_blowup_factor: usize) -> usize {
     trace_length * ce_blowup_factor
+}
+
+fn build_generators(
+    trace_length: usize,
+    ce_blowup_factor: usize,
+    lde_blowup_factor: usize,
+) -> Generators {
+    let ce_domain_size = compute_ce_domain_size(trace_length, ce_blowup_factor);
+    let lde_domain_size = compute_lde_domain_size(trace_length, lde_blowup_factor);
+
+    Generators {
+        trace_domain: FieldElement::get_root_of_unity(trace_length.trailing_zeros()),
+        ce_domain: FieldElement::get_root_of_unity(ce_domain_size.trailing_zeros()),
+        lde_domain: FieldElement::get_root_of_unity(lde_domain_size.trailing_zeros()),
+    }
 }

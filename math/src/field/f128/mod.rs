@@ -7,10 +7,7 @@ use core::{
     ops::{Add, Div, Mul, Neg, Range, Sub},
     slice,
 };
-use rand::{
-    distributions::{DistIter, Uniform},
-    prelude::*,
-};
+use rand::{distributions::Uniform, prelude::*};
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -43,14 +40,6 @@ impl FieldElement {
     /// TODO: move into StarkField trait?
     pub const fn new(value: u128) -> Self {
         FieldElement(if value < M { value } else { value - M })
-    }
-
-    /// Return an iterator of pseudo-random field elements generated from a given `seed`.
-    /// TODO: remove
-    pub fn prng_iter(seed: [u8; 32]) -> DistIter<Uniform<u128>, StdRng, u128> {
-        let range = Uniform::from(RANGE);
-        let g = StdRng::from_seed(seed);
-        g.sample_iter(range)
     }
 
     /// Returns filed element converted to u128 representation.
@@ -114,6 +103,13 @@ impl StarkField for FieldElement {
         let range = Uniform::from(RANGE);
         let g = StdRng::from_seed(seed);
         g.sample_iter(range).take(n).map(FieldElement).collect()
+    }
+
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
+        match Self::try_from(bytes) {
+            Ok(value) => Some(value),
+            Err(_) => None,
+        }
     }
 
     fn to_bytes(&self) -> Vec<u8> {

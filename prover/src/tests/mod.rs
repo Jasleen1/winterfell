@@ -1,6 +1,12 @@
-use common::stark::{ConstraintDegree, ProofContext, ProofOptions, TransitionEvaluator};
+use common::{
+    ComputationContext, ConstraintDegree, ProofOptions, RandomGenerator, TransitionConstraintGroup,
+    TransitionEvaluator,
+};
 use crypto::hash::blake3;
 use math::field::{FieldElement, StarkField};
+
+// FIBONACCI TRACE BUILDER
+// ================================================================================================
 
 pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
     assert!(length.is_power_of_two(), "length must be a power of 2");
@@ -20,26 +26,25 @@ pub fn build_proof_context(
     trace_length: usize,
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
-) -> ProofContext {
+) -> ComputationContext {
     let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
-    ProofContext::new(2, trace_length, ce_blowup_factor, options)
+    ComputationContext::new(2, trace_length, ce_blowup_factor, options)
 }
 
+// FIBONACCI TRANSITION EVALUATOR
+// ================================================================================================
+
 pub struct FibEvaluator {
-    constraint_degrees: Vec<ConstraintDegree>,
-    composition_coefficients: Vec<FieldElement>,
+    constraint_groups: Vec<TransitionConstraintGroup>,
 }
 
 impl TransitionEvaluator for FibEvaluator {
-    const MAX_CONSTRAINTS: usize = 2;
-
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(_context: &ProofContext, coefficients: &[FieldElement]) -> Self {
-        let degree = ConstraintDegree::new(1);
+    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
+        let degrees = vec![ConstraintDegree::new(1); 2];
         FibEvaluator {
-            constraint_degrees: vec![degree.clone(), degree],
-            composition_coefficients: coefficients[..4].to_vec(),
+            constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),
         }
     }
 
@@ -80,14 +85,13 @@ impl TransitionEvaluator for FibEvaluator {
 
     // BOILERPLATE
     // --------------------------------------------------------------------------------------------
-    fn degrees(&self) -> &[ConstraintDegree] {
-        &self.constraint_degrees
-    }
-
-    fn composition_coefficients(&self) -> &[FieldElement] {
-        &self.composition_coefficients
+    fn constraint_groups(&self) -> &[TransitionConstraintGroup] {
+        &self.constraint_groups
     }
 }
+
+// HELPER FUNCTIONS
+// ================================================================================================
 
 fn are_equal(a: FieldElement, b: FieldElement) -> FieldElement {
     a - b

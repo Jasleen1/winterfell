@@ -1,12 +1,11 @@
-use super::{ProofContext, PublicCoin};
-use crate::errors::*;
+use crate::{errors::*, ComputationContext, PublicCoin, RandomGenerator};
 use math::field::{FieldElement, StarkField};
 
 mod transition;
-pub use transition::{group_transition_constraints, TransitionEvaluator};
+pub use transition::{TransitionConstraintGroup, TransitionEvaluator};
 
 mod assertions;
-pub use assertions::{Assertion, AssertionEvaluator, BasicAssertionEvaluator};
+pub use assertions::{Assertion, AssertionEvaluator, DefaultAssertionEvaluator};
 
 mod constraints;
 pub use constraints::{ConstraintDegree, ConstraintDivisor};
@@ -20,11 +19,10 @@ mod tests;
 pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
-    context: ProofContext,
+    context: ComputationContext,
     evaluations: Vec<FieldElement>,
     t_evaluations: Vec<FieldElement>,
     divisors: Vec<ConstraintDivisor>,
-    transition_degree_map: Vec<(u128, Vec<usize>)>,
 
     #[cfg(debug_assertions)]
     t_evaluation_table: Vec<Vec<FieldElement>>,
@@ -36,7 +34,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
 
     pub fn new<C: PublicCoin>(
         coin: &C,
-        context: &ProofContext,
+        context: &ComputationContext,
         assertions: Vec<Assertion>,
     ) -> Result<Self, EvaluatorError> {
         assert!(
@@ -44,22 +42,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             "at least one assertion must be provided"
         );
 
-        // build coefficients for constraint combination
-        // TODO: switch over to an iterator to generate coefficients?
-        let (t_coefficients, a_coefficients) = Self::build_coefficients(coin);
-
-        // instantiate transition constraint evaluator and group constraints by their
-        // degree for more efficient combination later
-        // TODO: move constraint grouping into transition constraint evaluator?
-        let transition = T::new(context, &t_coefficients);
-        let transition_degree_map = group_transition_constraints(
-            context.composition_degree(),
-            transition.degrees(),
-            context.trace_length(),
-        );
-
-        // instantiate assertion constraint evaluator
-        let assertions = A::new(&context, &assertions, &a_coefficients)?;
+        // instantiate transition and assertion constraint evaluators
+        let transition = T::new(context, coin.get_transition_coefficient_prng());
+        let assertions = A::new(context, &assertions, coin.get_assertion_coefficient_prng())?;
 
         // determine divisors for all constraints; since divisor for all transition constraints
         // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
@@ -74,15 +59,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             // in debug mode, we keep track of all evaluated transition constraints so that
             // we can verify that their stated degrees match their actual degrees
             #[cfg(debug_assertions)]
-            t_evaluation_table: transition.degrees().iter().map(|_| Vec::new()).collect(),
+            t_evaluation_table: (0..transition.num_constraints())
+                .map(|_| Vec::new())
+                .collect(),
 
-            t_evaluations: vec![FieldElement::ZERO; transition.degrees().len()],
+            t_evaluations: vec![FieldElement::ZERO; transition.num_constraints()],
             transition,
             assertions,
             context: context.clone(),
             evaluations: vec![FieldElement::ZERO; divisors.len()],
             divisors,
-            transition_degree_map,
         })
     }
 
@@ -130,8 +116,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             // if all transition constraint evaluations are zeros, the combination is also zero
             FieldElement::ZERO
         } else {
-            // TODO: move this into transition constraint evaluator?
-            self.merge_transition_evaluations(&self.t_evaluations, x)
+            self.transition.merge_evaluations(&self.t_evaluations, x)
         };
 
         // evaluate boundary constraints defined by assertions and save the result into
@@ -159,7 +144,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // evaluate transition constraints and merge them into a single value
         self.transition
             .evaluate_at_x(&mut self.t_evaluations, current, next, x);
-        self.evaluations[0] = self.merge_transition_evaluations(&self.t_evaluations, x);
+        self.evaluations[0] = self.transition.merge_evaluations(&self.t_evaluations, x);
 
         // evaluate boundary constraints defined by assertions and save the result into
         // the evaluations buffer starting at slot 1
@@ -172,6 +157,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     // ACCESSORS
     // --------------------------------------------------------------------------------------------
 
+    /// Returns length of un-extended execution trace.
     pub fn trace_length(&self) -> usize {
         self.context.trace_length()
     }
@@ -181,6 +167,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.context.ce_domain_size()
     }
 
+    /// Returns blowup factor for constraint evaluation domain.
     pub fn ce_blowup_factor(&self) -> usize {
         self.context.ce_blowup_factor()
     }
@@ -190,10 +177,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.context.lde_domain_size()
     }
 
+    /// Returns blowup factor for low-degree extension domain.
     pub fn lde_blowup_factor(&self) -> usize {
         self.context.options().blowup_factor()
     }
 
+    /// Returns a list of constraint divisors defined for this evaluator.
     pub fn constraint_divisors(&self) -> &[ConstraintDivisor] {
         &self.divisors
     }
@@ -207,54 +196,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         && (step != self.ce_domain_size() - self.ce_blowup_factor())
     }
 
-    /// Merges all transition constraint evaluations into a single value; we can do this
-    /// because all transition constraint evaluations have the same divisor, and this
-    /// divisor will be applied later to this single value.
-    /// TODO: move into transition constraint evaluator?
-    fn merge_transition_evaluations(
-        &self,
-        evaluations: &[FieldElement],
-        x: FieldElement,
-    ) -> FieldElement {
-        let cc = self.transition.composition_coefficients();
-
-        // there must be two coefficients for each constraint evaluation
-        debug_assert_eq!(evaluations.len() * 2, cc.len());
-
-        let mut result = FieldElement::ZERO;
-
-        let mut i = 0;
-        for (incremental_degree, constraints) in self.transition_degree_map.iter() {
-            // for each group of constraints with the same degree, separately compute
-            // combinations of D(x) and D(x) * x^p
-            let mut result_adj = FieldElement::ZERO;
-            for &constraint_idx in constraints.iter() {
-                let evaluation = evaluations[constraint_idx];
-                result = result + evaluation * cc[i * 2];
-                result_adj = result_adj + evaluation * cc[i * 2 + 1];
-                i += 1;
-            }
-
-            // increase the degree of D(x) * x^p
-            let xp = FieldElement::exp(x, *incremental_degree);
-            result = result + result_adj * xp;
-        }
-
-        result
-    }
-
-    fn build_coefficients<C: PublicCoin>(coin: &C) -> (Vec<FieldElement>, Vec<FieldElement>) {
-        let num_t_coefficients = T::MAX_CONSTRAINTS * 2;
-        let num_a_coefficients = A::MAX_CONSTRAINTS * 2;
-
-        let coefficients =
-            coin.draw_constraint_coefficients(num_t_coefficients + num_a_coefficients);
-        (
-            coefficients[..num_t_coefficients].to_vec(),
-            coefficients[num_t_coefficients..].to_vec(),
-        )
-    }
-
     // DEBUG HELPERS
     // --------------------------------------------------------------------------------------------
 
@@ -265,8 +206,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // collect expected degrees for all transition constraints
         let expected_degrees: Vec<_> = self
             .transition
-            .degrees()
-            .iter()
+            .get_constraint_degrees()
+            .into_iter()
             .map(|d| d.get_evaluation_degree(self.trace_length()))
             .collect();
 

@@ -4,8 +4,7 @@ use common::errors::VerifierError;
 use log::debug;
 use prover::crypto::hash::rescue_s;
 use prover::{
-    crypto::hash::blake3, math::field::FieldElement, Assertion, BasicAssertionEvaluator,
-    ProofOptions, Prover, StarkProof,
+    crypto::hash::blake3, math::field::FieldElement, Assertion, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -89,7 +88,7 @@ impl Example for RescueExample {
 
         // instantiate the prover
         let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
-        let prover = Prover::<RescueEvaluator, BasicAssertionEvaluator>::new(options);
+        let prover = Prover::<RescueEvaluator>::new(options);
 
         // Assert starting and ending values of the hash chain
         let assertions = vec![
@@ -104,7 +103,7 @@ impl Example for RescueExample {
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
-        let verifier = Verifier::<RescueEvaluator, BasicAssertionEvaluator>::new();
+        let verifier = Verifier::<RescueEvaluator>::new();
         verifier.verify(proof, assertions)
     }
 }

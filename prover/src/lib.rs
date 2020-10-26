@@ -6,9 +6,9 @@ mod channel;
 #[cfg(test)]
 pub mod tests;
 
-pub use common::stark::{
-    Assertion, AssertionEvaluator, BasicAssertionEvaluator, ConstraintDegree, ProofContext,
-    ProofOptions, StarkProof, TransitionEvaluator,
+pub use common::{
+    proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext, ConstraintDegree,
+    ProofOptions, RandomGenerator, TransitionConstraintGroup, TransitionEvaluator,
 };
 pub use crypto;
 pub use math;

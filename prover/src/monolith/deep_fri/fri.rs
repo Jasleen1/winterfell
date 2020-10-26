@@ -1,8 +1,9 @@
 use super::super::types::LdeDomain;
 use crate::channel::ProverChannel;
-use common::stark::{
+use common::{
     fri_utils::{get_augmented_positions, hash_values},
-    FriLayer, FriProof, ProofContext, PublicCoin,
+    proof::{FriLayer, FriProof},
+    ComputationContext, PublicCoin,
 };
 use crypto::MerkleTree;
 use math::{
@@ -12,7 +13,7 @@ use math::{
 use std::mem;
 
 pub fn reduce(
-    context: &ProofContext,
+    context: &ComputationContext,
     channel: &mut ProverChannel,
     evaluations: &[FieldElement],
     lde_domain: &LdeDomain,
@@ -63,9 +64,9 @@ pub fn reduce(
 
     // make sure remainder length does not exceed max allowed value
     debug_assert!(
-        p_values.len() * 4 <= ProofContext::MAX_FRI_REMAINDER_LENGTH,
+        p_values.len() * 4 <= ComputationContext::MAX_FRI_REMAINDER_LENGTH,
         "last FRI layer cannot exceed {} elements, but was {} elements",
-        ProofContext::MAX_FRI_REMAINDER_LENGTH,
+        ComputationContext::MAX_FRI_REMAINDER_LENGTH,
         p_values.len() * 4
     );
 
