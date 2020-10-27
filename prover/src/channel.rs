@@ -4,6 +4,7 @@ use common::{
 };
 use crypto::{BatchMerkleProof, HashFunction};
 use math::field::FieldElement;
+use std::convert::TryInto;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -13,6 +14,8 @@ pub struct ProverChannel {
     trace_root: Option<[u8; 32]>,
     constraint_root: Option<[u8; 32]>,
     fri_roots: Vec<[u8; 32]>,
+    query_seed: Option<[u8; 32]>,
+    pow_nonce: u64,
 }
 
 // PROVER CHANNEL IMPLEMENTATION
@@ -26,6 +29,8 @@ impl ProverChannel {
             trace_root: None,
             constraint_root: None,
             fri_roots: Vec::new(),
+            query_seed: None,
+            pow_nonce: 0,
         }
     }
 
@@ -50,6 +55,24 @@ impl ProverChannel {
     /// Commits the prover to the a FRI layer.
     pub fn commit_fri_layer(&mut self, layer_root: [u8; 32]) {
         self.fri_roots.push(layer_root);
+    }
+
+    /// Computes query seed from a combination of FRI layers and applies PoW to the seed
+    /// based on the grinding_factor specified by the options
+    pub fn grind_query_seed(&mut self) {
+        assert!(
+            !self.fri_roots.is_empty(),
+            "FRI layers haven't been computed yet"
+        );
+        assert!(
+            self.query_seed.is_none(),
+            "query seed has already been computed"
+        );
+        let options = self.context().options();
+        let seed = build_query_seed(&self.fri_roots, options.hash_fn());
+        let (seed, nonce) = find_pow_nonce(seed, options.grinding_factor(), options.hash_fn());
+        self.query_seed = Some(seed);
+        self.pow_nonce = nonce;
     }
 
     /// Builds a proof from the previously committed values as well as values
@@ -80,7 +103,7 @@ impl ProverChannel {
             },
             deep_values,
             fri_proof,
-            pow_nonce: 0,
+            pow_nonce: self.pow_nonce,
         }
     }
 }
@@ -112,8 +135,8 @@ impl PublicCoin for ProverChannel {
     }
 
     fn query_seed(&self) -> [u8; 32] {
-        assert!(!self.fri_roots.is_empty(), "query seed is not set");
-        build_query_seed(&self.fri_roots, self.context.options().hash_fn())
+        assert!(self.query_seed.is_some(), "query seed is not set");
+        self.query_seed.unwrap()
     }
 }
 
@@ -130,6 +153,30 @@ fn build_query_seed(fri_roots: &[[u8; 32]], hash_fn: HashFunction) -> [u8; 32] {
     let mut query_seed = [0u8; 32];
     hash_fn(&root_bytes, &mut query_seed);
 
-    // TODO: let (query_seed, pow_nonce) = utils::find_pow_nonce(query_seed, &options);
     query_seed
+}
+
+fn find_pow_nonce(seed: [u8; 32], grinding_factor: u32, hash: HashFunction) -> ([u8; 32], u64) {
+    let mut buf = [0; 64];
+    let mut result = [0; 32];
+    let mut nonce = 0u64;
+
+    // copy seed into the buffer
+    buf[0..32].copy_from_slice(&seed);
+
+    // increment the counter (u64 in the last 8 bytes) and hash until the output starts
+    // with the number of leading zeros specified by the grinding_factor
+    loop {
+        nonce += 1;
+        buf[56..].copy_from_slice(&nonce.to_le_bytes());
+
+        hash(&buf, &mut result);
+
+        let seed_head = u64::from_le_bytes(result[..8].try_into().unwrap());
+        if seed_head.trailing_zeros() >= grinding_factor {
+            break;
+        }
+    }
+
+    (result, nonce)
 }

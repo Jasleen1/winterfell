@@ -3,7 +3,7 @@ use common::{
     fri_utils,
     proof::{Commitments, DeepValues, FriLayer, StarkProof},
     utils::{log2, uninit_vector},
-    ComputationContext, PublicCoin,
+    ComputationContext, ProofOptions, PublicCoin,
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
@@ -11,6 +11,7 @@ use math::{
     field::{AsBytes, FieldElement},
     quartic,
 };
+use std::convert::TryInto;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -25,6 +26,7 @@ pub struct VerifierChannel {
     fri_proofs: Vec<BatchMerkleProof>,
     fri_queries: Vec<Vec<[FieldElement; 4]>>,
     fri_remainder: Vec<FieldElement>,
+    query_seed: [u8; 32],
 }
 
 // VERIFIER CHANNEL IMPLEMENTATION
@@ -32,7 +34,7 @@ pub struct VerifierChannel {
 
 impl VerifierChannel {
     /// Creates and returns a new verifier channel initialized from the specified `proof`.
-    pub fn new(proof: StarkProof) -> Self {
+    pub fn new(proof: StarkProof) -> Result<Self, VerifierError> {
         // build context ------------------------------------------------------
         let context = proof.context;
         let trace_width = proof.deep_values.trace_at_z1.len();
@@ -58,7 +60,14 @@ impl VerifierChannel {
         // build FRI proofs ----------------------------------------------------
         let (fri_proofs, fri_queries) = build_fri_proofs(proof.fri_proof.layers, hash_fn);
 
-        VerifierChannel {
+        // build query seed ----------------------------------------------------
+        let query_seed = build_query_seed(
+            &proof.commitments.fri_roots,
+            proof.pow_nonce,
+            &context.options(),
+        )?;
+
+        Ok(VerifierChannel {
             context,
             commitments: proof.commitments,
             deep_values: proof.deep_values,
@@ -68,7 +77,8 @@ impl VerifierChannel {
             fri_proofs,
             fri_queries,
             fri_remainder: proof.fri_proof.rem_values,
-        }
+            query_seed,
+        })
     }
 
     /// Reads proof context from the channel.
@@ -194,10 +204,7 @@ impl PublicCoin for VerifierChannel {
     }
 
     fn query_seed(&self) -> [u8; 32] {
-        build_query_seed(
-            &self.commitments.fri_roots,
-            self.context.options().hash_fn(),
-        )
+        self.query_seed
     }
 }
 
@@ -251,7 +258,13 @@ fn map_trace_to_constraint_positions(positions: &[usize]) -> Vec<usize> {
     result
 }
 
-fn build_query_seed(fri_roots: &[[u8; 32]], hash_fn: HashFunction) -> [u8; 32] {
+fn build_query_seed(
+    fri_roots: &[[u8; 32]],
+    nonce: u64,
+    options: &ProofOptions,
+) -> Result<[u8; 32], VerifierError> {
+    let hash = options.hash_fn();
+
     // combine roots of all FIR layers into a single array of bytes
     let mut root_bytes: Vec<u8> = Vec::with_capacity(fri_roots.len() * 32);
     for root in fri_roots.iter() {
@@ -260,15 +273,19 @@ fn build_query_seed(fri_roots: &[[u8; 32]], hash_fn: HashFunction) -> [u8; 32] {
 
     // hash the array of bytes into a single 32-byte value
     let mut query_seed = [0u8; 32];
-    hash_fn(&root_bytes, &mut query_seed);
+    hash(&root_bytes, &mut query_seed);
 
-    /*
-    // TODO: verify proof of work
-    let seed = match utils::verify_pow_nonce(seed, proof.pow_nonce(), &self.options) {
-        Ok(seed) => seed,
-        Err(msg) => return Err(msg)
-    };
-    */
+    // verify proof of work
+    let mut input_bytes = [0; 64];
+    input_bytes[0..32].copy_from_slice(&query_seed);
+    input_bytes[56..].copy_from_slice(&nonce.to_le_bytes());
 
-    query_seed
+    hash(&input_bytes, &mut query_seed);
+
+    let seed_head = u64::from_le_bytes(query_seed[..8].try_into().unwrap());
+    if seed_head.trailing_zeros() < options.grinding_factor() {
+        return Err(VerifierError::QuerySeedProofOfWorkVerificationFailed);
+    }
+
+    Ok(query_seed)
 }

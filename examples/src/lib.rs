@@ -14,6 +14,7 @@ pub trait Example {
         n: usize,
         blowup_factor: usize,
         num_queries: usize,
+        grinding_factor: u32,
     ) -> (StarkProof, Vec<Assertion>);
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError>;
 }

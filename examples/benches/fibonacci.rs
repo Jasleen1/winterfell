@@ -12,7 +12,7 @@ fn fibonacci(c: &mut Criterion) {
     let fib = fibonacci::get_example();
     for &size in SIZES.iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |bench, &size| {
-            bench.iter(|| fib.prove(size, 8, 32));
+            bench.iter(|| fib.prove(size, 8, 32, 0));
         });
     }
     group.finish();
