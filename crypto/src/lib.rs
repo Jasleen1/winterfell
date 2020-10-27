@@ -1,5 +1,6 @@
 pub mod hash;
 
+mod lamport;
 mod merkle;
 pub use merkle::{build_merkle_nodes, BatchMerkleProof, MerkleTree};
 
