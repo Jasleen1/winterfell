@@ -2,10 +2,14 @@ name: Benchmarks
 
 on:
   pull_request:
-    types: [opened, reopened, updated, synchronize]
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+
 
 jobs:
   run_benchmarks:
+    if: (contains(github.event.comment.html_url, '/pull/') && contains(github.event.comment.body, 'benchrun')) || (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
 
     steps:
