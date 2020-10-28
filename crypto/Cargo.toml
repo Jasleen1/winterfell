@@ -11,7 +11,8 @@ name = "hash"
 harness = false
 
 [dependencies]
-blake3 = "0.3.6"
+digest = "0.9.0"
+blake3 = "0.3.7"
 sha3 = "0.9.1"
 serde = { version = "1.0.114", features = ["derive"] }
 math = { path = "../math" }
