@@ -3,6 +3,11 @@ use crypto::BatchMerkleProof;
 use math::field::FieldElement;
 use serde::{Deserialize, Serialize};
 
+// CONSTANTS
+// ================================================================================================
+
+const GRINDING_CONTRIBUTION_FLOOR: u32 = 80;
+
 // TYPES AND INTERFACES
 // ================================================================================================
 
@@ -76,8 +81,8 @@ impl StarkProof {
         let security_per_query = 31 - one_over_rho.leading_zeros(); // same as log2(one_over_rho)
         let mut result = security_per_query * num_queries as u32;
 
-        // include grinding factor contributions only for proofs with over 80 bits of security
-        if result >= 80 {
+        // include grinding factor contributions only for proofs adequate security
+        if result >= GRINDING_CONTRIBUTION_FLOOR {
             result += options.grinding_factor();
         }
 
