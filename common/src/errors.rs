@@ -38,6 +38,8 @@ pub enum VerifierError {
     TraceQueryDoesNotMatchCommitment,
     /// Constraint query did not match the commitment
     ConstraintQueryDoesNotMatchCommitment,
+    /// Query seed proof-of-work verification failed
+    QuerySeedProofOfWorkVerificationFailed,
 }
 
 /// Represents an error thrown during evaluation

@@ -3,6 +3,11 @@ use crypto::BatchMerkleProof;
 use math::field::FieldElement;
 use serde::{Deserialize, Serialize};
 
+// CONSTANTS
+// ================================================================================================
+
+const GRINDING_CONTRIBUTION_FLOOR: u32 = 80;
+
 // TYPES AND INTERFACES
 // ================================================================================================
 
@@ -61,8 +66,6 @@ pub struct DeepValues {
 // STARK PROOF IMPLEMENTATION
 // ================================================================================================
 impl StarkProof {
-    // SECURITY LEVEL
-    // -------------------------------------------------------------------------------------------
     pub fn security_level(&self, optimistic: bool) -> u32 {
         let options = &self.context.options;
 
@@ -76,15 +79,16 @@ impl StarkProof {
         let one_over_rho =
             (options.blowup_factor() / self.context.ce_blowup_factor as usize) as u32;
         let security_per_query = 31 - one_over_rho.leading_zeros(); // same as log2(one_over_rho)
+        let mut result = security_per_query * num_queries as u32;
 
-        let mut result1 = security_per_query * num_queries as u32;
-        if result1 >= 80 {
-            result1 += options.grinding_factor() as u32;
+        // include grinding factor contributions only for proofs adequate security
+        if result >= GRINDING_CONTRIBUTION_FLOOR {
+            result += options.grinding_factor();
         }
 
         // log2(field size) - log2(extended trace length)
-        let result2 = (128 - self.context.lde_domain_depth) as u32;
+        let max_fri_security = (128 - self.context.lde_domain_depth) as u32;
 
-        std::cmp::min(result1, result2)
+        std::cmp::min(result, max_fri_security)
     }
 }

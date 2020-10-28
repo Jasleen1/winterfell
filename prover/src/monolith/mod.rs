@@ -210,6 +210,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 8 ----- determine query positions ------------------------------------------------------
         let now = Instant::now();
 
+        // apply proof-of-work to the query seed
+        channel.grind_query_seed();
+
         // generate pseudo-random query positions
         let query_positions = channel.draw_query_positions();
         debug!(

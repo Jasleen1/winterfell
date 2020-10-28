@@ -12,7 +12,7 @@ fn rescue(c: &mut Criterion) {
     let resc = rescue::get_example();
     for &size in SIZES.iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |bench, &size| {
-            bench.iter(|| resc.prove(size, 32, 32));
+            bench.iter(|| resc.prove(size, 32, 32, 0));
         });
     }
     group.finish();

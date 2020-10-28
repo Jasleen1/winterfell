@@ -38,6 +38,7 @@ impl Example for RescueExample {
         mut chain_length: usize,
         mut blowup_factor: usize,
         mut num_queries: usize,
+        grinding_factor: u32,
     ) -> (StarkProof, Vec<Assertion>) {
         // apply defaults
         if chain_length == 0 {
@@ -47,7 +48,7 @@ impl Example for RescueExample {
             blowup_factor = 32;
         }
         if num_queries == 0 {
-            num_queries = 32;
+            num_queries = 28;
         }
 
         // initialize a seed for the start of the hash chain
@@ -87,7 +88,7 @@ impl Example for RescueExample {
         );
 
         // instantiate the prover
-        let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
+        let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
         let prover = Prover::<RescueEvaluator>::new(options);
 
         // Assert starting and ending values of the hash chain

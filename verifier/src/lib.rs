@@ -40,7 +40,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         // initializes a channel which is used to simulate interaction between the prover
         // and the verifier; the verifier can read the values written by the prover into the
         // channel, and also draws random values which the prover uses during proof construction
-        let channel = channel::VerifierChannel::new(proof);
+        let channel = channel::VerifierChannel::new(proof)?;
 
         // reads the computation context from the channel. The context contains basic parameters
         // such as trace length, domain sizes, constraint degrees etc.

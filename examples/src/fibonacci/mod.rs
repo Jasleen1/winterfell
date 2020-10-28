@@ -26,16 +26,17 @@ impl Example for FibExample {
         mut sequence_length: usize,
         mut blowup_factor: usize,
         mut num_queries: usize,
+        grinding_factor: u32,
     ) -> (StarkProof, Vec<Assertion>) {
         // apply defaults
         if sequence_length == 0 {
             sequence_length = 1_048_576;
         }
         if blowup_factor == 0 {
-            blowup_factor = 8;
+            blowup_factor = 16;
         }
         if num_queries == 0 {
-            num_queries = 32;
+            num_queries = 28;
         }
 
         debug!(
@@ -59,7 +60,7 @@ impl Example for FibExample {
         );
 
         // instantiate the prover
-        let options = ProofOptions::new(num_queries, blowup_factor, 0, blake3);
+        let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
         let prover = Prover::<FibEvaluator>::new(options);
 
         // Generate the proof
