@@ -90,7 +90,6 @@ pub trait PublicCoin {
     /// Draws a set of unique query positions using PRNG seeded with query seed. The positions
     /// are selected from the range [0..lde_domain_size], and all multiples of blowup factor
     /// are skipped.
-    /// TODO: verify that the distribution of query positions is actually uniformly random
     fn draw_query_positions(&self) -> Vec<usize> {
         let hash = self.context().options().hash_fn();
         let num_queries = self.context().options().num_queries();
@@ -188,7 +187,6 @@ impl RandomGenerator {
     // --------------------------------------------------------------------------------------------
 
     /// Generates the next pseudo-random field element.
-    /// TODO: verify that this method of drawing random field elements is OK.
     pub fn draw(&mut self) -> FieldElement {
         let hash = self.hash_fn;
         let mut result = [0u8; 32];
