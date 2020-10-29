@@ -279,7 +279,7 @@ proptest! {
                       proof_indices in prop::collection::vec(any::<prop::sample::Index>(), 10..20)
     )  {
         let mut indices: Vec<usize> = proof_indices.iter().map(|idx| idx.index(128)).collect();
-        indices.sort(); indices.dedup();
+        indices.sort_unstable(); indices.dedup();
         let proof = tree.prove_batch(&indices[..]);
         prop_assert!(MerkleTree::verify_batch(tree.root(), &indices[..], &proof, hash::blake3));
     }

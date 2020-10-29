@@ -93,7 +93,7 @@ fn test_fib_invalid_assertions() {
 
     // add an invalid assertion
     let fib_trace_vec = build_fib_trace(trace_length * 2);
-    let fib_trace = super::TraceTable::new(fib_trace_vec.clone());
+    let fib_trace = super::TraceTable::new(fib_trace_vec);
     let mut assertions = build_fib_assertions(&fib_trace);
     assertions[0] = Assertion::new(0, 0, FieldElement::from(2u8));
 
@@ -234,7 +234,7 @@ fn build_bad_constraint_poly() {
     .unwrap();
 
     let mut divisors = evaluations.divisors().to_vec();
-    let eval_vec = &evaluations.into_vec().clone();
+    let eval_vec = &evaluations.into_vec();
 
     // Take the first divisor and increase its degree by appending an element to the vec
     let mut exclude = divisors[0].exclude().to_vec();

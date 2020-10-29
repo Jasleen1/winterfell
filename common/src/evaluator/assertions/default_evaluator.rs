@@ -184,7 +184,7 @@ mod tests {
 
         let groups = super::group_assertions(
             &context,
-            &vec![
+            &[
                 Assertion::new(1, 4, FieldElement::new(4)),
                 Assertion::new(1, 0, FieldElement::new(2)),
                 Assertion::new(0, 0, FieldElement::new(1)),
