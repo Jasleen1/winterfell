@@ -92,7 +92,7 @@ pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
 
     for i in 0..(length / 2 - 1) {
         reg1.push(reg1[i] + reg2[i]);
-        reg2.push(reg1[i] + FieldElement::from(2u8) * reg2[i]);
+        reg2.push(reg1[i + 1] + reg2[i]);
     }
 
     vec![reg1, reg2]

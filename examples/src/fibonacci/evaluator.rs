@@ -48,9 +48,15 @@ impl TransitionEvaluator for FibEvaluator {
 
         // constraints of Fibonacci sequence which state that:
         // s_{0, i+1} = s_{0, i} + s_{1, i}
-        // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
+        // s_{1, i+1} = s_{1, i} + s_{0, i+1}
         result[0] = are_equal(next[0], current[0] + current[1]);
-        result[1] = are_equal(next[1], current[0] + FieldElement::from(2u8) * current[1]);
+        result[1] = are_equal(next[1], current[1] + next[0]);
+
+        // Note that we could achieve the same result using a different formula:
+        // s_{0, i+1} = s_{0, i} + s_{1, i}
+        // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
+        // result[0] = are_equal(next[0], current[0] + current[1]);
+        // result[1] = are_equal(next[1], current[0] + FieldElement::from(2u8) * current[1]);
     }
 
     fn get_ce_blowup_factor() -> usize {
