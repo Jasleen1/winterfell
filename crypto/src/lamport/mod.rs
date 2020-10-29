@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 /// Struct to store an extended private key.
 /// TODO: reconsider Clone for private keys, just used it here to unblock.
 #[derive(Clone)]
-struct LamportPlusExtendedPrivateKey<D>
+pub struct LamportPlusExtendedPrivateKey<D>
 where
     D: Digest,
     D::OutputSize: ArrayLength<u8>,
@@ -22,7 +22,7 @@ where
     D::OutputSize: ArrayLength<u8>,
 {
     /// Seed generation using as KDF a simple hash(seed || index).
-    fn generate(seed: &[u8; 32]) -> Self {
+    pub fn generate(seed: &[u8; 32]) -> Self {
         let hash_output_size = D::output_size() * 8;
         // TODO: update 10 to work dynamically for any hash output size
         let keys_size = hash_output_size + 10;
@@ -43,7 +43,7 @@ where
 
     // TODO: consider signing hashes directly, thus remove this if the input is a message hash.
     /// Sign a message.
-    fn sign(&self, message: &[u8]) -> LamportPlusSignature<D> {
+    pub fn sign(&self, message: &[u8]) -> LamportPlusSignature<D> {
         let extended_message = message_and_checksum::<D>(message);
         let length = extended_message.len();
         let mut signature: Vec<[u8; 32]> = Vec::with_capacity(message.len());
@@ -148,8 +148,8 @@ where
     }
 }
 
-#[derive(Clone)]
 /// Struct to store a signature output.
+#[derive(Clone)]
 pub struct LamportPlusSignature<D>
 where
     D: Digest,
@@ -166,7 +166,7 @@ where
     D::OutputSize: ArrayLength<u8>,
 {
     /// Signature verification.
-    fn verify(&self, message: &[u8], final_pub_key: LamportPlusFinalPublicKey<D>) -> bool {
+    pub fn verify(&self, message: &[u8], final_pub_key: &LamportPlusFinalPublicKey<D>) -> bool {
         let extended_message = message_and_checksum::<D>(message);
         let length = extended_message.len();
         let mut extended_pub_key: Vec<[u8; 32]> = Vec::with_capacity(message.len());
@@ -289,11 +289,11 @@ fn lamport_plus_key_gen() {
         sig.signature.len(),
         "Unexpected size of signature"
     );
-    assert!(sig.verify(message, final_pub_key.clone()));
+    assert!(sig.verify(message, &final_pub_key));
 
     // Signature will fail for another message
     assert_eq!(
-        sig.verify("Hello World 2".as_bytes(), final_pub_key.clone()),
+        sig.verify("Hello World 2".as_bytes(), &final_pub_key),
         false
     );
 
@@ -302,18 +302,18 @@ fn lamport_plus_key_gen() {
         public_key: [1u8; 32],
         _marker: Default::default(),
     };
-    assert_eq!(sig.verify(message, other_public_key), false);
+    assert_eq!(sig.verify(message, &other_public_key), false);
 
     // Sign and verify another message
     let message3 = "Hello World 3".as_bytes();
     let sig = priv_key.sign(message3);
-    assert!(sig.verify(message3, final_pub_key.clone()));
+    assert!(sig.verify(message3, &final_pub_key));
 
     // Sign and verify the all zeros.
     // Although this passes, we shouldn't allow singing all zeros and all ones.
     let message_zeros = [0u8; 32];
     let sig = priv_key.sign(&message_zeros);
-    assert!(sig.verify(&message_zeros, final_pub_key));
+    assert!(sig.verify(&message_zeros, &final_pub_key));
 
     // Helper prints
     // priv_key.private_keys.iter().for_each(| priv_key_part | println!("{:?}", priv_key_part));
