@@ -1,5 +1,5 @@
 use super::Example;
-use crate::utils::to_byte_vec;
+use crate::utils::{rescue, to_byte_vec};
 use common::errors::VerifierError;
 use log::debug;
 use prover::crypto::hash::rescue_s;
@@ -9,8 +9,6 @@ use prover::{
 use std::time::Instant;
 use verifier::Verifier;
 
-#[allow(clippy::module_inception)]
-mod rescue;
 mod trace;
 use trace::generate_trace;
 

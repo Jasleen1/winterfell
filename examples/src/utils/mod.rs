@@ -4,6 +4,8 @@ use prover::math::{
     field::{FieldElement, StarkField},
 };
 
+pub mod rescue;
+
 // CONSTRAINT EVALUATION HELPERS
 // ================================================================================================
 
@@ -13,6 +15,55 @@ pub fn are_equal(a: FieldElement, b: FieldElement) -> FieldElement {
 
 pub fn is_zero(a: FieldElement) -> FieldElement {
     a
+}
+
+pub fn is_binary(a: FieldElement) -> FieldElement {
+    a * a - a
+}
+
+pub fn not(a: FieldElement) -> FieldElement {
+    FieldElement::ONE - a
+}
+
+pub fn when(a: FieldElement, b: FieldElement) -> FieldElement {
+    a * b
+}
+
+// TRAIT TO SIMPLIFY CONSTRAINT AGGREGATION
+// ================================================================================================
+
+pub trait EvaluationResult {
+    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement);
+}
+
+impl EvaluationResult for [FieldElement] {
+    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement) {
+        self[index] = self[index] + flag * value;
+    }
+}
+
+impl EvaluationResult for Vec<FieldElement> {
+    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement) {
+        self[index] = self[index] + flag * value;
+    }
+}
+
+// CYCLIC VALUES
+// ================================================================================================
+
+/// Builds extension domain for cyclic registers.
+pub fn build_cyclic_domain(
+    cycle_length: usize,
+    blowup_factor: usize,
+) -> (Vec<FieldElement>, Vec<FieldElement>) {
+    let root = FieldElement::get_root_of_unity(cycle_length.trailing_zeros());
+    let inv_twiddles = fft::get_inv_twiddles(root, cycle_length);
+
+    let domain_size = cycle_length * blowup_factor;
+    let domain_root = FieldElement::get_root_of_unity(domain_size.trailing_zeros());
+    let ev_twiddles = fft::get_twiddles(domain_root, domain_size);
+
+    (inv_twiddles, ev_twiddles)
 }
 
 pub fn extend_cyclic_values(
@@ -35,25 +86,6 @@ pub fn extend_cyclic_values(
     fft::evaluate_poly(&mut extended_values, &ev_twiddles, true);
 
     (poly, extended_values)
-}
-
-// TRAIT TO SIMPLIFY CONSTRAINT AGGREGATION
-// ================================================================================================
-
-pub trait EvaluationResult {
-    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement);
-}
-
-impl EvaluationResult for [FieldElement] {
-    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement) {
-        self[index] = self[index] + flag * value;
-    }
-}
-
-impl EvaluationResult for Vec<FieldElement> {
-    fn agg_constraint(&mut self, index: usize, flag: FieldElement, value: FieldElement) {
-        self[index] = self[index] + flag * value;
-    }
 }
 
 // OTHER FUNCTIONS
@@ -86,7 +118,7 @@ pub fn transpose(values: Vec<Vec<FieldElement>>) -> Vec<Vec<FieldElement>> {
     result
 }
 
-/// Prints out an execution trace
+/// Prints out an execution trace.
 pub fn print_trace(trace: &[Vec<FieldElement>]) {
     let trace_width = trace.len();
     let trace_length = trace[0].len();
