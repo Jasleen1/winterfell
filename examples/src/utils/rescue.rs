@@ -1,7 +1,11 @@
-use super::CYCLE_LENGTH;
+use super::{are_equal, EvaluationResult};
 use prover::math::field::{FieldElement, StarkField};
 
 const STATE_WIDTH: usize = 4;
+const CYCLE_LENGTH: usize = 16;
+
+// TRACE
+// ================================================================================================
 
 pub fn apply_round(state: &mut [FieldElement], step: usize) {
     // determine which round constants to use
@@ -18,9 +22,69 @@ pub fn apply_round(state: &mut [FieldElement], step: usize) {
     add_constants(state, &ark, STATE_WIDTH);
 }
 
+// CONSTRAINTS
+// ================================================================================================
+
+/// when flag = 1, enforces constraints for a single round of Rescue hash functions
+pub fn enforce_round(
+    result: &mut [FieldElement],
+    current: &[FieldElement],
+    next: &[FieldElement],
+    ark: &[FieldElement],
+    flag: FieldElement,
+) {
+    // compute the state that should result from applying the first half of Rescue round
+    // to the current state of the computation
+    let mut step1 = [FieldElement::ZERO; STATE_WIDTH];
+    step1.copy_from_slice(current);
+    apply_sbox(&mut step1);
+    apply_mds(&mut step1);
+    for i in 0..STATE_WIDTH {
+        step1[i] = step1[i] + ark[i];
+    }
+
+    // compute the state that should result from applying the inverse for the second
+    // half for Rescue round to the next step of the computation
+    let mut step2 = [FieldElement::ZERO; STATE_WIDTH];
+    step2.copy_from_slice(next);
+    for i in 0..STATE_WIDTH {
+        step2[i] = step2[i] - ark[STATE_WIDTH + i];
+    }
+    apply_inv_mds(&mut step2);
+    apply_sbox(&mut step2);
+
+    // make sure that the results are equal
+    for i in 0..STATE_WIDTH {
+        result.agg_constraint(i, flag, are_equal(step2[i], step1[i]));
+    }
+}
+
+// ROUND CONSTANTS
+// ================================================================================================
+
+/// Returns Rescue round constants arranged in column-major form.
+pub fn get_round_constants() -> Vec<Vec<FieldElement>> {
+    let mut constants = Vec::new();
+    for _ in 0..(STATE_WIDTH * 2) {
+        constants.push(vec![FieldElement::ZERO; CYCLE_LENGTH]);
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..CYCLE_LENGTH {
+        for j in 0..(STATE_WIDTH * 2) {
+            constants[j][i] = ARK[i][j];
+        }
+    }
+
+    constants
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-pub fn add_constants(state: &mut [FieldElement], ark: &[FieldElement], offset: usize) {
+fn add_constants(state: &mut [FieldElement], ark: &[FieldElement], offset: usize) {
     for i in 0..STATE_WIDTH {
         state[i] = state[i] + ark[offset + i];
     }
@@ -28,7 +92,7 @@ pub fn add_constants(state: &mut [FieldElement], ark: &[FieldElement], offset: u
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-pub fn apply_sbox(state: &mut [FieldElement]) {
+fn apply_sbox(state: &mut [FieldElement]) {
     for i in 0..STATE_WIDTH {
         state[i] = FieldElement::exp(state[i], ALPHA);
     }
@@ -36,7 +100,7 @@ pub fn apply_sbox(state: &mut [FieldElement]) {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-pub fn apply_inv_sbox(state: &mut [FieldElement]) {
+fn apply_inv_sbox(state: &mut [FieldElement]) {
     // TODO: optimize
     for i in 0..STATE_WIDTH {
         state[i] = FieldElement::exp(state[i], INV_ALPHA);
@@ -45,7 +109,7 @@ pub fn apply_inv_sbox(state: &mut [FieldElement]) {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-pub fn apply_mds(state: &mut [FieldElement]) {
+fn apply_mds(state: &mut [FieldElement]) {
     let mut result = [FieldElement::ZERO; STATE_WIDTH];
     let mut temp = [FieldElement::ZERO; STATE_WIDTH];
     for i in 0..STATE_WIDTH {
@@ -62,7 +126,7 @@ pub fn apply_mds(state: &mut [FieldElement]) {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-pub fn apply_inv_mds(state: &mut [FieldElement]) {
+fn apply_inv_mds(state: &mut [FieldElement]) {
     let mut result = [FieldElement::ZERO; STATE_WIDTH];
     let mut temp = [FieldElement::ZERO; STATE_WIDTH];
     for i in 0..STATE_WIDTH {

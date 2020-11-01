@@ -1,6 +1,5 @@
 use prover::{
     math::{
-        fft,
         field::{FieldElement, StarkField},
         polynom,
     },
@@ -8,12 +7,11 @@ use prover::{
     TransitionEvaluator,
 };
 
-use super::{
-    rescue::{apply_inv_mds, apply_mds, apply_sbox, ARK},
-    CYCLE_LENGTH, STATE_WIDTH,
-};
+use super::{rescue, CYCLE_LENGTH, STATE_WIDTH};
 
-use crate::utils::{are_equal, extend_cyclic_values, is_zero, transpose, EvaluationResult};
+use crate::utils::{
+    are_equal, build_cyclic_domain, extend_cyclic_values, is_zero, transpose, EvaluationResult,
+};
 
 // CONSTANTS
 // ================================================================================================
@@ -54,7 +52,8 @@ impl TransitionEvaluator for RescueEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
-        let (inv_twiddles, ev_twiddles) = build_extension_domain(context.ce_blowup_factor());
+        let (inv_twiddles, ev_twiddles) =
+            build_cyclic_domain(CYCLE_LENGTH, context.ce_blowup_factor());
 
         // extend the mask constants to match constraint evaluation domain
         let (mask_poly, mask_constants) =
@@ -64,9 +63,8 @@ impl TransitionEvaluator for RescueEvaluator {
         let mut ark_polys = Vec::new();
         let mut ark_evaluations = Vec::new();
 
-        let constants = transpose_ark();
-        for constant in constants.iter() {
-            let (poly, evaluations) = extend_cyclic_values(constant, &inv_twiddles, &ev_twiddles);
+        for constant in rescue::get_round_constants().into_iter() {
+            let (poly, evaluations) = extend_cyclic_values(&constant, &inv_twiddles, &ev_twiddles);
             ark_polys.push(poly);
             ark_evaluations.push(evaluations);
         }
@@ -105,7 +103,7 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 1, constraints for Rescue round are enforced
         let hash_flag = self.mask_constants[step % self.mask_constants.len()];
-        enforce_rescue_round(result, current, next, &ark, hash_flag);
+        rescue::enforce_round(result, current, next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
@@ -135,7 +133,7 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 1, constraints for Rescue round are enforced
         let hash_flag = polynom::eval(&self.mask_poly, x);
-        enforce_rescue_round(result, current, next, &ark, hash_flag);
+        rescue::enforce_round(result, current, next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
@@ -158,40 +156,6 @@ impl TransitionEvaluator for RescueEvaluator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-/// when flag = 1, enforces constraints for a single round of Rescue hash functions
-fn enforce_rescue_round(
-    result: &mut [FieldElement],
-    current: &[FieldElement],
-    next: &[FieldElement],
-    ark: &[FieldElement],
-    flag: FieldElement,
-) {
-    // compute the state that should result from applying the first half of Rescue round
-    // to the current state of the computation
-    let mut step1 = [FieldElement::ZERO; STATE_WIDTH];
-    step1.copy_from_slice(current);
-    apply_sbox(&mut step1);
-    apply_mds(&mut step1);
-    for i in 0..STATE_WIDTH {
-        step1[i] = step1[i] + ark[i];
-    }
-
-    // compute the state that should result from applying the inverse for the second
-    // half for Rescue round to the next step of the computation
-    let mut step2 = [FieldElement::ZERO; STATE_WIDTH];
-    step2.copy_from_slice(next);
-    for i in 0..STATE_WIDTH {
-        step2[i] = step2[i] - ark[STATE_WIDTH + i];
-    }
-    apply_inv_mds(&mut step2);
-    apply_sbox(&mut step2);
-
-    // make sure that the results are equal
-    for i in 0..STATE_WIDTH {
-        result.agg_constraint(i, flag, are_equal(step2[i], step1[i]));
-    }
-}
-
 /// when flag = 1, enforces that the next state of the computation is defined like so:
 /// - the first two registers are equal to the values from the previous step
 /// - the other two registers are equal to 0
@@ -205,34 +169,4 @@ fn enforce_hash_copy(
     result.agg_constraint(1, flag, are_equal(current[1], next[1]));
     result.agg_constraint(2, flag, is_zero(next[2]));
     result.agg_constraint(3, flag, is_zero(next[3]));
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-fn build_extension_domain(blowup_factor: usize) -> (Vec<FieldElement>, Vec<FieldElement>) {
-    let root = FieldElement::get_root_of_unity(CYCLE_LENGTH.trailing_zeros());
-    let inv_twiddles = fft::get_inv_twiddles(root, CYCLE_LENGTH);
-
-    let domain_size = CYCLE_LENGTH * blowup_factor;
-    let domain_root = FieldElement::get_root_of_unity(domain_size.trailing_zeros());
-    let ev_twiddles = fft::get_twiddles(domain_root, domain_size);
-
-    (inv_twiddles, ev_twiddles)
-}
-
-fn transpose_ark() -> Vec<Vec<FieldElement>> {
-    let mut constants = Vec::new();
-    for _ in 0..(STATE_WIDTH * 2) {
-        constants.push(vec![FieldElement::ZERO; CYCLE_LENGTH]);
-    }
-
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..CYCLE_LENGTH {
-        for j in 0..(STATE_WIDTH * 2) {
-            constants[j][i] = ARK[i][j];
-        }
-    }
-
-    constants
 }

@@ -15,12 +15,12 @@ const NUM_ROUNDS: usize = 14;
 // HELPER FUNCTIONS
 // ================================================================================================
 
-/// Rescue hash function for small inputs; This implementation accepts a 32-byte input
-/// and returns a 32-byte digest.
+/// Implementation of Rescue hash function with a 4 element state and 14 rounds. Accepts a 64-byte
+/// input and returns a 32-byte digest.
 pub fn rescue_s(values: &[u8], result: &mut [u8]) {
     debug_assert!(
-        values.len() <= 32,
-        "expected 32 or fewer input bytes but received {}",
+        values.len() <= 64,
+        "expected 64 or fewer input bytes but received {}",
         values.len()
     );
     debug_assert!(

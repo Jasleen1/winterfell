@@ -50,3 +50,16 @@ where:
 * **length** is length of the hash chain (the number of times the hash function is invoked). Currently, this must be a power of 2. The default is 1024.
 * **blowup factor** defaults to 32.
 * **num queries** defaults to 32.
+
+### Merkle authentication path
+This example generates (and verifies) proofs for verifying a Merkle authentication path. Specifically, given some Merkle tree known to both the prover and the verifier, the prover can prove that they know some value *v*, such that *hash(v)* is a valid tree leaf. This can be used to anonymously prove membership in a Merkle tree.
+
+You can run the example like so:
+```
+./target/release/winterfell merkle [tree depth] [blowup factor] [num queries]
+```
+where:
+
+* **tree depth** is the depth of the Merkle tree for which to verify a Merkle authentication path. Currently, the depth can be one less than a power of 2 (e.g. 3, 7, 15). Note that a tree of depth 15 takes about 3 seconds to construct.
+* **blowup factor** defaults to 32.
+* **num queries** defaults to 32.
