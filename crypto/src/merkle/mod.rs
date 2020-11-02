@@ -8,6 +8,8 @@ use std::{
 #[cfg(test)]
 mod tests;
 
+pub mod concurrent_merkle;
+
 // TYPES AND INTERFACES
 // ================================================================================================
 #[derive(Debug)]
