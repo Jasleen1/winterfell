@@ -60,6 +60,30 @@ You can run the example like so:
 ```
 where:
 
-* **tree depth** is the depth of the Merkle tree for which to verify a Merkle authentication path. Currently, the depth can be one less than a power of 2 (e.g. 3, 7, 15). Note that a tree of depth 15 takes about 3 seconds to construct.
+* **tree depth** is the depth of the Merkle tree for which to verify a Merkle authentication path. Currently, the depth must be one less than a power of 2 (e.g. 3, 7, 15). Note that a tree of depth 15 takes about 3 seconds to construct.
+* **blowup factor** defaults to 32.
+* **num queries** defaults to 32.
+
+### Anonymous token
+This example generates (and verifies) proofs for anonymous which are described in detail [here](https://docs.google.com/document/d/1AC5HNB3-d-zqir97r41Bb06vdHhN3M6grKAx-ZNPTHI) (under section 3). At the high level, given `token_seed` and `service_uuid` we define:
+
+* `issued_token` = hash(`token_seed`)
+* `subtoken` = hash(`token_seed` | `service_uuid`)
+
+Given a Merkle tree where `issued_token` is a leaf, the example generates a proof that:
+
+* The prover knows pre-image of `issued_token`
+* The `issued_token` is a valid leaf in the tree
+* That `subtoken` is derived from the right issued_token
+
+The proof does not reveal: the value of `issued_token` or its position in the Merkle tree, or the value of `token_seed`.
+
+You can run the example like so:
+```
+./target/release/winterfell anon [tree depth] [blowup factor] [num queries]
+```
+where:
+
+* **tree depth** is the depth of the Merkle tree in which the `issued_token` is stored. Currently, the depth must be one less than a power of 2 (e.g. 3, 7, 15). Note that a tree of depth 15 takes about 3 seconds to construct.
 * **blowup factor** defaults to 32.
 * **num queries** defaults to 32.
