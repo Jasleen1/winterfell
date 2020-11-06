@@ -2,7 +2,7 @@ use log::debug;
 use std::time::Instant;
 use std::{env, io::Write};
 
-use winterfell::{fibonacci, merkle, rescue};
+use winterfell::{anon, fibonacci, merkle, rescue};
 
 // EXAMPLE RUNNER
 // ================================================================================================
@@ -19,6 +19,7 @@ fn main() {
     let (example, n, blowup_factor, num_queries, grinding_factor) = parse_args(args);
     let example = match example.as_str() {
         "fib" => fibonacci::get_example(),
+        "anon" => anon::get_example(),
         "rescue" => rescue::get_example(),
         "merkle" => merkle::get_example(),
         _ => panic!("example name '{}' is not valid", example),

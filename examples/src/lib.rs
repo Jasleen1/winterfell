@@ -1,6 +1,7 @@
 use common::errors::VerifierError;
 use prover::{Assertion, StarkProof};
 
+pub mod anon;
 pub mod fibonacci;
 pub mod merkle;
 pub mod rescue;
