@@ -1,21 +1,24 @@
-use super::Example;
-use crate::utils::{rescue, to_byte_vec};
-use common::errors::VerifierError;
+use std::{convert::TryFrom, time::Instant};
+
 use log::debug;
+
+use common::errors::VerifierError;
+use evaluator::MerkleEvaluator;
 use prover::crypto::{hash::rescue_s, MerkleTree};
 use prover::{
     crypto::hash::blake3,
     math::field::{FieldElement, StarkField},
     Assertion, ProofOptions, Prover, StarkProof,
 };
-use std::{convert::TryFrom, time::Instant};
+use trace::generate_trace;
 use verifier::Verifier;
 
-mod trace;
-use trace::generate_trace;
+use crate::utils::{rescue, to_byte_vec};
+
+use super::Example;
 
 mod evaluator;
-use evaluator::MerkleEvaluator;
+mod trace;
 
 type TreeNode = (FieldElement, FieldElement);
 

@@ -1,5 +1,7 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::time::Duration;
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+
 use winterfell::rescue;
 
 const SIZES: [usize; 2] = [256, 512];

@@ -24,9 +24,19 @@ Default parameters for each example target proof security of 96-bits. You can ad
 Available examples are described below.
 
 ### Fibonacci sequence
-This is a toy example which generates (and verifies) proofs for computing an n-th term of the [Fibonacci sequence](https://en.wikipedia.org/wiki/Fibonacci_number). You can run it like so:
+There are several examples illustrating how to generate (and verify) proofs for computing an n-th term of the [Fibonacci sequence](https://en.wikipedia.org/wiki/Fibonacci_number). The examples illustrate different ways of describing this simple computation using AIR. The examples are:
+
+* `fib` - computes the n-th term of a Fibonacci sequence using trace table with 2 registers. Each step in the trace table advances Fibonacci sequence by 2 terms.
+* `fib8` - also computes the n-th term of a Fibonacci sequence and also uses trace table with 2 registers. But unlike the previous example, each step in the trace table advances Fibonacci sequence by 8 terms.
+* `mulfib` - a variation on Fibonacci sequence where addition is replaced with multiplication. The example uses a trace table with 4 registers, and each step in the trace table advances the sequence by 4 terms.
+
+It is interesting to note that `fib` and `fib8` encode an identical computation but these different encodings have significant impact on performance. Specifically, proving time for `fib8` example is 4 times faster than for `fib` example, and also results in proofs which are about 15% smaller than in the `fib` example.
+
+We can make this optimization largely because the computation requires only additions (no multiplications). But as illustrated by `mulfib` example, when multiplications are involved, we need to introduce additional registers to record intermediate results (another option would be to increase constraint degree, but this is not covered here). This still improves prover performance, but the impact of the improvement is not as pronounced.
+
+You can run these examples like so:
 ```
-./target/release/winterfell fib [length] [blowup factor] [num queries]
+./target/release/winterfell [fib|fib4|mulfib] [length] [blowup factor] [num queries]
 ```
 where:
 
@@ -34,7 +44,7 @@ where:
 * **blowup factor** defaults to 8.
 * **num queries** defaults to 32.
 
-### Hash chain
+### Rescue hash chain
 This example generates (and verifies) proofs for computing a hash chain of [Rescue hashes](https://eprint.iacr.org/2019/426). A hash chain is defined as follows:
 
 *H(...H(H(seed))) = result*

@@ -1,5 +1,6 @@
-use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 use prover::math::field::{FieldElement, StarkField};
+
+use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
 pub fn generate_trace(
     value: TreeNode,

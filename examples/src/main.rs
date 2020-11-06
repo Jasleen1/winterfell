@@ -18,7 +18,9 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let (example, n, blowup_factor, num_queries, grinding_factor) = parse_args(args);
     let example = match example.as_str() {
-        "fib" => fibonacci::get_example(),
+        "fib" => fibonacci::fib2::get_example(),
+        "fib8" => fibonacci::fib8::get_example(),
+        "mulfib" => fibonacci::mulfib4::get_example(),
         "anon" => anon::get_example(),
         "rescue" => rescue::get_example(),
         "merkle" => merkle::get_example(),

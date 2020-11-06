@@ -1,5 +1,6 @@
-use super::{rescue, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 use prover::math::field::{FieldElement, StarkField};
+
+use super::{rescue, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
 pub fn generate_trace(seed: [FieldElement; 2], iterations: usize) -> Vec<Vec<FieldElement>> {
     // allocate memory to hold the trace table

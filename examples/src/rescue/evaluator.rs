@@ -7,11 +7,11 @@ use prover::{
     TransitionEvaluator,
 };
 
-use super::{rescue, CYCLE_LENGTH, STATE_WIDTH};
-
 use crate::utils::{
     are_equal, build_cyclic_domain, extend_cyclic_values, is_zero, transpose, EvaluationResult,
 };
+
+use super::{rescue, CYCLE_LENGTH, STATE_WIDTH};
 
 // CONSTANTS
 // ================================================================================================
@@ -141,15 +141,12 @@ impl TransitionEvaluator for RescueEvaluator {
         enforce_hash_copy(result, current, next, copy_flag);
     }
 
-    fn get_ce_blowup_factor() -> usize {
-        4
-    }
-
-    // BOILERPLATE
-    // --------------------------------------------------------------------------------------------
-
     fn constraint_groups(&self) -> &[TransitionConstraintGroup] {
         &self.constraint_groups
+    }
+
+    fn get_ce_blowup_factor() -> usize {
+        4
     }
 }
 

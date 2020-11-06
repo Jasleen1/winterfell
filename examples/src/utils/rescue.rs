@@ -1,5 +1,6 @@
-use super::{are_equal, EvaluationResult};
 use prover::math::field::{FieldElement, StarkField};
+
+use super::{are_equal, EvaluationResult};
 
 const STATE_WIDTH: usize = 4;
 const CYCLE_LENGTH: usize = 16;

@@ -7,12 +7,12 @@ use prover::{
     TransitionEvaluator,
 };
 
-use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
-
 use crate::utils::{
     are_equal, build_cyclic_domain, extend_cyclic_values, is_binary, is_zero, not, transpose,
     EvaluationResult,
 };
+
+use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
 
 // RESCUE TRANSITION CONSTRAINT EVALUATOR
 // ================================================================================================
@@ -124,15 +124,12 @@ impl TransitionEvaluator for MerkleEvaluator {
         evaluate_constraints(result, current, next, &ark, &masks);
     }
 
-    fn get_ce_blowup_factor() -> usize {
-        4
-    }
-
-    // BOILERPLATE
-    // --------------------------------------------------------------------------------------------
-
     fn constraint_groups(&self) -> &[TransitionConstraintGroup] {
         &self.constraint_groups
+    }
+
+    fn get_ce_blowup_factor() -> usize {
+        4
     }
 }
 

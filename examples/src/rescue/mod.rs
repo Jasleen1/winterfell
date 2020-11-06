@@ -1,20 +1,22 @@
-use super::Example;
-use crate::utils::{rescue, to_byte_vec};
-use common::errors::VerifierError;
+use std::time::Instant;
+
 use log::debug;
+
+use common::errors::VerifierError;
+use evaluator::RescueEvaluator;
 use prover::crypto::hash::rescue_s;
 use prover::{
     crypto::hash::blake3, math::field::FieldElement, Assertion, ProofOptions, Prover, StarkProof,
 };
-use std::time::Instant;
+use trace::generate_trace;
 use verifier::Verifier;
 
-mod trace;
-use trace::generate_trace;
+use crate::utils::{rescue, to_byte_vec};
+
+use super::Example;
 
 mod evaluator;
-use evaluator::RescueEvaluator;
-
+mod trace;
 // CONSTANTS
 // ================================================================================================
 
