@@ -1,5 +1,5 @@
 use crate::{
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait, StarkField},
     utils::remove_leading_zeros,
 };
 
@@ -229,7 +229,7 @@ fn syn_div_expanded_in_place() {
 
 #[test]
 fn degree_of() {
-    assert_eq!(0, super::degree_of(&[]));
+    assert_eq!(0, super::degree_of::<FieldElement>(&[]));
     assert_eq!(0, super::degree_of(&[FieldElement::ONE]));
     assert_eq!(
         1,

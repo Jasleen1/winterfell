@@ -3,7 +3,7 @@ use common::{utils::uninit_vector, ComputationContext};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{AsBytes, FieldElement, StarkField},
+    field::{AsBytes, FieldElement, FieldElementTrait, StarkField},
 };
 
 #[cfg(test)]

@@ -7,7 +7,7 @@ use common::{
 };
 use crypto::MerkleTree;
 use math::{
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait},
     quartic,
 };
 use std::mem;

@@ -6,7 +6,7 @@ use common::{
 };
 use common::{CompositionCoefficients, PublicCoin};
 
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 use std::marker::PhantomData;
 
 mod channel;

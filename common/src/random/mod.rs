@@ -1,6 +1,6 @@
 use crate::ComputationContext;
 use crypto::HashFunction;
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 use std::{convert::TryInto, mem::size_of};
 
 #[cfg(test)]
@@ -198,7 +198,7 @@ impl RandomGenerator {
             // take the first MODULUS_BYTES from the hashed seed and check if they can be converted
             // into a valid field element; if the can, return; otherwise try again
             if let Some(element) =
-                FieldElement::from_random_bytes(&result[..(FieldElement::MODULUS_BYTES as usize)])
+                FieldElement::from_random_bytes(&result[..(FieldElement::ELEMENT_BYTES as usize)])
             {
                 return element;
             }

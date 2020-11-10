@@ -9,7 +9,7 @@ use common::{
     TransitionEvaluator,
 };
 use crypto::hash::blake3;
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 
 #[test]
 fn test_fib_evaluate_constraints_good_case() {

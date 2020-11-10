@@ -1,7 +1,7 @@
 use common::utils::filled_vector;
 use prover::math::{
     fft,
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait, StarkField},
 };
 
 pub mod rescue;

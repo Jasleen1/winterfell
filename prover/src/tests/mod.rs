@@ -3,7 +3,7 @@ use common::{
     TransitionEvaluator,
 };
 use crypto::hash::blake3;
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 
 // FIBONACCI TRACE BUILDER
 // ================================================================================================

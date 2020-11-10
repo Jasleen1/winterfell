@@ -6,7 +6,7 @@ use common::errors::VerifierError;
 use evaluator::FibEvaluator;
 use prover::{
     crypto::hash::blake3,
-    math::field::{FieldElement, StarkField},
+    math::field::{FieldElement, FieldElementTrait},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use verifier::Verifier;

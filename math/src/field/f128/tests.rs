@@ -124,7 +124,8 @@ fn test_get_root_of_unity() {
 
 #[test]
 fn test_g_is_2_exp_40_root() {
-    assert_eq!(exp(G, 1u128 << 40), 1u128)
+    let g = FieldElement::TWO_ADIC_ROOT_OF_UNITY;
+    assert_eq!(FieldElement::exp(g, 1u128 << 40), FieldElement::ONE);
 }
 
 #[test]

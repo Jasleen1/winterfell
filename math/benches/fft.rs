@@ -28,8 +28,8 @@ fn fft_poly(c: &mut Criterion) {
         let twiddles = fft::get_twiddles(root, size);
         let mut p = FieldElement::prng_vector(get_seed(), size);
 
-        group.bench_function(BenchmarkId::new("evaluate (permuted)", size), |bench| {
-            bench.iter(|| fft::evaluate_poly(&mut p, &twiddles, false));
+        group.bench_function(BenchmarkId::new("evaluate (non-generic)", size), |bench| {
+            bench.iter(|| fft::non_generic::evaluate_poly(&mut p, &twiddles, false));
         });
     }
 

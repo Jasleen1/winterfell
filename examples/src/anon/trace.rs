@@ -1,5 +1,5 @@
 use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
-use prover::math::field::{FieldElement, StarkField};
+use prover::math::field::{FieldElement, FieldElementTrait};
 
 pub fn generate_trace(
     token_seed: FieldElement,

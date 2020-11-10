@@ -1,5 +1,5 @@
 use crate::ProofOptions;
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait, StarkField};
 
 // TYPES AND INTERFACES
 // ================================================================================================

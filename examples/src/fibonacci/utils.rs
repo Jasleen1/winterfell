@@ -1,4 +1,4 @@
-use prover::math::field::{FieldElement, StarkField};
+use prover::math::field::{FieldElement, FieldElementTrait};
 
 pub fn compute_fib_term(n: usize) -> FieldElement {
     let mut t0 = FieldElement::ONE;

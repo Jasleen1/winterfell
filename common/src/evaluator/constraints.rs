@@ -1,4 +1,4 @@
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 
 // CONSTRAINT DEGREE
 // ================================================================================================

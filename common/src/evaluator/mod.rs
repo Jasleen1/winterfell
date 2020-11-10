@@ -1,5 +1,5 @@
 use crate::{errors::*, ComputationContext, PublicCoin, RandomGenerator};
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 
 mod transition;
 pub use transition::{TransitionConstraintGroup, TransitionEvaluator};

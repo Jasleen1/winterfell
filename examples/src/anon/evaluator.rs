@@ -1,6 +1,6 @@
 use prover::{
     math::{
-        field::{FieldElement, StarkField},
+        field::{FieldElement, FieldElementTrait},
         polynom,
     },
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,

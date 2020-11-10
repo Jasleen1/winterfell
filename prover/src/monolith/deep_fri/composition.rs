@@ -5,7 +5,7 @@ use super::{
 use common::{proof::DeepValues, CompositionCoefficients};
 use math::{
     fft,
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait, StarkField},
     polynom,
 };
 

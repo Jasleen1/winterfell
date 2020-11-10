@@ -7,7 +7,7 @@ use evaluator::MerkleEvaluator;
 use prover::crypto::{hash::rescue_s, MerkleTree};
 use prover::{
     crypto::hash::blake3,
-    math::field::{FieldElement, StarkField},
+    math::field::{FieldElement, FieldElementTrait, StarkField},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use trace::generate_trace;

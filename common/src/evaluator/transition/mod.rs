@@ -1,5 +1,5 @@
 use super::{ComputationContext, ConstraintDegree, RandomGenerator};
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT

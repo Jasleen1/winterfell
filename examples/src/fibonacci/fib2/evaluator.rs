@@ -1,5 +1,5 @@
 use prover::{
-    math::field::{FieldElement, StarkField},
+    math::field::{FieldElement, FieldElementTrait},
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
     TransitionEvaluator,
 };

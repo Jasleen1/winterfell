@@ -1,9 +1,8 @@
-use super::traits::{AsBytes, StarkField};
+use super::traits::{AsBytes, FieldElementTrait, StarkField};
 use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    iter::{Product, Sum},
     ops::{Add, Div, Mul, Neg, Range, Sub},
     slice,
 };
@@ -25,7 +24,7 @@ const G: u128 = 23953097886125630542083529559205016746;
 const RANGE: Range<u128> = Range { start: 0, end: M };
 
 // Number of bytes needed to represent field element
-const ELEMENT_BYTES: usize = 16;
+const ELEMENT_BYTES: usize = std::mem::size_of::<u128>();
 
 // FIELD ELEMENT
 // ================================================================================================
@@ -48,9 +47,51 @@ impl FieldElement {
     }
 }
 
-impl StarkField for FieldElement {
+impl FieldElementTrait for FieldElement {
     type PositiveInteger = u128;
 
+    const ZERO: Self = FieldElement(0);
+    const ONE: Self = FieldElement(1);
+
+    const ELEMENT_BYTES: usize = ELEMENT_BYTES;
+
+    fn inv(self) -> Self {
+        FieldElement(inv(self.0))
+    }
+
+    /// This implementation is about 5% faster than the one in the trait.
+    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
+        let mut result = utils::uninit_vector(n);
+        result[0] = FieldElement::ONE;
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * b;
+        }
+        result
+    }
+
+    fn rand() -> Self {
+        let range = Uniform::from(RANGE);
+        let mut g = thread_rng();
+        FieldElement(g.sample(range))
+    }
+
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
+        match Self::try_from(bytes) {
+            Ok(value) => Some(value),
+            Err(_) => None,
+        }
+    }
+
+    fn from_int(value: u128) -> Self {
+        FieldElement::new(value)
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+}
+
+impl StarkField for FieldElement {
     /// sage: MODULUS = 2^128 - 45 * 2^40 + 1
     /// sage: GF(MODULUS).is_prime_field()
     /// True
@@ -72,48 +113,10 @@ impl StarkField for FieldElement {
     /// 23953097886125630542083529559205016746
     const TWO_ADIC_ROOT_OF_UNITY: Self = FieldElement(G);
 
-    const ZERO: Self = FieldElement(0);
-    const ONE: Self = FieldElement(1);
-
-    fn inv(self) -> Self {
-        FieldElement(inv(self.0))
-    }
-
-    fn exp(self, power: u128) -> Self {
-        FieldElement(exp(self.0, power))
-    }
-
-    fn rand() -> Self {
-        let range = Uniform::from(RANGE);
-        let mut g = thread_rng();
-        FieldElement(g.sample(range))
-    }
-
-    /// This implementation is about 5% faster than the one in the trait.
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = utils::uninit_vector(n);
-        result[0] = FieldElement::ONE;
-        for i in 1..result.len() {
-            result[i] = result[i - 1] * b;
-        }
-        result
-    }
-
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
         let range = Uniform::from(RANGE);
         let g = StdRng::from_seed(seed);
         g.sample_iter(range).take(n).map(FieldElement).collect()
-    }
-
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        match Self::try_from(bytes) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        }
-    }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_le_bytes().to_vec()
     }
 }
 
@@ -195,56 +198,6 @@ impl Neg for FieldElement {
 
     fn neg(self) -> FieldElement {
         Self(sub(0, self.0))
-    }
-}
-
-impl Sum for FieldElement {
-    fn sum<I: Iterator<Item = FieldElement>>(iter: I) -> FieldElement {
-        let mut result = 0;
-        for value in iter {
-            result = add(result, value.0)
-        }
-        FieldElement(result)
-    }
-}
-
-impl<'a> Sum<&'a Self> for FieldElement {
-    fn sum<I: Iterator<Item = &'a FieldElement>>(iter: I) -> FieldElement {
-        let mut result = 0;
-        for value in iter {
-            result = add(result, value.0)
-        }
-        FieldElement(result)
-    }
-}
-
-impl Product for FieldElement {
-    fn product<I: Iterator<Item = FieldElement>>(mut iter: I) -> FieldElement {
-        let mut result = match iter.next() {
-            Some(value) => value.0,
-            None => return FieldElement(0),
-        };
-
-        for value in iter {
-            result = mul(result, value.0);
-        }
-
-        FieldElement(result)
-    }
-}
-
-impl<'a> Product<&'a Self> for FieldElement {
-    fn product<I: Iterator<Item = &'a FieldElement>>(mut iter: I) -> FieldElement {
-        let mut result = match iter.next() {
-            Some(value) => value.0,
-            None => return FieldElement(0),
-        };
-
-        for value in iter {
-            result = mul(result, value.0);
-        }
-
-        FieldElement(result)
     }
 }
 
@@ -497,30 +450,6 @@ fn inv(x: u128) -> u128 {
     }
 
     a
-}
-
-/// Computes (b^p) % m; b and p are assumed to be valid field elements.
-pub fn exp(b: u128, p: u128) -> u128 {
-    if b == 0 {
-        return 0;
-    } else if p == 0 {
-        return 1;
-    }
-
-    let mut r = 1;
-    let mut b = b;
-    let mut p = p;
-
-    // TODO: optimize
-    while p > 0 {
-        if p & 1 == 1 {
-            r = mul(r, b);
-        }
-        p >>= 1;
-        b = mul(b, b);
-    }
-
-    r
 }
 
 // HELPER FUNCTIONS

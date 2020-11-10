@@ -1,6 +1,6 @@
 use common::{ComputationContext, ConstraintDivisor};
 use math::{
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait},
     polynom,
 };
 use std::{iter, vec};

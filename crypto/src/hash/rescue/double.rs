@@ -1,4 +1,4 @@
-use math::field::{AsBytes, FieldElement, StarkField};
+use math::field::{AsBytes, FieldElement, FieldElementTrait};
 
 /// Function state is set to 6 field elements or 96 bytes; 4 elements are reserved for rate
 /// and 2 elements are reserved for capacity.

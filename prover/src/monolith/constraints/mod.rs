@@ -9,7 +9,7 @@ use common::{
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait},
     polynom,
 };
 

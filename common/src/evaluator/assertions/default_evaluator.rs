@@ -2,7 +2,7 @@ use super::{
     Assertion, AssertionEvaluator, ComputationContext, ConstraintDivisor, RandomGenerator,
 };
 use crate::errors::EvaluatorError;
-use math::field::{FieldElement, StarkField};
+use math::field::{FieldElement, FieldElementTrait};
 use std::collections::BTreeMap;
 
 // DEFAULT ASSERTION EVALUATOR

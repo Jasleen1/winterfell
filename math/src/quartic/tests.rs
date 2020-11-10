@@ -1,5 +1,5 @@
 use crate::{
-    field::{FieldElement, StarkField},
+    field::{FieldElement, FieldElementTrait, StarkField},
     polynom,
 };
 

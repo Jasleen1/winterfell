@@ -1,4 +1,4 @@
-use prover::math::field::{FieldElement, StarkField};
+use prover::math::field::{FieldElement, FieldElementTrait};
 
 use super::{are_equal, EvaluationResult};
 

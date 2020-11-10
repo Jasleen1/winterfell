@@ -1,14 +1,11 @@
-use crate::{
-    field::{FieldElement, StarkField},
-    utils::uninit_vector,
-};
+use crate::{field::FieldElementTrait, utils::uninit_vector};
 
 #[cfg(test)]
 mod tests;
 
 /// Evaluates degree 3 polynomial `p` at coordinate `x`. This function is about 30% faster than
 /// the `polynom::eval` function.
-pub fn eval(p: &[FieldElement], x: FieldElement) -> FieldElement {
+pub fn eval<E: FieldElementTrait>(p: &[E], x: E) -> E {
     debug_assert!(p.len() == 4, "Polynomial must have 4 terms");
     let mut y = p[0] + p[1] * x;
 
@@ -22,10 +19,10 @@ pub fn eval(p: &[FieldElement], x: FieldElement) -> FieldElement {
 }
 
 /// Evaluates a batch of degree 3 polynomials at the provided X coordinate.
-pub fn evaluate_batch(polys: &[[FieldElement; 4]], x: FieldElement) -> Vec<FieldElement> {
+pub fn evaluate_batch<E: FieldElementTrait>(polys: &[[E; 4]], x: E) -> Vec<E> {
     let n = polys.len();
 
-    let mut result: Vec<FieldElement> = Vec::with_capacity(n);
+    let mut result: Vec<E> = Vec::with_capacity(n);
     unsafe {
         result.set_len(n);
     }
@@ -41,18 +38,15 @@ pub fn evaluate_batch(polys: &[[FieldElement; 4]], x: FieldElement) -> Vec<Field
 ///
 /// This function is many times faster than using `polynom::interpolate` function in a loop.
 /// This is primarily due to amortizing inversions over the entire batch.
-pub fn interpolate_batch(
-    xs: &[[FieldElement; 4]],
-    ys: &[[FieldElement; 4]],
-) -> Vec<[FieldElement; 4]> {
+pub fn interpolate_batch<E: FieldElementTrait>(xs: &[[E; 4]], ys: &[[E; 4]]) -> Vec<[E; 4]> {
     debug_assert!(
         xs.len() == ys.len(),
         "number of X coordinates must be equal to number of Y coordinates"
     );
 
     let n = xs.len();
-    let mut equations: Vec<[FieldElement; 4]> = Vec::with_capacity(n * 4);
-    let mut inverses: Vec<FieldElement> = Vec::with_capacity(n * 4);
+    let mut equations: Vec<[E; 4]> = Vec::with_capacity(n * 4);
+    let mut inverses: Vec<E> = Vec::with_capacity(n * 4);
     unsafe {
         equations.set_len(n * 4);
         inverses.set_len(n * 4);
@@ -73,7 +67,7 @@ pub fn interpolate_batch(
             -x12 * xs[3],
             x12 + x13 + x23,
             -xs[1] - xs[2] - xs[3],
-            FieldElement::ONE,
+            E::ONE,
         ];
         inverses[j] = eval(&equations[j], xs[0]);
 
@@ -82,7 +76,7 @@ pub fn interpolate_batch(
             -x02 * xs[3],
             x02 + x03 + x23,
             -xs[0] - xs[2] - xs[3],
-            FieldElement::ONE,
+            E::ONE,
         ];
         inverses[j + 1] = eval(&equations[j + 1], xs[1]);
 
@@ -91,7 +85,7 @@ pub fn interpolate_batch(
             -x01 * xs[3],
             x01 + x03 + x13,
             -xs[0] - xs[1] - xs[3],
-            FieldElement::ONE,
+            E::ONE,
         ];
         inverses[j + 2] = eval(&equations[j + 2], xs[2]);
 
@@ -100,14 +94,14 @@ pub fn interpolate_batch(
             -x01 * xs[2],
             x01 + x02 + x12,
             -xs[0] - xs[1] - xs[2],
-            FieldElement::ONE,
+            E::ONE,
         ];
         inverses[j + 3] = eval(&equations[j + 3], xs[3]);
     }
 
-    let inverses = FieldElement::inv_many(&inverses);
+    let inverses = E::inv_many(&inverses);
 
-    let mut result: Vec<[FieldElement; 4]> = Vec::with_capacity(n);
+    let mut result: Vec<[E; 4]> = Vec::with_capacity(n);
     unsafe {
         result.set_len(n);
     }
@@ -147,7 +141,7 @@ pub fn interpolate_batch(
     result
 }
 
-pub fn transpose(vector: &[FieldElement], stride: usize) -> Vec<[FieldElement; 4]> {
+pub fn transpose<E: FieldElementTrait>(vector: &[E], stride: usize) -> Vec<[E; 4]> {
     assert!(
         vector.len() % (4 * stride) == 0,
         "vector length must be divisible by {}",
@@ -169,7 +163,7 @@ pub fn transpose(vector: &[FieldElement], stride: usize) -> Vec<[FieldElement; 4
 }
 
 /// Re-interprets a vector of integers as a vector of quartic elements.
-pub fn to_quartic_vec(vector: Vec<FieldElement>) -> Vec<[FieldElement; 4]> {
+pub fn to_quartic_vec<E: FieldElementTrait>(vector: Vec<E>) -> Vec<[E; 4]> {
     assert!(
         vector.len() % 4 == 0,
         "vector length must be divisible by 4"
@@ -178,5 +172,5 @@ pub fn to_quartic_vec(vector: Vec<FieldElement>) -> Vec<[FieldElement; 4]> {
     let p = v.as_mut_ptr();
     let len = v.len() / 4;
     let cap = v.capacity() / 4;
-    unsafe { Vec::from_raw_parts(p as *mut [FieldElement; 4], len, cap) }
+    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
 }

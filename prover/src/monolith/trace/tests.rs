@@ -1,7 +1,7 @@
 use crate::tests::{build_fib_trace, build_proof_context};
 use crypto::{hash::blake3, MerkleTree};
 use math::{
-    field::{AsBytes, FieldElement, StarkField},
+    field::{AsBytes, FieldElement, FieldElementTrait, StarkField},
     polynom,
 };
 
