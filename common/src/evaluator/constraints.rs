@@ -1,4 +1,4 @@
-use math::field::{FieldElement, StarkField};
+use math::field::{BaseElement, FieldElement};
 
 // CONSTRAINT DEGREE
 // ================================================================================================
@@ -49,36 +49,36 @@ impl ConstraintDegree {
 ///   exclude: vec![b]
 #[derive(Clone, Debug)]
 pub struct ConstraintDivisor {
-    numerator: Vec<(usize, FieldElement)>,
-    exclude: Vec<FieldElement>,
+    numerator: Vec<(usize, BaseElement)>,
+    exclude: Vec<BaseElement>,
 }
 
 impl ConstraintDivisor {
     /// Builds divisor for transition constraints
-    pub fn from_transition(trace_length: usize, x_at_last_step: FieldElement) -> Self {
+    pub fn from_transition(trace_length: usize, x_at_last_step: BaseElement) -> Self {
         ConstraintDivisor {
-            numerator: vec![(trace_length, FieldElement::ONE)],
+            numerator: vec![(trace_length, BaseElement::ONE)],
             exclude: vec![x_at_last_step],
         }
     }
 
     /// Builds divisor for assertion constraint
-    pub fn from_assertion(x: FieldElement) -> Self {
+    pub fn from_assertion(x: BaseElement) -> Self {
         ConstraintDivisor {
             numerator: vec![(1, x)],
             exclude: vec![],
         }
     }
 
-    pub fn new(numerator: Vec<(usize, FieldElement)>, exclude: Vec<FieldElement>) -> Self {
+    pub fn new(numerator: Vec<(usize, BaseElement)>, exclude: Vec<BaseElement>) -> Self {
         ConstraintDivisor { numerator, exclude }
     }
 
-    pub fn numerator(&self) -> &[(usize, FieldElement)] {
+    pub fn numerator(&self) -> &[(usize, BaseElement)] {
         &self.numerator
     }
 
-    pub fn exclude(&self) -> &[FieldElement] {
+    pub fn exclude(&self) -> &[BaseElement] {
         &self.exclude
     }
 
@@ -89,11 +89,11 @@ impl ConstraintDivisor {
         numerator_degree - denominator_degree
     }
 
-    pub fn evaluate_at(&self, x: FieldElement) -> FieldElement {
-        let mut result = FieldElement::ONE;
+    pub fn evaluate_at(&self, x: BaseElement) -> BaseElement {
+        let mut result = BaseElement::ONE;
 
         for (degree, constant) in self.numerator.iter() {
-            let v = FieldElement::exp(x, *degree as u128);
+            let v = BaseElement::exp(x, *degree as u128);
             let v = v - *constant;
             result = result * v;
         }

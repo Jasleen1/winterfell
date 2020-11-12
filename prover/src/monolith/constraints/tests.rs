@@ -9,7 +9,7 @@ use common::{
     TransitionEvaluator,
 };
 use crypto::hash::blake3;
-use math::field::{FieldElement, StarkField};
+use math::field::{BaseElement, FieldElement};
 
 #[test]
 fn test_fib_evaluate_constraints_good_case() {
@@ -52,21 +52,21 @@ fn test_fib_evaluate_constraints_good_case() {
         .rev()
         .step_by(ce_blowup_factor)
     {
-        assert_eq!(FieldElement::ZERO, evaluation);
+        assert_eq!(BaseElement::ZERO, evaluation);
     }
     assert_ne!(
-        FieldElement::ZERO,
+        BaseElement::ZERO,
         transition_evaluations[(trace_length - 1) * ce_blowup_factor]
     );
 
     // input assertion evaluations must be 0 only at the first step
-    assert_eq!(FieldElement::ZERO, input_evaluations[0]);
+    assert_eq!(BaseElement::ZERO, input_evaluations[0]);
     for &evaluation in input_evaluations
         .iter()
         .skip(ce_blowup_factor)
         .step_by(ce_blowup_factor)
     {
-        assert_ne!(FieldElement::ZERO, evaluation);
+        assert_ne!(BaseElement::ZERO, evaluation);
     }
 
     // output assertion evaluations must be 0 only at the last step
@@ -77,10 +77,10 @@ fn test_fib_evaluate_constraints_good_case() {
         .rev()
         .step_by(ce_blowup_factor)
     {
-        assert_ne!(FieldElement::ZERO, evaluation);
+        assert_ne!(BaseElement::ZERO, evaluation);
     }
     assert_eq!(
-        FieldElement::ZERO,
+        BaseElement::ZERO,
         output_evaluations[(trace_length - 1) * ce_blowup_factor]
     );
 }
@@ -95,7 +95,7 @@ fn test_fib_invalid_assertions() {
     let fib_trace_vec = build_fib_trace(trace_length * 2);
     let fib_trace = super::TraceTable::new(fib_trace_vec);
     let mut assertions = build_fib_assertions(&fib_trace);
-    assertions[0] = Assertion::new(0, 0, FieldElement::from(2u8));
+    assertions[0] = Assertion::new(0, 0, BaseElement::from(2u8));
 
     let evaluations = build_constraint_evaluations::<FibEvaluator>(
         fib_trace,
@@ -109,7 +109,7 @@ fn test_fib_invalid_assertions() {
 
     // input assertion evaluation will be non-zero
     for &evaluation in input_evaluations.iter() {
-        assert_ne!(FieldElement::ZERO, evaluation);
+        assert_ne!(BaseElement::ZERO, evaluation);
     }
 }
 
@@ -122,7 +122,7 @@ fn test_bad_fib_evaluate_constraints() {
     // alter one of the states to be incorrect
     let trace_vec = build_fib_trace(trace_length * 2);
     let mut reg0_extended = trace_vec[0].clone();
-    reg0_extended[5] = reg0_extended[5] - FieldElement::from(1u8);
+    reg0_extended[5] = reg0_extended[5] - BaseElement::from(1u8);
     let trace_vec_extended = vec![reg0_extended, trace_vec[1].clone()];
     let fib_trace_extended = super::TraceTable::new(trace_vec_extended);
 
@@ -150,7 +150,7 @@ fn test_fib_duplicate_assertions() {
     // add a duplicate assertion
     let fib_trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let mut assertions = build_fib_assertions(&fib_trace);
-    assertions.push(Assertion::new(1, 0, FieldElement::from(1u8)));
+    assertions.push(Assertion::new(1, 0, BaseElement::from(1u8)));
 
     // should throw error on duplicate assertion
     let eval = build_constraint_evaluations::<FibEvaluator>(
@@ -175,7 +175,7 @@ fn test_fib_assertions_invalid_register() {
     // add an assertion for an invalid register
     let fib_trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let mut assertions = build_fib_assertions(&fib_trace);
-    assertions.push(Assertion::new(5, 0, FieldElement::from(1u8)));
+    assertions.push(Assertion::new(5, 0, BaseElement::from(1u8)));
 
     // should throw error on invalid register
     let eval = build_constraint_evaluations::<FibEvaluator>(
@@ -200,7 +200,7 @@ fn test_fib_assertions_invalid_step() {
     // add a duplicate assertion
     let fib_trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let mut assertions = build_fib_assertions(&fib_trace);
-    assertions.push(Assertion::new(1, 10, FieldElement::from(1u8)));
+    assertions.push(Assertion::new(1, 10, BaseElement::from(1u8)));
 
     // should throw error on invalid step
     let eval = build_constraint_evaluations::<FibEvaluator>(
@@ -238,7 +238,7 @@ fn build_bad_constraint_poly() {
 
     // Take the first divisor and increase its degree by appending an element to the vec
     let mut exclude = divisors[0].exclude().to_vec();
-    exclude.push(FieldElement::from(7u8));
+    exclude.push(BaseElement::from(7u8));
     divisors[0] = ConstraintDivisor::new(divisors[0].numerator().to_vec(), exclude);
     let modified_evaluations = ConstraintEvaluationTable::new(eval_vec.to_vec(), divisors);
 
@@ -307,8 +307,8 @@ fn build_constraint_evaluations<T: TransitionEvaluator>(
 
 fn build_fib_assertions(trace: &super::TraceTable) -> Vec<Assertion> {
     vec![
-        Assertion::new(0, 0, FieldElement::from(1u8)),
-        Assertion::new(1, 0, FieldElement::from(1u8)),
+        Assertion::new(0, 0, BaseElement::from(1u8)),
+        Assertion::new(1, 0, BaseElement::from(1u8)),
         Assertion::new(
             1,
             trace.num_states() - 1,

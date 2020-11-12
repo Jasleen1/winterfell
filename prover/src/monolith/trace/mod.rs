@@ -3,7 +3,7 @@ use common::{utils::uninit_vector, ComputationContext};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{AsBytes, FieldElement, StarkField},
+    field::{AsBytes, BaseElement, FieldElement, StarkField},
 };
 
 #[cfg(test)]
@@ -15,7 +15,7 @@ mod tests;
 /// Builds and return evaluation domain for STARK proof.
 pub fn build_lde_domain(context: &ComputationContext) -> LdeDomain {
     let domain =
-        FieldElement::get_power_series(context.generators().lde_domain, context.lde_domain_size());
+        BaseElement::get_power_series(context.generators().lde_domain, context.lde_domain_size());
 
     // it is more efficient to build by taking half of the domain and permuting it, rather than
     // building twiddles from scratch using fft::get_twiddles()
@@ -36,7 +36,7 @@ pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, P
     );
 
     // build trace twiddles for FFT interpolation over trace domain
-    let trace_root = FieldElement::get_root_of_unity(trace_length.trailing_zeros());
+    let trace_root = BaseElement::get_root_of_unity(trace_length.trailing_zeros());
     let trace_twiddles = fft::get_inv_twiddles(trace_root, trace_length);
 
     let mut polys = trace.into_vec();
@@ -48,7 +48,7 @@ pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, P
         fft::interpolate_poly(poly, &trace_twiddles, true);
 
         // allocate space to hold extended evaluations and copy the polynomial into it
-        let mut register = vec![FieldElement::ZERO; lde_domain.size()];
+        let mut register = vec![BaseElement::ZERO; lde_domain.size()];
         register[..poly.len()].copy_from_slice(&poly);
 
         // evaluate the polynomial over extended domain
@@ -65,7 +65,7 @@ pub fn build_trace_tree(trace: &TraceTable, hash: HashFunction) -> MerkleTree {
     let mut hashed_states = uninit_vector::<[u8; 32]>(trace.num_states());
 
     // iterate though table rows, hashing each row
-    let mut trace_state = vec![FieldElement::ZERO; trace.num_registers()];
+    let mut trace_state = vec![BaseElement::ZERO; trace.num_registers()];
     #[allow(clippy::needless_range_loop)]
     for i in 0..trace.num_states() {
         trace.copy_row(i, &mut trace_state);
@@ -82,7 +82,7 @@ pub fn query_trace(
     trace: TraceTable,
     trace_tree: MerkleTree,
     positions: &[usize],
-) -> (BatchMerkleProof, Vec<Vec<FieldElement>>) {
+) -> (BatchMerkleProof, Vec<Vec<BaseElement>>) {
     // allocate memory for queried trace states
     let mut trace_states = Vec::with_capacity(positions.len());
 

@@ -1,4 +1,4 @@
-use prover::math::field::{FieldElement, StarkField};
+use prover::math::field::{BaseElement, FieldElement};
 
 use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
@@ -6,15 +6,15 @@ pub fn generate_trace(
     value: TreeNode,
     branch: Vec<TreeNode>,
     index: usize,
-) -> Vec<Vec<FieldElement>> {
+) -> Vec<Vec<BaseElement>> {
     // allocate memory to hold the trace table
     let trace_length = branch.len() * CYCLE_LENGTH;
     let mut trace = vec![
-        vec![FieldElement::ZERO; trace_length], // hash state
-        vec![FieldElement::ZERO; trace_length], // hash state
-        vec![FieldElement::ZERO; trace_length], // hash state
-        vec![FieldElement::ZERO; trace_length], // hash state
-        vec![FieldElement::ZERO; trace_length], // index bits
+        vec![BaseElement::ZERO; trace_length], // hash state
+        vec![BaseElement::ZERO; trace_length], // hash state
+        vec![BaseElement::ZERO; trace_length], // hash state
+        vec![BaseElement::ZERO; trace_length], // hash state
+        vec![BaseElement::ZERO; trace_length], // index bits
     ];
 
     let branch = &branch[1..];
@@ -23,9 +23,9 @@ pub fn generate_trace(
     let mut state = [
         value.0,
         value.1,
-        FieldElement::ZERO,
-        FieldElement::ZERO,
-        FieldElement::ZERO,
+        BaseElement::ZERO,
+        BaseElement::ZERO,
+        BaseElement::ZERO,
     ];
     // copy state into the trace
     for (reg, &val) in state.iter().enumerate() {
@@ -52,14 +52,14 @@ pub fn generate_trace(
             state[0] = trace[0][step];
             state[1] = trace[1][step];
             // set registers [2, 3] to 0
-            state[2] = FieldElement::ZERO;
-            state[3] = FieldElement::ZERO;
+            state[2] = BaseElement::ZERO;
+            state[3] = BaseElement::ZERO;
             // move next bit of the index into register 4
-            state[4] = FieldElement::from(((index >> cycle_num) & 1) as u128);
+            state[4] = BaseElement::from(((index >> cycle_num) & 1) as u128);
         } else if cycle_pos == NUM_HASH_ROUNDS + 1 {
             // on the 16th step, copy next node of the branch into the appropriate position
             let index_bit = trace[4][step];
-            if index_bit == FieldElement::ZERO {
+            if index_bit == BaseElement::ZERO {
                 // if index bit is zero, accumulated hash goes into registers [0, 1],
                 // and new branch node goes into registers [2, 3]
                 state[0] = trace[0][step];

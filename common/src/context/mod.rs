@@ -1,5 +1,5 @@
 use crate::ProofOptions;
-use math::field::{FieldElement, StarkField};
+use math::field::{BaseElement, FieldElement, StarkField};
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -15,9 +15,9 @@ pub struct ComputationContext {
 
 #[derive(Clone)]
 pub struct Generators {
-    pub trace_domain: FieldElement,
-    pub ce_domain: FieldElement,
-    pub lde_domain: FieldElement,
+    pub trace_domain: BaseElement,
+    pub ce_domain: BaseElement,
+    pub lde_domain: BaseElement,
 }
 
 // COMPUTATION CONTEXT
@@ -141,13 +141,13 @@ impl ComputationContext {
     // UTILITY FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
-    pub fn get_trace_x_at(&self, step: usize) -> FieldElement {
+    pub fn get_trace_x_at(&self, step: usize) -> BaseElement {
         debug_assert!(
             step < self.trace_length,
             "step must be in the trace domain [0, {})",
             self.trace_length
         );
-        FieldElement::exp(self.generators.trace_domain, step as u128)
+        BaseElement::exp(self.generators.trace_domain, step as u128)
     }
 }
 
@@ -170,8 +170,8 @@ fn build_generators(
     let lde_domain_size = compute_lde_domain_size(trace_length, lde_blowup_factor);
 
     Generators {
-        trace_domain: FieldElement::get_root_of_unity(trace_length.trailing_zeros()),
-        ce_domain: FieldElement::get_root_of_unity(ce_domain_size.trailing_zeros()),
-        lde_domain: FieldElement::get_root_of_unity(lde_domain_size.trailing_zeros()),
+        trace_domain: BaseElement::get_root_of_unity(trace_length.trailing_zeros()),
+        ce_domain: BaseElement::get_root_of_unity(ce_domain_size.trailing_zeros()),
+        lde_domain: BaseElement::get_root_of_unity(lde_domain_size.trailing_zeros()),
     }
 }

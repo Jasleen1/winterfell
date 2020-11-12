@@ -1,16 +1,16 @@
 use common::{ComputationContext, ConstraintDivisor};
 use math::{
-    field::{FieldElement, StarkField},
+    field::{BaseElement, FieldElement},
     polynom,
 };
 use std::{iter, vec};
 
 // TRACE TABLE
 // ================================================================================================
-pub struct TraceTable(Vec<Vec<FieldElement>>);
+pub struct TraceTable(Vec<Vec<BaseElement>>);
 
 impl TraceTable {
-    pub fn new(registers: Vec<Vec<FieldElement>>) -> Self {
+    pub fn new(registers: Vec<Vec<BaseElement>>) -> Self {
         assert!(
             !registers.is_empty(),
             "execution trace must consist of at least one register"
@@ -38,32 +38,32 @@ impl TraceTable {
         self.0.len()
     }
 
-    pub fn copy_row(&self, idx: usize, destination: &mut [FieldElement]) {
+    pub fn copy_row(&self, idx: usize, destination: &mut [BaseElement]) {
         for (i, register) in self.0.iter().enumerate() {
             destination[i] = register[idx];
         }
     }
 
-    pub fn get(&self, register: usize, step: usize) -> FieldElement {
+    pub fn get(&self, register: usize, step: usize) -> BaseElement {
         self.0[register][step]
     }
 
     #[cfg(test)]
-    pub fn get_register(&self, idx: usize) -> &[FieldElement] {
+    pub fn get_register(&self, idx: usize) -> &[BaseElement] {
         &self.0[idx]
     }
 
-    pub fn into_vec(self) -> Vec<Vec<FieldElement>> {
+    pub fn into_vec(self) -> Vec<Vec<BaseElement>> {
         self.0
     }
 }
 
 // LOW DEGREE EXTENSION DOMAIN
 // ================================================================================================
-pub struct LdeDomain(Vec<FieldElement>, Vec<FieldElement>);
+pub struct LdeDomain(Vec<BaseElement>, Vec<BaseElement>);
 
 impl LdeDomain {
-    pub fn new(values: Vec<FieldElement>, twiddles: Vec<FieldElement>) -> Self {
+    pub fn new(values: Vec<BaseElement>, twiddles: Vec<BaseElement>) -> Self {
         assert!(
             values.len().is_power_of_two(),
             "Size of LDE domain must be a power of 2"
@@ -79,21 +79,21 @@ impl LdeDomain {
         self.0.len()
     }
 
-    pub fn twiddles(&self) -> &[FieldElement] {
+    pub fn twiddles(&self) -> &[BaseElement] {
         &self.1
     }
 
-    pub fn values(&self) -> &[FieldElement] {
+    pub fn values(&self) -> &[BaseElement] {
         &self.0
     }
 }
 
 // POLYNOMIAL TABLE
 // ================================================================================================
-pub struct PolyTable(Vec<Vec<FieldElement>>);
+pub struct PolyTable(Vec<Vec<BaseElement>>);
 
 impl PolyTable {
-    pub fn new(polys: Vec<Vec<FieldElement>>) -> Self {
+    pub fn new(polys: Vec<Vec<BaseElement>>) -> Self {
         assert!(
             !polys.is_empty(),
             "polynomial table must contain at least one polynomial"
@@ -118,7 +118,7 @@ impl PolyTable {
     }
 
     /// Evaluates all polynomials the the specified point `x`.
-    pub fn evaluate_at(&self, x: FieldElement) -> Vec<FieldElement> {
+    pub fn evaluate_at(&self, x: BaseElement) -> Vec<BaseElement> {
         let mut result = Vec::with_capacity(self.num_polys());
         for poly in self.0.iter() {
             result.push(polynom::eval(&poly, x));
@@ -131,11 +131,11 @@ impl PolyTable {
     }
 
     #[cfg(test)]
-    pub fn get_poly(&self, idx: usize) -> &[FieldElement] {
+    pub fn get_poly(&self, idx: usize) -> &[BaseElement] {
         &self.0[idx]
     }
 
-    pub fn into_vec(self) -> Vec<Vec<FieldElement>> {
+    pub fn into_vec(self) -> Vec<Vec<BaseElement>> {
         self.0
     }
 }
@@ -143,12 +143,12 @@ impl PolyTable {
 // CONSTRAINT EVALUATION TABLE
 // ================================================================================================
 pub struct ConstraintEvaluationTable {
-    evaluations: Vec<Vec<FieldElement>>,
+    evaluations: Vec<Vec<BaseElement>>,
     divisors: Vec<ConstraintDivisor>,
 }
 
 impl ConstraintEvaluationTable {
-    pub fn new(evaluations: Vec<Vec<FieldElement>>, divisors: Vec<ConstraintDivisor>) -> Self {
+    pub fn new(evaluations: Vec<Vec<BaseElement>>, divisors: Vec<ConstraintDivisor>) -> Self {
         // TODO: verify lengths
         ConstraintEvaluationTable {
             evaluations,
@@ -166,14 +166,14 @@ impl ConstraintEvaluationTable {
     }
 
     #[cfg(test)]
-    pub fn into_vec(self) -> Vec<Vec<FieldElement>> {
+    pub fn into_vec(self) -> Vec<Vec<BaseElement>> {
         self.evaluations
     }
 }
 
 impl IntoIterator for ConstraintEvaluationTable {
-    type Item = (Vec<FieldElement>, ConstraintDivisor);
-    type IntoIter = iter::Zip<vec::IntoIter<Vec<FieldElement>>, vec::IntoIter<ConstraintDivisor>>;
+    type Item = (Vec<BaseElement>, ConstraintDivisor);
+    type IntoIter = iter::Zip<vec::IntoIter<Vec<BaseElement>>, vec::IntoIter<ConstraintDivisor>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.evaluations.into_iter().zip(self.divisors.into_iter())
@@ -182,10 +182,10 @@ impl IntoIterator for ConstraintEvaluationTable {
 
 // CONSTRAINT POLYNOMIAL
 // ================================================================================================
-pub struct ConstraintPoly(Vec<FieldElement>, usize);
+pub struct ConstraintPoly(Vec<BaseElement>, usize);
 
 impl ConstraintPoly {
-    pub fn new(coefficients: Vec<FieldElement>, degree: usize) -> Self {
+    pub fn new(coefficients: Vec<BaseElement>, degree: usize) -> Self {
         ConstraintPoly(coefficients, degree)
     }
 
@@ -197,28 +197,28 @@ impl ConstraintPoly {
         self.0.len()
     }
 
-    pub fn coefficients(&self) -> &[FieldElement] {
+    pub fn coefficients(&self) -> &[BaseElement] {
         &self.0
     }
 
     /// Evaluates the polynomial the the specified point `x`.
-    pub fn evaluate_at(&self, x: FieldElement) -> FieldElement {
+    pub fn evaluate_at(&self, x: BaseElement) -> BaseElement {
         polynom::eval(&self.0, x)
     }
 
-    pub fn into_vec(self) -> Vec<FieldElement> {
+    pub fn into_vec(self) -> Vec<BaseElement> {
         self.0
     }
 }
 
 // COMPOSITION POLYNOMIAL
 // ================================================================================================
-pub struct CompositionPoly(Vec<FieldElement>, usize);
+pub struct CompositionPoly(Vec<BaseElement>, usize);
 
 impl CompositionPoly {
     pub fn new(context: &ComputationContext) -> Self {
         CompositionPoly(
-            vec![FieldElement::ZERO; context.lde_domain_size()],
+            vec![BaseElement::ZERO; context.lde_domain_size()],
             context.deep_composition_degree(),
         )
     }
@@ -232,11 +232,11 @@ impl CompositionPoly {
         self.0.len()
     }
 
-    pub fn coefficients_mut(&mut self) -> &mut [FieldElement] {
+    pub fn coefficients_mut(&mut self) -> &mut [BaseElement] {
         &mut self.0
     }
 
-    pub fn into_vec(self) -> Vec<FieldElement> {
+    pub fn into_vec(self) -> Vec<BaseElement> {
         self.0
     }
 }

@@ -3,7 +3,7 @@ use common::{
     ComputationContext, PublicCoin,
 };
 use crypto::{BatchMerkleProof, HashFunction};
-use math::field::FieldElement;
+use math::field::BaseElement;
 use std::convert::TryInto;
 
 // TYPES AND INTERFACES
@@ -80,7 +80,7 @@ impl ProverChannel {
     pub fn build_proof(
         self,
         trace_paths: BatchMerkleProof,
-        trace_states: Vec<Vec<FieldElement>>,
+        trace_states: Vec<Vec<BaseElement>>,
         constraint_paths: BatchMerkleProof,
         deep_values: DeepValues,
         fri_proof: FriProof,

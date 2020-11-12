@@ -6,7 +6,7 @@ use common::errors::VerifierError;
 use evaluator::FibEvaluator;
 use prover::{
     crypto::hash::blake3,
-    math::field::{FieldElement, StarkField},
+    math::field::{BaseElement, FieldElement},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use verifier::Verifier;
@@ -77,8 +77,8 @@ impl Example for FibExample {
 
         // Generate the proof
         let assertions = vec![
-            Assertion::new(0, 0, FieldElement::ONE),
-            Assertion::new(1, 0, FieldElement::ONE),
+            Assertion::new(0, 0, BaseElement::ONE),
+            Assertion::new(1, 0, BaseElement::ONE),
             Assertion::new(1, trace_length - 1, result),
         ];
         (prover.prove(trace, assertions.clone()).unwrap(), assertions)
@@ -93,14 +93,14 @@ impl Example for FibExample {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
+fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
     );
 
-    let mut reg0 = vec![FieldElement::ONE];
-    let mut reg1 = vec![FieldElement::ONE];
+    let mut reg0 = vec![BaseElement::ONE];
+    let mut reg1 = vec![BaseElement::ONE];
 
     for i in 0..(length / 2 - 1) {
         reg0.push(reg0[i] + reg1[i]);

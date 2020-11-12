@@ -1,5 +1,5 @@
 use super::{ComputationContext, ConstraintDegree, RandomGenerator};
-use math::field::{FieldElement, StarkField};
+use math::field::{BaseElement, FieldElement};
 use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT
@@ -16,9 +16,9 @@ pub trait TransitionEvaluator {
     /// method is used by the prover to evaluate/ constraint for all steps of the execution trace.
     fn evaluate_at_step(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
         step: usize,
     );
 
@@ -27,10 +27,10 @@ pub trait TransitionEvaluator {
     /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
     fn evaluate_at_x(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
-        x: FieldElement,
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
+        x: BaseElement,
     );
 
     /// Returns constraints grouped by their degree.
@@ -66,13 +66,13 @@ pub trait TransitionEvaluator {
     /// Merges all transition constraint evaluations into a single value; we can do this
     /// because all transition constraint evaluations have the same divisor, and this
     /// divisor will be applied later to this single value.
-    fn merge_evaluations(&self, evaluations: &[FieldElement], x: FieldElement) -> FieldElement {
-        let mut result = FieldElement::ZERO;
+    fn merge_evaluations(&self, evaluations: &[BaseElement], x: BaseElement) -> BaseElement {
+        let mut result = BaseElement::ZERO;
 
         for group in self.constraint_groups() {
             // for each group of constraints with the same degree, separately compute
             // combinations of D(x) and D(x) * x^p
-            let mut result_adj = FieldElement::ZERO;
+            let mut result_adj = BaseElement::ZERO;
             for (&constraint_idx, coefficients) in
                 group.indexes.iter().zip(group.coefficients.iter())
             {
@@ -82,7 +82,7 @@ pub trait TransitionEvaluator {
             }
 
             // increase the degree of D(x) * x^p
-            let xp = FieldElement::exp(x, group.degree_adjustment);
+            let xp = BaseElement::exp(x, group.degree_adjustment);
             result = result + result_adj * xp;
         }
 
@@ -131,5 +131,5 @@ pub struct TransitionConstraintGroup {
     pub degree: ConstraintDegree,
     pub degree_adjustment: u128,
     pub indexes: Vec<usize>,
-    pub coefficients: Vec<(FieldElement, FieldElement)>,
+    pub coefficients: Vec<(BaseElement, BaseElement)>,
 }

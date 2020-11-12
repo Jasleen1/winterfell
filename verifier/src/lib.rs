@@ -6,7 +6,7 @@ use common::{
 };
 use common::{CompositionCoefficients, PublicCoin};
 
-use math::field::{FieldElement, StarkField};
+use math::field::{BaseElement, FieldElement};
 use std::marker::PhantomData;
 
 mod channel;
@@ -70,9 +70,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 
         // compute LDE domain coordinates for all query positions
         let g_lde = context.generators().lde_domain;
-        let x_coordinates: Vec<FieldElement> = query_positions
+        let x_coordinates: Vec<BaseElement> = query_positions
             .iter()
-            .map(|&p| FieldElement::exp(g_lde, p as u128))
+            .map(|&p| BaseElement::exp(g_lde, p as u128))
             .collect();
 
         // read trace states and constraint evaluations at the queried positions; this also
@@ -111,7 +111,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
             .iter()
             .zip(c_composition)
             .map(|(&t, c)| t + c)
-            .collect::<Vec<FieldElement>>();
+            .collect::<Vec<BaseElement>>();
 
         // 4 ----- Verify low-degree proof -------------------------------------------------------------
         // make sure that evaluations we computed in the previous step are in fact evaluations
@@ -127,10 +127,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 /// TODO: move into ConstraintEvaluator?
 pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     mut evaluator: ConstraintEvaluator<T, A>,
-    state1: &[FieldElement],
-    state2: &[FieldElement],
-    x: FieldElement,
-) -> FieldElement {
+    state1: &[BaseElement],
+    state2: &[BaseElement],
+    x: BaseElement,
+) -> BaseElement {
     let evaluations = evaluator.evaluate_at_x(state1, state2, x).to_vec();
     let divisors = evaluator.constraint_divisors();
     debug_assert!(
@@ -141,7 +141,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     );
 
     // iterate over evaluations and divide out values implied by the divisors
-    let mut result = FieldElement::ZERO;
+    let mut result = BaseElement::ZERO;
     for (&evaluation, divisor) in evaluations.iter().zip(divisors.iter()) {
         let z = divisor.evaluate_at(x);
         result = result + evaluation / z;
@@ -156,12 +156,12 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 /// TODO: add comments
 fn compose_registers(
     context: &ComputationContext,
-    trace_states: &[Vec<FieldElement>],
-    x_coordinates: &[FieldElement],
+    trace_states: &[Vec<BaseElement>],
+    x_coordinates: &[BaseElement],
     deep_values: &DeepValues,
-    z: FieldElement,
+    z: BaseElement,
     cc: &CompositionCoefficients,
-) -> Vec<FieldElement> {
+) -> Vec<BaseElement> {
     let next_z = z * context.generators().trace_domain;
 
     let trace_at_z1 = &deep_values.trace_at_z1;
@@ -173,7 +173,7 @@ fn compose_registers(
 
     let mut result = Vec::with_capacity(trace_states.len());
     for (registers, &x) in trace_states.iter().zip(x_coordinates) {
-        let mut composition = FieldElement::ZERO;
+        let mut composition = BaseElement::ZERO;
         for (i, &value) in registers.iter().enumerate() {
             // compute T1(x) = (T(x) - T(z)) / (x - z)
             let t1 = (value - trace_at_z1[i]) / (x - z);
@@ -187,7 +187,7 @@ fn compose_registers(
         }
 
         // raise the degree to match composition degree
-        let xp = FieldElement::exp(x, incremental_degree);
+        let xp = BaseElement::exp(x, incremental_degree);
         composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
 
         result.push(composition);
@@ -201,12 +201,12 @@ fn compose_registers(
 
 /// TODO: add comments
 fn compose_constraints(
-    evaluations: Vec<FieldElement>,
-    x_coordinates: &[FieldElement],
-    z: FieldElement,
-    evaluation_at_z: FieldElement,
+    evaluations: Vec<BaseElement>,
+    x_coordinates: &[BaseElement],
+    z: BaseElement,
+    evaluation_at_z: BaseElement,
     cc: &CompositionCoefficients,
-) -> Vec<FieldElement> {
+) -> Vec<BaseElement> {
     // divide out deep point from the evaluations
     let mut result = Vec::with_capacity(evaluations.len());
     for (evaluation, &x) in evaluations.into_iter().zip(x_coordinates) {

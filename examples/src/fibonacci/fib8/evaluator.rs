@@ -1,5 +1,5 @@
 use prover::{
-    math::field::{FieldElement, StarkField},
+    math::field::{BaseElement, FieldElement},
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
     TransitionEvaluator,
 };
@@ -28,20 +28,20 @@ impl TransitionEvaluator for Fib8Evaluator {
 
     fn evaluate_at_step(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
         _step: usize,
     ) {
-        self.evaluate_at_x(result, current, next, FieldElement::ZERO)
+        self.evaluate_at_x(result, current, next, BaseElement::ZERO)
     }
 
     fn evaluate_at_x(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
-        _x: FieldElement,
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
+        _x: BaseElement,
     ) {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());

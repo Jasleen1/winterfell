@@ -1,6 +1,6 @@
 use crate::ProofOptions;
 use crypto::BatchMerkleProof;
-use math::field::FieldElement;
+use math::field::BaseElement;
 use serde::{Deserialize, Serialize};
 
 // CONSTANTS
@@ -40,13 +40,13 @@ pub struct Commitments {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Queries {
     pub trace_paths: Vec<Vec<[u8; 32]>>,
-    pub trace_states: Vec<Vec<FieldElement>>,
+    pub trace_states: Vec<Vec<BaseElement>>,
     pub constraint_proof: BatchMerkleProof,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriLayer {
-    pub values: Vec<[FieldElement; 4]>,
+    pub values: Vec<[BaseElement; 4]>,
     pub paths: Vec<Vec<[u8; 32]>>,
     pub depth: u8,
 }
@@ -54,13 +54,13 @@ pub struct FriLayer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriProof {
     pub layers: Vec<FriLayer>,
-    pub rem_values: Vec<FieldElement>,
+    pub rem_values: Vec<BaseElement>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DeepValues {
-    pub trace_at_z1: Vec<FieldElement>,
-    pub trace_at_z2: Vec<FieldElement>,
+    pub trace_at_z1: Vec<BaseElement>,
+    pub trace_at_z2: Vec<BaseElement>,
 }
 
 // STARK PROOF IMPLEMENTATION

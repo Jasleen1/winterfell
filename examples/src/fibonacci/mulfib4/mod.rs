@@ -5,7 +5,7 @@ use log::debug;
 use common::errors::VerifierError;
 use evaluator::MulFib4Evaluator;
 use prover::{
-    crypto::hash::blake3, math::field::FieldElement, Assertion, ProofOptions, Prover, StarkProof,
+    crypto::hash::blake3, math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof,
 };
 use verifier::Verifier;
 
@@ -74,8 +74,8 @@ impl Example for MulFib4Example {
 
         // Generate the proof
         let assertions = vec![
-            Assertion::new(0, 0, FieldElement::new(1)),
-            Assertion::new(1, 0, FieldElement::new(2)),
+            Assertion::new(0, 0, BaseElement::new(1)),
+            Assertion::new(1, 0, BaseElement::new(2)),
             Assertion::new(2, trace_length - 1, result),
         ];
         (prover.prove(trace, assertions.clone()).unwrap(), assertions)
@@ -90,14 +90,14 @@ impl Example for MulFib4Example {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_mulfib_trace(length: usize) -> Vec<Vec<FieldElement>> {
+pub fn build_mulfib_trace(length: usize) -> Vec<Vec<BaseElement>> {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
     );
 
-    let mut reg0 = vec![FieldElement::new(1)];
-    let mut reg1 = vec![FieldElement::new(2)];
+    let mut reg0 = vec![BaseElement::new(1)];
+    let mut reg1 = vec![BaseElement::new(2)];
     let mut reg2 = vec![reg0[0] * reg1[0]];
     let mut reg3 = vec![reg1[0] * reg2[0]];
 

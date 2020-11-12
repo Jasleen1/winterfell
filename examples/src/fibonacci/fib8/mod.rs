@@ -6,7 +6,7 @@ use common::errors::VerifierError;
 use evaluator::Fib8Evaluator;
 use prover::{
     crypto::hash::blake3,
-    math::field::{FieldElement, StarkField},
+    math::field::{BaseElement, FieldElement},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use verifier::Verifier;
@@ -77,8 +77,8 @@ impl Example for Fib8Example {
         // assert that the trace starts with 7th and 8th terms of Fibonacci sequence (the first
         // 6 terms are not recorded in the trace), and ends with the expected result
         let assertions = vec![
-            Assertion::new(0, 0, FieldElement::new(13)),
-            Assertion::new(1, 0, FieldElement::new(21)),
+            Assertion::new(0, 0, BaseElement::new(13)),
+            Assertion::new(1, 0, BaseElement::new(21)),
             Assertion::new(1, trace_length - 1, result),
         ];
         // generate the proof
@@ -94,15 +94,15 @@ impl Example for Fib8Example {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<FieldElement>> {
+pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
     );
 
     // initialize the trace with 7th and 8th terms of Fibonacci sequence (skipping the first 6)
-    let n0 = FieldElement::ONE;
-    let n1 = FieldElement::ONE;
+    let n0 = BaseElement::ONE;
+    let n1 = BaseElement::ONE;
     let n2 = n0 + n1;
     let n3 = n1 + n2;
     let n4 = n2 + n3;

@@ -1,5 +1,5 @@
 mod traits;
-pub use traits::{AsBytes, StarkField};
+pub use traits::{AsBytes, FieldElement, StarkField};
 
 mod f128;
-pub use f128::FieldElement;
+pub use f128::BaseElement;

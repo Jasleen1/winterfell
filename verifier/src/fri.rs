@@ -2,7 +2,7 @@ use super::channel::VerifierChannel;
 use common::{fri_utils::get_augmented_positions, ComputationContext, PublicCoin};
 
 use math::{
-    field::{FieldElement, StarkField},
+    field::{BaseElement, FieldElement},
     polynom, quartic,
 };
 use std::mem;
@@ -16,7 +16,7 @@ use std::mem;
 pub fn verify(
     context: &ComputationContext,
     channel: &VerifierChannel,
-    evaluations: &[FieldElement],
+    evaluations: &[BaseElement],
     positions: &[usize],
 ) -> Result<bool, String> {
     let max_degree = context.deep_composition_degree();
@@ -25,10 +25,10 @@ pub fn verify(
 
     // powers of the given root of unity 1, p, p^2, p^3 such that p^4 = 1
     let quartic_roots = [
-        FieldElement::ONE,
-        FieldElement::exp(domain_root, (domain_size / 4) as u128),
-        FieldElement::exp(domain_root, (domain_size / 2) as u128),
-        FieldElement::exp(domain_root, (domain_size * 3 / 4) as u128),
+        BaseElement::ONE,
+        BaseElement::exp(domain_root, (domain_size / 4) as u128),
+        BaseElement::exp(domain_root, (domain_size / 2) as u128),
+        BaseElement::exp(domain_root, (domain_size * 3 / 4) as u128),
     ];
 
     // 1 ----- verify the recursive components of the FRI proof -----------------------------------
@@ -53,7 +53,7 @@ pub fn verify(
         // build a set of x for each row polynomial
         let mut xs = Vec::with_capacity(augmented_positions.len());
         for &i in augmented_positions.iter() {
-            let xe = FieldElement::exp(domain_root, i as u128);
+            let xe = BaseElement::exp(domain_root, i as u128);
             xs.push([
                 quartic_roots[0] * xe,
                 quartic_roots[1] * xe,
@@ -73,7 +73,7 @@ pub fn verify(
         evaluations = quartic::evaluate_batch(&row_polys, special_x);
 
         // update variables for the next iteration of the loop
-        domain_root = FieldElement::exp(domain_root, 4);
+        domain_root = BaseElement::exp(domain_root, 4);
         max_degree_plus_1 /= 4;
         domain_size /= 4;
         mem::swap(&mut positions, &mut augmented_positions);
@@ -104,9 +104,9 @@ pub fn verify(
 /// Returns Ok(true) if values in the `remainder` slice represent evaluations of a polynomial
 /// with degree < max_degree_plus_1 against a domain specified by the `domain_root`
 fn verify_remainder(
-    remainder: &[FieldElement],
+    remainder: &[BaseElement],
     max_degree_plus_1: usize,
-    domain_root: FieldElement,
+    domain_root: BaseElement,
     blowup_factor: usize,
 ) -> Result<bool, String> {
     if max_degree_plus_1 > remainder.len() {
@@ -124,7 +124,7 @@ fn verify_remainder(
     }
 
     // pick a subset of points from the remainder and interpolate them into a polynomial
-    let domain = FieldElement::get_power_series(domain_root, remainder.len());
+    let domain = BaseElement::get_power_series(domain_root, remainder.len());
     let mut xs = Vec::with_capacity(max_degree_plus_1);
     let mut ys = Vec::with_capacity(max_degree_plus_1);
     for &p in positions.iter().take(max_degree_plus_1) {
@@ -149,11 +149,11 @@ fn verify_remainder(
 // HELPER FUNCTIONS
 // ================================================================================================
 fn get_column_values(
-    values: &[[FieldElement; 4]],
+    values: &[[BaseElement; 4]],
     positions: &[usize],
     augmented_positions: &[usize],
     column_length: usize,
-) -> Vec<FieldElement> {
+) -> Vec<BaseElement> {
     let row_length = column_length / 4;
 
     let mut result = Vec::new();

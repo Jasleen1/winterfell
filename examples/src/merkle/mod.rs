@@ -7,7 +7,7 @@ use evaluator::MerkleEvaluator;
 use prover::crypto::{hash::rescue_s, MerkleTree};
 use prover::{
     crypto::hash::blake3,
-    math::field::{FieldElement, StarkField},
+    math::field::{BaseElement, FieldElement, StarkField},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use trace::generate_trace;
@@ -20,7 +20,7 @@ use super::Example;
 mod evaluator;
 mod trace;
 
-type TreeNode = (FieldElement, FieldElement);
+type TreeNode = (BaseElement, BaseElement);
 
 // CONSTANTS
 // ================================================================================================
@@ -58,8 +58,8 @@ impl Example for MerkleExample {
 
         // define leaf index and value, such that hash(value) is the leaf
         // at the specified index in the Merkle tree
-        let value = (FieldElement::from(42u8), FieldElement::from(43u8));
-        let index = (FieldElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
+        let value = (BaseElement::from(42u8), BaseElement::from(43u8));
+        let index = (BaseElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
 
         // build Merkle tree of the specified depth
         let now = Instant::now();
@@ -128,7 +128,7 @@ impl Example for MerkleExample {
 // ================================================================================================
 fn build_merkle_tree(depth: usize, value: TreeNode, index: usize) -> MerkleTree {
     let num_leaves = usize::pow(2, depth as u32);
-    let leaf_elements = FieldElement::prng_vector([1; 32], num_leaves * 2);
+    let leaf_elements = BaseElement::prng_vector([1; 32], num_leaves * 2);
     let mut leaves = Vec::new();
     for i in (0..leaf_elements.len()).step_by(2) {
         leaves.push(node_to_bytes((leaf_elements[i], leaf_elements[i + 1])));
@@ -148,7 +148,7 @@ fn node_to_bytes(node: TreeNode) -> [u8; 32] {
 }
 
 fn bytes_to_node(bytes: [u8; 32]) -> TreeNode {
-    let v1 = FieldElement::try_from(&bytes[..16]).unwrap();
-    let v2 = FieldElement::try_from(&bytes[16..]).unwrap();
+    let v1 = BaseElement::try_from(&bytes[..16]).unwrap();
+    let v2 = BaseElement::try_from(&bytes[16..]).unwrap();
     (v1, v2)
 }

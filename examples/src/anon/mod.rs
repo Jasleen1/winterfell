@@ -5,7 +5,7 @@ use log::debug;
 use prover::crypto::{hash::rescue_s, MerkleTree};
 use prover::{
     crypto::hash::blake3,
-    math::field::{FieldElement, StarkField},
+    math::field::{BaseElement, FieldElement, StarkField},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use std::{convert::TryFrom, time::Instant};
@@ -17,7 +17,7 @@ use trace::generate_trace;
 mod evaluator;
 use evaluator::AnonTokenEvaluator;
 
-type TreeNode = (FieldElement, FieldElement);
+type TreeNode = (BaseElement, BaseElement);
 
 // CONSTANTS
 // ================================================================================================
@@ -54,8 +54,8 @@ impl Example for MerkleExample {
         }
 
         // set token seed, service uuid, and token index to sample values
-        let token_seed = FieldElement::rand();
-        let service_uuid = FieldElement::rand();
+        let token_seed = BaseElement::rand();
+        let service_uuid = BaseElement::rand();
         debug!(
             "Set token_seed to {:x} and service_uuid to {:x}",
             token_seed.as_u128(),
@@ -77,7 +77,7 @@ impl Example for MerkleExample {
         // build Merkle tree of the specified depth with issued_token located at token_index
         let now = Instant::now();
         let token_index =
-            (FieldElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
+            (BaseElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
         let tree = build_merkle_tree(tree_depth, issued_token, token_index);
         debug!(
             "Inserted issued_token into Merkle tree of depth {} at index {} in {} ms",
@@ -149,7 +149,7 @@ impl Example for MerkleExample {
 // ================================================================================================
 fn build_merkle_tree(depth: usize, issued_token: TreeNode, index: usize) -> MerkleTree {
     let num_leaves = usize::pow(2, depth as u32);
-    let leaf_elements = FieldElement::prng_vector([1; 32], num_leaves * 2);
+    let leaf_elements = BaseElement::prng_vector([1; 32], num_leaves * 2);
     let mut leaves = Vec::new();
     for i in (0..leaf_elements.len()).step_by(2) {
         leaves.push(node_to_bytes((leaf_elements[i], leaf_elements[i + 1])));
@@ -159,16 +159,16 @@ fn build_merkle_tree(depth: usize, issued_token: TreeNode, index: usize) -> Merk
     MerkleTree::new(leaves, rescue_s)
 }
 
-fn build_issued_token(token_seed: FieldElement) -> (FieldElement, FieldElement) {
+fn build_issued_token(token_seed: BaseElement) -> (BaseElement, BaseElement) {
     let mut result = [0; 32];
     rescue_s(&token_seed.to_bytes(), &mut result);
     bytes_to_node(result)
 }
 
 fn build_subtoken(
-    token_seed: FieldElement,
-    service_uuid: FieldElement,
-) -> (FieldElement, FieldElement) {
+    token_seed: BaseElement,
+    service_uuid: BaseElement,
+) -> (BaseElement, BaseElement) {
     let mut result = [0; 32];
     rescue_s(&node_to_bytes((token_seed, service_uuid)), &mut result);
     bytes_to_node(result)
@@ -181,7 +181,7 @@ fn node_to_bytes(node: TreeNode) -> [u8; 32] {
 }
 
 fn bytes_to_node(bytes: [u8; 32]) -> TreeNode {
-    let v1 = FieldElement::try_from(&bytes[..16]).unwrap();
-    let v2 = FieldElement::try_from(&bytes[16..]).unwrap();
+    let v1 = BaseElement::try_from(&bytes[..16]).unwrap();
+    let v2 = BaseElement::try_from(&bytes[16..]).unwrap();
     (v1, v2)
 }

@@ -1,6 +1,6 @@
 use super::{ComputationContext, ConstraintDivisor, RandomGenerator};
 use crate::errors::EvaluatorError;
-use math::field::FieldElement;
+use math::field::BaseElement;
 
 mod default_evaluator;
 pub use default_evaluator::DefaultAssertionEvaluator;
@@ -19,7 +19,7 @@ pub trait AssertionEvaluator {
 
     /// Evaluates assertion constraints at the specified `x` coordinate. The evaluations are
     /// saved into the `result` slice. This method is used by both the prover and the verifier.
-    fn evaluate(&self, result: &mut [FieldElement], state: &[FieldElement], x: FieldElement);
+    fn evaluate(&self, result: &mut [BaseElement], state: &[BaseElement], x: BaseElement);
 
     /// Returns divisors for all assertion constraints.
     fn divisors(&self) -> &[ConstraintDivisor];
@@ -32,11 +32,11 @@ pub trait AssertionEvaluator {
 pub struct Assertion {
     register: usize,
     step: usize,
-    value: FieldElement,
+    value: BaseElement,
 }
 
 impl Assertion {
-    pub fn new(register: usize, step: usize, value: FieldElement) -> Assertion {
+    pub fn new(register: usize, step: usize, value: BaseElement) -> Assertion {
         Assertion {
             register,
             step,
@@ -52,7 +52,7 @@ impl Assertion {
         self.step
     }
 
-    pub fn value(&self) -> FieldElement {
+    pub fn value(&self) -> BaseElement {
         self.value
     }
 }
