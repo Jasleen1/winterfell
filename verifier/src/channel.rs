@@ -8,7 +8,7 @@ use common::{
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
-    field::{AsBytes, FieldElement},
+    field::{AsBytes, BaseElement},
     quartic,
 };
 use std::convert::TryInto;
@@ -20,12 +20,12 @@ pub struct VerifierChannel {
     context: ComputationContext,
     commitments: Commitments,
     trace_proof: BatchMerkleProof,
-    trace_queries: Vec<Vec<FieldElement>>,
+    trace_queries: Vec<Vec<BaseElement>>,
     constraint_proof: BatchMerkleProof,
     deep_values: DeepValues,
     fri_proofs: Vec<BatchMerkleProof>,
-    fri_queries: Vec<Vec<[FieldElement; 4]>>,
-    fri_remainder: Vec<FieldElement>,
+    fri_queries: Vec<Vec<[BaseElement; 4]>>,
+    fri_remainder: Vec<BaseElement>,
     query_seed: [u8; 32],
 }
 
@@ -97,7 +97,7 @@ impl VerifierChannel {
     pub fn read_trace_states(
         &self,
         positions: &[usize],
-    ) -> Result<&[Vec<FieldElement>], VerifierError> {
+    ) -> Result<&[Vec<BaseElement>], VerifierError> {
         // make sure the states included in the proof correspond to the trace commitment
         if !MerkleTree::verify_batch(
             &self.commitments.trace_root,
@@ -116,7 +116,7 @@ impl VerifierChannel {
     pub fn read_constraint_evaluations(
         &self,
         positions: &[usize],
-    ) -> Result<Vec<FieldElement>, VerifierError> {
+    ) -> Result<Vec<BaseElement>, VerifierError> {
         let c_positions = map_trace_to_constraint_positions(positions);
         if !MerkleTree::verify_batch(
             &self.commitments.constraint_root,
@@ -128,13 +128,13 @@ impl VerifierChannel {
         }
 
         // build constraint evaluation values from the leaves of constraint Merkle proof
-        let mut evaluations: Vec<FieldElement> = Vec::with_capacity(positions.len());
+        let mut evaluations: Vec<BaseElement> = Vec::with_capacity(positions.len());
         let leaves = &self.constraint_proof.values;
         for &position in positions.iter() {
             let leaf_idx = c_positions.iter().position(|&v| v == position / 2).unwrap();
             let element_start = (position % 2) * 16;
             let element_bytes = &leaves[leaf_idx][element_start..(element_start + 16)];
-            evaluations.push(FieldElement::try_from(element_bytes).unwrap());
+            evaluations.push(BaseElement::try_from(element_bytes).unwrap());
         }
 
         Ok(evaluations)
@@ -147,7 +147,7 @@ impl VerifierChannel {
         &self,
         depth: usize,
         positions: &[usize],
-    ) -> Result<&[[FieldElement; 4]], String> {
+    ) -> Result<&[[BaseElement; 4]], String> {
         let layer_root = self.commitments.fri_roots[depth];
         let layer_proof = &self.fri_proofs[depth];
         if !MerkleTree::verify_batch(
@@ -167,7 +167,7 @@ impl VerifierChannel {
 
     /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
     /// valid against the commitment sent by the prover.
-    pub fn read_fri_remainder(&self) -> Result<&[FieldElement], String> {
+    pub fn read_fri_remainder(&self) -> Result<&[BaseElement], String> {
         // build remainder Merkle tree
         let hash_fn = self.context.options().hash_fn();
         let remainder_values = quartic::transpose(&self.fri_remainder, 1);
@@ -211,7 +211,7 @@ impl PublicCoin for VerifierChannel {
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_trace_proof(
-    trace_states: &[Vec<FieldElement>],
+    trace_states: &[Vec<BaseElement>],
     trace_paths: Vec<Vec<[u8; 32]>>,
     lde_domain_size: usize,
     hash_fn: HashFunction,
@@ -232,7 +232,7 @@ fn build_trace_proof(
 fn build_fri_proofs(
     layers: Vec<FriLayer>,
     hash_fn: HashFunction,
-) -> (Vec<BatchMerkleProof>, Vec<Vec<[FieldElement; 4]>>) {
+) -> (Vec<BatchMerkleProof>, Vec<Vec<[BaseElement; 4]>>) {
     let mut fri_queries = Vec::with_capacity(layers.len());
     let mut fri_proofs = Vec::with_capacity(layers.len());
     for layer in layers.into_iter() {

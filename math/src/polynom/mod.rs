@@ -1,4 +1,4 @@
-use crate::field::FieldElementTrait;
+use crate::field::FieldElement;
 use crate::utils;
 use std::mem;
 
@@ -9,13 +9,13 @@ mod tests;
 // ================================================================================================
 
 /// Evaluates polynomial `p` at coordinate `x`.
-pub fn eval<E: FieldElementTrait>(p: &[E], x: E) -> E {
+pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
     // Horner evaluation
     p.iter().rev().fold(E::ZERO, |acc, coeff| acc * x + *coeff)
 }
 
 /// Evaluates polynomial `p` at all coordinates in `xs` slice.
-pub fn eval_many<E: FieldElementTrait>(p: &[E], xs: &[E]) -> Vec<E> {
+pub fn eval_many<E: FieldElement>(p: &[E], xs: &[E]) -> Vec<E> {
     xs.iter().map(|x| eval(p, *x)).collect()
 }
 
@@ -23,7 +23,7 @@ pub fn eval_many<E: FieldElementTrait>(p: &[E], xs: &[E]) -> Vec<E> {
 // ================================================================================================
 
 /// Uses Lagrange interpolation to build a polynomial from X and Y coordinates.
-pub fn interpolate<E: FieldElementTrait>(xs: &[E], ys: &[E], remove_leading_zeros: bool) -> Vec<E> {
+pub fn interpolate<E: FieldElement>(xs: &[E], ys: &[E], remove_leading_zeros: bool) -> Vec<E> {
     debug_assert!(
         xs.len() == ys.len(),
         "Number of X and Y coordinates must be the same"
@@ -66,7 +66,7 @@ pub fn interpolate<E: FieldElementTrait>(xs: &[E], ys: &[E], remove_leading_zero
 // ================================================================================================
 
 /// Adds polynomial `a` to polynomial `b`
-pub fn add<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
+pub fn add<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     let result_len = std::cmp::max(a.len(), b.len());
     let mut result = Vec::with_capacity(result_len);
     for i in 0..result_len {
@@ -78,7 +78,7 @@ pub fn add<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
 }
 
 /// Subtracts polynomial `b` from polynomial `a`
-pub fn sub<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
+pub fn sub<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     let result_len = std::cmp::max(a.len(), b.len());
     let mut result = Vec::with_capacity(result_len);
     for i in 0..result_len {
@@ -90,7 +90,7 @@ pub fn sub<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
 }
 
 /// Multiplies polynomial `a` by polynomial `b`
-pub fn mul<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
+pub fn mul<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     let result_len = a.len() + b.len() - 1;
     let mut result = vec![E::ZERO; result_len];
     for i in 0..a.len() {
@@ -103,7 +103,7 @@ pub fn mul<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
 }
 
 /// Multiplies every coefficient of polynomial `p` by constant `k`
-pub fn mul_by_const<E: FieldElementTrait>(p: &[E], k: E) -> Vec<E> {
+pub fn mul_by_const<E: FieldElement>(p: &[E], k: E) -> Vec<E> {
     let mut result = Vec::with_capacity(p.len());
     for coeff in p {
         result.push(*coeff * k);
@@ -113,7 +113,7 @@ pub fn mul_by_const<E: FieldElementTrait>(p: &[E], k: E) -> Vec<E> {
 
 /// Divides polynomial `a` by polynomial `b`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
-pub fn div<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
+pub fn div<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     let mut apos = degree_of(a);
     let mut a = a.to_vec();
 
@@ -138,7 +138,7 @@ pub fn div<E: FieldElementTrait>(a: &[E], b: &[E]) -> Vec<E> {
 
 /// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method;
 /// if the polynomials don't divide evenly, the remainder is ignored.
-pub fn syn_div<E: FieldElementTrait>(a: &[E], b: E) -> Vec<E> {
+pub fn syn_div<E: FieldElement>(a: &[E], b: E) -> Vec<E> {
     let mut result = a.to_vec();
     syn_div_in_place(&mut result, b);
     result
@@ -146,7 +146,7 @@ pub fn syn_div<E: FieldElementTrait>(a: &[E], b: E) -> Vec<E> {
 
 /// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method and stores the
 /// result in `a`; if the polynomials don't divide evenly, the remainder is ignored.
-pub fn syn_div_in_place<E: FieldElementTrait>(a: &mut [E], b: E) {
+pub fn syn_div_in_place<E: FieldElement>(a: &mut [E], b: E) {
     let mut c = E::ZERO;
     for i in (0..a.len()).rev() {
         let temp = a[i] + b * c;
@@ -158,11 +158,7 @@ pub fn syn_div_in_place<E: FieldElementTrait>(a: &mut [E], b: E) {
 /// Divides polynomial `a` by polynomial (x^degree - 1) / (x - exceptions[i]) for all i using
 /// Synthetic division method and stores the result in `a`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
-pub fn syn_div_expanded_in_place<E: FieldElementTrait>(
-    a: &mut [E],
-    degree: usize,
-    exceptions: &[E],
-) {
+pub fn syn_div_expanded_in_place<E: FieldElement>(a: &mut [E], degree: usize, exceptions: &[E]) {
     // allocate space for the result
     let mut result = utils::filled_vector(a.len(), a.len() + exceptions.len(), E::ZERO);
 
@@ -204,7 +200,7 @@ pub fn syn_div_expanded_in_place<E: FieldElementTrait>(
 // ================================================================================================
 
 /// Returns degree of the polynomial `poly`
-pub fn degree_of<E: FieldElementTrait>(poly: &[E]) -> usize {
+pub fn degree_of<E: FieldElement>(poly: &[E]) -> usize {
     for i in (0..poly.len()).rev() {
         if poly[i] != E::ZERO {
             return i;
@@ -215,7 +211,7 @@ pub fn degree_of<E: FieldElementTrait>(poly: &[E]) -> usize {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn get_zero_roots<E: FieldElementTrait>(xs: &[E]) -> Vec<E> {
+fn get_zero_roots<E: FieldElement>(xs: &[E]) -> Vec<E> {
     let mut n = xs.len() + 1;
     let mut result = utils::uninit_vector(n);
 

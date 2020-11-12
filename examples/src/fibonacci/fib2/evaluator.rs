@@ -1,5 +1,5 @@
 use prover::{
-    math::field::{FieldElement, FieldElementTrait},
+    math::field::{BaseElement, FieldElement},
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
     TransitionEvaluator,
 };
@@ -28,20 +28,20 @@ impl TransitionEvaluator for FibEvaluator {
 
     fn evaluate_at_step(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
         _step: usize,
     ) {
-        self.evaluate_at_x(result, current, next, FieldElement::ZERO)
+        self.evaluate_at_x(result, current, next, BaseElement::ZERO)
     }
 
     fn evaluate_at_x(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
-        _x: FieldElement,
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
+        _x: BaseElement,
     ) {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
@@ -57,7 +57,7 @@ impl TransitionEvaluator for FibEvaluator {
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
         // result[0] = are_equal(next[0], current[0] + current[1]);
-        // result[1] = are_equal(next[1], current[0] + FieldElement::from(2u8) * current[1]);
+        // result[1] = are_equal(next[1], current[0] + BaseElement::from(2u8) * current[1]);
     }
 
     fn constraint_groups(&self) -> &[TransitionConstraintGroup] {

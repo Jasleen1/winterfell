@@ -6,7 +6,7 @@ use common::errors::VerifierError;
 use evaluator::RescueEvaluator;
 use prover::crypto::hash::rescue_s;
 use prover::{
-    crypto::hash::blake3, math::field::FieldElement, Assertion, ProofOptions, Prover, StarkProof,
+    crypto::hash::blake3, math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof,
 };
 use trace::generate_trace;
 use verifier::Verifier;
@@ -52,7 +52,7 @@ impl Example for RescueExample {
         }
 
         // initialize a seed for the start of the hash chain
-        let seed = [FieldElement::from(42u8), FieldElement::from(43u8)];
+        let seed = [BaseElement::from(42u8), BaseElement::from(43u8)];
 
         // compute the sequence of hashes using external implementation of Rescue hash
         let now = Instant::now();
@@ -111,7 +111,7 @@ impl Example for RescueExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn compute_hash_chain(seed: [FieldElement; 2], length: usize) -> [u8; 32] {
+fn compute_hash_chain(seed: [BaseElement; 2], length: usize) -> [u8; 32] {
     let mut values: Vec<u8> = to_byte_vec(&seed);
     let mut result = [0; 32];
 

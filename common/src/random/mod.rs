@@ -1,6 +1,6 @@
 use crate::ComputationContext;
 use crypto::HashFunction;
-use math::field::{FieldElement, FieldElementTrait};
+use math::field::{BaseElement, FieldElement};
 use std::{convert::TryInto, mem::size_of};
 
 #[cfg(test)]
@@ -52,7 +52,7 @@ pub trait PublicCoin {
     // --------------------------------------------------------------------------------------------
 
     /// Draws a point from the entire field using PRNG seeded with composition seed.
-    fn draw_deep_point(&self) -> FieldElement {
+    fn draw_deep_point(&self) -> BaseElement {
         let mut generator = RandomGenerator::new(
             self.composition_seed(),
             DEEP_POINT_OFFSET,
@@ -78,7 +78,7 @@ pub trait PublicCoin {
         CompositionCoefficients::new(generator, self.context().trace_width())
     }
 
-    fn draw_fri_point(&self, layer_depth: usize) -> FieldElement {
+    fn draw_fri_point(&self, layer_depth: usize) -> BaseElement {
         let mut generator = RandomGenerator::new(
             self.fri_layer_seed(layer_depth),
             FRI_POINT_OFFSET,
@@ -144,9 +144,9 @@ pub trait PublicCoin {
 
 #[derive(Debug)]
 pub struct CompositionCoefficients {
-    pub trace: Vec<(FieldElement, FieldElement)>,
-    pub trace_degree: (FieldElement, FieldElement),
-    pub constraints: FieldElement,
+    pub trace: Vec<(BaseElement, BaseElement)>,
+    pub trace_degree: (BaseElement, BaseElement),
+    pub constraints: BaseElement,
 }
 
 impl CompositionCoefficients {
@@ -187,7 +187,7 @@ impl RandomGenerator {
     // --------------------------------------------------------------------------------------------
 
     /// Generates the next pseudo-random field element.
-    pub fn draw(&mut self) -> FieldElement {
+    pub fn draw(&mut self) -> BaseElement {
         let hash = self.hash_fn;
         let mut result = [0u8; 32];
         loop {
@@ -198,7 +198,7 @@ impl RandomGenerator {
             // take the first MODULUS_BYTES from the hashed seed and check if they can be converted
             // into a valid field element; if the can, return; otherwise try again
             if let Some(element) =
-                FieldElement::from_random_bytes(&result[..(FieldElement::ELEMENT_BYTES as usize)])
+                BaseElement::from_random_bytes(&result[..(BaseElement::ELEMENT_BYTES as usize)])
             {
                 return element;
             }
@@ -206,7 +206,7 @@ impl RandomGenerator {
     }
 
     /// Generates the next pair of pseudo-random field element.
-    pub fn draw_pair(&mut self) -> (FieldElement, FieldElement) {
+    pub fn draw_pair(&mut self) -> (BaseElement, BaseElement) {
         (self.draw(), self.draw())
     }
 

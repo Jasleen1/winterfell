@@ -1,19 +1,19 @@
-use prover::math::field::{FieldElement, FieldElementTrait};
+use prover::math::field::{BaseElement, FieldElement};
 
 use super::{rescue, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
-pub fn generate_trace(seed: [FieldElement; 2], iterations: usize) -> Vec<Vec<FieldElement>> {
+pub fn generate_trace(seed: [BaseElement; 2], iterations: usize) -> Vec<Vec<BaseElement>> {
     // allocate memory to hold the trace table
     let trace_length = iterations * CYCLE_LENGTH;
     let mut trace = vec![
-        vec![FieldElement::ZERO; trace_length],
-        vec![FieldElement::ZERO; trace_length],
-        vec![FieldElement::ZERO; trace_length],
-        vec![FieldElement::ZERO; trace_length],
+        vec![BaseElement::ZERO; trace_length],
+        vec![BaseElement::ZERO; trace_length],
+        vec![BaseElement::ZERO; trace_length],
+        vec![BaseElement::ZERO; trace_length],
     ];
 
     // initialize first state of the computation
-    let mut state = [seed[0], seed[1], FieldElement::ZERO, FieldElement::ZERO];
+    let mut state = [seed[0], seed[1], BaseElement::ZERO, BaseElement::ZERO];
     // copy state into the trace
     for (reg, &val) in state.iter().enumerate() {
         trace[reg][0] = val;
@@ -29,8 +29,8 @@ pub fn generate_trace(seed: [FieldElement; 2], iterations: usize) -> Vec<Vec<Fie
         } else {
             state[0] = trace[0][step];
             state[1] = trace[1][step];
-            state[2] = FieldElement::ZERO;
-            state[3] = FieldElement::ZERO;
+            state[2] = BaseElement::ZERO;
+            state[3] = BaseElement::ZERO;
         }
 
         // copy state into the trace

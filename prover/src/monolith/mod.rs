@@ -4,7 +4,7 @@ use common::{
     TransitionEvaluator,
 };
 use log::debug;
-use math::field::FieldElement;
+use math::field::BaseElement;
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -54,7 +54,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
     /// it is valid in the context of the computation described by this prover.
     pub fn prove(
         &self,
-        trace: Vec<Vec<FieldElement>>,
+        trace: Vec<Vec<BaseElement>>,
         assertions: Vec<Assertion>,
     ) -> Result<StarkProof, ProverError> {
         let trace = TraceTable::new(trace);

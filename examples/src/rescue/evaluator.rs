@@ -1,6 +1,6 @@
 use prover::{
     math::{
-        field::{FieldElement, FieldElementTrait},
+        field::{BaseElement, FieldElement},
         polynom,
     },
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
@@ -17,23 +17,23 @@ use super::{rescue, CYCLE_LENGTH, STATE_WIDTH};
 // ================================================================================================
 
 /// Specifies steps on which Rescue transition function is applied.
-const CYCLE_MASK: [FieldElement; CYCLE_LENGTH] = [
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ONE,
-    FieldElement::ZERO,
-    FieldElement::ZERO,
+const CYCLE_MASK: [BaseElement; CYCLE_LENGTH] = [
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ONE,
+    BaseElement::ZERO,
+    BaseElement::ZERO,
 ];
 
 // RESCUE TRANSITION CONSTRAINT EVALUATOR
@@ -41,10 +41,10 @@ const CYCLE_MASK: [FieldElement; CYCLE_LENGTH] = [
 
 pub struct RescueEvaluator {
     constraint_groups: Vec<TransitionConstraintGroup>,
-    mask_constants: Vec<FieldElement>,
-    mask_poly: Vec<FieldElement>,
-    ark_constants: Vec<Vec<FieldElement>>,
-    ark_polys: Vec<Vec<FieldElement>>,
+    mask_constants: Vec<BaseElement>,
+    mask_poly: Vec<BaseElement>,
+    ark_constants: Vec<Vec<BaseElement>>,
+    ark_polys: Vec<Vec<BaseElement>>,
     trace_length: usize,
 }
 
@@ -93,9 +93,9 @@ impl TransitionEvaluator for RescueEvaluator {
     /// during proof generation.
     fn evaluate_at_step(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
         step: usize,
     ) {
         // determine which rounds constants to use
@@ -107,7 +107,7 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
-        let copy_flag = FieldElement::ONE - hash_flag;
+        let copy_flag = BaseElement::ONE - hash_flag;
         enforce_hash_copy(result, current, next, copy_flag);
     }
 
@@ -115,18 +115,18 @@ impl TransitionEvaluator for RescueEvaluator {
     /// invoked primarily during proof verification.
     fn evaluate_at_x(
         &self,
-        result: &mut [FieldElement],
-        current: &[FieldElement],
-        next: &[FieldElement],
-        x: FieldElement,
+        result: &mut [BaseElement],
+        current: &[BaseElement],
+        next: &[BaseElement],
+        x: BaseElement,
     ) {
         // map x to the corresponding coordinate in constant cycles
         let num_cycles = (self.trace_length / CYCLE_LENGTH) as u128;
-        let x = FieldElement::exp(x, num_cycles);
+        let x = BaseElement::exp(x, num_cycles);
 
         // determine round constants at the specified x coordinate; we do this by
         // evaluating polynomials for round constants the augmented x coordinate
-        let mut ark = [FieldElement::ZERO; 2 * STATE_WIDTH];
+        let mut ark = [BaseElement::ZERO; 2 * STATE_WIDTH];
         for (i, poly) in self.ark_polys.iter().enumerate() {
             ark[i] = polynom::eval(poly, x);
         }
@@ -137,7 +137,7 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
-        let copy_flag = FieldElement::ONE - hash_flag;
+        let copy_flag = BaseElement::ONE - hash_flag;
         enforce_hash_copy(result, current, next, copy_flag);
     }
 
@@ -157,10 +157,10 @@ impl TransitionEvaluator for RescueEvaluator {
 /// - the first two registers are equal to the values from the previous step
 /// - the other two registers are equal to 0
 fn enforce_hash_copy(
-    result: &mut [FieldElement],
-    current: &[FieldElement],
-    next: &[FieldElement],
-    flag: FieldElement,
+    result: &mut [BaseElement],
+    current: &[BaseElement],
+    next: &[BaseElement],
+    flag: BaseElement,
 ) {
     result.agg_constraint(0, flag, are_equal(current[0], next[0]));
     result.agg_constraint(1, flag, are_equal(current[1], next[1]));

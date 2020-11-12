@@ -1,5 +1,5 @@
 use crate::{errors::*, ComputationContext, PublicCoin, RandomGenerator};
-use math::field::{FieldElement, FieldElementTrait};
+use math::field::{BaseElement, FieldElement};
 
 mod transition;
 pub use transition::{TransitionConstraintGroup, TransitionEvaluator};
@@ -20,12 +20,12 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
     context: ComputationContext,
-    evaluations: Vec<FieldElement>,
-    t_evaluations: Vec<FieldElement>,
+    evaluations: Vec<BaseElement>,
+    t_evaluations: Vec<BaseElement>,
     divisors: Vec<ConstraintDivisor>,
 
     #[cfg(debug_assertions)]
-    t_evaluation_table: Vec<Vec<FieldElement>>,
+    t_evaluation_table: Vec<Vec<BaseElement>>,
 }
 
 impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
@@ -63,11 +63,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
                 .map(|_| Vec::new())
                 .collect(),
 
-            t_evaluations: vec![FieldElement::ZERO; transition.num_constraints()],
+            t_evaluations: vec![BaseElement::ZERO; transition.num_constraints()],
             transition,
             assertions,
             context: context.clone(),
-            evaluations: vec![FieldElement::ZERO; divisors.len()],
+            evaluations: vec![BaseElement::ZERO; divisors.len()],
             divisors,
         })
     }
@@ -80,15 +80,15 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// can be evaluated much more efficiently when the step is known.
     pub fn evaluate_at_step(
         &mut self,
-        current: &[FieldElement],
-        next: &[FieldElement],
-        x: FieldElement,
+        current: &[BaseElement],
+        next: &[BaseElement],
+        x: BaseElement,
         step: usize,
-    ) -> Result<&[FieldElement], ProverError> {
+    ) -> Result<&[BaseElement], ProverError> {
         // reset transition evaluation buffer
         self.t_evaluations
             .iter_mut()
-            .for_each(|v| *v = FieldElement::ZERO);
+            .for_each(|v| *v = BaseElement::ZERO);
 
         // evaluate transition constraints and save the results into t_evaluations buffer
         self.transition
@@ -109,12 +109,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         self.evaluations[0] = if self.should_evaluate_to_zero_at(step) {
             let step = step / self.ce_blowup_factor();
             for &evaluation in self.t_evaluations.iter() {
-                if evaluation != FieldElement::ZERO {
+                if evaluation != BaseElement::ZERO {
                     return Err(ProverError::UnsatisfiedTransitionConstraintError(step));
                 }
             }
             // if all transition constraint evaluations are zeros, the combination is also zero
-            FieldElement::ZERO
+            BaseElement::ZERO
         } else {
             self.transition.merge_evaluations(&self.t_evaluations, x)
         };
@@ -132,14 +132,14 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// there is no `step`, and so the above method cannot be used.
     pub fn evaluate_at_x(
         &mut self,
-        current: &[FieldElement],
-        next: &[FieldElement],
-        x: FieldElement,
-    ) -> &[FieldElement] {
+        current: &[BaseElement],
+        next: &[BaseElement],
+        x: BaseElement,
+    ) -> &[BaseElement] {
         // reset transition evaluation buffer
         self.t_evaluations
             .iter_mut()
-            .for_each(|v| *v = FieldElement::ZERO);
+            .for_each(|v| *v = BaseElement::ZERO);
 
         // evaluate transition constraints and merge them into a single value
         self.transition

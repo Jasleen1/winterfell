@@ -7,7 +7,7 @@ use core::{
 // FIELD ELEMENT
 // ================================================================================================
 
-pub trait FieldElementTrait:
+pub trait FieldElement:
     Copy
     + Clone
     + Debug
@@ -131,7 +131,7 @@ pub trait FieldElementTrait:
 // STARK FIELD
 // ================================================================================================
 
-pub trait StarkField: FieldElementTrait + AsBytes {
+pub trait StarkField: FieldElement + AsBytes {
     /// Prime modulus of the field. Must be of the form k * 2^n + 1 (a Proth prime).
     /// This ensures that the field has high 2-adicity.
     const MODULUS: Self::PositiveInteger;

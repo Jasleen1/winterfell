@@ -2,7 +2,7 @@ use super::{
     Assertion, AssertionEvaluator, ComputationContext, ConstraintDivisor, RandomGenerator,
 };
 use crate::errors::EvaluatorError;
-use math::field::{FieldElement, FieldElementTrait};
+use math::field::{BaseElement, FieldElement};
 use std::collections::BTreeMap;
 
 // DEFAULT ASSERTION EVALUATOR
@@ -33,14 +33,14 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
         })
     }
 
-    fn evaluate(&self, result: &mut [FieldElement], state: &[FieldElement], x: FieldElement) {
+    fn evaluate(&self, result: &mut [BaseElement], state: &[BaseElement], x: BaseElement) {
         let mut degree_adjustment = self.constraint_groups[0].degree_adjustment;
-        let mut xp = FieldElement::exp(x, degree_adjustment);
+        let mut xp = BaseElement::exp(x, degree_adjustment);
 
         for (i, group) in self.constraint_groups.iter().enumerate() {
             if group.degree_adjustment != degree_adjustment {
                 degree_adjustment = group.degree_adjustment;
-                xp = FieldElement::exp(x, degree_adjustment);
+                xp = BaseElement::exp(x, degree_adjustment);
             }
             result[i] = group.evaluate(state, xp);
         }
@@ -57,7 +57,7 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
 #[derive(Debug, Clone)]
 struct AssertionConstraint {
     register: usize,
-    value: FieldElement,
+    value: BaseElement,
 }
 
 // ASSERTION CONSTRAINT GROUP
@@ -67,7 +67,7 @@ struct AssertionConstraint {
 #[derive(Debug, Clone)]
 struct AssertionConstraintGroup {
     constraints: Vec<AssertionConstraint>,
-    coefficients: Vec<(FieldElement, FieldElement)>,
+    coefficients: Vec<(BaseElement, BaseElement)>,
     divisor: ConstraintDivisor,
     degree_adjustment: u128,
 }
@@ -89,9 +89,9 @@ impl AssertionConstraintGroup {
         }
     }
 
-    fn evaluate(&self, state: &[FieldElement], xp: FieldElement) -> FieldElement {
-        let mut result = FieldElement::ZERO;
-        let mut result_adj = FieldElement::ZERO;
+    fn evaluate(&self, state: &[BaseElement], xp: BaseElement) -> BaseElement {
+        let mut result = BaseElement::ZERO;
+        let mut result_adj = BaseElement::ZERO;
 
         for (constraint, coefficients) in self.constraints.iter().zip(self.coefficients.iter()) {
             let value = state[constraint.register] - constraint.value;
@@ -175,7 +175,7 @@ mod tests {
 
     use crate::{Assertion, ComputationContext, ProofOptions, RandomGenerator};
     use crypto::hash::blake3;
-    use math::field::FieldElement;
+    use math::field::BaseElement;
 
     #[test]
     fn group_assertions() {
@@ -185,11 +185,11 @@ mod tests {
         let groups = super::group_assertions(
             &context,
             &[
-                Assertion::new(1, 4, FieldElement::new(4)),
-                Assertion::new(1, 0, FieldElement::new(2)),
-                Assertion::new(0, 0, FieldElement::new(1)),
-                Assertion::new(0, 4, FieldElement::new(3)),
-                Assertion::new(0, 7, FieldElement::new(5)),
+                Assertion::new(1, 4, BaseElement::new(4)),
+                Assertion::new(1, 0, BaseElement::new(2)),
+                Assertion::new(0, 0, BaseElement::new(1)),
+                Assertion::new(0, 4, BaseElement::new(3)),
+                Assertion::new(0, 7, BaseElement::new(5)),
             ],
             RandomGenerator::new([0; 32], 0, blake3),
         )
@@ -197,21 +197,21 @@ mod tests {
 
         let group1 = &groups[0];
         assert_eq!(group1.constraints[0].register, 0);
-        assert_eq!(group1.constraints[0].value, FieldElement::new(1));
+        assert_eq!(group1.constraints[0].value, BaseElement::new(1));
         assert_eq!(group1.constraints[1].register, 1);
-        assert_eq!(group1.constraints[1].value, FieldElement::new(2));
+        assert_eq!(group1.constraints[1].value, BaseElement::new(2));
         // TODO: check divisor
 
         let group2 = &groups[1];
         assert_eq!(group2.constraints[0].register, 0);
-        assert_eq!(group2.constraints[0].value, FieldElement::new(3));
+        assert_eq!(group2.constraints[0].value, BaseElement::new(3));
         assert_eq!(group2.constraints[1].register, 1);
-        assert_eq!(group2.constraints[1].value, FieldElement::new(4));
+        assert_eq!(group2.constraints[1].value, BaseElement::new(4));
         // TODO: check divisor
 
         let group3 = &groups[2];
         assert_eq!(group3.constraints[0].register, 0);
-        assert_eq!(group3.constraints[0].value, FieldElement::new(5));
+        assert_eq!(group3.constraints[0].value, BaseElement::new(5));
         // TODO: check divisor
     }
 }

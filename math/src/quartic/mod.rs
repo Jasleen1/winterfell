@@ -1,11 +1,11 @@
-use crate::{field::FieldElementTrait, utils::uninit_vector};
+use crate::{field::FieldElement, utils::uninit_vector};
 
 #[cfg(test)]
 mod tests;
 
 /// Evaluates degree 3 polynomial `p` at coordinate `x`. This function is about 30% faster than
 /// the `polynom::eval` function.
-pub fn eval<E: FieldElementTrait>(p: &[E], x: E) -> E {
+pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
     debug_assert!(p.len() == 4, "Polynomial must have 4 terms");
     let mut y = p[0] + p[1] * x;
 
@@ -19,7 +19,7 @@ pub fn eval<E: FieldElementTrait>(p: &[E], x: E) -> E {
 }
 
 /// Evaluates a batch of degree 3 polynomials at the provided X coordinate.
-pub fn evaluate_batch<E: FieldElementTrait>(polys: &[[E; 4]], x: E) -> Vec<E> {
+pub fn evaluate_batch<E: FieldElement>(polys: &[[E; 4]], x: E) -> Vec<E> {
     let n = polys.len();
 
     let mut result: Vec<E> = Vec::with_capacity(n);
@@ -38,7 +38,7 @@ pub fn evaluate_batch<E: FieldElementTrait>(polys: &[[E; 4]], x: E) -> Vec<E> {
 ///
 /// This function is many times faster than using `polynom::interpolate` function in a loop.
 /// This is primarily due to amortizing inversions over the entire batch.
-pub fn interpolate_batch<E: FieldElementTrait>(xs: &[[E; 4]], ys: &[[E; 4]]) -> Vec<[E; 4]> {
+pub fn interpolate_batch<E: FieldElement>(xs: &[[E; 4]], ys: &[[E; 4]]) -> Vec<[E; 4]> {
     debug_assert!(
         xs.len() == ys.len(),
         "number of X coordinates must be equal to number of Y coordinates"
@@ -141,7 +141,7 @@ pub fn interpolate_batch<E: FieldElementTrait>(xs: &[[E; 4]], ys: &[[E; 4]]) -> 
     result
 }
 
-pub fn transpose<E: FieldElementTrait>(vector: &[E], stride: usize) -> Vec<[E; 4]> {
+pub fn transpose<E: FieldElement>(vector: &[E], stride: usize) -> Vec<[E; 4]> {
     assert!(
         vector.len() % (4 * stride) == 0,
         "vector length must be divisible by {}",
@@ -163,7 +163,7 @@ pub fn transpose<E: FieldElementTrait>(vector: &[E], stride: usize) -> Vec<[E; 4
 }
 
 /// Re-interprets a vector of integers as a vector of quartic elements.
-pub fn to_quartic_vec<E: FieldElementTrait>(vector: Vec<E>) -> Vec<[E; 4]> {
+pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
     assert!(
         vector.len() % 4 == 0,
         "vector length must be divisible by 4"

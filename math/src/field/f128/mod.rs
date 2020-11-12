@@ -1,4 +1,4 @@
-use super::traits::{AsBytes, FieldElementTrait, StarkField};
+use super::traits::{AsBytes, FieldElement, StarkField};
 use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
@@ -30,15 +30,15 @@ const ELEMENT_BYTES: usize = std::mem::size_of::<u128>();
 // ================================================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct FieldElement(u128);
+pub struct BaseElement(u128);
 
-impl FieldElement {
+impl BaseElement {
     /// Creates a new field element from a u128 value. If the value is greater than or equal to
     /// the field modulus, modular reduction is silently preformed. This function can also be used
     /// to initialize constants.
     /// TODO: move into StarkField trait?
     pub const fn new(value: u128) -> Self {
-        FieldElement(if value < M { value } else { value - M })
+        BaseElement(if value < M { value } else { value - M })
     }
 
     /// Returns filed element converted to u128 representation.
@@ -47,22 +47,22 @@ impl FieldElement {
     }
 }
 
-impl FieldElementTrait for FieldElement {
+impl FieldElement for BaseElement {
     type PositiveInteger = u128;
 
-    const ZERO: Self = FieldElement(0);
-    const ONE: Self = FieldElement(1);
+    const ZERO: Self = BaseElement(0);
+    const ONE: Self = BaseElement(1);
 
     const ELEMENT_BYTES: usize = ELEMENT_BYTES;
 
     fn inv(self) -> Self {
-        FieldElement(inv(self.0))
+        BaseElement(inv(self.0))
     }
 
     /// This implementation is about 5% faster than the one in the trait.
     fn get_power_series(b: Self, n: usize) -> Vec<Self> {
         let mut result = utils::uninit_vector(n);
-        result[0] = FieldElement::ONE;
+        result[0] = BaseElement::ONE;
         for i in 1..result.len() {
             result[i] = result[i - 1] * b;
         }
@@ -72,7 +72,7 @@ impl FieldElementTrait for FieldElement {
     fn rand() -> Self {
         let range = Uniform::from(RANGE);
         let mut g = thread_rng();
-        FieldElement(g.sample(range))
+        BaseElement(g.sample(range))
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
@@ -83,7 +83,7 @@ impl FieldElementTrait for FieldElement {
     }
 
     fn from_int(value: u128) -> Self {
-        FieldElement::new(value)
+        BaseElement::new(value)
     }
 
     fn to_bytes(&self) -> Vec<u8> {
@@ -91,7 +91,7 @@ impl FieldElementTrait for FieldElement {
     }
 }
 
-impl StarkField for FieldElement {
+impl StarkField for BaseElement {
     /// sage: MODULUS = 2^128 - 45 * 2^40 + 1
     /// sage: GF(MODULUS).is_prime_field()
     /// True
@@ -102,7 +102,7 @@ impl StarkField for FieldElement {
 
     /// sage: GF(MODULUS).primitive_element()
     /// 3
-    const GENERATOR: Self = FieldElement(3);
+    const GENERATOR: Self = BaseElement(3);
 
     /// sage: is_odd((MODULUS - 1) / 2^40)
     /// True
@@ -111,16 +111,16 @@ impl StarkField for FieldElement {
     /// sage: k = (MODULUS - 1) / 2^40
     /// sage: GF(MODULUS).primitive_element()^k
     /// 23953097886125630542083529559205016746
-    const TWO_ADIC_ROOT_OF_UNITY: Self = FieldElement(G);
+    const TWO_ADIC_ROOT_OF_UNITY: Self = BaseElement(G);
 
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
         let range = Uniform::from(RANGE);
         let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(FieldElement).collect()
+        g.sample_iter(range).take(n).map(BaseElement).collect()
     }
 }
 
-impl Display for FieldElement {
+impl Display for BaseElement {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -129,74 +129,42 @@ impl Display for FieldElement {
 // OVERLOADED OPERATORS
 // ================================================================================================
 
-impl Add for FieldElement {
-    type Output = FieldElement;
+impl Add for BaseElement {
+    type Output = BaseElement;
 
-    fn add(self, rhs: FieldElement) -> FieldElement {
-        FieldElement(add(self.0, rhs.0))
+    fn add(self, rhs: BaseElement) -> BaseElement {
+        BaseElement(add(self.0, rhs.0))
     }
 }
 
-impl<'a> Add<&'a Self> for FieldElement {
-    type Output = FieldElement;
+impl Sub for BaseElement {
+    type Output = BaseElement;
 
-    fn add(self, rhs: &'a FieldElement) -> Self::Output {
-        FieldElement(add(self.0, rhs.0))
+    fn sub(self, rhs: BaseElement) -> BaseElement {
+        BaseElement(sub(self.0, rhs.0))
     }
 }
 
-impl Sub for FieldElement {
-    type Output = FieldElement;
+impl Mul for BaseElement {
+    type Output = BaseElement;
 
-    fn sub(self, rhs: FieldElement) -> FieldElement {
-        FieldElement(sub(self.0, rhs.0))
+    fn mul(self, rhs: BaseElement) -> BaseElement {
+        BaseElement(mul(self.0, rhs.0))
     }
 }
 
-impl<'a> Sub<&'a Self> for FieldElement {
-    type Output = FieldElement;
+impl Div for BaseElement {
+    type Output = BaseElement;
 
-    fn sub(self, rhs: &'a FieldElement) -> Self::Output {
-        FieldElement(sub(self.0, rhs.0))
+    fn div(self, rhs: BaseElement) -> BaseElement {
+        BaseElement(mul(self.0, inv(rhs.0)))
     }
 }
 
-impl Mul for FieldElement {
-    type Output = FieldElement;
+impl Neg for BaseElement {
+    type Output = BaseElement;
 
-    fn mul(self, rhs: FieldElement) -> FieldElement {
-        FieldElement(mul(self.0, rhs.0))
-    }
-}
-
-impl<'a> Mul<&'a Self> for FieldElement {
-    type Output = FieldElement;
-
-    fn mul(self, rhs: &'a FieldElement) -> Self::Output {
-        FieldElement(mul(self.0, rhs.0))
-    }
-}
-
-impl Div for FieldElement {
-    type Output = FieldElement;
-
-    fn div(self, rhs: FieldElement) -> FieldElement {
-        FieldElement(mul(self.0, inv(rhs.0)))
-    }
-}
-
-impl<'a> Div<&'a Self> for FieldElement {
-    type Output = FieldElement;
-
-    fn div(self, rhs: &'a FieldElement) -> Self::Output {
-        FieldElement(mul(self.0, inv(rhs.0)))
-    }
-}
-
-impl Neg for FieldElement {
-    type Output = FieldElement;
-
-    fn neg(self) -> FieldElement {
+    fn neg(self) -> BaseElement {
         Self(sub(0, self.0))
     }
 }
@@ -204,53 +172,53 @@ impl Neg for FieldElement {
 // TYPE CONVERSIONS
 // ================================================================================================
 
-impl From<u128> for FieldElement {
+impl From<u128> for BaseElement {
     /// Converts a 128-bit value into a filed element. If the value is greater than or equal to
     /// the field modulus, modular reduction is silently preformed.
     fn from(value: u128) -> Self {
-        FieldElement::new(value)
+        BaseElement::new(value)
     }
 }
 
-impl From<u64> for FieldElement {
+impl From<u64> for BaseElement {
     /// Converts a 64-bit value into a filed element.
     fn from(value: u64) -> Self {
-        FieldElement(value as u128)
+        BaseElement(value as u128)
     }
 }
 
-impl From<u32> for FieldElement {
+impl From<u32> for BaseElement {
     /// Converts a 32-bit value into a filed element.
     fn from(value: u32) -> Self {
-        FieldElement(value as u128)
+        BaseElement(value as u128)
     }
 }
 
-impl From<u16> for FieldElement {
+impl From<u16> for BaseElement {
     /// Converts a 16-bit value into a filed element.
     fn from(value: u16) -> Self {
-        FieldElement(value as u128)
+        BaseElement(value as u128)
     }
 }
 
-impl From<u8> for FieldElement {
+impl From<u8> for BaseElement {
     /// Converts an 8-bit value into a filed element.
     fn from(value: u8) -> Self {
-        FieldElement(value as u128)
+        BaseElement(value as u128)
     }
 }
 
-impl From<[u8; 16]> for FieldElement {
+impl From<[u8; 16]> for BaseElement {
     /// Converts the value encoded in an array of 16 bytes into a field element. The bytes
     /// are assumed to be in little-endian byte order. If the value is greater than or equal
     /// to the field modulus, modular reduction is silently preformed.
     fn from(bytes: [u8; 16]) -> Self {
         let value = u128::from_le_bytes(bytes);
-        FieldElement::from(value)
+        BaseElement::from(value)
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for FieldElement {
+impl<'a> TryFrom<&'a [u8]> for BaseElement {
     type Error = String;
 
     /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
@@ -267,26 +235,26 @@ impl<'a> TryFrom<&'a [u8]> for FieldElement {
                 value
             ));
         }
-        Ok(FieldElement(value))
+        Ok(BaseElement(value))
     }
 }
 
-impl AsBytes for FieldElement {
+impl AsBytes for BaseElement {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
-        let self_ptr: *const FieldElement = self;
+        let self_ptr: *const BaseElement = self;
         unsafe { slice::from_raw_parts(self_ptr as *const u8, ELEMENT_BYTES) }
     }
 }
 
-impl AsBytes for &[FieldElement] {
+impl AsBytes for &[BaseElement] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
     }
 }
 
-impl AsBytes for &[FieldElement; 4] {
+impl AsBytes for &[BaseElement; 4] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }

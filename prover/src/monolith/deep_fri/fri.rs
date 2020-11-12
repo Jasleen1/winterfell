@@ -7,7 +7,7 @@ use common::{
 };
 use crypto::MerkleTree;
 use math::{
-    field::{FieldElement, FieldElementTrait},
+    field::{BaseElement, FieldElement},
     quartic,
 };
 use std::mem;
@@ -15,13 +15,13 @@ use std::mem;
 pub fn reduce(
     context: &ComputationContext,
     channel: &mut ProverChannel,
-    evaluations: &[FieldElement],
+    evaluations: &[BaseElement],
     lde_domain: &LdeDomain,
-) -> (Vec<MerkleTree>, Vec<Vec<[FieldElement; 4]>>) {
+) -> (Vec<MerkleTree>, Vec<Vec<[BaseElement; 4]>>) {
     let hash_fn = context.options().hash_fn();
 
     let mut tree_results: Vec<MerkleTree> = Vec::new();
-    let mut value_results: Vec<Vec<[FieldElement; 4]>> = Vec::new();
+    let mut value_results: Vec<Vec<[BaseElement; 4]>> = Vec::new();
 
     // transpose evaluations into a matrix with 4 columns and put its rows into a Merkle tree
     let mut p_values = quartic::transpose(evaluations, 1);
@@ -79,7 +79,7 @@ pub fn reduce(
 
 pub fn build_proof(
     trees: Vec<MerkleTree>,
-    values: Vec<Vec<[FieldElement; 4]>>,
+    values: Vec<Vec<[BaseElement; 4]>>,
     positions: &[usize],
 ) -> FriProof {
     let mut positions = positions.to_vec();
@@ -94,7 +94,7 @@ pub fn build_proof(
         let tree = &trees[i];
         let proof = tree.prove_batch(&positions);
 
-        let mut queried_values: Vec<[FieldElement; 4]> = Vec::with_capacity(positions.len());
+        let mut queried_values: Vec<[BaseElement; 4]> = Vec::with_capacity(positions.len());
         for &position in positions.iter() {
             queried_values.push(values[i][position]);
         }
@@ -110,7 +110,7 @@ pub fn build_proof(
     // use the remaining polynomial values directly as proof
     let last_values = &values[values.len() - 1];
     let n = last_values.len();
-    let mut remainder = vec![FieldElement::ZERO; n * 4];
+    let mut remainder = vec![BaseElement::ZERO; n * 4];
     for i in 0..last_values.len() {
         remainder[i] = last_values[i][0];
         remainder[i + n] = last_values[i][1];
