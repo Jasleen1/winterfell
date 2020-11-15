@@ -10,12 +10,11 @@ use math::{
     field::{BaseElement, FieldElement},
     quartic,
 };
-use std::mem;
 
-pub fn reduce(
+pub fn build_layers(
     context: &ComputationContext,
     channel: &mut ProverChannel,
-    evaluations: &[BaseElement],
+    mut evaluations: Vec<BaseElement>,
     lde_domain: &LdeDomain,
 ) -> (Vec<MerkleTree>, Vec<Vec<[BaseElement; 4]>>) {
     let hash_fn = context.options().hash_fn();
@@ -23,56 +22,35 @@ pub fn reduce(
     let mut tree_results: Vec<MerkleTree> = Vec::new();
     let mut value_results: Vec<Vec<[BaseElement; 4]>> = Vec::new();
 
-    // transpose evaluations into a matrix with 4 columns and put its rows into a Merkle tree
-    let mut p_values = quartic::transpose(evaluations, 1);
-    let hashed_values = hash_values(&p_values, hash_fn);
-    let mut p_tree = MerkleTree::new(hashed_values, hash_fn);
+    // reduce the degree by 4 at each iteration until the remaining polynomial is small enough;
+    // + 1 is for the remainder
+    for depth in 0..context.num_fri_layers() + 1 {
+        // commit to the evaluations at the current layer; we do this by first transposing the
+        // evaluations into a matrix of 4 columns, and then building a Merkle tree from the
+        // rows of this matrix; we do this so that we could de-commit to 4 values with a sing
+        // Merkle authentication path.
+        let transposed_evaluations = quartic::transpose(&evaluations, 1);
+        let hashed_evaluations = hash_values(&transposed_evaluations, hash_fn);
+        let evaluation_tree = MerkleTree::new(hashed_evaluations, hash_fn);
+        channel.commit_fri_layer(*evaluation_tree.root());
 
-    let domain = lde_domain.values();
+        // draw a pseudo-random coefficient from the channel, and use it in degree-respecting
+        // projection to reduce the degree of evaluations by 4
+        let coeff = channel.draw_fri_point::<BaseElement>(depth as usize);
+        evaluations = apply_drp(&transposed_evaluations, lde_domain.values(), depth, coeff);
 
-    // reduce the degree by 4 at each iteration until the remaining polynomial is small enough
-    for depth in 0..context.num_fri_layers() {
-        // commit to the FRI layer
-        channel.commit_fri_layer(*p_tree.root());
-
-        // build polynomials from each row of the polynomial value matrix
-        let xs = quartic::transpose(domain, usize::pow(4, depth as u32));
-        let polys = quartic::interpolate_batch(&xs, &p_values);
-
-        // select a pseudo-random x coordinate and evaluate each row polynomial at that x
-        let special_x = channel.draw_fri_point(depth as usize);
-        let column = quartic::evaluate_batch(&polys, special_x);
-
-        // break the column in a polynomial value matrix for the next layer
-        let mut c_values = quartic::transpose(&column, 1);
-
-        // put the resulting matrix into a Merkle tree
-        let hashed_values = hash_values(&c_values, hash_fn);
-        let mut c_tree = MerkleTree::new(hashed_values, hash_fn);
-
-        // set p_tree = c_tree and p_values = c_values for the next iteration of the loop
-        mem::swap(&mut c_tree, &mut p_tree);
-        mem::swap(&mut c_values, &mut p_values);
-
-        // add p_tree and p_values from this loop (which is now under c_tree and c_values) to the result
-        tree_results.push(c_tree);
-        value_results.push(c_values);
+        tree_results.push(evaluation_tree);
+        value_results.push(transposed_evaluations);
     }
 
-    // commit to the last FRI layer
-    channel.commit_fri_layer(*p_tree.root());
-
     // make sure remainder length does not exceed max allowed value
+    let remainder_length = value_results[value_results.len() - 1].len() * 4;
     debug_assert!(
-        p_values.len() * 4 <= ComputationContext::MAX_FRI_REMAINDER_LENGTH,
+        remainder_length <= ComputationContext::MAX_FRI_REMAINDER_LENGTH,
         "last FRI layer cannot exceed {} elements, but was {} elements",
         ComputationContext::MAX_FRI_REMAINDER_LENGTH,
-        p_values.len() * 4
+        remainder_length
     );
-
-    // add the tree at the last layer (the remainder) to the result
-    tree_results.push(p_tree);
-    value_results.push(p_values);
 
     (tree_results, value_results)
 }
@@ -121,5 +99,71 @@ pub fn build_proof(
     FriProof {
         layers,
         rem_values: remainder,
+    }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+
+/// Applies degree-respecting projection to the `evaluations`
+fn apply_drp<E: FieldElement>(
+    evaluations: &[[E; 4]],
+    domain: &[E],
+    depth: usize,
+    coeff: E,
+) -> Vec<E> {
+    let domain_stride = usize::pow(ComputationContext::FRI_FOLDING_FACTOR, depth as u32);
+    let xs = quartic::transpose(domain, domain_stride);
+
+    let polys = quartic::interpolate_batch(&xs, &evaluations);
+
+    quartic::evaluate_batch(&polys, coeff)
+}
+
+// TESTS
+// ================================================================================================
+
+#[cfg(test)]
+mod tests {
+
+    use math::{
+        fft,
+        field::{BaseElement, FieldElement, StarkField},
+        polynom, quartic,
+    };
+
+    #[test]
+    fn apply_drp() {
+        // build a polynomial and evaluate it over a larger domain
+        let p = BaseElement::prng_vector([1; 32], 1024);
+        let mut evaluations = vec![BaseElement::ZERO; p.len() * 8];
+        evaluations[..p.len()].copy_from_slice(&p);
+        let g = BaseElement::get_root_of_unity(evaluations.len().trailing_zeros());
+        let twiddles = fft::get_twiddles(g, evaluations.len());
+        fft::evaluate_poly(&mut evaluations, &twiddles, true);
+
+        // apply degree respecting projection
+        let coeff = BaseElement::rand();
+        let domain = BaseElement::get_power_series(g, evaluations.len());
+        let t_evaluations = quartic::transpose(&evaluations, 1);
+        evaluations = super::apply_drp(&t_evaluations, &domain, 0, coeff);
+
+        // interpolate evaluations into a polynomial
+        let g = BaseElement::get_root_of_unity(evaluations.len().trailing_zeros());
+        let inv_twiddles = fft::get_inv_twiddles(g, evaluations.len());
+        fft::interpolate_poly(&mut evaluations, &inv_twiddles, true);
+
+        // make sure the degree has been reduced by 4
+        assert_eq!(p.len() / 4 - 1, polynom::degree_of(&evaluations));
+
+        // make sure the coefficients of the new polynomial were derived from
+        // the original polynomial correctly
+        for i in 0..p.len() / 4 {
+            let c1 = p[i * 4]
+                + p[i * 4 + 1] * coeff
+                + p[i * 4 + 2] * coeff.exp(2)
+                + p[i * 4 + 3] * coeff.exp(3);
+            assert_eq!(c1, evaluations[i]);
+        }
     }
 }
