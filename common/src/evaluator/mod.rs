@@ -20,8 +20,6 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     assertions: A,
     transition: T,
     context: ComputationContext,
-    evaluations: Vec<BaseElement>,
-    t_evaluations: Vec<BaseElement>,
     divisors: Vec<ConstraintDivisor>,
 
     #[cfg(debug_assertions)]
@@ -62,12 +60,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             t_evaluation_table: (0..transition.num_constraints())
                 .map(|_| Vec::new())
                 .collect(),
-
-            t_evaluations: vec![BaseElement::ZERO; transition.num_constraints()],
             transition,
             assertions,
             context: context.clone(),
-            evaluations: vec![BaseElement::ZERO; divisors.len()],
             divisors,
         })
     }
@@ -84,21 +79,19 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         next: &[BaseElement],
         x: BaseElement,
         step: usize,
-    ) -> Result<&[BaseElement], ProverError> {
-        // reset transition evaluation buffer
-        self.t_evaluations
-            .iter_mut()
-            .for_each(|v| *v = BaseElement::ZERO);
+    ) -> Result<Vec<BaseElement>, ProverError> {
+        let mut evaluations = vec![BaseElement::ZERO; self.divisors.len()];
+        let mut t_evaluations = vec![BaseElement::ZERO; self.transition.num_constraints()];
 
         // evaluate transition constraints and save the results into t_evaluations buffer
         self.transition
-            .evaluate_at_step(&mut self.t_evaluations, current, next, step);
+            .evaluate_at_step(&mut t_evaluations, current, next, step);
 
         // when in debug mode, save transition constraint evaluations before merging them
         // so that we can check their degrees later
         #[cfg(debug_assertions)]
         for (i, column) in self.t_evaluation_table.iter_mut().enumerate() {
-            column.push(self.t_evaluations[i]);
+            column.push(t_evaluations[i]);
         }
 
         // merge transition constraint evaluations into a single value, and save this value
@@ -106,9 +99,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         // transition constraints have the same divisor.
         // also: if the constraints should evaluate to all zeros at this step (which should
         // happen on steps which are multiples of ce_blowup_factor), make sure they do
-        self.evaluations[0] = if self.should_evaluate_to_zero_at(step) {
+        evaluations[0] = if self.should_evaluate_to_zero_at(step) {
             let step = step / self.ce_blowup_factor();
-            for &evaluation in self.t_evaluations.iter() {
+            for &evaluation in t_evaluations.iter() {
                 if evaluation != BaseElement::ZERO {
                     return Err(ProverError::UnsatisfiedTransitionConstraintError(step));
                 }
@@ -116,15 +109,14 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             // if all transition constraint evaluations are zeros, the combination is also zero
             BaseElement::ZERO
         } else {
-            self.transition.merge_evaluations(&self.t_evaluations, x)
+            self.transition.merge_evaluations(&t_evaluations, x)
         };
 
         // evaluate boundary constraints defined by assertions and save the result into
         // the evaluations buffer starting at slot 1
-        self.assertions
-            .evaluate(&mut self.evaluations[1..], current, x);
+        self.assertions.evaluate(&mut evaluations[1..], current, x);
 
-        Ok(&self.evaluations)
+        Ok(evaluations)
     }
 
     /// Evaluates transition and assertion constraints at the specified x coordinate. This
@@ -135,23 +127,20 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
         current: &[BaseElement],
         next: &[BaseElement],
         x: BaseElement,
-    ) -> &[BaseElement] {
-        // reset transition evaluation buffer
-        self.t_evaluations
-            .iter_mut()
-            .for_each(|v| *v = BaseElement::ZERO);
+    ) -> Vec<BaseElement> {
+        let mut evaluations = vec![BaseElement::ZERO; self.divisors.len()];
+        let mut t_evaluations = vec![BaseElement::ZERO; self.transition.num_constraints()];
 
         // evaluate transition constraints and merge them into a single value
         self.transition
-            .evaluate_at_x(&mut self.t_evaluations, current, next, x);
-        self.evaluations[0] = self.transition.merge_evaluations(&self.t_evaluations, x);
+            .evaluate_at_x(&mut t_evaluations, current, next, x);
+        evaluations[0] = self.transition.merge_evaluations(&t_evaluations, x);
 
         // evaluate boundary constraints defined by assertions and save the result into
         // the evaluations buffer starting at slot 1
-        self.assertions
-            .evaluate(&mut self.evaluations[1..], current, x);
+        self.assertions.evaluate(&mut evaluations[1..], current, x);
 
-        &self.evaluations
+        evaluations
     }
 
     // ACCESSORS
