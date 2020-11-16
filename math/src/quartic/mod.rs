@@ -1,4 +1,7 @@
-use crate::{field::FieldElement, utils::uninit_vector};
+use crate::{
+    field::{BaseElement, FieldElement},
+    utils::uninit_vector,
+};
 
 #[cfg(test)]
 mod tests;
@@ -34,11 +37,15 @@ pub fn evaluate_batch<E: FieldElement>(polys: &[[E; 4]], x: E) -> Vec<E> {
     result
 }
 
-/// Interpolates a set of X, Y coordinates into a batch of degree 3 polynomials.
+/// Interpolates a set of X, Y coordinates into a batch of degree 3 polynomials. X coordinates
+/// must be specified over the base field.
 ///
 /// This function is many times faster than using `polynom::interpolate` function in a loop.
 /// This is primarily due to amortizing inversions over the entire batch.
-pub fn interpolate_batch<E: FieldElement>(xs: &[[E; 4]], ys: &[[E; 4]]) -> Vec<[E; 4]> {
+pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
+    xs: &[[BaseElement; 4]],
+    ys: &[[E; 4]],
+) -> Vec<[E; 4]> {
     debug_assert!(
         xs.len() == ys.len(),
         "number of X coordinates must be equal to number of Y coordinates"
@@ -55,48 +62,33 @@ pub fn interpolate_batch<E: FieldElement>(xs: &[[E; 4]], ys: &[[E; 4]]) -> Vec<[
     for (i, j) in (0..n).zip((0..equations.len()).step_by(4)) {
         let xs = xs[i];
 
-        let x01 = xs[0] * xs[1];
-        let x02 = xs[0] * xs[2];
-        let x03 = xs[0] * xs[3];
-        let x12 = xs[1] * xs[2];
-        let x13 = xs[1] * xs[3];
-        let x23 = xs[2] * xs[3];
+        let x0 = E::from(xs[0]);
+        let x1 = E::from(xs[1]);
+        let x2 = E::from(xs[2]);
+        let x3 = E::from(xs[3]);
+
+        let x01 = x0 * x1;
+        let x02 = x0 * x2;
+        let x03 = x0 * x3;
+        let x12 = x1 * x2;
+        let x13 = x1 * x3;
+        let x23 = x2 * x3;
 
         // eq0
-        equations[j] = [
-            -x12 * xs[3],
-            x12 + x13 + x23,
-            -xs[1] - xs[2] - xs[3],
-            E::ONE,
-        ];
-        inverses[j] = eval(&equations[j], xs[0]);
+        equations[j] = [-x12 * x3, x12 + x13 + x23, -x1 - x2 - x3, E::ONE];
+        inverses[j] = eval(&equations[j], x0);
 
         // eq1
-        equations[j + 1] = [
-            -x02 * xs[3],
-            x02 + x03 + x23,
-            -xs[0] - xs[2] - xs[3],
-            E::ONE,
-        ];
-        inverses[j + 1] = eval(&equations[j + 1], xs[1]);
+        equations[j + 1] = [-x02 * x3, x02 + x03 + x23, -x0 - x2 - x3, E::ONE];
+        inverses[j + 1] = eval(&equations[j + 1], x1);
 
         // eq2
-        equations[j + 2] = [
-            -x01 * xs[3],
-            x01 + x03 + x13,
-            -xs[0] - xs[1] - xs[3],
-            E::ONE,
-        ];
-        inverses[j + 2] = eval(&equations[j + 2], xs[2]);
+        equations[j + 2] = [-x01 * x3, x01 + x03 + x13, -x0 - x1 - x3, E::ONE];
+        inverses[j + 2] = eval(&equations[j + 2], x2);
 
         // eq3
-        equations[j + 3] = [
-            -x01 * xs[2],
-            x01 + x02 + x12,
-            -xs[0] - xs[1] - xs[2],
-            E::ONE,
-        ];
-        inverses[j + 3] = eval(&equations[j + 3], xs[3]);
+        equations[j + 3] = [-x01 * x2, x01 + x02 + x12, -x0 - x1 - x2, E::ONE];
+        inverses[j + 3] = eval(&equations[j + 3], x3);
     }
 
     let inverses = E::inv_many(&inverses);

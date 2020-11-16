@@ -13,10 +13,10 @@ use std::mem;
 /// Returns OK(true) if values in the `evaluations` slice represent evaluations of a polynomial
 /// with degree <= context.deep_composition_degree() against x coordinates specified by
 /// `positions` slice
-pub fn verify(
+pub fn verify<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
     context: &ComputationContext,
     channel: &VerifierChannel,
-    evaluations: &[BaseElement],
+    evaluations: &[E],
     positions: &[usize],
 ) -> Result<bool, String> {
     let max_degree = context.deep_composition_degree();
@@ -42,7 +42,7 @@ pub fn verify(
         let mut augmented_positions = get_augmented_positions(&positions, domain_size);
         let layer_values = channel.read_fri_queries(depth, &augmented_positions)?;
         let column_values =
-            get_column_values(layer_values, &positions, &augmented_positions, domain_size);
+            get_column_values(&layer_values, &positions, &augmented_positions, domain_size);
         if evaluations != column_values {
             return Err(format!(
                 "evaluations did not match column value at depth {}",
@@ -63,7 +63,7 @@ pub fn verify(
         }
 
         // interpolate x and y values into row polynomials
-        let row_polys = quartic::interpolate_batch(&xs, layer_values);
+        let row_polys = quartic::interpolate_batch(&xs, &layer_values);
 
         // calculate the pseudo-random x coordinate
         let special_x = channel.draw_fri_point(depth);
@@ -83,7 +83,7 @@ pub fn verify(
 
     // read the remainder from the channel and make sure it matches with the columns
     // of the previous layer
-    let remainder = channel.read_fri_remainder()?;
+    let remainder = channel.read_fri_remainder::<E>()?;
     for (&position, evaluation) in positions.iter().zip(evaluations) {
         if remainder[position] != evaluation {
             return Err(String::from(
@@ -103,8 +103,8 @@ pub fn verify(
 
 /// Returns Ok(true) if values in the `remainder` slice represent evaluations of a polynomial
 /// with degree < max_degree_plus_1 against a domain specified by the `domain_root`
-fn verify_remainder(
-    remainder: &[BaseElement],
+fn verify_remainder<E: FieldElement + From<BaseElement>>(
+    remainder: Vec<E>,
     max_degree_plus_1: usize,
     domain_root: BaseElement,
     blowup_factor: usize,
@@ -128,14 +128,14 @@ fn verify_remainder(
     let mut xs = Vec::with_capacity(max_degree_plus_1);
     let mut ys = Vec::with_capacity(max_degree_plus_1);
     for &p in positions.iter().take(max_degree_plus_1) {
-        xs.push(domain[p]);
+        xs.push(E::from(domain[p]));
         ys.push(remainder[p]);
     }
     let poly = polynom::interpolate(&xs, &ys, false);
 
     // check that polynomial evaluates correctly for all other points in the remainder
     for &p in positions.iter().skip(max_degree_plus_1) {
-        if polynom::eval(&poly, domain[p]) != remainder[p] {
+        if polynom::eval(&poly, E::from(domain[p])) != remainder[p] {
             return Err(format!(
                 "remainder is not a valid degree {} polynomial",
                 max_degree_plus_1 - 1
@@ -148,12 +148,12 @@ fn verify_remainder(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn get_column_values(
-    values: &[[BaseElement; 4]],
+fn get_column_values<E: FieldElement>(
+    values: &[[E; 4]],
     positions: &[usize],
     augmented_positions: &[usize],
     column_length: usize,
-) -> Vec<BaseElement> {
+) -> Vec<E> {
     let row_length = column_length / 4;
 
     let mut result = Vec::new();

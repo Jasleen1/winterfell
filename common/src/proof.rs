@@ -46,7 +46,7 @@ pub struct Queries {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriLayer {
-    pub values: Vec<[BaseElement; 4]>,
+    pub values: Vec<Vec<u8>>,
     pub paths: Vec<Vec<[u8; 32]>>,
     pub depth: u8,
 }
@@ -54,7 +54,7 @@ pub struct FriLayer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriProof {
     pub layers: Vec<FriLayer>,
-    pub rem_values: Vec<BaseElement>,
+    pub rem_values: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

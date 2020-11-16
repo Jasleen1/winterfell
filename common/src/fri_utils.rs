@@ -1,6 +1,6 @@
 use crate::utils::uninit_vector;
 use crypto::HashFunction;
-use math::field::{AsBytes, BaseElement};
+use math::field::FieldElement;
 
 pub fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
     let row_length = column_length / 4;
@@ -14,10 +14,16 @@ pub fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec
     result
 }
 
-pub fn hash_values(values: &[[BaseElement; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
+pub fn hash_values<E: FieldElement>(values: &[[E; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
     let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
+    // TODO: ideally, this should be done using something like update() method of a hasher
+    let mut buf = vec![0u8; 4 * E::ELEMENT_BYTES];
     for i in 0..values.len() {
-        hash((&values[i]).as_bytes(), &mut result[i]);
+        buf[..E::ELEMENT_BYTES].copy_from_slice(values[i][0].as_bytes());
+        buf[E::ELEMENT_BYTES..E::ELEMENT_BYTES * 2].copy_from_slice(values[i][1].as_bytes());
+        buf[E::ELEMENT_BYTES * 2..E::ELEMENT_BYTES * 3].copy_from_slice(values[i][2].as_bytes());
+        buf[E::ELEMENT_BYTES * 3..E::ELEMENT_BYTES * 4].copy_from_slice(values[i][3].as_bytes());
+        hash(&buf, &mut result[i]);
     }
     result
 }
