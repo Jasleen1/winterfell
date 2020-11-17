@@ -85,10 +85,6 @@ impl FieldElement for BaseElement {
     fn from_int(value: u128) -> Self {
         BaseElement::new(value)
     }
-
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
 }
 
 impl StarkField for BaseElement {

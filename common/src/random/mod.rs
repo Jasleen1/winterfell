@@ -78,7 +78,7 @@ pub trait PublicCoin {
         CompositionCoefficients::new(generator, self.context().trace_width())
     }
 
-    fn draw_fri_point(&self, layer_depth: usize) -> BaseElement {
+    fn draw_fri_point<E: FieldElement>(&self, layer_depth: usize) -> E {
         let mut generator = RandomGenerator::new(
             self.fri_layer_seed(layer_depth),
             FRI_POINT_OFFSET,
@@ -187,7 +187,7 @@ impl RandomGenerator {
     // --------------------------------------------------------------------------------------------
 
     /// Generates the next pseudo-random field element.
-    pub fn draw(&mut self) -> BaseElement {
+    pub fn draw<E: FieldElement>(&mut self) -> E {
         let hash = self.hash_fn;
         let mut result = [0u8; 32];
         loop {
@@ -197,16 +197,14 @@ impl RandomGenerator {
 
             // take the first MODULUS_BYTES from the hashed seed and check if they can be converted
             // into a valid field element; if the can, return; otherwise try again
-            if let Some(element) =
-                BaseElement::from_random_bytes(&result[..(BaseElement::ELEMENT_BYTES as usize)])
-            {
+            if let Some(element) = E::from_random_bytes(&result[..(E::ELEMENT_BYTES as usize)]) {
                 return element;
             }
         }
     }
 
     /// Generates the next pair of pseudo-random field element.
-    pub fn draw_pair(&mut self) -> (BaseElement, BaseElement) {
+    pub fn draw_pair<E: FieldElement>(&mut self) -> (E, E) {
         (self.draw(), self.draw())
     }
 

@@ -200,7 +200,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 7 ----- compute FRI layers for the composition polynomial ------------------------------
         let now = Instant::now();
         let (fri_trees, fri_values) =
-            fri::reduce(&context, &mut channel, &composed_evaluations, &lde_domain);
+            fri::build_layers(&context, &mut channel, composed_evaluations, &lde_domain);
         debug!(
             "Computed {} FRI layers from composition polynomial evaluations in {} ms",
             fri_trees.len(),

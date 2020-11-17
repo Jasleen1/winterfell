@@ -29,6 +29,7 @@ pub trait FieldElement:
     + From<u16>
     + From<u8>
     + for<'a> TryFrom<&'a [u8]>
+    + AsBytes
 {
     type PositiveInteger: BitAnd<Output = Self::PositiveInteger>
         + PartialEq
@@ -125,13 +126,67 @@ pub trait FieldElement:
     fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
 
     /// Returns the byte representation of the element in little-endian byte order.
-    fn to_bytes(&self) -> Vec<u8>;
+    fn to_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    /// Returns a vector of bytes with all elements from the provided slice written
+    /// into the vector in little-endian byte order.
+    fn slice_to_bytes(elements: &[Self]) -> Vec<u8> {
+        let mut result = Vec::with_capacity(elements.len() * Self::ELEMENT_BYTES);
+        for element in elements {
+            result.extend_from_slice(element.as_bytes());
+        }
+        result
+    }
+
+    /// Reads elements from the specified slice of bytes and copies them into the provided
+    /// result slice. The elements are assumed to be stored in the slice one after the other
+    /// in little-endian byte order. Returns the number of read elements.
+    fn read_into(bytes: &[u8], result: &mut [Self]) -> Result<usize, String> {
+        let num_elements = bytes.len() / Self::ELEMENT_BYTES;
+        if result.len() < num_elements {
+            return Err(format!(
+                "result must be at least {} elements long, but was {}",
+                num_elements,
+                result.len()
+            ));
+        }
+
+        for i in (0..bytes.len()).step_by(Self::ELEMENT_BYTES) {
+            match Self::try_from(&bytes[i..i + Self::ELEMENT_BYTES]) {
+                Ok(value) => result[i / Self::ELEMENT_BYTES] = value,
+                Err(_) => {
+                    return Err(format!(
+                        "failed to read element from bytes at position {}",
+                        i
+                    ))
+                }
+            }
+        }
+
+        Ok(num_elements)
+    }
+
+    /// Returns a vector of elements read from the provided slice of bytes. The elements are
+    /// assumed to be stored in the slice one after the other in little-endian byte order.
+    fn read_to_vec(bytes: &[u8]) -> Result<Vec<Self>, String> {
+        if bytes.len() % Self::ELEMENT_BYTES != 0 {
+            return Err(String::from(
+                "number of bytes does not divide into whole number of elements",
+            ));
+        }
+
+        let mut result = vec![Self::ZERO; bytes.len() / Self::ELEMENT_BYTES];
+        Self::read_into(bytes, &mut result)?;
+        Ok(result)
+    }
 }
 
 // STARK FIELD
 // ================================================================================================
 
-pub trait StarkField: FieldElement + AsBytes {
+pub trait StarkField: FieldElement {
     /// Prime modulus of the field. Must be of the form k * 2^n + 1 (a Proth prime).
     /// This ensures that the field has high 2-adicity.
     const MODULUS: Self::PositiveInteger;

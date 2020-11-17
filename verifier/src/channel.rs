@@ -8,13 +8,15 @@ use common::{
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
-    field::{AsBytes, BaseElement},
+    field::{AsBytes, BaseElement, FieldElement},
     quartic,
 };
 use std::convert::TryInto;
 
 // TYPES AND INTERFACES
 // ================================================================================================
+
+type Bytes = Vec<u8>;
 
 pub struct VerifierChannel {
     context: ComputationContext,
@@ -24,8 +26,8 @@ pub struct VerifierChannel {
     constraint_proof: BatchMerkleProof,
     deep_values: DeepValues,
     fri_proofs: Vec<BatchMerkleProof>,
-    fri_queries: Vec<Vec<[BaseElement; 4]>>,
-    fri_remainder: Vec<BaseElement>,
+    fri_queries: Vec<Vec<Bytes>>,
+    fri_remainder: Bytes,
     query_seed: [u8; 32],
 }
 
@@ -143,11 +145,11 @@ impl VerifierChannel {
     /// Returns FRI query values at the specified positions from the FRI layer at the
     /// specified depth. This also checks if the values are valid against the FRI layer
     /// commitment sent by the prover.
-    pub fn read_fri_queries(
+    pub fn read_fri_queries<E: FieldElement>(
         &self,
         depth: usize,
         positions: &[usize],
-    ) -> Result<&[[BaseElement; 4]], String> {
+    ) -> Result<Vec<[E; 4]>, String> {
         let layer_root = self.commitments.fri_roots[depth];
         let layer_proof = &self.fri_proofs[depth];
         if !MerkleTree::verify_batch(
@@ -162,15 +164,26 @@ impl VerifierChannel {
             ));
         }
 
-        Ok(&self.fri_queries[depth])
+        // convert query bytes into field elements of appropriate type
+        let mut queries = Vec::new();
+        for query_bytes in self.fri_queries[depth].iter() {
+            let mut query = [E::ZERO; 4];
+            E::read_into(query_bytes, &mut query)?;
+            queries.push(query);
+        }
+
+        Ok(queries)
     }
 
     /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
     /// valid against the commitment sent by the prover.
-    pub fn read_fri_remainder(&self) -> Result<&[BaseElement], String> {
+    pub fn read_fri_remainder<E: FieldElement>(&self) -> Result<Vec<E>, String> {
+        // convert remainder bytes into field elements of appropriate type
+        let remainder = E::read_to_vec(&self.fri_remainder)?;
+
         // build remainder Merkle tree
         let hash_fn = self.context.options().hash_fn();
-        let remainder_values = quartic::transpose(&self.fri_remainder, 1);
+        let remainder_values = quartic::transpose(&remainder, 1);
         let hashed_values = fri_utils::hash_values(&remainder_values, hash_fn);
         let remainder_tree = MerkleTree::new(hashed_values, hash_fn);
 
@@ -180,7 +193,7 @@ impl VerifierChannel {
             return Err(String::from("FRI remainder did not match the commitment"));
         }
 
-        Ok(&self.fri_remainder)
+        Ok(remainder)
     }
 }
 
@@ -232,12 +245,19 @@ fn build_trace_proof(
 fn build_fri_proofs(
     layers: Vec<FriLayer>,
     hash_fn: HashFunction,
-) -> (Vec<BatchMerkleProof>, Vec<Vec<[BaseElement; 4]>>) {
+) -> (Vec<BatchMerkleProof>, Vec<Vec<Vec<u8>>>) {
     let mut fri_queries = Vec::with_capacity(layers.len());
     let mut fri_proofs = Vec::with_capacity(layers.len());
     for layer in layers.into_iter() {
+        let mut hashed_values = Vec::new();
+        for value_bytes in layer.values.iter() {
+            let mut buf = [0u8; 32];
+            hash_fn(value_bytes, &mut buf);
+            hashed_values.push(buf);
+        }
+
         fri_proofs.push(BatchMerkleProof {
-            values: fri_utils::hash_values(&layer.values, hash_fn),
+            values: hashed_values,
             nodes: layer.paths.clone(),
             depth: layer.depth,
         });
