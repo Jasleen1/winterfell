@@ -76,10 +76,7 @@ impl FieldElement for BaseElement {
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        match Self::try_from(bytes) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        }
+        Self::try_from(bytes).ok()
     }
 
     fn from_int(value: u128) -> Self {
