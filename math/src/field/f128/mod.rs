@@ -76,10 +76,7 @@ impl FieldElement for BaseElement {
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        match Self::try_from(bytes) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        }
+        Self::try_from(bytes).ok()
     }
 
     fn from_int(value: u128) -> Self {
@@ -243,14 +240,14 @@ impl AsBytes for BaseElement {
     }
 }
 
-impl AsBytes for &[BaseElement] {
+impl AsBytes for [BaseElement] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
     }
 }
 
-impl AsBytes for &[BaseElement; 4] {
+impl AsBytes for [BaseElement; 4] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
