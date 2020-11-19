@@ -1,6 +1,5 @@
 use crate::ProofOptions;
 use crypto::BatchMerkleProof;
-use math::field::BaseElement;
 use serde::{Deserialize, Serialize};
 
 // CONSTANTS
@@ -17,7 +16,7 @@ pub struct StarkProof {
     pub context: Context,
     pub commitments: Commitments,
     pub queries: Queries,
-    pub deep_values: DeepValues,
+    pub ood_frame: OodEvaluationFrame,
     pub fri_proof: FriProof,
     pub pow_nonce: u64,
 }
@@ -25,6 +24,7 @@ pub struct StarkProof {
 // TODO: this should be replaced by ProofContext
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Context {
+    pub trace_width: u8,
     pub lde_domain_depth: u8,
     pub ce_blowup_factor: u8,
     pub options: ProofOptions,
@@ -40,7 +40,7 @@ pub struct Commitments {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Queries {
     pub trace_paths: Vec<Vec<[u8; 32]>>,
-    pub trace_states: Vec<Vec<BaseElement>>,
+    pub trace_states: Vec<Vec<u8>>,
     pub constraint_proof: BatchMerkleProof,
 }
 
@@ -58,9 +58,9 @@ pub struct FriProof {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DeepValues {
-    pub trace_at_z1: Vec<BaseElement>,
-    pub trace_at_z2: Vec<BaseElement>,
+pub struct OodEvaluationFrame {
+    pub trace_at_z1: Vec<u8>,
+    pub trace_at_z2: Vec<u8>,
 }
 
 // STARK PROOF IMPLEMENTATION

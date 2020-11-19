@@ -1,14 +1,14 @@
 use common::{
     errors::VerifierError,
     fri_utils,
-    proof::{Commitments, DeepValues, FriLayer, StarkProof},
+    proof::{Commitments, FriLayer, OodEvaluationFrame, StarkProof},
     utils::{log2, uninit_vector},
-    ComputationContext, ProofOptions, PublicCoin,
+    ComputationContext, EvaluationFrame, ProofOptions, PublicCoin,
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
-    field::{AsBytes, BaseElement, FieldElement},
+    field::{BaseElement, FieldElement},
     quartic,
 };
 use std::convert::TryInto;
@@ -22,9 +22,9 @@ pub struct VerifierChannel {
     context: ComputationContext,
     commitments: Commitments,
     trace_proof: BatchMerkleProof,
-    trace_queries: Vec<Vec<BaseElement>>,
+    trace_queries: Vec<Bytes>,
     constraint_proof: BatchMerkleProof,
-    deep_values: DeepValues,
+    ood_frame: OodEvaluationFrame,
     fri_proofs: Vec<BatchMerkleProof>,
     fri_queries: Vec<Vec<Bytes>>,
     fri_remainder: Bytes,
@@ -39,7 +39,7 @@ impl VerifierChannel {
     pub fn new(proof: StarkProof) -> Result<Self, VerifierError> {
         // build context ------------------------------------------------------
         let context = proof.context;
-        let trace_width = proof.deep_values.trace_at_z1.len();
+        let trace_width = context.trace_width as usize;
         let trace_length =
             usize::pow(2, context.lde_domain_depth as u32) / context.options.blowup_factor();
         let context = ComputationContext::new(
@@ -72,7 +72,7 @@ impl VerifierChannel {
         Ok(VerifierChannel {
             context,
             commitments: proof.commitments,
-            deep_values: proof.deep_values,
+            ood_frame: proof.ood_frame,
             trace_proof,
             trace_queries: queries.trace_states,
             constraint_proof: queries.constraint_proof,
@@ -90,8 +90,18 @@ impl VerifierChannel {
 
     /// Returns trace polynomial evaluations at OOD points z and z * g, where g is the generator
     /// of the LDE domain.
-    pub fn read_deep_values(&self) -> &DeepValues {
-        &self.deep_values
+    pub fn read_ood_frame<E: FieldElement>(&self) -> Result<EvaluationFrame<E>, VerifierError> {
+        let current = match E::read_to_vec(&self.ood_frame.trace_at_z1) {
+            Ok(elements) => elements,
+            Err(_) => return Err(VerifierError::OodFrameDeserializationFailed),
+        };
+
+        let next = match E::read_to_vec(&self.ood_frame.trace_at_z2) {
+            Ok(elements) => elements,
+            Err(_) => return Err(VerifierError::OodFrameDeserializationFailed),
+        };
+
+        Ok(EvaluationFrame { current, next })
     }
 
     /// Returns trace states at the specified positions. This also checks if the
@@ -99,7 +109,7 @@ impl VerifierChannel {
     pub fn read_trace_states(
         &self,
         positions: &[usize],
-    ) -> Result<&[Vec<BaseElement>], VerifierError> {
+    ) -> Result<Vec<Vec<BaseElement>>, VerifierError> {
         // make sure the states included in the proof correspond to the trace commitment
         if !MerkleTree::verify_batch(
             &self.commitments.trace_root,
@@ -110,7 +120,17 @@ impl VerifierChannel {
             return Err(VerifierError::TraceQueryDoesNotMatchCommitment);
         }
 
-        Ok(&self.trace_queries)
+        // convert query bytes into field elements of appropriate type
+        let mut states = Vec::new();
+        for state_bytes in self.trace_queries.iter() {
+            let mut trace_state = vec![BaseElement::ZERO; self.context.trace_width()];
+            match BaseElement::read_into(state_bytes, &mut trace_state) {
+                Ok(_) => states.push(trace_state),
+                Err(_) => return Err(VerifierError::TraceQueryDeserializationFailed),
+            }
+        }
+
+        Ok(states)
     }
 
     /// Returns constraint evaluations at the specified positions. THis also checks if the
@@ -224,7 +244,7 @@ impl PublicCoin for VerifierChannel {
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_trace_proof(
-    trace_states: &[Vec<BaseElement>],
+    trace_states: &[Bytes],
     trace_paths: Vec<Vec<[u8; 32]>>,
     lde_domain_size: usize,
     hash_fn: HashFunction,
@@ -232,7 +252,7 @@ fn build_trace_proof(
     let mut hashed_states = uninit_vector::<[u8; 32]>(trace_states.len());
     #[allow(clippy::needless_range_loop)]
     for i in 0..trace_states.len() {
-        hash_fn(trace_states[i].as_slice().as_bytes(), &mut hashed_states[i]);
+        hash_fn(&trace_states[i], &mut hashed_states[i]);
     }
 
     BatchMerkleProof {

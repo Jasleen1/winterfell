@@ -10,6 +10,9 @@ pub use assertions::{Assertion, AssertionEvaluator, DefaultAssertionEvaluator};
 mod constraints;
 pub use constraints::{ConstraintDegree, ConstraintDivisor};
 
+mod frame;
+pub use frame::EvaluationFrame;
+
 #[cfg(test)]
 mod tests;
 

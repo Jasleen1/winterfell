@@ -1,8 +1,6 @@
 use common::{
-    errors::VerifierError,
-    proof::{DeepValues, StarkProof},
-    Assertion, AssertionEvaluator, ComputationContext, ConstraintEvaluator,
-    DefaultAssertionEvaluator, TransitionEvaluator,
+    errors::VerifierError, proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext,
+    ConstraintEvaluator, DefaultAssertionEvaluator, EvaluationFrame, TransitionEvaluator,
 };
 use common::{CompositionCoefficients, PublicCoin};
 
@@ -55,13 +53,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions)?;
 
         // evaluate constraints at z
-        let deep_values = channel.read_deep_values();
-        let constraint_evaluation_at_z = evaluate_constraints_at(
-            evaluator,
-            &deep_values.trace_at_z1,
-            &deep_values.trace_at_z2,
-            z,
-        );
+        let ood_frame = channel.read_ood_frame()?;
+        let constraint_evaluation_at_z =
+            evaluate_constraints_at(evaluator, &ood_frame.current, &ood_frame.next, z);
 
         // 2 ----- Read queried trace states and constraint evaluations ---------------------------
 
@@ -90,9 +84,9 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         // compute composition of trace registers
         let t_composition = compose_registers(
             &context,
-            trace_states,
+            &trace_states,
             &x_coordinates,
-            &deep_values,
+            &ood_frame,
             z,
             &coefficients,
         );
@@ -154,18 +148,18 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 // ================================================================================================
 
 /// TODO: add comments
-fn compose_registers(
+fn compose_registers<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
     context: &ComputationContext,
     trace_states: &[Vec<BaseElement>],
     x_coordinates: &[BaseElement],
-    deep_values: &DeepValues,
-    z: BaseElement,
-    cc: &CompositionCoefficients,
-) -> Vec<BaseElement> {
-    let next_z = z * context.generators().trace_domain;
+    ood_frame: &EvaluationFrame<E>,
+    z: E,
+    cc: &CompositionCoefficients<E>,
+) -> Vec<E> {
+    let next_z = z * E::from(context.generators().trace_domain);
 
-    let trace_at_z1 = &deep_values.trace_at_z1;
-    let trace_at_z2 = &deep_values.trace_at_z2;
+    let trace_at_z1 = &ood_frame.current;
+    let trace_at_z2 = &ood_frame.next;
 
     // TODO: this is computed in several paces; consolidate
     let composition_degree = context.deep_composition_degree();
@@ -173,8 +167,10 @@ fn compose_registers(
 
     let mut result = Vec::with_capacity(trace_states.len());
     for (registers, &x) in trace_states.iter().zip(x_coordinates) {
-        let mut composition = BaseElement::ZERO;
+        let x = E::from(x);
+        let mut composition = E::ZERO;
         for (i, &value) in registers.iter().enumerate() {
+            let value = E::from(value);
             // compute T1(x) = (T(x) - T(z)) / (x - z)
             let t1 = (value - trace_at_z1[i]) / (x - z);
             // multiply it by a pseudo-random coefficient, and combine with result
@@ -187,7 +183,7 @@ fn compose_registers(
         }
 
         // raise the degree to match composition degree
-        let xp = BaseElement::exp(x, incremental_degree);
+        let xp = E::exp(x, incremental_degree);
         composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
 
         result.push(composition);
@@ -200,18 +196,18 @@ fn compose_registers(
 // ================================================================================================
 
 /// TODO: add comments
-fn compose_constraints(
-    evaluations: Vec<BaseElement>,
+fn compose_constraints<E: FieldElement + From<BaseElement>>(
+    evaluations: Vec<E>,
     x_coordinates: &[BaseElement],
-    z: BaseElement,
-    evaluation_at_z: BaseElement,
-    cc: &CompositionCoefficients,
-) -> Vec<BaseElement> {
+    z: E,
+    evaluation_at_z: E,
+    cc: &CompositionCoefficients<E>,
+) -> Vec<E> {
     // divide out deep point from the evaluations
     let mut result = Vec::with_capacity(evaluations.len());
     for (evaluation, &x) in evaluations.into_iter().zip(x_coordinates) {
         // compute C(x) = (P(x) - P(z)) / (x - z)
-        let composition = (evaluation - evaluation_at_z) / (x - z);
+        let composition = (evaluation - evaluation_at_z) / (E::from(x) - z);
         // multiply by pseudo-random coefficient for linear combination
         result.push(composition * cc.constraints);
     }

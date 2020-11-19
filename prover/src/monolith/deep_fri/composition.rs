@@ -2,7 +2,7 @@ use super::{
     types::{CompositionPoly, ConstraintPoly, LdeDomain, PolyTable},
     utils,
 };
-use common::{proof::DeepValues, CompositionCoefficients};
+use common::{CompositionCoefficients, EvaluationFrame};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
@@ -23,8 +23,8 @@ pub fn compose_trace_polys(
     composition_poly: &mut CompositionPoly,
     trace_polys: PolyTable,
     z: BaseElement,
-    cc: &CompositionCoefficients,
-) -> DeepValues {
+    cc: &CompositionCoefficients<BaseElement>,
+) -> EvaluationFrame<BaseElement> {
     // compute a second out-of-domain point which corresponds to the next
     // computation state in relation to point z
     let trace_length = trace_polys.poly_size();
@@ -93,9 +93,9 @@ pub fn compose_trace_polys(
     );
 
     // trace states at OOD points z and z * g are returned to be included in the proof
-    DeepValues {
-        trace_at_z1: trace_state1,
-        trace_at_z2: trace_state2,
+    EvaluationFrame {
+        current: trace_state1,
+        next: trace_state2,
     }
 }
 
@@ -105,7 +105,7 @@ pub fn compose_constraint_poly(
     composition_poly: &mut CompositionPoly,
     constraint_poly: ConstraintPoly,
     z: BaseElement,
-    cc: &CompositionCoefficients,
+    cc: &CompositionCoefficients<BaseElement>,
 ) {
     // evaluate the polynomial at point z
     let value_at_z = constraint_poly.evaluate_at(z);
