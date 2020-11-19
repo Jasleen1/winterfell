@@ -69,7 +69,7 @@ pub trait PublicCoin {
 
     /// Draws coefficients for building composition polynomial using PRNG seeded with
     /// composition seed.
-    fn draw_composition_coefficients(&self) -> CompositionCoefficients {
+    fn draw_composition_coefficients<E: FieldElement>(&self) -> CompositionCoefficients<E> {
         let generator = RandomGenerator::new(
             self.composition_seed(),
             COMPOSITION_COEFF_OFFSET,
@@ -143,13 +143,13 @@ pub trait PublicCoin {
 // ================================================================================================
 
 #[derive(Debug)]
-pub struct CompositionCoefficients {
-    pub trace: Vec<(BaseElement, BaseElement)>,
-    pub trace_degree: (BaseElement, BaseElement),
-    pub constraints: BaseElement,
+pub struct CompositionCoefficients<E: FieldElement> {
+    pub trace: Vec<(E, E)>,
+    pub trace_degree: (E, E),
+    pub constraints: E,
 }
 
-impl CompositionCoefficients {
+impl<E: FieldElement> CompositionCoefficients<E> {
     pub fn new(mut prng: RandomGenerator, trace_width: usize) -> Self {
         CompositionCoefficients {
             trace: (0..trace_width).map(|_| prng.draw_pair()).collect(),

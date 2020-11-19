@@ -172,8 +172,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let coefficients = channel.draw_composition_coefficients();
 
         // combine all trace polynomials together and merge them into the composition polynomial;
-        // deep_values are trace states at two out-of-domain points, and will go into the proof
-        let deep_values = compose_trace_polys(&mut composition_poly, trace_polys, z, &coefficients);
+        // ood_frame are trace states at two out-of-domain points, and will go into the proof
+        let ood_frame = compose_trace_polys(&mut composition_poly, trace_polys, z, &coefficients);
 
         // merge constraint polynomial into the composition polynomial
         compose_constraint_poly(&mut composition_poly, constraint_poly, z, &coefficients);
@@ -241,7 +241,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             trace_paths,
             trace_states,
             constraint_paths,
-            deep_values,
+            ood_frame,
             fri_proof,
         );
         debug!("Built proof object in {} ms", now.elapsed().as_millis());

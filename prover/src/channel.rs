@@ -1,9 +1,9 @@
 use common::{
-    proof::{Commitments, Context, DeepValues, FriProof, Queries, StarkProof},
-    ComputationContext, PublicCoin,
+    proof::{Commitments, Context, FriProof, OodEvaluationFrame, Queries, StarkProof},
+    ComputationContext, EvaluationFrame, PublicCoin,
 };
 use crypto::{BatchMerkleProof, HashFunction};
-use math::field::BaseElement;
+use math::field::{BaseElement, FieldElement};
 use std::convert::TryInto;
 
 // TYPES AND INTERFACES
@@ -77,16 +77,17 @@ impl ProverChannel {
 
     /// Builds a proof from the previously committed values as well as values
     /// passed in to this method
-    pub fn build_proof(
+    pub fn build_proof<E: FieldElement>(
         self,
         trace_paths: BatchMerkleProof,
         trace_states: Vec<Vec<BaseElement>>,
         constraint_paths: BatchMerkleProof,
-        deep_values: DeepValues,
+        ood_frame: EvaluationFrame<E>,
         fri_proof: FriProof,
     ) -> StarkProof {
         StarkProof {
             context: Context {
+                trace_width: self.context.trace_width() as u8,
                 lde_domain_depth: trace_paths.depth,
                 ce_blowup_factor: self.context.ce_blowup_factor() as u8,
                 options: self.context().options().clone(),
@@ -98,10 +99,16 @@ impl ProverChannel {
             },
             queries: Queries {
                 trace_paths: trace_paths.nodes,
-                trace_states,
+                trace_states: trace_states
+                    .into_iter()
+                    .map(|s| BaseElement::slice_to_bytes(&s))
+                    .collect(),
                 constraint_proof: constraint_paths,
             },
-            deep_values,
+            ood_frame: OodEvaluationFrame {
+                trace_at_z1: E::slice_to_bytes(&ood_frame.current),
+                trace_at_z2: E::slice_to_bytes(&ood_frame.next),
+            },
             fri_proof,
             pow_nonce: self.pow_nonce,
         }

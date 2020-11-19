@@ -36,10 +36,14 @@ pub enum VerifierError {
     VerificationFailed(String),
     /// Trace query did not match the commitment
     TraceQueryDoesNotMatchCommitment,
+    /// Trace query deserialization failed
+    TraceQueryDeserializationFailed,
     /// Constraint query did not match the commitment
     ConstraintQueryDoesNotMatchCommitment,
     /// Query seed proof-of-work verification failed
     QuerySeedProofOfWorkVerificationFailed,
+    /// Out-of-domain frame deserialization failed
+    OodFrameDeserializationFailed,
 }
 
 /// Represents an error thrown during evaluation

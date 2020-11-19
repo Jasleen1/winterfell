@@ -12,7 +12,7 @@ pub use options::ProofOptions;
 mod evaluator;
 pub use evaluator::{
     Assertion, AssertionEvaluator, ConstraintDegree, ConstraintDivisor, ConstraintEvaluator,
-    DefaultAssertionEvaluator, TransitionConstraintGroup, TransitionEvaluator,
+    DefaultAssertionEvaluator, EvaluationFrame, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 mod random;
