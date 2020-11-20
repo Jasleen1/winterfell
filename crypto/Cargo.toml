@@ -32,3 +32,6 @@ criterion = "0.3.3"
 proptest = "0.10.1"
 sha2 = "0.9.1"
 rand = "0.7.3"
+
+[features]
+default = ["kompact/silent_logging"]

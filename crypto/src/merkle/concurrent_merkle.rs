@@ -150,9 +150,7 @@ impl Require<WorkerPort> for Manager {
 
                 let mut result_buf: Vec<WorkResult> =
                     std::mem::replace(&mut self.result_accumulator, Vec::new());
-                result_buf.sort_unstable_by(|WorkResult(_, r1), WorkResult(_, r2)| {
-                    r2.start.cmp(&r1.start)
-                });
+                result_buf.sort_by(|WorkResult(_, r1), WorkResult(_, r2)| r2.start.cmp(&r1.start));
                 debug_assert!(result_buf.len() == self.num_workers + 1);
 
                 // assemble the contributions into a level by level Vec
@@ -203,7 +201,7 @@ impl Require<WorkerPort> for Manager {
                 let mut init_array = std::mem::replace(&mut self.top_elements, None)
                     .expect("init_array should be set up during manager's receive_local");
                 debug_assert!(unsafe {
-                    // check that those are contiguous => no copy
+                    // checks that those are contiguous => no copy
                     init_array.as_ptr().add(init_array.len()) == large_array.as_ptr()
                 });
                 init_array.unsplit(large_array);
@@ -260,6 +258,10 @@ impl Actor for Manager {
             );
 
             let all_output_buffers = split_off_buffers(&mut buffer, 32, self.num_workers + 1);
+            // Initialize the first of the top-level elements with 0
+            for i in 0..32 {
+                buffer[i] = 0u8;
+            }
             self.top_elements = Some(buffer);
 
             all_output_buffers
