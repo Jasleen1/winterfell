@@ -1,6 +1,6 @@
 use common::{ComputationContext, ConstraintDivisor};
 use math::{
-    field::{BaseElement, FieldElement},
+    field::{BaseElement, FieldElement, FromVec},
     polynom,
 };
 use std::{iter, vec};
@@ -118,10 +118,10 @@ impl PolyTable {
     }
 
     /// Evaluates all polynomials the the specified point `x`.
-    pub fn evaluate_at(&self, x: BaseElement) -> Vec<BaseElement> {
+    pub fn evaluate_at<E: FieldElement + FromVec<BaseElement>>(&self, x: E) -> Vec<E> {
         let mut result = Vec::with_capacity(self.num_polys());
         for poly in self.0.iter() {
-            result.push(polynom::eval(&poly, x));
+            result.push(polynom::eval(&E::from_vec(&poly), x));
         }
         result
     }
@@ -142,13 +142,13 @@ impl PolyTable {
 
 // CONSTRAINT EVALUATION TABLE
 // ================================================================================================
-pub struct ConstraintEvaluationTable {
-    evaluations: Vec<Vec<BaseElement>>,
+pub struct ConstraintEvaluationTable<E: FieldElement> {
+    evaluations: Vec<Vec<E>>,
     divisors: Vec<ConstraintDivisor>,
 }
 
-impl ConstraintEvaluationTable {
-    pub fn new(evaluations: Vec<Vec<BaseElement>>, divisors: Vec<ConstraintDivisor>) -> Self {
+impl<E: FieldElement> ConstraintEvaluationTable<E> {
+    pub fn new(evaluations: Vec<Vec<E>>, divisors: Vec<ConstraintDivisor>) -> Self {
         // TODO: verify lengths
         ConstraintEvaluationTable {
             evaluations,
@@ -166,14 +166,14 @@ impl ConstraintEvaluationTable {
     }
 
     #[cfg(test)]
-    pub fn into_vec(self) -> Vec<Vec<BaseElement>> {
+    pub fn into_vec(self) -> Vec<Vec<E>> {
         self.evaluations
     }
 }
 
-impl IntoIterator for ConstraintEvaluationTable {
-    type Item = (Vec<BaseElement>, ConstraintDivisor);
-    type IntoIter = iter::Zip<vec::IntoIter<Vec<BaseElement>>, vec::IntoIter<ConstraintDivisor>>;
+impl<E: FieldElement> IntoIterator for ConstraintEvaluationTable<E> {
+    type Item = (Vec<E>, ConstraintDivisor);
+    type IntoIter = iter::Zip<vec::IntoIter<Vec<E>>, vec::IntoIter<ConstraintDivisor>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.evaluations.into_iter().zip(self.divisors.into_iter())
@@ -182,10 +182,10 @@ impl IntoIterator for ConstraintEvaluationTable {
 
 // CONSTRAINT POLYNOMIAL
 // ================================================================================================
-pub struct ConstraintPoly(Vec<BaseElement>, usize);
+pub struct ConstraintPoly<E: FieldElement>(Vec<E>, usize);
 
-impl ConstraintPoly {
-    pub fn new(coefficients: Vec<BaseElement>, degree: usize) -> Self {
+impl<E: FieldElement> ConstraintPoly<E> {
+    pub fn new(coefficients: Vec<E>, degree: usize) -> Self {
         ConstraintPoly(coefficients, degree)
     }
 
@@ -197,28 +197,28 @@ impl ConstraintPoly {
         self.0.len()
     }
 
-    pub fn coefficients(&self) -> &[BaseElement] {
+    pub fn coefficients(&self) -> &[E] {
         &self.0
     }
 
     /// Evaluates the polynomial the the specified point `x`.
-    pub fn evaluate_at(&self, x: BaseElement) -> BaseElement {
+    pub fn evaluate_at(&self, x: E) -> E {
         polynom::eval(&self.0, x)
     }
 
-    pub fn into_vec(self) -> Vec<BaseElement> {
+    pub fn into_vec(self) -> Vec<E> {
         self.0
     }
 }
 
 // COMPOSITION POLYNOMIAL
 // ================================================================================================
-pub struct CompositionPoly(Vec<BaseElement>, usize);
+pub struct CompositionPoly<E: FieldElement>(Vec<E>, usize);
 
-impl CompositionPoly {
+impl<E: FieldElement> CompositionPoly<E> {
     pub fn new(context: &ComputationContext) -> Self {
         CompositionPoly(
-            vec![BaseElement::ZERO; context.lde_domain_size()],
+            vec![E::ZERO; context.lde_domain_size()],
             context.deep_composition_degree(),
         )
     }
@@ -232,11 +232,11 @@ impl CompositionPoly {
         self.0.len()
     }
 
-    pub fn coefficients_mut(&mut self) -> &mut [BaseElement] {
+    pub fn coefficients_mut(&mut self) -> &mut [E] {
         &mut self.0
     }
 
-    pub fn into_vec(self) -> Vec<BaseElement> {
+    pub fn into_vec(self) -> Vec<E> {
         self.0
     }
 }

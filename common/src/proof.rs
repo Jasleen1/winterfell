@@ -27,6 +27,8 @@ pub struct Context {
     pub trace_width: u8,
     pub lde_domain_depth: u8,
     pub ce_blowup_factor: u8,
+    pub field_modulus_bytes: Vec<u8>,
+    pub field_extension_factor: u32,
     pub options: ProofOptions,
 }
 
@@ -86,9 +88,25 @@ impl StarkProof {
             result += options.grinding_factor();
         }
 
-        // log2(field size) - log2(extended trace length)
-        let max_fri_security = (128 - self.context.lde_domain_depth) as u32;
+        // Provided by the collision resistance (CR) of the hash function we use
+        // TODO: make this dynamic based on the hash function used
+        let cr_security = 128;
 
-        std::cmp::min(result, max_fri_security)
+        // Parse field modulus from field_modulus_bytes
+        let mut output_array = [0u8; std::mem::size_of::<u128>()];
+        output_array[std::mem::size_of::<u128>() - self.context.field_modulus_bytes.len()..]
+            .copy_from_slice(&self.context.field_modulus_bytes);
+        let field_modulus = u128::from_be_bytes(output_array);
+
+        // Compute floor(log_2(field size))
+        let field_modulus_bits = ((self.context.field_modulus_bytes.len() * 8) as u32)
+            - field_modulus.leading_zeros()
+            - 1;
+
+        // field_modulus_bits * field_extension_factor - log2(extended trace length)
+        let max_fri_security = field_modulus_bits * self.context.field_extension_factor
+            - self.context.lde_domain_depth as u32;
+
+        std::cmp::min(std::cmp::min(result, max_fri_security), cr_security)
     }
 }

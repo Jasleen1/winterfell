@@ -5,6 +5,8 @@ use common::{
 };
 use log::debug;
 use math::field::BaseElement;
+#[cfg(feature = "extension_field")]
+use math::field::ExtensionElement;
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -161,8 +163,18 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // 5 ----- build DEEP composition polynomial ----------------------------------------------
         let now = Instant::now();
 
-        // draw an out-of-domain point z from the entire field,
-        let z = channel.draw_deep_point();
+        // draw an out-of-domain point z from the base field. If the extension_field feature flag is
+        // enabled, then a random point from the extension field is sampled.
+        //
+        // The purpose of sampling from the extension field here (instead of the base field) is to
+        // increase security. Soundness is limited by the size of the field that the random point
+        // is drawn from, and we can potentially save on performance by only drawing this point
+        // from an extension field, rather than increasing the size of the field overall.
+        #[cfg(not(feature = "extension_field"))]
+        let z = channel.draw_deep_point::<BaseElement>();
+
+        #[cfg(feature = "extension_field")]
+        let z = channel.draw_deep_point::<ExtensionElement<BaseElement>>();
 
         // allocate memory for the composition polynomial; this will allocate enough memory to
         // hold composition polynomial evaluations over the LDE domain (done in the next step)

@@ -10,7 +10,6 @@ pub struct ProofOptions {
     num_queries: u8,
     blowup_factor: u8, // stored as power of 2
     grinding_factor: u8,
-
     #[serde(with = "hash_fn_serialization")]
     hash_fn: HashFunction,
 }

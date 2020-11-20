@@ -29,7 +29,6 @@ pub trait FieldElement:
     + From<u16>
     + From<u8>
     + for<'a> TryFrom<&'a [u8]>
-    + AsBytes
 {
     type PositiveInteger: BitAnd<Output = Self::PositiveInteger>
         + PartialEq
@@ -118,24 +117,20 @@ pub trait FieldElement:
     /// the entire field.
     fn rand() -> Self;
 
-    fn from_int(value: Self::PositiveInteger) -> Self;
-
     /// Returns a field element if the set of bytes forms a valid field element,
     /// otherwise returns None. This function is primarily intended for sampling
     /// random field elements from a hash function output.
     fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
 
     /// Returns the byte representation of the element in little-endian byte order.
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
+    fn to_bytes(&self) -> Vec<u8>;
 
     /// Returns a vector of bytes with all elements from the provided slice written
     /// into the vector in little-endian byte order.
     fn slice_to_bytes(elements: &[Self]) -> Vec<u8> {
         let mut result = Vec::with_capacity(elements.len() * Self::ELEMENT_BYTES);
         for element in elements {
-            result.extend_from_slice(element.as_bytes());
+            result.extend_from_slice(&element.to_bytes());
         }
         result
     }
@@ -186,7 +181,7 @@ pub trait FieldElement:
 // STARK FIELD
 // ================================================================================================
 
-pub trait StarkField: FieldElement {
+pub trait StarkField: FieldElement + AsBytes {
     /// Prime modulus of the field. Must be of the form k * 2^n + 1 (a Proth prime).
     /// This ensures that the field has high 2-adicity.
     const MODULUS: Self::PositiveInteger;
@@ -220,6 +215,17 @@ pub trait StarkField: FieldElement {
     /// Returns a vector of n pseudo-random elements drawn uniformly from the entire
     /// field based on the provided seed.
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
+
+    fn from_int(value: Self::PositiveInteger) -> Self;
+}
+
+pub trait FromVec<E: FieldElement>: From<E> {
+    fn from_vec(v: &[E]) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        v.iter().map(|&x| Self::from(x)).collect()
+    }
 }
 
 // SERIALIZATION

@@ -1,4 +1,4 @@
-use super::traits::{AsBytes, FieldElement, StarkField};
+use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
 use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
@@ -79,8 +79,8 @@ impl FieldElement for BaseElement {
         Self::try_from(bytes).ok()
     }
 
-    fn from_int(value: u128) -> Self {
-        BaseElement::new(value)
+    fn to_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
     }
 }
 
@@ -111,7 +111,13 @@ impl StarkField for BaseElement {
         let g = StdRng::from_seed(seed);
         g.sample_iter(range).take(n).map(BaseElement).collect()
     }
+
+    fn from_int(value: u128) -> Self {
+        BaseElement::new(value)
+    }
 }
+
+impl FromVec<BaseElement> for BaseElement {}
 
 impl Display for BaseElement {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
