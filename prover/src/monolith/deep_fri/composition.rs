@@ -5,7 +5,7 @@ use super::{
 use common::{CompositionCoefficients, EvaluationFrame};
 use math::{
     fft,
-    field::{BaseElement, FieldElement, StarkField},
+    field::{BaseElement, FieldElement, FromVec, StarkField},
     polynom,
 };
 
@@ -19,16 +19,18 @@ use math::{
 /// T2_i(x) = (T_i(x) - T_i(z * g)) / (x - z * g) are computed for all i and combined
 /// together into a single polynomial using a pseudo-random linear combination;
 /// 3. Then the degree of the polynomial is adjusted to match the composition degree.
-pub fn compose_trace_polys(
-    composition_poly: &mut CompositionPoly,
+pub fn compose_trace_polys<E: FieldElement + FromVec<BaseElement>>(
+    composition_poly: &mut CompositionPoly<E>,
     trace_polys: PolyTable,
-    z: BaseElement,
-    cc: &CompositionCoefficients<BaseElement>,
-) -> EvaluationFrame<BaseElement> {
+    z: E,
+    cc: &CompositionCoefficients<E>,
+) -> EvaluationFrame<E> {
     // compute a second out-of-domain point which corresponds to the next
     // computation state in relation to point z
     let trace_length = trace_polys.poly_size();
-    let g = BaseElement::get_root_of_unity(trace_length.trailing_zeros());
+    let g = E::from(BaseElement::get_root_of_unity(
+        trace_length.trailing_zeros(),
+    ));
     let next_z = z * g;
 
     // compute state of registers at deep points z and z * g
@@ -37,26 +39,19 @@ pub fn compose_trace_polys(
 
     // combine trace polynomials into 2 composition polynomials T1(x) and T2(x)
     let polys = trace_polys.into_vec();
-    let mut t1_composition = vec![BaseElement::ZERO; trace_length];
-    let mut t2_composition = vec![BaseElement::ZERO; trace_length];
+    let mut t1_composition = vec![E::ZERO; trace_length];
+    let mut t2_composition = vec![E::ZERO; trace_length];
     for i in 0..polys.len() {
+        // Convert polys[i] from type BaseElement into type E
+        let e_poly = E::from_vec(&polys[i]);
+
         // compute T1(x) = (T(x) - T(z)), multiply it by a pseudo-random
         // coefficient, and add the result into composition polynomial
-        acc_poly(
-            &mut t1_composition,
-            &polys[i],
-            trace_state1[i],
-            cc.trace[i].0,
-        );
+        acc_poly(&mut t1_composition, &e_poly, trace_state1[i], cc.trace[i].0);
 
         // compute T2(x) = (T(x) - T(z * g)), multiply it by a pseudo-random
         // coefficient, and add the result into composition polynomial
-        acc_poly(
-            &mut t2_composition,
-            &polys[i],
-            trace_state2[i],
-            cc.trace[i].1,
-        );
+        acc_poly(&mut t2_composition, &e_poly, trace_state2[i], cc.trace[i].1);
     }
 
     // divide the two composition polynomials by (x - z) and (x - z * g) respectively,
@@ -101,11 +96,11 @@ pub fn compose_trace_polys(
 
 /// Divides out OOD point z from the constraint polynomial and saves the
 /// result into the composition polynomial.
-pub fn compose_constraint_poly(
-    composition_poly: &mut CompositionPoly,
-    constraint_poly: ConstraintPoly,
-    z: BaseElement,
-    cc: &CompositionCoefficients<BaseElement>,
+pub fn compose_constraint_poly<E: FieldElement>(
+    composition_poly: &mut CompositionPoly<E>,
+    constraint_poly: ConstraintPoly<E>,
+    z: E,
+    cc: &CompositionCoefficients<E>,
 ) {
     // evaluate the polynomial at point z
     let value_at_z = constraint_poly.evaluate_at(z);
@@ -125,12 +120,12 @@ pub fn compose_constraint_poly(
 }
 
 /// Evaluates DEEP composition polynomial over LDE domain.
-pub fn evaluate_composition_poly(
-    poly: CompositionPoly,
+pub fn evaluate_composition_poly<E: FieldElement + FromVec<BaseElement>>(
+    poly: CompositionPoly<E>,
     lde_domain: &LdeDomain,
-) -> Vec<BaseElement> {
+) -> Vec<E> {
     let mut evaluations = poly.into_vec();
-    fft::evaluate_poly(&mut evaluations, lde_domain.twiddles(), true);
+    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()), true);
     evaluations
 }
 
@@ -138,12 +133,7 @@ pub fn evaluate_composition_poly(
 // ================================================================================================
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
-fn acc_poly(
-    accumulator: &mut Vec<BaseElement>,
-    poly: &[BaseElement],
-    value: BaseElement,
-    k: BaseElement,
-) {
+fn acc_poly<E: FieldElement>(accumulator: &mut Vec<E>, poly: &[E], value: E, k: E) {
     utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = value * k;
     accumulator[0] = accumulator[0] - adjusted_tz;

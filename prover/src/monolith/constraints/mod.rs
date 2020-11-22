@@ -9,7 +9,7 @@ use common::{
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{BaseElement, FieldElement},
+    field::{BaseElement, FieldElement, FromVec},
     polynom,
 };
 
@@ -20,18 +20,22 @@ mod tests;
 // ================================================================================================
 
 /// Evaluates constraints defined by the constraint evaluator against the extended execution trace.
-pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
+pub fn evaluate_constraints<
+    T: TransitionEvaluator,
+    A: AssertionEvaluator,
+    E: FieldElement + FromVec<BaseElement>,
+>(
     evaluator: &mut ConstraintEvaluator<T, A>,
     extended_trace: &TraceTable,
     lde_domain: &LdeDomain,
-) -> Result<ConstraintEvaluationTable, ProverError> {
+) -> Result<ConstraintEvaluationTable<E>, ProverError> {
     // constraints are evaluated over a constraint evaluation domain. this is an optimization
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
 
     // allocate space for constraint evaluations; there should be as many columns in the
     // table as there are divisors
-    let mut evaluation_table: Vec<Vec<BaseElement>> = evaluator
+    let mut evaluation_table: Vec<Vec<E>> = evaluator
         .constraint_divisors()
         .iter()
         .map(|_| uninit_vector(ce_domain_size))
@@ -63,7 +67,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
         let evaluation_row =
             evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
         for (j, &evaluation) in evaluation_row.iter().enumerate() {
-            evaluation_table[j][i] = evaluation;
+            evaluation_table[j][i] = E::from(evaluation);
         }
     }
 
@@ -79,21 +83,21 @@ pub fn evaluate_constraints<T: TransitionEvaluator, A: AssertionEvaluator>(
 
 /// Interpolates all constraint evaluations into polynomials, divides them by their respective
 /// divisors, and combines the results into a single polynomial
-pub fn build_constraint_poly(
-    evaluations: ConstraintEvaluationTable,
+pub fn build_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
+    evaluations: ConstraintEvaluationTable<E>,
     context: &ComputationContext,
-) -> Result<ConstraintPoly, ProverError> {
+) -> Result<ConstraintPoly<E>, ProverError> {
     let ce_domain_size = context.ce_domain_size();
     let constraint_poly_degree = context.composition_degree();
     let inv_twiddles = fft::get_inv_twiddles(context.generators().ce_domain, ce_domain_size);
 
     // allocate memory for the combined polynomial
-    let mut combined_poly = vec![BaseElement::ZERO; ce_domain_size];
+    let mut combined_poly = vec![E::ZERO; ce_domain_size];
 
     // iterate over all columns of the constraint evaluation table
     for (mut evaluations, divisor) in evaluations.into_iter() {
         // interpolate each column into a polynomial
-        fft::interpolate_poly(&mut evaluations, &inv_twiddles, true);
+        fft::interpolate_poly(&mut evaluations, &E::from_vec(&inv_twiddles), true);
         // divide the polynomial by its divisor
         divide_poly(&mut evaluations, &divisor);
         // make sure that the post-division degree of the polynomial matches
@@ -111,23 +115,26 @@ pub fn build_constraint_poly(
 }
 
 /// Evaluates constraint polynomial over LDE domain and returns the result
-pub fn extend_constraint_evaluations(
-    constraint_poly: &ConstraintPoly,
+pub fn extend_constraint_evaluations<E: FieldElement + FromVec<BaseElement>>(
+    constraint_poly: &ConstraintPoly<E>,
     lde_domain: &LdeDomain,
-) -> Vec<BaseElement> {
+) -> Vec<E> {
     // first, allocate space for the evaluations and copy polynomial coefficients
     // into the lower part of the vector; the remaining values in the vector must
     // be initialized to 0s
-    let mut evaluations = vec![BaseElement::ZERO; lde_domain.size()];
+    let mut evaluations = vec![E::ZERO; lde_domain.size()];
     evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
 
     // then use FFT to evaluate the polynomial over LDE domain
-    fft::evaluate_poly(&mut evaluations, &lde_domain.twiddles(), true);
+    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()), true);
     evaluations
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
-pub fn build_constraint_tree(evaluations: Vec<BaseElement>, hash_fn: HashFunction) -> MerkleTree {
+pub fn build_constraint_tree<E: FieldElement>(
+    evaluations: Vec<E>,
+    hash_fn: HashFunction,
+) -> MerkleTree {
     assert!(
         evaluations.len().is_power_of_two(),
         "number of values must be a power of 2"
@@ -169,7 +176,10 @@ pub fn query_constraints(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn divide_poly(poly: &mut [BaseElement], divisor: &ConstraintDivisor) {
+fn divide_poly<E: FieldElement + FromVec<BaseElement>>(
+    poly: &mut [E],
+    divisor: &ConstraintDivisor,
+) {
     let numerator = divisor.numerator();
     assert!(
         numerator.len() == 1,
@@ -179,8 +189,8 @@ fn divide_poly(poly: &mut [BaseElement], divisor: &ConstraintDivisor) {
 
     let numerator_degree = numerator.0;
     if numerator_degree == 1 {
-        polynom::syn_div_in_place(poly, numerator.1);
+        polynom::syn_div_in_place(poly, E::from(numerator.1));
     } else {
-        polynom::syn_div_expanded_in_place(poly, numerator_degree, divisor.exclude());
+        polynom::syn_div_expanded_in_place(poly, numerator_degree, &E::from_vec(divisor.exclude()));
     }
 }

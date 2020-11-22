@@ -1,5 +1,5 @@
-use super::BaseElement;
 use crypto::hash::blake3;
+use math::field::BaseElement;
 
 #[test]
 fn random_generator_draw() {

@@ -30,3 +30,6 @@ harness = false
 [[bench]]
 name = "rescue"
 harness = false
+
+[features]
+extension_field = ["prover/extension_field"]

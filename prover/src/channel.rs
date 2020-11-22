@@ -3,8 +3,13 @@ use common::{
     ComputationContext, EvaluationFrame, PublicCoin,
 };
 use crypto::{BatchMerkleProof, HashFunction};
-use math::field::{BaseElement, FieldElement};
+use math::field::{BaseElement, FieldElement, StarkField};
 use std::convert::TryInto;
+
+#[cfg(not(feature = "extension_field"))]
+const FIELD_EXTENSION_FACTOR: u32 = 1;
+#[cfg(feature = "extension_field")]
+const FIELD_EXTENSION_FACTOR: u32 = 2;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -90,6 +95,8 @@ impl ProverChannel {
                 trace_width: self.context.trace_width() as u8,
                 lde_domain_depth: trace_paths.depth,
                 ce_blowup_factor: self.context.ce_blowup_factor() as u8,
+                field_modulus_bytes: BaseElement::MODULUS.to_be_bytes().to_vec(),
+                field_extension_factor: FIELD_EXTENSION_FACTOR,
                 options: self.context().options().clone(),
             },
             commitments: Commitments {

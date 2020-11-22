@@ -9,7 +9,7 @@ use common::{
     TransitionEvaluator,
 };
 use crypto::hash::blake3;
-use math::field::{BaseElement, FieldElement};
+use math::field::{BaseElement, FieldElement, FromVec};
 
 #[test]
 fn test_fib_evaluate_constraints_good_case() {
@@ -20,7 +20,7 @@ fn test_fib_evaluate_constraints_good_case() {
 
     let fib_trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let assertions = build_fib_assertions(&fib_trace);
-    let evaluations = build_constraint_evaluations::<FibEvaluator>(
+    let evaluations = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -97,7 +97,7 @@ fn test_fib_invalid_assertions() {
     let mut assertions = build_fib_assertions(&fib_trace);
     assertions[0] = Assertion::new(0, 0, BaseElement::from(2u8));
 
-    let evaluations = build_constraint_evaluations::<FibEvaluator>(
+    let evaluations = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -128,7 +128,7 @@ fn test_bad_fib_evaluate_constraints() {
 
     // should throw error
     let assertions = build_fib_assertions(&fib_trace_extended);
-    let eval = build_constraint_evaluations::<FibEvaluator>(
+    let eval = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace_extended,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -153,7 +153,7 @@ fn test_fib_duplicate_assertions() {
     assertions.push(Assertion::new(1, 0, BaseElement::from(1u8)));
 
     // should throw error on duplicate assertion
-    let eval = build_constraint_evaluations::<FibEvaluator>(
+    let eval = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -178,7 +178,7 @@ fn test_fib_assertions_invalid_register() {
     assertions.push(Assertion::new(5, 0, BaseElement::from(1u8)));
 
     // should throw error on invalid register
-    let eval = build_constraint_evaluations::<FibEvaluator>(
+    let eval = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -203,7 +203,7 @@ fn test_fib_assertions_invalid_step() {
     assertions.push(Assertion::new(1, 10, BaseElement::from(1u8)));
 
     // should throw error on invalid step
-    let eval = build_constraint_evaluations::<FibEvaluator>(
+    let eval = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -225,7 +225,7 @@ fn build_bad_constraint_poly() {
     let context = build_proof_context(trace_length, ce_blowup_factor, lde_blowup_factor);
     let fib_trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let assertions = build_fib_assertions(&fib_trace);
-    let evaluations = build_constraint_evaluations::<FibEvaluator>(
+    let evaluations = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -264,7 +264,7 @@ fn test_build_constraint_poly() {
     let context = build_proof_context(trace_length, ce_blowup_factor, lde_blowup_factor);
     let fib_trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
     let assertions = build_fib_assertions(&fib_trace);
-    let evaluations = build_constraint_evaluations::<FibEvaluator>(
+    let evaluations = build_constraint_evaluations::<FibEvaluator, BaseElement>(
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
@@ -279,12 +279,12 @@ fn test_build_constraint_poly() {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn build_constraint_evaluations<T: TransitionEvaluator>(
+fn build_constraint_evaluations<T: TransitionEvaluator, E: FieldElement + FromVec<BaseElement>>(
     trace: super::TraceTable,
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
     assertions: Vec<Assertion>,
-) -> Result<ConstraintEvaluationTable, ProverError> {
+) -> Result<ConstraintEvaluationTable<E>, ProverError> {
     let trace_length = trace.num_states();
     // build proof context
     let context = build_proof_context(trace_length, ce_blowup_factor, lde_blowup_factor);

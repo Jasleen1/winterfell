@@ -1,6 +1,6 @@
 use crate::ComputationContext;
 use crypto::HashFunction;
-use math::field::{BaseElement, FieldElement};
+use math::field::FieldElement;
 use std::{convert::TryInto, mem::size_of};
 
 #[cfg(test)]
@@ -52,7 +52,7 @@ pub trait PublicCoin {
     // --------------------------------------------------------------------------------------------
 
     /// Draws a point from the entire field using PRNG seeded with composition seed.
-    fn draw_deep_point(&self) -> BaseElement {
+    fn draw_deep_point<E: FieldElement>(&self) -> E {
         let mut generator = RandomGenerator::new(
             self.composition_seed(),
             DEEP_POINT_OFFSET,
