@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use std::time::Instant;
 
 mod types;
-use types::{CompositionPoly, TraceTable};
+use types::{CompositionPoly, ConstraintEvaluationTable, TraceTable};
 
 mod trace;
 use trace::{build_lde_domain, build_trace_tree, extend_trace, query_trace};
@@ -120,8 +120,15 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
-        let constraint_evaluations =
+        #[cfg(not(feature = "extension_field"))]
+        let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
             evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
+
+        #[cfg(feature = "extension_field")]
+        let constraint_evaluations: ConstraintEvaluationTable<
+            ExtensionElement<BaseElement>,
+        > = evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
+
         debug!(
             "Evaluated constraints over domain of 2^{} elements in {} ms",
             log2(constraint_evaluations.domain_size()),

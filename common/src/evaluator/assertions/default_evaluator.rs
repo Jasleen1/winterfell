@@ -33,14 +33,19 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
         })
     }
 
-    fn evaluate(&self, result: &mut [BaseElement], state: &[BaseElement], x: BaseElement) {
+    fn evaluate<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+        &self,
+        result: &mut [E],
+        state: &[E],
+        x: E,
+    ) {
         let mut degree_adjustment = self.constraint_groups[0].degree_adjustment;
-        let mut xp = BaseElement::exp(x, degree_adjustment);
+        let mut xp = E::exp(x, degree_adjustment);
 
         for (i, group) in self.constraint_groups.iter().enumerate() {
             if group.degree_adjustment != degree_adjustment {
                 degree_adjustment = group.degree_adjustment;
-                xp = BaseElement::exp(x, degree_adjustment);
+                xp = E::exp(x, degree_adjustment);
             }
             result[i] = group.evaluate(state, xp);
         }
@@ -89,14 +94,14 @@ impl AssertionConstraintGroup {
         }
     }
 
-    fn evaluate(&self, state: &[BaseElement], xp: BaseElement) -> BaseElement {
-        let mut result = BaseElement::ZERO;
-        let mut result_adj = BaseElement::ZERO;
+    fn evaluate<E: FieldElement + From<BaseElement>>(&self, state: &[E], xp: E) -> E {
+        let mut result = E::ZERO;
+        let mut result_adj = E::ZERO;
 
         for (constraint, coefficients) in self.constraints.iter().zip(self.coefficients.iter()) {
-            let value = state[constraint.register] - constraint.value;
-            result = result + value * coefficients.0;
-            result_adj = result_adj + value * coefficients.1;
+            let value = state[constraint.register] - E::from(constraint.value);
+            result = result + value * E::from(coefficients.0);
+            result_adj = result_adj + value * E::from(coefficients.1);
         }
 
         result + result_adj * xp

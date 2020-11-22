@@ -3,7 +3,7 @@ use common::{
     TransitionEvaluator,
 };
 use crypto::hash::blake3;
-use math::field::{BaseElement, FieldElement};
+use math::field::{BaseElement, FieldElement, FromVec};
 
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
@@ -61,12 +61,12 @@ impl TransitionEvaluator for FibEvaluator {
         self.evaluate_at_x(result, current, next, BaseElement::ZERO)
     }
 
-    fn evaluate_at_x(
+    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
         &self,
-        result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
-        _x: BaseElement,
+        result: &mut [E],
+        current: &[E],
+        next: &[E],
+        _x: E,
     ) {
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
@@ -76,7 +76,7 @@ impl TransitionEvaluator for FibEvaluator {
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{0, i} + 2 * s_{1, i}
         result[0] = are_equal(next[0], current[0] + current[1]);
-        result[1] = are_equal(next[1], current[0] + BaseElement::from(2u8) * current[1]);
+        result[1] = are_equal(next[1], current[0] + E::from(2u8) * current[1]);
     }
 
     fn get_ce_blowup_factor() -> usize {
@@ -93,6 +93,6 @@ impl TransitionEvaluator for FibEvaluator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn are_equal(a: BaseElement, b: BaseElement) -> BaseElement {
+fn are_equal<E: FieldElement>(a: E, b: E) -> E {
     a - b
 }

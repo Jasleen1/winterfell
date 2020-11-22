@@ -4,7 +4,9 @@ use common::{
 };
 use common::{CompositionCoefficients, PublicCoin};
 
-use math::field::{BaseElement, FieldElement};
+#[cfg(feature = "extension_field")]
+use math::field::ExtensionElement;
+use math::field::{BaseElement, FieldElement, FromVec};
 use std::marker::PhantomData;
 
 mod channel;
@@ -47,7 +49,10 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         // 1 ----- Compute constraint evaluations at OOD point z ----------------------------------
 
         // draw a pseudo-random out-of-domain point for DEEP composition
-        let z = channel.draw_deep_point();
+        #[cfg(not(feature = "extension_field"))]
+        let z: BaseElement = channel.draw_deep_point();
+        #[cfg(feature = "extension_field")]
+        let z: ExtensionElement<BaseElement> = channel.draw_deep_point();
 
         // build constraint evaluator
         let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions)?;
@@ -105,7 +110,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
             .iter()
             .zip(c_composition)
             .map(|(&t, c)| t + c)
-            .collect::<Vec<BaseElement>>();
+            .collect::<Vec<_>>();
 
         // 4 ----- Verify low-degree proof -------------------------------------------------------------
         // make sure that evaluations we computed in the previous step are in fact evaluations
@@ -119,12 +124,16 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
 // ================================================================================================
 
 /// TODO: move into ConstraintEvaluator?
-pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
+pub fn evaluate_constraints_at<
+    T: TransitionEvaluator,
+    A: AssertionEvaluator,
+    E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>,
+>(
     mut evaluator: ConstraintEvaluator<T, A>,
-    state1: &[BaseElement],
-    state2: &[BaseElement],
-    x: BaseElement,
-) -> BaseElement {
+    state1: &[E],
+    state2: &[E],
+    x: E,
+) -> E {
     let evaluations = evaluator.evaluate_at_x(state1, state2, x).to_vec();
     let divisors = evaluator.constraint_divisors();
     debug_assert!(
@@ -135,7 +144,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
     );
 
     // iterate over evaluations and divide out values implied by the divisors
-    let mut result = BaseElement::ZERO;
+    let mut result = E::ZERO;
     for (&evaluation, divisor) in evaluations.iter().zip(divisors.iter()) {
         let z = divisor.evaluate_at(x);
         result = result + evaluation / z;
@@ -197,7 +206,7 @@ fn compose_registers<E: FieldElement + From<BaseElement>>(
 
 /// TODO: add comments
 fn compose_constraints<E: FieldElement + From<BaseElement>>(
-    evaluations: Vec<E>,
+    evaluations: Vec<BaseElement>,
     x_coordinates: &[BaseElement],
     z: E,
     evaluation_at_z: E,
@@ -207,7 +216,7 @@ fn compose_constraints<E: FieldElement + From<BaseElement>>(
     let mut result = Vec::with_capacity(evaluations.len());
     for (evaluation, &x) in evaluations.into_iter().zip(x_coordinates) {
         // compute C(x) = (P(x) - P(z)) / (x - z)
-        let composition = (evaluation - evaluation_at_z) / (E::from(x) - z);
+        let composition = (E::from(evaluation) - evaluation_at_z) / (E::from(x) - z);
         // multiply by pseudo-random coefficient for linear combination
         result.push(composition * cc.constraints);
     }

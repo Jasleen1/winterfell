@@ -1,6 +1,6 @@
 use prover::{
     math::{
-        field::{BaseElement, FieldElement},
+        field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
@@ -96,28 +96,28 @@ impl TransitionEvaluator for MerkleEvaluator {
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
     /// invoked primarily during proof verification.
-    fn evaluate_at_x(
+    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
         &self,
-        result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
-        x: BaseElement,
+        result: &mut [E],
+        current: &[E],
+        next: &[E],
+        x: E,
     ) {
         // map x to the corresponding coordinate in constant cycles
         let num_cycles = (self.trace_length / CYCLE_LENGTH) as u128;
-        let x = BaseElement::exp(x, num_cycles);
+        let x = E::exp(x, num_cycles);
 
         // determine round constants at the specified x coordinate; we do this by
         // evaluating polynomials for round constants the augmented x coordinate
-        let mut ark = [BaseElement::ZERO; 2 * HASH_STATE_WIDTH];
+        let mut ark = [E::ZERO; 2 * HASH_STATE_WIDTH];
         for (i, poly) in self.ark_polys.iter().enumerate() {
-            ark[i] = polynom::eval(poly, x);
+            ark[i] = polynom::eval(&E::from_vec(poly), x);
         }
 
         // in the same way, determine masks at the specified coordinate
-        let mut masks = [BaseElement::ZERO, BaseElement::ZERO];
+        let mut masks = [E::ZERO, E::ZERO];
         for (i, poly) in self.mask_polys.iter().enumerate() {
-            masks[i] = polynom::eval(poly, x);
+            masks[i] = polynom::eval(&E::from_vec(poly), x);
         }
 
         // evaluate constraints with these round constants and masks
@@ -136,12 +136,12 @@ impl TransitionEvaluator for MerkleEvaluator {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn evaluate_constraints(
-    result: &mut [BaseElement],
-    current: &[BaseElement],
-    next: &[BaseElement],
-    ark: &[BaseElement],
-    masks: &[BaseElement],
+fn evaluate_constraints<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+    result: &mut [E],
+    current: &[E],
+    next: &[E],
+    ark: &[E],
+    masks: &[E],
 ) {
     // when hash_flag = 1, constraints for Rescue round are enforced
     let hash_flag = masks[0];
@@ -174,7 +174,7 @@ fn evaluate_constraints(
     result.agg_constraint(3, hash_init_flag, bit * are_equal(current[1], next[3]));
 
     // finally, we always enforce that values in the bit register must be binary
-    result.agg_constraint(4, BaseElement::ONE, is_binary(current[4]));
+    result.agg_constraint(4, E::ONE, is_binary(current[4]));
 }
 
 // MASKS

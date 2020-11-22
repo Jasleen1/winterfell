@@ -10,3 +10,6 @@ bench = false
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
+
+[features]
+extension_field = []
