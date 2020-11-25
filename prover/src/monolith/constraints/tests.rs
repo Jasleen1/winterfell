@@ -186,7 +186,9 @@ fn test_fib_assertions_invalid_register() {
     );
     let res = matches!(
         eval,
-        Err(ProverError::Eval(EvaluatorError::InvalidAssertionRegisterIndex(_)))
+        Err(ProverError::Eval(
+            EvaluatorError::InvalidAssertionRegisterIndex(_)
+        ))
     );
     assert!(res);
 }

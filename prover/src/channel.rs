@@ -120,6 +120,11 @@ impl ProverChannel {
             pow_nonce: self.pow_nonce,
         }
     }
+
+    #[cfg(test)]
+    pub fn fri_roots(&self) -> &[[u8; 32]] {
+        &self.fri_roots
+    }
 }
 
 // PUBLIC COIN IMPLEMENTATION

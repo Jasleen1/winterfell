@@ -27,7 +27,8 @@ impl<E: FieldElement> FieldElement for ExtensionElement<E> {
         if self == Self::ZERO {
             return Self::ZERO;
         }
-        let denom = self.0 * self.0 + self.0 * self.1 - self.1 * self.1;
+        #[allow(clippy::suspicious_operation_groupings)]
+        let denom = (self.0 * self.0) + (self.0 * self.1) - (self.1 * self.1);
         let denom_inv = denom.inv();
         Self((self.0 + self.1) * denom_inv, self.1.neg() * denom_inv)
     }

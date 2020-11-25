@@ -26,7 +26,7 @@ pub struct Generators {
 impl ComputationContext {
     // CONSTANTS
     // --------------------------------------------------------------------------------------------
-    pub const MAX_FRI_REMAINDER_LENGTH: usize = 16;
+    pub const MAX_FRI_REMAINDER_LENGTH: usize = 256;
     pub const FRI_FOLDING_FACTOR: usize = 4;
     pub const MIN_TRACE_LENGTH: usize = 8;
 

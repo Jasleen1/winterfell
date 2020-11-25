@@ -1,10 +1,14 @@
 use crate::channel::ProverChannel;
 use common::{
+    fri_utils,
     proof::{FriLayer, FriProof},
     ComputationContext, PublicCoin,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    quartic,
+};
 
 mod worker;
 use worker::{QueryResult, Worker, WorkerConfig};
@@ -95,6 +99,17 @@ impl<E: FieldElement + From<BaseElement>> Prover<E> {
             let alpha = channel.draw_fri_point::<E>(layer_depth);
             self.workers.iter_mut().for_each(|w| w.apply_drp(alpha));
         }
+
+        // commit to the remainder
+        let remainder = self
+            .workers
+            .iter()
+            .map(|w| w.remainder())
+            .collect::<Vec<_>>();
+        let remainder = quartic::transpose(&remainder, 1);
+        let remainder_hashes = fri_utils::hash_values(&remainder, self.hash_fn);
+        let remainder_tree = MerkleTree::new(remainder_hashes, self.hash_fn);
+        channel.commit_fri_layer(*remainder_tree.root());
     }
 
     /// Executes query phase of FRI protocol. For each of the provided `positions`, corresponding
@@ -142,7 +157,7 @@ impl<E: FieldElement + From<BaseElement>> Prover<E> {
 
         FriProof {
             layers,
-            rem_values: E::slice_to_bytes(&remainder),
+            rem_values: E::write_into_vec(&remainder),
         }
     }
 
@@ -183,7 +198,7 @@ fn build_fri_layer<E: FieldElement>(queries: &mut [QueryResult<E>]) -> FriLayer 
     for query in queries.iter() {
         indexes.push(query.index);
         paths.push(query.path.clone());
-        values.push(E::slice_to_bytes(&query.value));
+        values.push(E::write_into_vec(&query.value));
     }
 
     let batch_proof = BatchMerkleProof::from_paths(&paths, &indexes);
