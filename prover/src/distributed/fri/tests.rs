@@ -24,17 +24,54 @@ fn fri_prover() {
     let mut channel = build_prover_channel(&context);
     prover.build_layers(&mut channel);
 
-    let result = prover.build_proof(&[65]);
+    let result = prover.build_proof(&[65, 123]);
 
-    let ap = get_augmented_positions(&[65], evaluations.len() / 4, prover.num_partitions());
-    let layer_one_tree = build_layer_one_tree(&evaluations, prover.num_partitions());
-    let proof = layer_one_tree.prove(ap[0]);
+    let proof = &result.layers[0];
 
     /*
+    println!("values: -------------");
+    for value in proof.values.iter() {
+        println!("{}", hex::encode(value));
+    }
+
+    for (i, nodes) in proof.paths.iter().enumerate() {
+        println!("{} -------------", i);
+        for n in nodes.iter() {
+            println!("{}", hex::encode(n));
+        }
+    }
+
+    println!("=====================");
+
+    let ap = get_augmented_positions(&[65, 123], evaluations.len(), prover.num_partitions());
+    let layer_one_tree = build_layer_one_tree(&evaluations, prover.num_partitions());
+
+    let proof = layer_one_tree.prove_batch(&ap);
+
+    println!("values: -------------");
+    for value in proof.values.iter() {
+        println!("{}", hex::encode(value));
+    }
+
+    for (i, nodes) in proof.nodes.iter().enumerate() {
+        println!("{} -------------", i);
+        for n in nodes.iter() {
+            println!("{}", hex::encode(n));
+        }
+    }
+    */
+    /*
+    let proof = layer_one_tree.prove(ap[0]);
     for node in proof.iter() {
         println!("{}", hex::encode(node));
     }
     println!("-------------");
+    let proof = layer_one_tree.prove(ap[1]);
+    for node in proof.iter() {
+        println!("{}", hex::encode(node));
+    }
+    println!("-------------");
+
     for r in result.iter() {
         for q in r.iter() {
             println!("index: {}", q.index);
@@ -90,7 +127,7 @@ fn get_augmented_positions(
     num_evaluations: usize,
     num_partitions: usize,
 ) -> Vec<usize> {
-    let local_bits = num_evaluations.trailing_zeros() - num_partitions.trailing_zeros();
+    let local_bits = (num_evaluations / 4).trailing_zeros() - num_partitions.trailing_zeros();
     let positions = fri_utils::get_augmented_positions(&positions, num_evaluations);
     let mut result = Vec::new();
     for &p in positions.iter() {

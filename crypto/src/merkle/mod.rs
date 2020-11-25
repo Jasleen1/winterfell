@@ -1,9 +1,11 @@
 use crate::{utils, HashFunction};
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeSet, HashMap},
     slice,
 };
+
+mod proofs;
+pub use proofs::BatchMerkleProof;
 
 #[cfg(test)]
 mod tests;
@@ -16,13 +18,6 @@ pub mod concurrent_merkle;
 pub struct MerkleTree {
     nodes: Vec<[u8; 32]>,
     values: Vec<[u8; 32]>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BatchMerkleProof {
-    pub values: Vec<[u8; 32]>,
-    pub nodes: Vec<Vec<[u8; 32]>>,
-    pub depth: u8,
 }
 
 // MERKLE TREE IMPLEMENTATION
