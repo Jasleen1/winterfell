@@ -16,8 +16,8 @@ harness = false
 
 [dependencies]
 rand = "0.7.3"
-serde = { version = "1.0.115", features = ["derive"] }
+serde = { version = "1.0.117", features = ["derive"] }
 
 [dev-dependencies]
 criterion = "0.3.3"
-num-bigint = "0.3.0"
+num-bigint = "0.3.1"
