@@ -1,7 +1,7 @@
 use common::{
     errors::ProverError, proof::StarkProof, utils::log2, Assertion, AssertionEvaluator,
-    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, ProofOptions, PublicCoin,
-    TransitionEvaluator,
+    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, FieldExtension,
+    ProofOptions, PublicCoin, TransitionEvaluator,
 };
 use log::debug;
 use math::field::BaseElement;
@@ -31,6 +31,13 @@ mod utils;
 
 #[cfg(test)]
 mod tests;
+
+// CONSTANTS
+// ================================================================================================
+#[cfg(not(feature = "extension_field"))]
+const FIELD_EXTENSION: FieldExtension = FieldExtension::None;
+#[cfg(feature = "extension_field")]
+const FIELD_EXTENSION: FieldExtension = FieldExtension::Quadratic;
 
 // PROVER
 // ================================================================================================
@@ -68,6 +75,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             trace.num_registers(),
             trace.num_states(),
             T::get_ce_blowup_factor(),
+            FIELD_EXTENSION,
             self.options.clone(),
         );
 

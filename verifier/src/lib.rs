@@ -1,15 +1,16 @@
 use common::{
     errors::VerifierError, proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext,
-    ConstraintEvaluator, DefaultAssertionEvaluator, EvaluationFrame, TransitionEvaluator,
+    ConstraintEvaluator, DefaultAssertionEvaluator, EvaluationFrame, FieldExtension,
+    TransitionEvaluator,
 };
 use common::{CompositionCoefficients, PublicCoin};
 
-#[cfg(feature = "extension_field")]
-use math::field::ExtensionElement;
-use math::field::{BaseElement, FieldElement, FromVec};
+use math::field::{BaseElement, FieldElement, ExtensionElement, FromVec};
 use std::marker::PhantomData;
 
 mod channel;
+use channel::VerifierChannel;
+
 mod fri;
 
 // VERIFIER
@@ -37,87 +38,131 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         proof: StarkProof,
         assertions: Vec<Assertion>,
     ) -> Result<bool, VerifierError> {
+        // build the computation context from the proof. The context contains basic parameters
+        // such as trace length, domain sizes, etc. It also defines whether extension field
+        // should be used during verification.
+        let context = build_context(&proof)?;
+
         // initializes a channel which is used to simulate interaction between the prover
         // and the verifier; the verifier can read the values written by the prover into the
         // channel, and also draws random values which the prover uses during proof construction
-        let channel = channel::VerifierChannel::new(proof)?;
-
-        // reads the computation context from the channel. The context contains basic parameters
-        // such as trace length, domain sizes, constraint degrees etc.
-        let context = channel.read_context();
-
-        // 1 ----- Compute constraint evaluations at OOD point z ----------------------------------
-
-        // draw a pseudo-random out-of-domain point for DEEP composition
-        #[cfg(not(feature = "extension_field"))]
-        let z: BaseElement = channel.draw_deep_point();
-        #[cfg(feature = "extension_field")]
-        let z: ExtensionElement<BaseElement> = channel.draw_deep_point();
-
-        // build constraint evaluator
-        let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions)?;
-
-        // evaluate constraints at z
-        let ood_frame = channel.read_ood_frame()?;
-        let constraint_evaluation_at_z =
-            evaluate_constraints_at(evaluator, &ood_frame.current, &ood_frame.next, z);
-
-        // 2 ----- Read queried trace states and constraint evaluations ---------------------------
-
-        // draw pseudo-random query positions
-        let query_positions = channel.draw_query_positions();
-
-        // compute LDE domain coordinates for all query positions
-        let g_lde = context.generators().lde_domain;
-        let x_coordinates: Vec<BaseElement> = query_positions
-            .iter()
-            .map(|&p| BaseElement::exp(g_lde, p as u128))
-            .collect();
-
-        // read trace states and constraint evaluations at the queried positions; this also
-        // checks that Merkle authentication paths for the states and evaluations are valid
-        let trace_states = channel.read_trace_states(&query_positions)?;
-        let constraint_evaluations = channel.read_constraint_evaluations(&query_positions)?;
-
-        // 3 ----- Compute composition polynomial evaluations -------------------------------------
-
-        // draw coefficients for computing random linear combination of trace and constraint
-        // polynomials; the result of this linear combination are evaluations of deep composition
-        // polynomial
-        let coefficients = channel.draw_composition_coefficients();
-
-        // compute composition of trace registers
-        let t_composition = compose_registers(
-            &context,
-            &trace_states,
-            &x_coordinates,
-            &ood_frame,
-            z,
-            &coefficients,
-        );
-
-        // compute composition of constraints
-        let c_composition = compose_constraints(
-            constraint_evaluations,
-            &x_coordinates,
-            z,
-            constraint_evaluation_at_z,
-            &coefficients,
-        );
-
-        // add the two together
-        let evaluations = t_composition
-            .iter()
-            .zip(c_composition)
-            .map(|(&t, c)| t + c)
-            .collect::<Vec<_>>();
-
-        // 4 ----- Verify low-degree proof -------------------------------------------------------------
-        // make sure that evaluations we computed in the previous step are in fact evaluations
-        // of a polynomial of degree equal to context.deep_composition_degree()
-        fri::verify(&context, &channel, &evaluations, &query_positions)
-            .map_err(VerifierError::VerificationFailed)
+        match context.field_extension() {
+            FieldExtension::None => {
+                let channel = VerifierChannel::new(context, proof)?;
+                verify::<T, A, BaseElement>(channel, assertions)
+            }
+            FieldExtension::Quadratic => {
+                let channel = VerifierChannel::new(context, proof)?;
+                verify::<T, A, ExtensionElement<BaseElement>>(channel, assertions)
+            },
+        }
     }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+
+fn build_context(proof: &StarkProof) -> Result<ComputationContext, VerifierError> {
+    let options = proof.context.options.clone();
+    let trace_length =
+        usize::pow(2, proof.context.lde_domain_depth as u32) / options.blowup_factor();
+    let field_extension = match proof.context.field_extension_factor {
+        1 => FieldExtension::None,
+        2 => FieldExtension::Quadratic,
+        _ => return Err(VerifierError::ComputationContextDeserializationFailed),
+    };
+    // TODO: read modulus from the proof and check it against field modulus of base elements
+
+    Ok(ComputationContext::new(
+        proof.context.trace_width as usize,
+        trace_length,
+        proof.context.ce_blowup_factor as usize,
+        field_extension,
+        options,
+    ))
+}
+
+// GENERIC VERIFY FUNCTION
+// ================================================================================================
+
+fn verify<
+    T: TransitionEvaluator,
+    A: AssertionEvaluator,
+    E: FieldElement<PositiveInteger = u128> + From<BaseElement> + FromVec<BaseElement>,
+>(
+    channel: VerifierChannel,
+    assertions: Vec<Assertion>,
+) -> Result<bool, VerifierError> {
+    let context = channel.context();
+
+    // 1 ----- Compute constraint evaluations at OOD point z ----------------------------------
+
+    // draw a pseudo-random out-of-domain point for DEEP composition
+    let z = channel.draw_deep_point::<E>();
+
+    // build constraint evaluator
+    let evaluator = ConstraintEvaluator::<T, A>::new(&channel, context, assertions)?;
+
+    // evaluate constraints at z
+    let ood_frame = channel.read_ood_frame()?;
+    let constraint_evaluation_at_z =
+        evaluate_constraints_at(evaluator, &ood_frame.current, &ood_frame.next, z);
+
+    // 2 ----- Read queried trace states and constraint evaluations ---------------------------
+
+    // draw pseudo-random query positions
+    let query_positions = channel.draw_query_positions();
+
+    // compute LDE domain coordinates for all query positions
+    let g_lde = context.generators().lde_domain;
+    let x_coordinates: Vec<BaseElement> = query_positions
+        .iter()
+        .map(|&p| BaseElement::exp(g_lde, p as u128))
+        .collect();
+
+    // read trace states and constraint evaluations at the queried positions; this also
+    // checks that Merkle authentication paths for the states and evaluations are valid
+    let trace_states = channel.read_trace_states(&query_positions)?;
+    let constraint_evaluations = channel.read_constraint_evaluations(&query_positions)?;
+
+    // 3 ----- Compute composition polynomial evaluations -------------------------------------
+
+    // draw coefficients for computing random linear combination of trace and constraint
+    // polynomials; the result of this linear combination are evaluations of deep composition
+    // polynomial
+    let coefficients = channel.draw_composition_coefficients();
+
+    // compute composition of trace registers
+    let t_composition = compose_registers(
+        &context,
+        &trace_states,
+        &x_coordinates,
+        &ood_frame,
+        z,
+        &coefficients,
+    );
+
+    // compute composition of constraints
+    let c_composition = compose_constraints(
+        constraint_evaluations,
+        &x_coordinates,
+        z,
+        constraint_evaluation_at_z,
+        &coefficients,
+    );
+
+    // add the two together
+    let evaluations = t_composition
+        .iter()
+        .zip(c_composition)
+        .map(|(&t, c)| t + c)
+        .collect::<Vec<_>>();
+
+    // 4 ----- Verify low-degree proof -------------------------------------------------------------
+    // make sure that evaluations we computed in the previous step are in fact evaluations
+    // of a polynomial of degree equal to context.deep_composition_degree()
+    fri::verify(&context, &channel, &evaluations, &query_positions)
+        .map_err(VerifierError::VerificationFailed)
 }
 
 // CONSTRAINT EVALUATION

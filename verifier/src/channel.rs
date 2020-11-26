@@ -36,19 +36,7 @@ pub struct VerifierChannel {
 
 impl VerifierChannel {
     /// Creates and returns a new verifier channel initialized from the specified `proof`.
-    pub fn new(proof: StarkProof) -> Result<Self, VerifierError> {
-        // build context ------------------------------------------------------
-        let context = proof.context;
-        let trace_width = context.trace_width as usize;
-        let trace_length =
-            usize::pow(2, context.lde_domain_depth as u32) / context.options.blowup_factor();
-        let context = ComputationContext::new(
-            trace_width,
-            trace_length,
-            context.ce_blowup_factor as usize,
-            context.options,
-        );
-
+    pub fn new(context: ComputationContext, proof: StarkProof) -> Result<Self, VerifierError> {
         // build trace proof --------------------------------------------------
         let queries = proof.queries;
         let hash_fn = context.options().hash_fn();
@@ -81,11 +69,6 @@ impl VerifierChannel {
             fri_remainder: proof.fri_proof.rem_values,
             query_seed,
         })
-    }
-
-    /// Reads proof context from the channel.
-    pub fn read_context(&self) -> &ComputationContext {
-        &self.context
     }
 
     /// Returns trace polynomial evaluations at OOD points z and z * g, where g is the generator

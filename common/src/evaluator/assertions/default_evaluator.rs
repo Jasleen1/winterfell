@@ -178,14 +178,14 @@ fn group_assertions(
 #[cfg(test)]
 mod tests {
 
-    use crate::{Assertion, ComputationContext, ProofOptions, RandomGenerator};
+    use crate::{Assertion, ComputationContext, FieldExtension, ProofOptions, RandomGenerator};
     use crypto::hash::blake3;
     use math::field::BaseElement;
 
     #[test]
     fn group_assertions() {
         let options = ProofOptions::new(32, 4, 0, blake3);
-        let context = ComputationContext::new(2, 8, 2, options);
+        let context = ComputationContext::new(2, 8, 2, FieldExtension::None, options);
 
         let groups = super::group_assertions(
             &context,

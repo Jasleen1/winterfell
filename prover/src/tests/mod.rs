@@ -1,6 +1,6 @@
 use common::{
-    ComputationContext, ConstraintDegree, ProofOptions, RandomGenerator, TransitionConstraintGroup,
-    TransitionEvaluator,
+    ComputationContext, ConstraintDegree, FieldExtension, ProofOptions, RandomGenerator,
+    TransitionConstraintGroup, TransitionEvaluator,
 };
 use crypto::hash::blake3;
 use math::field::{BaseElement, FieldElement, FromVec};
@@ -28,7 +28,13 @@ pub fn build_proof_context(
     lde_blowup_factor: usize,
 ) -> ComputationContext {
     let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
-    ComputationContext::new(2, trace_length, ce_blowup_factor, options)
+    ComputationContext::new(
+        2,
+        trace_length,
+        ce_blowup_factor,
+        FieldExtension::None,
+        options,
+    )
 }
 
 // FIBONACCI TRANSITION EVALUATOR
