@@ -1,12 +1,10 @@
-use std::time::Instant;
-
-use log::debug;
-
 use common::errors::VerifierError;
-use evaluator::MulFib4Evaluator;
+use evaluator::MulFib8Evaluator;
+use log::debug;
 use prover::{
     crypto::hash::blake3, math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof,
 };
+use std::time::Instant;
 use verifier::Verifier;
 
 use super::utils::compute_mulfib_term;
@@ -17,12 +15,14 @@ mod evaluator;
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(MulFib4Example())
+    Box::new(MulFib8Example())
 }
 
-pub struct MulFib4Example();
+const NUM_REGISTERS: usize = 8;
 
-impl Example for MulFib4Example {
+pub struct MulFib8Example();
+
+impl Example for MulFib8Example {
     fn prove(
         &self,
         mut sequence_length: usize,
@@ -51,7 +51,7 @@ impl Example for MulFib4Example {
         );
 
         debug!(
-            "Generating proof for computing multiplicative Fibonacci sequence (4 terms per step) up to {}th term\n\
+            "Generating proof for computing multiplicative Fibonacci sequence (8 terms per step) up to {}th term\n\
             ---------------------",
             sequence_length
         );
@@ -70,19 +70,19 @@ impl Example for MulFib4Example {
 
         // instantiate the prover
         let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-        let prover = Prover::<MulFib4Evaluator>::new(options);
+        let prover = Prover::<MulFib8Evaluator>::new(options);
 
         // Generate the proof
         let assertions = vec![
             Assertion::new(0, 0, BaseElement::new(1)),
             Assertion::new(1, 0, BaseElement::new(2)),
-            Assertion::new(2, trace_length - 1, result),
+            Assertion::new(6, trace_length - 1, result),
         ];
         (prover.prove(trace, assertions.clone()).unwrap(), assertions)
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
-        let verifier = Verifier::<MulFib4Evaluator>::new();
+        let verifier = Verifier::<MulFib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }
 }
@@ -100,13 +100,21 @@ pub fn build_mulfib_trace(length: usize) -> Vec<Vec<BaseElement>> {
     let mut reg1 = vec![BaseElement::new(2)];
     let mut reg2 = vec![reg0[0] * reg1[0]];
     let mut reg3 = vec![reg1[0] * reg2[0]];
+    let mut reg4 = vec![reg2[0] * reg3[0]];
+    let mut reg5 = vec![reg3[0] * reg4[0]];
+    let mut reg6 = vec![reg4[0] * reg5[0]];
+    let mut reg7 = vec![reg5[0] * reg6[0]];
 
-    for i in 0..(length / 4 - 1) {
-        reg0.push(reg2[i] * reg3[i]);
-        reg1.push(reg3[i] * reg0[i + 1]);
+    for i in 0..(length / 8 - 1) {
+        reg0.push(reg6[i] * reg7[i]);
+        reg1.push(reg7[i] * reg0[i + 1]);
         reg2.push(reg0[i + 1] * reg1[i + 1]);
         reg3.push(reg1[i + 1] * reg2[i + 1]);
+        reg4.push(reg2[i + 1] * reg3[i + 1]);
+        reg5.push(reg3[i + 1] * reg4[i + 1]);
+        reg6.push(reg4[i + 1] * reg5[i + 1]);
+        reg7.push(reg5[i + 1] * reg6[i + 1]);
     }
 
-    vec![reg0, reg1, reg2, reg3]
+    vec![reg0, reg1, reg2, reg3, reg4, reg5, reg6, reg7]
 }

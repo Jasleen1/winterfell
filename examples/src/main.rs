@@ -20,7 +20,8 @@ fn main() {
     let example = match example.as_str() {
         "fib" => fibonacci::fib2::get_example(),
         "fib8" => fibonacci::fib8::get_example(),
-        "mulfib" => fibonacci::mulfib4::get_example(),
+        "mulfib" => fibonacci::mulfib2::get_example(),
+        "mulfib8" => fibonacci::mulfib8::get_example(),
         "anon" => anon::get_example(),
         "rescue" => rescue::get_example(),
         "merkle" => merkle::get_example(),
