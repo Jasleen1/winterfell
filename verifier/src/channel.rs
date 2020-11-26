@@ -12,13 +12,14 @@ use math::{
     quartic,
 };
 use std::convert::TryInto;
+use std::marker::PhantomData;
 
 // TYPES AND INTERFACES
 // ================================================================================================
 
 type Bytes = Vec<u8>;
 
-pub struct VerifierChannel {
+pub struct VerifierChannel<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> {
     context: ComputationContext,
     commitments: Commitments,
     trace_proof: BatchMerkleProof,
@@ -29,12 +30,13 @@ pub struct VerifierChannel {
     fri_queries: Vec<Vec<Bytes>>,
     fri_remainder: Bytes,
     query_seed: [u8; 32],
+    _marker: PhantomData<E>,
 }
 
 // VERIFIER CHANNEL IMPLEMENTATION
 // ================================================================================================
 
-impl VerifierChannel {
+impl<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> VerifierChannel<E> {
     /// Creates and returns a new verifier channel initialized from the specified `proof`.
     pub fn new(context: ComputationContext, proof: StarkProof) -> Result<Self, VerifierError> {
         // build trace proof --------------------------------------------------
@@ -68,18 +70,17 @@ impl VerifierChannel {
             fri_queries,
             fri_remainder: proof.fri_proof.rem_values,
             query_seed,
+            _marker: PhantomData,
         })
     }
 
     /// Returns trace polynomial evaluations at OOD points z and z * g, where g is the generator
     /// of the LDE domain.
-    pub fn read_ood_frame<E: FieldElement>(&self) -> Result<EvaluationFrame<E>, VerifierError> {
+    pub fn read_ood_frame(&self) -> Result<EvaluationFrame<E>, VerifierError> {
         let current = E::read_to_vec(&self.ood_frame.trace_at_z1)
             .map_err(|_| VerifierError::OodFrameDeserializationFailed)?;
-
         let next = E::read_to_vec(&self.ood_frame.trace_at_z2)
             .map_err(|_| VerifierError::OodFrameDeserializationFailed)?;
-
         Ok(EvaluationFrame { current, next })
     }
 
@@ -143,7 +144,7 @@ impl VerifierChannel {
     /// Returns FRI query values at the specified positions from the FRI layer at the
     /// specified depth. This also checks if the values are valid against the FRI layer
     /// commitment sent by the prover.
-    pub fn read_fri_queries<E: FieldElement>(
+    pub fn read_fri_queries(
         &self,
         depth: usize,
         positions: &[usize],
@@ -175,7 +176,7 @@ impl VerifierChannel {
 
     /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
     /// valid against the commitment sent by the prover.
-    pub fn read_fri_remainder<E: FieldElement>(&self) -> Result<Vec<E>, String> {
+    pub fn read_fri_remainder(&self) -> Result<Vec<E>, String> {
         // convert remainder bytes into field elements of appropriate type
         let remainder = E::read_to_vec(&self.fri_remainder)?;
 
@@ -197,7 +198,9 @@ impl VerifierChannel {
 
 // PUBLIC COIN IMPLEMENTATION
 // ================================================================================================
-impl PublicCoin for VerifierChannel {
+impl<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> PublicCoin
+    for VerifierChannel<E>
+{
     fn context(&self) -> &ComputationContext {
         &self.context
     }
