@@ -223,10 +223,10 @@ impl<'a> TryFrom<&'a [u8]> for BaseElement {
     /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
     /// is not a valid field element. The bytes are assumed to be in little-endian byte order.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
-        let value = match bytes.try_into() {
-            Ok(bytes) => u128::from_le_bytes(bytes),
-            Err(error) => return Err(format!("{}", error)),
-        };
+        let value = bytes
+            .try_into()
+            .map(u128::from_le_bytes)
+            .map_err(|error| format!("{}", error))?;
         if value >= M {
             return Err(format!(
                 "cannot convert bytes into a field element: \
