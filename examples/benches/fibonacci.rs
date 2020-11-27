@@ -11,11 +11,16 @@ fn fibonacci(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(20));
 
-    let fib = fibonacci::fib2::get_example();
+    let mut fib = fibonacci::fib2::get_example();
     for &size in SIZES.iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |bench, &size| {
-            bench.iter(|| fib.prove(size, 8, 32, 0));
-        });
+        let assertions = fib.prepare(size, 8, 32, 0);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            &assertions,
+            |bench, a| {
+                bench.iter(|| fib.prove(a.clone()));
+            },
+        );
     }
     group.finish();
 }

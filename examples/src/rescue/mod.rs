@@ -1,22 +1,22 @@
-use std::time::Instant;
-
-use log::debug;
-
 use common::errors::VerifierError;
-use evaluator::RescueEvaluator;
-use prover::crypto::hash::rescue_s;
+use log::debug;
 use prover::{
-    crypto::hash::blake3, math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof,
+    crypto::hash::{blake3, rescue_s},
+    math::field::{BaseElement, FieldElement},
+    Assertion, ProofOptions, Prover, StarkProof,
 };
-use trace::generate_trace;
+use std::time::Instant;
 use verifier::Verifier;
 
-use crate::utils::{rescue, to_byte_vec};
-
 use super::Example;
+use crate::utils::rescue;
+
+mod trace;
+use trace::generate_trace;
 
 mod evaluator;
-mod trace;
+use evaluator::RescueEvaluator;
+
 // CONSTANTS
 // ================================================================================================
 
@@ -27,50 +27,63 @@ const STATE_WIDTH: usize = 4;
 // RESCUE HASH CHAIN EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(RescueExample())
+    Box::new(RescueExample {
+        options: None,
+        chain_length: 0,
+        seed: [BaseElement::from(42u8), BaseElement::from(43u8)],
+    })
 }
 
-pub struct RescueExample();
+pub struct RescueExample {
+    options: Option<ProofOptions>,
+    chain_length: usize,
+    seed: [BaseElement; 2],
+}
 
 impl Example for RescueExample {
-    fn prove(
-        &self,
-        mut chain_length: usize,
-        mut blowup_factor: usize,
-        mut num_queries: usize,
+    fn prepare(
+        &mut self,
+        chain_length: usize,
+        blowup_factor: usize,
+        num_queries: usize,
         grinding_factor: u32,
-    ) -> (StarkProof, Vec<Assertion>) {
-        // apply defaults
-        if chain_length == 0 {
-            chain_length = 1024;
-        }
-        if blowup_factor == 0 {
-            blowup_factor = 32;
-        }
-        if num_queries == 0 {
-            num_queries = 28;
-        }
-
-        // initialize a seed for the start of the hash chain
-        let seed = [BaseElement::from(42u8), BaseElement::from(43u8)];
+    ) -> Vec<Assertion> {
+        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        self.chain_length = if chain_length == 0 {
+            1024
+        } else {
+            chain_length
+        };
 
         // compute the sequence of hashes using external implementation of Rescue hash
         let now = Instant::now();
-        let expected_result = compute_hash_chain(seed, chain_length);
+        let result = compute_hash_chain(self.seed, self.chain_length);
         debug!(
             "Computed a chain of {} Rescue hashes in {} ms",
-            chain_length,
+            self.chain_length,
             now.elapsed().as_millis(),
         );
 
+        // Assert starting and ending values of the hash chain
+        let last_step = (self.chain_length * 16) - 1;
+        let result = BaseElement::read_to_vec(&result).unwrap();
+        vec![
+            Assertion::new(0, 0, self.seed[0]),
+            Assertion::new(1, 0, self.seed[1]),
+            Assertion::new(0, last_step, result[0]),
+            Assertion::new(1, last_step, result[1]),
+        ]
+    }
+
+    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
         // generate the execution trace
         debug!(
             "Generating proof for computing a chain of {} Rescue hashes\n\
             ---------------------",
-            chain_length
+            self.chain_length
         );
         let now = Instant::now();
-        let trace = generate_trace(seed, chain_length);
+        let trace = generate_trace(self.seed, self.chain_length);
         let trace_length = trace[0].len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
@@ -79,28 +92,9 @@ impl Example for RescueExample {
             now.elapsed().as_millis()
         );
 
-        // make sure execution trace ends up with the same value as the externally
-        // computed hash
-        let actual_result = [trace[0][trace_length - 1], trace[1][trace_length - 1]];
-        assert!(
-            expected_result.to_vec() == to_byte_vec(&actual_result),
-            "execution trace did not terminate with the expected hash value"
-        );
-
-        // instantiate the prover
-        let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-        let prover = Prover::<RescueEvaluator>::new(options);
-
-        // Assert starting and ending values of the hash chain
-        let assertions = vec![
-            Assertion::new(0, 0, seed[0]),
-            Assertion::new(1, 0, seed[1]),
-            Assertion::new(0, trace_length - 1, actual_result[0]),
-            Assertion::new(1, trace_length - 1, actual_result[1]),
-        ];
-
-        // generate the proof and return it together with the assertions
-        (prover.prove(trace, assertions.clone()).unwrap(), assertions)
+        // generate the proof
+        let prover = Prover::<RescueEvaluator>::new(self.options.clone().unwrap());
+        prover.prove(trace, assertions).unwrap()
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
@@ -111,8 +105,23 @@ impl Example for RescueExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
+fn build_proof_options(
+    mut blowup_factor: usize,
+    mut num_queries: usize,
+    grinding_factor: u32,
+) -> Option<ProofOptions> {
+    if blowup_factor == 0 {
+        blowup_factor = 32;
+    }
+    if num_queries == 0 {
+        num_queries = 28;
+    }
+    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
+    Some(options)
+}
+
 fn compute_hash_chain(seed: [BaseElement; 2], length: usize) -> [u8; 32] {
-    let mut values: Vec<u8> = to_byte_vec(&seed);
+    let mut values: Vec<u8> = BaseElement::write_into_vec(&seed);
     let mut result = [0; 32];
 
     for _ in 0..length {

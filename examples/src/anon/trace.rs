@@ -5,7 +5,7 @@ pub fn generate_trace(
     token_seed: BaseElement,
     token_index: usize,
     service_uuid: BaseElement,
-    merkle_path: Vec<TreeNode>,
+    merkle_path: &[TreeNode],
 ) -> Vec<Vec<BaseElement>> {
     // allocate memory to hold the trace table
     let trace_length = merkle_path.len() * CYCLE_LENGTH;

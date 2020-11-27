@@ -17,7 +17,7 @@ fn main() {
     // determine the example to run based on command-line arguments
     let args: Vec<String> = env::args().collect();
     let (example, n, blowup_factor, num_queries, grinding_factor) = parse_args(args);
-    let example = match example.as_str() {
+    let mut example = match example.as_str() {
         "fib" => fibonacci::fib2::get_example(),
         "fib8" => fibonacci::fib8::get_example(),
         "mulfib" => fibonacci::mulfib2::get_example(),
@@ -29,9 +29,12 @@ fn main() {
     };
 
     debug!("============================================================");
+    // prepare the example
+    let assertions = example.prepare(n, blowup_factor, num_queries, grinding_factor);
+
     // generate proof
     let now = Instant::now();
-    let (proof, assertions) = example.prove(n, blowup_factor, num_queries, grinding_factor);
+    let proof = example.prove(assertions.clone());
     debug!(
         "---------------------\nProof generated in {} ms",
         now.elapsed().as_millis()

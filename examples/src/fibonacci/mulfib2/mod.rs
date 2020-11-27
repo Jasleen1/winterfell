@@ -1,45 +1,46 @@
 use common::errors::VerifierError;
-use evaluator::MulFib2Evaluator;
 use log::debug;
-use prover::{
-    crypto::hash::blake3, math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof,
-};
+use prover::{math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof};
 use std::time::Instant;
 use verifier::Verifier;
 
-use super::utils::compute_mulfib_term;
+use super::utils::{compute_mulfib_term, prepare_options};
 use crate::Example;
 
 mod evaluator;
+use evaluator::MulFib2Evaluator;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(MulFib4Example())
+    Box::new(MulFib2Example {
+        options: None,
+        sequence_length: 0,
+    })
 }
 
 const NUM_REGISTERS: usize = 2;
 
-pub struct MulFib4Example();
+pub struct MulFib2Example {
+    options: Option<ProofOptions>,
+    sequence_length: usize,
+}
 
-impl Example for MulFib4Example {
-    fn prove(
-        &self,
-        mut sequence_length: usize,
-        mut blowup_factor: usize,
-        mut num_queries: usize,
+impl Example for MulFib2Example {
+    fn prepare(
+        &mut self,
+        sequence_length: usize,
+        blowup_factor: usize,
+        num_queries: usize,
         grinding_factor: u32,
-    ) -> (StarkProof, Vec<Assertion>) {
-        // apply defaults
-        if sequence_length == 0 {
-            sequence_length = 1_048_576;
-        }
-        if blowup_factor == 0 {
-            blowup_factor = 16;
-        }
-        if num_queries == 0 {
-            num_queries = 28;
-        }
+    ) -> Vec<Assertion> {
+        self.sequence_length = if sequence_length == 0 {
+            1_048_576
+        } else {
+            sequence_length
+        };
+        self.options = Some(prepare_options(blowup_factor, num_queries, grinding_factor));
+        let trace_length = sequence_length / 2;
 
         // compute Fibonacci sequence
         let now = Instant::now();
@@ -50,6 +51,15 @@ impl Example for MulFib4Example {
             now.elapsed().as_millis()
         );
 
+        vec![
+            Assertion::new(0, 0, BaseElement::new(1)),
+            Assertion::new(1, 0, BaseElement::new(2)),
+            Assertion::new(0, trace_length - 1, result),
+        ]
+    }
+
+    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+        let sequence_length = self.sequence_length;
         debug!(
             "Generating proof for computing multiplicative Fibonacci sequence (2 terms per step) up to {}th term\n\
             ---------------------",
@@ -68,17 +78,9 @@ impl Example for MulFib4Example {
             now.elapsed().as_millis()
         );
 
-        // instantiate the prover
-        let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-        let prover = Prover::<MulFib2Evaluator>::new(options);
-
-        // Generate the proof
-        let assertions = vec![
-            Assertion::new(0, 0, BaseElement::new(1)),
-            Assertion::new(1, 0, BaseElement::new(2)),
-            Assertion::new(0, trace_length - 1, result),
-        ];
-        (prover.prove(trace, assertions.clone()).unwrap(), assertions)
+        // generate the proof
+        let prover = Prover::<MulFib2Evaluator>::new(self.options.clone().unwrap());
+        prover.prove(trace, assertions).unwrap()
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {

@@ -1,47 +1,46 @@
-use std::time::Instant;
-
-use log::debug;
-
 use common::errors::VerifierError;
-use evaluator::FibEvaluator;
+use log::debug;
 use prover::{
-    crypto::hash::blake3,
     math::field::{BaseElement, FieldElement},
     Assertion, ProofOptions, Prover, StarkProof,
 };
+use std::time::Instant;
 use verifier::Verifier;
 
-use super::utils::compute_fib_term;
+use super::utils::{compute_fib_term, prepare_options};
 use crate::Example;
 
 mod evaluator;
+use evaluator::FibEvaluator;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(FibExample())
+    Box::new(FibExample {
+        options: None,
+        sequence_length: 0,
+    })
 }
 
-pub struct FibExample();
+pub struct FibExample {
+    options: Option<ProofOptions>,
+    sequence_length: usize,
+}
 
 impl Example for FibExample {
-    fn prove(
-        &self,
+    fn prepare(
+        &mut self,
         mut sequence_length: usize,
-        mut blowup_factor: usize,
-        mut num_queries: usize,
+        blowup_factor: usize,
+        num_queries: usize,
         grinding_factor: u32,
-    ) -> (StarkProof, Vec<Assertion>) {
-        // apply defaults
+    ) -> Vec<Assertion> {
         if sequence_length == 0 {
-            sequence_length = 1_048_576;
+            sequence_length = 1_048_576
         }
-        if blowup_factor == 0 {
-            blowup_factor = 16;
-        }
-        if num_queries == 0 {
-            num_queries = 28;
-        }
+        self.sequence_length = sequence_length;
+        self.options = Some(prepare_options(blowup_factor, num_queries, grinding_factor));
+        let trace_length = sequence_length / 2;
 
         // compute Fibonacci sequence
         let now = Instant::now();
@@ -52,15 +51,25 @@ impl Example for FibExample {
             now.elapsed().as_millis()
         );
 
+        // a valid Fibonacci sequence should start with two ones and terminate with
+        // the same result as computed above
+        vec![
+            Assertion::new(0, 0, BaseElement::ONE),
+            Assertion::new(1, 0, BaseElement::ONE),
+            Assertion::new(1, trace_length - 1, result),
+        ]
+    }
+
+    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
         debug!(
             "Generating proof for computing Fibonacci sequence (2 terms per step) up to {}th term\n\
             ---------------------",
-            sequence_length
+            self.sequence_length
         );
 
         // generate execution trace
         let now = Instant::now();
-        let trace = build_fib_trace(sequence_length);
+        let trace = build_fib_trace(self.sequence_length);
 
         let trace_width = trace.len();
         let trace_length = trace[0].len();
@@ -71,17 +80,9 @@ impl Example for FibExample {
             now.elapsed().as_millis()
         );
 
-        // instantiate the prover
-        let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-        let prover = Prover::<FibEvaluator>::new(options);
-
-        // Generate the proof
-        let assertions = vec![
-            Assertion::new(0, 0, BaseElement::ONE),
-            Assertion::new(1, 0, BaseElement::ONE),
-            Assertion::new(1, trace_length - 1, result),
-        ];
-        (prover.prove(trace, assertions.clone()).unwrap(), assertions)
+        // generate the proof
+        let prover = Prover::<FibEvaluator>::new(self.options.clone().unwrap());
+        prover.prove(trace, assertions).unwrap()
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {

@@ -2,11 +2,7 @@ use prover::math::field::{BaseElement, FieldElement};
 
 use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
-pub fn generate_trace(
-    value: TreeNode,
-    branch: Vec<TreeNode>,
-    index: usize,
-) -> Vec<Vec<BaseElement>> {
+pub fn generate_trace(value: TreeNode, branch: &[TreeNode], index: usize) -> Vec<Vec<BaseElement>> {
     // allocate memory to hold the trace table
     let trace_length = branch.len() * CYCLE_LENGTH;
     let mut trace = vec![

@@ -11,11 +11,16 @@ fn rescue(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(25));
 
-    let resc = rescue::get_example();
+    let mut resc = rescue::get_example();
     for &size in SIZES.iter() {
-        group.bench_with_input(BenchmarkId::from_parameter(size), &size, |bench, &size| {
-            bench.iter(|| resc.prove(size, 32, 32, 0));
-        });
+        let assertions = resc.prepare(size, 32, 32, 0);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(size),
+            &assertions,
+            |bench, a| {
+                bench.iter(|| resc.prove(a.clone()));
+            },
+        );
     }
     group.finish();
 }

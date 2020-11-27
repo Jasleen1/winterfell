@@ -88,6 +88,23 @@ pub fn extend_cyclic_values(
     (poly, extended_values)
 }
 
+
+// MERKLE TREE FUNCTIONS
+// ================================================================================================
+
+pub type TreeNode = (BaseElement, BaseElement);
+
+pub fn node_to_bytes(node: TreeNode) -> [u8; 32] {
+    let mut result = [0; 32];
+    BaseElement::write_into(&[node.0, node.1], &mut result).unwrap();
+    result
+}
+
+pub fn bytes_to_node(bytes: [u8; 32]) -> TreeNode {
+    let elements = BaseElement::read_to_vec(&bytes).unwrap();
+    (elements[0], elements[1])
+}
+
 // OTHER FUNCTIONS
 // ================================================================================================
 
@@ -134,13 +151,4 @@ pub fn print_trace(trace: &[Vec<BaseElement>]) {
             state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
         );
     }
-}
-
-/// Converts a slice of field elements values into a vector of bytes.
-pub fn to_byte_vec(values: &[BaseElement]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(values.len() * 16);
-    for value in values {
-        result.extend_from_slice(&value.to_bytes());
-    }
-    result
 }

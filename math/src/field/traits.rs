@@ -125,9 +125,28 @@ pub trait FieldElement:
     /// Returns the byte representation of the element in little-endian byte order.
     fn to_bytes(&self) -> Vec<u8>;
 
+    /// Writes a vector of filed elements into the provided slice of bytes in little-endian
+    /// byte order.
+    fn write_into(elements: &[Self], result: &mut [u8]) -> Result<usize, String> {
+        let num_bytes = elements.len() * Self::ELEMENT_BYTES;
+        if result.len() < num_bytes {
+            return Err(format!(
+                "result must be at least {} bytes long, but was {}",
+                num_bytes,
+                result.len()
+            ));
+        }
+
+        for (i, element) in elements.iter().enumerate() {
+            let start = i * Self::ELEMENT_BYTES;
+            result[start..start + Self::ELEMENT_BYTES].copy_from_slice(&element.to_bytes());
+        }
+        Ok(num_bytes)        
+    }
+
     /// Returns a vector of bytes with all elements from the provided slice written
     /// into the vector in little-endian byte order.
-    fn slice_to_bytes(elements: &[Self]) -> Vec<u8> {
+    fn write_into_vec(elements: &[Self]) -> Vec<u8> {
         let mut result = Vec::with_capacity(elements.len() * Self::ELEMENT_BYTES);
         for element in elements {
             result.extend_from_slice(&element.to_bytes());

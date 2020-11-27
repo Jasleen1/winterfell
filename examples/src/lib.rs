@@ -11,12 +11,13 @@ pub mod utils;
 // ================================================================================================
 
 pub trait Example {
-    fn prove(
-        &self,
+    fn prepare(
+        &mut self,
         n: usize,
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> (StarkProof, Vec<Assertion>);
+    ) -> Vec<Assertion>;
+    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof;
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError>;
 }
