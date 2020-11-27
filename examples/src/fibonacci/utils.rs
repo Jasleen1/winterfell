@@ -28,11 +28,12 @@ pub fn compute_mulfib_term(n: usize) -> BaseElement {
     t1
 }
 
-pub fn prepare_options(
+#[allow(clippy::unnecessary_wraps)]
+pub fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,
     grinding_factor: u32,
-) -> ProofOptions {
+) -> Option<ProofOptions> {
     if blowup_factor == 0 {
         blowup_factor = 16;
     }
@@ -40,5 +41,10 @@ pub fn prepare_options(
         num_queries = 28;
     }
 
-    ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3)
+    Some(ProofOptions::new(
+        num_queries,
+        blowup_factor,
+        grinding_factor,
+        blake3,
+    ))
 }

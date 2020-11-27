@@ -1,5 +1,5 @@
 use super::Example;
-use crate::utils::{rescue, TreeNode, node_to_bytes, bytes_to_node};
+use crate::utils::{bytes_to_node, node_to_bytes, rescue, TreeNode};
 use common::errors::VerifierError;
 use log::debug;
 use prover::{
@@ -149,6 +149,7 @@ impl Example for AnonTokenExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
+#[allow(clippy::unnecessary_wraps)]
 fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,

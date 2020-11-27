@@ -10,7 +10,7 @@ use prover::{
 };
 use verifier::Verifier;
 
-use super::utils::{compute_fib_term, prepare_options};
+use super::utils::{build_proof_options, compute_fib_term};
 use crate::Example;
 
 mod evaluator;
@@ -41,7 +41,7 @@ impl Example for Fib8Example {
             sequence_length = 1_048_576
         }
         self.sequence_length = sequence_length;
-        self.options = Some(prepare_options(blowup_factor, num_queries, grinding_factor));
+        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence

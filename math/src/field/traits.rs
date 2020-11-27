@@ -141,7 +141,7 @@ pub trait FieldElement:
             let start = i * Self::ELEMENT_BYTES;
             result[start..start + Self::ELEMENT_BYTES].copy_from_slice(&element.to_bytes());
         }
-        Ok(num_bytes)        
+        Ok(num_bytes)
     }
 
     /// Returns a vector of bytes with all elements from the provided slice written

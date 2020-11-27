@@ -105,6 +105,7 @@ impl Example for RescueExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
+#[allow(clippy::unnecessary_wraps)]
 fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,

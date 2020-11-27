@@ -88,7 +88,6 @@ pub fn extend_cyclic_values(
     (poly, extended_values)
 }
 
-
 // MERKLE TREE FUNCTIONS
 // ================================================================================================
 

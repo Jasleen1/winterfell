@@ -80,5 +80,11 @@ pub fn generate_trace(value: TreeNode, branch: &[TreeNode], index: usize) -> Vec
         }
     }
 
+    // set index bit at the second step to one; this still results in a valid execution trace
+    // because actual index bits are inserted into the trace after step 14, but it ensures
+    // that there are no repeating patterns in the index bit register, and thus the degree
+    // of the index bit constraint is stable.
+    trace[4][1] = FieldElement::ONE;
+
     trace
 }

@@ -4,7 +4,7 @@ use prover::{math::field::BaseElement, Assertion, ProofOptions, Prover, StarkPro
 use std::time::Instant;
 use verifier::Verifier;
 
-use super::utils::{compute_mulfib_term, prepare_options};
+use super::utils::{build_proof_options, compute_mulfib_term};
 use crate::Example;
 
 mod evaluator;
@@ -38,7 +38,7 @@ impl Example for MulFib8Example {
             sequence_length = 1_048_576
         }
         self.sequence_length = sequence_length;
-        self.options = Some(prepare_options(blowup_factor, num_queries, grinding_factor));
+        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
