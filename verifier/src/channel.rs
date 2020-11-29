@@ -91,15 +91,11 @@ impl VerifierChannel {
     /// Returns trace polynomial evaluations at OOD points z and z * g, where g is the generator
     /// of the LDE domain.
     pub fn read_ood_frame<E: FieldElement>(&self) -> Result<EvaluationFrame<E>, VerifierError> {
-        let current = match E::read_to_vec(&self.ood_frame.trace_at_z1) {
-            Ok(elements) => elements,
-            Err(_) => return Err(VerifierError::OodFrameDeserializationFailed),
-        };
+        let current = E::read_to_vec(&self.ood_frame.trace_at_z1)
+            .map_err(|_| VerifierError::OodFrameDeserializationFailed)?;
 
-        let next = match E::read_to_vec(&self.ood_frame.trace_at_z2) {
-            Ok(elements) => elements,
-            Err(_) => return Err(VerifierError::OodFrameDeserializationFailed),
-        };
+        let next = E::read_to_vec(&self.ood_frame.trace_at_z2)
+            .map_err(|_| VerifierError::OodFrameDeserializationFailed)?;
 
         Ok(EvaluationFrame { current, next })
     }
@@ -124,10 +120,9 @@ impl VerifierChannel {
         let mut states = Vec::new();
         for state_bytes in self.trace_queries.iter() {
             let mut trace_state = vec![BaseElement::ZERO; self.context.trace_width()];
-            match BaseElement::read_into(state_bytes, &mut trace_state) {
-                Ok(_) => states.push(trace_state),
-                Err(_) => return Err(VerifierError::TraceQueryDeserializationFailed),
-            }
+            BaseElement::read_into(state_bytes, &mut trace_state)
+                .map(|_| states.push(trace_state))
+                .map_err(|_| VerifierError::TraceQueryDeserializationFailed)?
         }
 
         Ok(states)

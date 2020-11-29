@@ -33,10 +33,7 @@ impl<E: FieldElement> FieldElement for ExtensionElement<E> {
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        match Self::try_from(&bytes[..Self::ELEMENT_BYTES as usize]) {
-            Ok(value) => Some(value),
-            Err(_) => None,
-        }
+        Self::try_from(&bytes[..Self::ELEMENT_BYTES as usize]).ok()
     }
 
     fn rand() -> Self {
