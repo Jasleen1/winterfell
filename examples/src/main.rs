@@ -2,7 +2,7 @@ use log::debug;
 use std::time::Instant;
 use std::{env, io::Write};
 
-use winterfell::{anon, fibonacci, merkle, rescue};
+use winterfell::{anon, fibonacci, lamport, merkle, rescue};
 
 // EXAMPLE RUNNER
 // ================================================================================================
@@ -25,6 +25,7 @@ fn main() {
         "anon" => anon::get_example(),
         "rescue" => rescue::get_example(),
         "merkle" => merkle::get_example(),
+        "lamport" => lamport::get_example(),
         _ => panic!("example name '{}' is not valid", example),
     };
 
