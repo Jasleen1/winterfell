@@ -5,7 +5,18 @@ use prover::{Assertion, StarkProof};
 use std::time::Instant;
 
 mod signature;
-use signature::{gen_keys, sign, verify as verify_sig};
+use signature::{message_to_elements, PrivateKey, Signature};
+
+mod trace;
+use trace::generate_trace;
+
+mod rescue;
+use rescue::{CYCLE_LENGTH, NUM_ROUNDS as NUM_HASH_ROUNDS};
+
+// CONSTANTS
+// ================================================================================================
+
+const STATE_WIDTH: usize = 23;
 
 // LAMPORT SIGNATURE EXAMPLE
 // ================================================================================================
@@ -25,7 +36,7 @@ impl Example for LamportExample {
     ) -> (StarkProof, Vec<Assertion>) {
         // generate private/public key pair from a seed
         let now = Instant::now();
-        let pk = gen_keys([1; 32]);
+        let sk = PrivateKey::from_seed([1; 32]);
         debug!(
             "Generated private-public key pair in {} ms",
             now.elapsed().as_millis()
@@ -34,7 +45,7 @@ impl Example for LamportExample {
         // sign a message
         let now = Instant::now();
         let msg = "test message 1";
-        let sig = sign(msg.as_bytes(), &pk);
+        let sig = sk.sign(msg.as_bytes());
         debug!(
             "Signed {}-byte message in {} ms",
             msg.as_bytes().len(),
@@ -45,13 +56,26 @@ impl Example for LamportExample {
             bincode::serialize(&sig).unwrap().len()
         );
 
+        let msg_elements = message_to_elements(msg.as_bytes());
+        let trace = generate_trace(&msg_elements, &sig);
+        //print_trace(&trace[1..3], 8);
+
+        let trace_length = trace[0].len();
+        assert_eq!(msg_elements[0], trace[3][trace_length - 1]);
+        assert_eq!(msg_elements[1], trace[4][trace_length - 1]);
+
+        let pk = sk.pub_key();
+        let pk_elements = pk.to_elements();
+        assert_eq!(pk_elements[0], trace[17][trace_length - 1]);
+        assert_eq!(pk_elements[1], trace[18][trace_length - 1]);
+
         // verify signature
         let now = Instant::now();
-        assert_eq!(true, verify_sig(msg.as_bytes(), pk.pub_key(), &sig));
+        assert_eq!(true, pk.verify(msg.as_bytes(), &sig));
         debug!("Verified signature in {} ms", now.elapsed().as_millis());
 
         let msg = "test message 2";
-        assert_eq!(false, verify_sig(msg.as_bytes(), pk.pub_key(), &sig));
+        assert_eq!(false, pk.verify(msg.as_bytes(), &sig));
 
         unimplemented!()
     }

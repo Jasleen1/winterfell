@@ -1,7 +1,5 @@
-use prover::{
-    crypto::hash::rescue_d,
-    math::field::{BaseElement, FieldElement, StarkField},
-};
+use super::rescue::Hasher as Rescue;
+use prover::math::field::{BaseElement, FieldElement, StarkField};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 
@@ -13,135 +11,158 @@ const MESSAGE_BITS: usize = 254;
 // TYPES AND INTERFACES
 // ================================================================================================
 
+type KeyData = [BaseElement; 2];
+
 pub struct PrivateKey {
-    seed: [u8; 32],
-    sec_keys: Vec<[u8; 32]>,
-    pub_keys: Vec<[u8; 32]>,
-    pub_key_acc: [u8; 32],
+    sec_keys: Vec<KeyData>,
+    pub_keys: Vec<KeyData>,
+    pub_key_hash: PublicKey,
 }
 
-impl PrivateKey {
-    pub fn pub_key(&self) -> PublicKey {
-        PublicKey(self.pub_key_acc)
-    }
-}
-
-pub struct PublicKey([u8; 32]);
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PublicKey(KeyData);
 
 #[derive(Serialize, Deserialize)]
 pub struct Signature {
-    ones: Vec<[u8; 32]>,
-    zeros: Vec<[u8; 32]>,
+    pub ones: Vec<KeyData>,
+    pub zeros: Vec<KeyData>,
 }
 
-// PROCEDURES
+// PRIVATE KEY IMPLEMENTATION
 // ================================================================================================
 
-pub fn gen_keys(seed: [u8; 32]) -> PrivateKey {
-    let keys = BaseElement::prng_vector(seed, MESSAGE_BITS * 2);
-    let mut sec_keys = Vec::with_capacity(MESSAGE_BITS);
-    let mut pub_keys = Vec::with_capacity(MESSAGE_BITS);
-    let mut pub_key_acc = [0; 32];
+impl PrivateKey {
+    /// Returns a private key generated from the specified `seed`.
+    pub fn from_seed(seed: [u8; 32]) -> Self {
+        let keys_elements = BaseElement::prng_vector(seed, MESSAGE_BITS * 2);
+        let mut sec_keys = Vec::with_capacity(MESSAGE_BITS);
+        let mut pub_keys = Vec::with_capacity(MESSAGE_BITS);
 
-    for i in (0..keys.len()).step_by(2) {
-        let mut sk = [0; 32];
-        sk[..16].copy_from_slice(&keys[i].to_bytes());
-        sk[16..].copy_from_slice(&keys[i + 1].to_bytes());
-        sec_keys.push(sk);
+        for i in (0..keys_elements.len()).step_by(2) {
+            let sk = [keys_elements[i], keys_elements[i + 1]];
+            sec_keys.push(sk);
 
-        let mut pk = [0; 32];
-        rescue_d(&sk, &mut pk);
+            let pk = Rescue::digest(&sk).to_elements();
+            pub_keys.push(pk);
+        }
 
-        let mut buf = [0; 64];
-        buf[..32].copy_from_slice(&pk);
-        buf[32..].copy_from_slice(&pub_key_acc);
-        rescue_d(&buf, &mut pub_key_acc);
+        let pub_key_hash = hash_pub_keys(&pub_keys);
 
-        pub_keys.push(pk);
-    }
-    PrivateKey {
-        seed,
-        sec_keys,
-        pub_keys,
-        pub_key_acc,
-    }
-}
-
-pub fn sign(message: &[u8], key: &PrivateKey) -> Signature {
-    let mut ones = Vec::new();
-    let mut zeros = Vec::new();
-
-    let mut n = 0;
-    let chunks = to_chunks(message);
-    for chunk in chunks.iter() {
-        // make sure the least significant bit is 0
-        assert_eq!(chunk & 1, 0);
-        for i in 1..128 {
-            if (chunk >> i) & 1 == 1 {
-                ones.push(key.sec_keys[n]);
-            } else {
-                zeros.push(key.pub_keys[n]);
-            }
-            n += 1;
+        PrivateKey {
+            sec_keys,
+            pub_keys,
+            pub_key_hash,
         }
     }
 
-    Signature { ones, zeros }
-}
-
-pub fn verify(message: &[u8], pub_key: PublicKey, sig: &Signature) -> bool {
-    let mut n_zeros = 0;
-    let mut n_ones = 0;
-    let mut pub_key_acc = [0; 32];
-    let chunks = to_chunks(message);
-    for chunk in chunks.iter() {
-        // make sure the least significant bit is 0
-        assert_eq!(chunk & 1, 0);
-        for i in 1..128 {
-            let mut buf = [0; 64];
-            if (chunk >> i) & 1 == 1 {
-                if n_ones == sig.ones.len() {
-                    return false;
-                }
-                rescue_d(&sig.ones[n_ones], &mut buf[..32]);
-                n_ones += 1;
-            } else {
-                if n_zeros == sig.zeros.len() {
-                    return false;
-                }
-                buf[..32].copy_from_slice(&sig.zeros[n_zeros]);
-                n_zeros += 1;
-            }
-            buf[32..].copy_from_slice(&pub_key_acc);
-            rescue_d(&buf, &mut pub_key_acc);
-        }
+    /// Returns a public key corresponding to this private key.
+    pub fn pub_key(&self) -> PublicKey {
+        self.pub_key_hash.clone()
     }
 
-    pub_key_acc == pub_key.0
+    /// Signs the specified 'message` with this private key.
+    pub fn sign(&self, message: &[u8]) -> Signature {
+        let mut ones = Vec::new();
+        let mut zeros = Vec::new();
+
+        let mut n = 0;
+        let elements = message_to_elements(message);
+        for element_bits in elements.iter().map(|e| e.as_u128()) {
+            // make sure the most significant bit is 0
+            assert_eq!(element_bits & (1 << 127), 0);
+            for i in 0..127 {
+                if (element_bits >> i) & 1 == 1 {
+                    ones.push(self.sec_keys[n]);
+                } else {
+                    zeros.push(self.pub_keys[n]);
+                }
+                n += 1;
+            }
+        }
+
+        Signature { ones, zeros }
+    }
+}
+
+// PUBLIC KEY IMPLEMENTATION
+// ================================================================================================
+
+impl PublicKey {
+    /// Returns true if the specified signature was generated by signing the specified message
+    /// with a private key corresponding to this public key.
+    pub fn verify(&self, message: &[u8], sig: &Signature) -> bool {
+        let mut n_zeros = 0;
+        let mut n_ones = 0;
+        let mut pub_keys = Vec::with_capacity(MESSAGE_BITS);
+        let elements = message_to_elements(message);
+        for element_bits in elements.iter().map(|e| e.as_u128()) {
+            // make sure the least significant bit is 0
+            assert_eq!(element_bits & (1 << 127), 0);
+            for i in 0..127 {
+                if (element_bits >> i) & 1 == 1 {
+                    if n_ones == sig.ones.len() {
+                        return false;
+                    }
+                    pub_keys.push(Rescue::digest(&sig.ones[n_ones]).to_elements());
+                    n_ones += 1;
+                } else {
+                    if n_zeros == sig.zeros.len() {
+                        return false;
+                    }
+                    pub_keys.push(sig.zeros[n_zeros]);
+                    n_zeros += 1;
+                }
+            }
+        }
+
+        let pub_key_hash = hash_pub_keys(&pub_keys);
+        *self == pub_key_hash
+    }
+
+    pub fn to_bytes(&self) -> [u8; 32] {
+        let mut bytes = [0; 32];
+        bytes[..16].copy_from_slice(&self.0[0].to_bytes());
+        bytes[16..].copy_from_slice(&self.0[1].to_bytes());
+        bytes
+    }
+
+    pub fn to_elements(&self) -> [BaseElement; 2] {
+        self.0.clone()
+    }
 }
 
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn to_chunks(message: &[u8]) -> [u128; 2] {
+pub fn message_to_elements(message: &[u8]) -> [BaseElement; 2] {
     // reduce the message to a 32-byte value
     let hash = *blake3::hash(message).as_bytes();
 
     // interpret 32 bytes as two 128-bit integers
     let mut m0 = u128::from_le_bytes(hash[..16].try_into().unwrap());
-    let mut m1 = (u128::from_le_bytes(hash[16..].try_into().unwrap()) >> 9) << 9;
+    let mut m1 = u128::from_le_bytes(hash[16..].try_into().unwrap());
 
-    // clear the least significant bit of the first value to ensure that when parsed in big-endian
-    // order, the value takes up at most 127 bits
-    m0 = (m0 >> 1) << 1;
+    // clear the most significant bit of the first value to ensure that it fits into 127 bits
+    m0 = (m0 << 1) >> 1;
 
     // do the same thing with the second value, but also clear 8 more bits to make room for
     // checksum bits
-    m1 = (m1 >> 9) << 9;
+    m1 = (m1 << 9) >> 9;
 
-    // compute the checksum and put it into the least significant bits of the second values
-    let checksum = m0.count_ones() + m1.count_ones();
-    let m1 = m1 | (checksum << 1) as u128;
+    // compute the checksum and put it into the most significant bits of the second values
+    let checksum = m0.count_zeros() + m1.count_zeros();
+    let m1 = m1 | ((checksum as u128) << 119);
 
-    [m0, m1]
+    [BaseElement::from(m0), BaseElement::from(m1)]
+}
+
+fn hash_pub_keys(keys: &[KeyData]) -> PublicKey {
+    let mut pub_key_hash = Rescue::new();
+    pub_key_hash.update(&[BaseElement::ZERO; 4]);
+    for i in 0..(MESSAGE_BITS / 2) {
+        pub_key_hash.update(&keys[i]);
+        pub_key_hash.update(&keys[i + MESSAGE_BITS / 2]);
+    }
+
+    PublicKey(pub_key_hash.finalize().to_elements())
 }
