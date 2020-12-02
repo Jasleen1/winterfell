@@ -104,7 +104,7 @@ pub fn build_proof<E: FieldElement>(
         layers.push(FriLayer {
             values: queried_values
                 .into_iter()
-                .map(|v| E::slice_to_bytes(&v))
+                .map(|v| E::write_into_vec(&v))
                 .collect(),
             paths: proof.nodes,
             depth: proof.depth,
@@ -126,7 +126,7 @@ pub fn build_proof<E: FieldElement>(
 
     FriProof {
         layers,
-        rem_values: E::slice_to_bytes(&remainder),
+        rem_values: E::write_into_vec(&remainder),
     }
 }
 

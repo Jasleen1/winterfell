@@ -1,33 +1,32 @@
 use common::errors::VerifierError;
 use log::debug;
-use prover::{
-    math::field::{BaseElement, FieldElement},
-    Assertion, ProofOptions, Prover, StarkProof,
-};
+use prover::{math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof};
 use std::time::Instant;
 use verifier::Verifier;
 
-use super::utils::{build_proof_options, compute_fib_term};
+use super::utils::{build_proof_options, compute_mulfib_term};
 use crate::Example;
 
 mod evaluator;
-use evaluator::FibEvaluator;
+use evaluator::MulFib8Evaluator;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(FibExample {
+    Box::new(MulFib8Example {
         options: None,
         sequence_length: 0,
     })
 }
 
-pub struct FibExample {
+const NUM_REGISTERS: usize = 8;
+
+pub struct MulFib8Example {
     options: Option<ProofOptions>,
     sequence_length: usize,
 }
 
-impl Example for FibExample {
+impl Example for MulFib8Example {
     fn prepare(
         &mut self,
         mut sequence_length: usize,
@@ -40,37 +39,35 @@ impl Example for FibExample {
         }
         self.sequence_length = sequence_length;
         self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
-        let trace_length = sequence_length / 2;
+        let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
         let now = Instant::now();
-        let result = compute_fib_term(sequence_length);
+        let result = compute_mulfib_term(sequence_length);
         debug!(
-            "Computed Fibonacci sequence up to {}th term in {} ms",
+            "Computed multiplicative Fibonacci sequence up to {}th term in {} ms",
             sequence_length,
             now.elapsed().as_millis()
         );
 
-        // a valid Fibonacci sequence should start with two ones and terminate with
-        // the same result as computed above
         vec![
-            Assertion::new(0, 0, BaseElement::ONE),
-            Assertion::new(1, 0, BaseElement::ONE),
-            Assertion::new(1, trace_length - 1, result),
+            Assertion::new(0, 0, BaseElement::new(1)),
+            Assertion::new(1, 0, BaseElement::new(2)),
+            Assertion::new(6, trace_length - 1, result),
         ]
     }
 
     fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+        let sequence_length = self.sequence_length;
         debug!(
-            "Generating proof for computing Fibonacci sequence (2 terms per step) up to {}th term\n\
+            "Generating proof for computing multiplicative Fibonacci sequence (8 terms per step) up to {}th term\n\
             ---------------------",
-            self.sequence_length
+            sequence_length
         );
 
         // generate execution trace
         let now = Instant::now();
-        let trace = build_fib_trace(self.sequence_length);
-
+        let trace = build_mulfib_trace(sequence_length);
         let trace_width = trace.len();
         let trace_length = trace[0].len();
         debug!(
@@ -81,12 +78,12 @@ impl Example for FibExample {
         );
 
         // generate the proof
-        let prover = Prover::<FibEvaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<MulFib8Evaluator>::new(self.options.clone().unwrap());
         prover.prove(trace, assertions).unwrap()
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
-        let verifier = Verifier::<FibEvaluator>::new();
+        let verifier = Verifier::<MulFib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }
 }
@@ -94,19 +91,31 @@ impl Example for FibExample {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
+pub fn build_mulfib_trace(length: usize) -> Vec<Vec<BaseElement>> {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
     );
 
-    let mut reg0 = vec![BaseElement::ONE];
-    let mut reg1 = vec![BaseElement::ONE];
+    let mut reg0 = vec![BaseElement::new(1)];
+    let mut reg1 = vec![BaseElement::new(2)];
+    let mut reg2 = vec![reg0[0] * reg1[0]];
+    let mut reg3 = vec![reg1[0] * reg2[0]];
+    let mut reg4 = vec![reg2[0] * reg3[0]];
+    let mut reg5 = vec![reg3[0] * reg4[0]];
+    let mut reg6 = vec![reg4[0] * reg5[0]];
+    let mut reg7 = vec![reg5[0] * reg6[0]];
 
-    for i in 0..(length / 2 - 1) {
-        reg0.push(reg0[i] + reg1[i]);
-        reg1.push(reg1[i] + reg0[i + 1]);
+    for i in 0..(length / 8 - 1) {
+        reg0.push(reg6[i] * reg7[i]);
+        reg1.push(reg7[i] * reg0[i + 1]);
+        reg2.push(reg0[i + 1] * reg1[i + 1]);
+        reg3.push(reg1[i + 1] * reg2[i + 1]);
+        reg4.push(reg2[i + 1] * reg3[i + 1]);
+        reg5.push(reg3[i + 1] * reg4[i + 1]);
+        reg6.push(reg4[i + 1] * reg5[i + 1]);
+        reg7.push(reg5[i + 1] * reg6[i + 1]);
     }
 
-    vec![reg0, reg1]
+    vec![reg0, reg1, reg2, reg3, reg4, reg5, reg6, reg7]
 }

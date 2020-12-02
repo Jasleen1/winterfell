@@ -2,11 +2,7 @@ use prover::math::field::{BaseElement, FieldElement};
 
 use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
-pub fn generate_trace(
-    value: TreeNode,
-    branch: Vec<TreeNode>,
-    index: usize,
-) -> Vec<Vec<BaseElement>> {
+pub fn generate_trace(value: TreeNode, branch: &[TreeNode], index: usize) -> Vec<Vec<BaseElement>> {
     // allocate memory to hold the trace table
     let trace_length = branch.len() * CYCLE_LENGTH;
     let mut trace = vec![
@@ -83,6 +79,12 @@ pub fn generate_trace(
             trace[reg][step + 1] = val;
         }
     }
+
+    // set index bit at the second step to one; this still results in a valid execution trace
+    // because actual index bits are inserted into the trace after step 14, but it ensures
+    // that there are no repeating patterns in the index bit register, and thus the degree
+    // of the index bit constraint is stable.
+    trace[4][1] = FieldElement::ONE;
 
     trace
 }

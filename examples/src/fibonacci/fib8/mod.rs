@@ -5,13 +5,12 @@ use log::debug;
 use common::errors::VerifierError;
 use evaluator::Fib8Evaluator;
 use prover::{
-    crypto::hash::blake3,
     math::field::{BaseElement, FieldElement},
     Assertion, ProofOptions, Prover, StarkProof,
 };
 use verifier::Verifier;
 
-use super::utils::compute_fib_term;
+use super::utils::{build_proof_options, compute_fib_term};
 use crate::Example;
 
 mod evaluator;
@@ -19,29 +18,31 @@ mod evaluator;
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(Fib8Example())
+    Box::new(Fib8Example {
+        options: None,
+        sequence_length: 0,
+    })
 }
 
-pub struct Fib8Example();
+pub struct Fib8Example {
+    options: Option<ProofOptions>,
+    sequence_length: usize,
+}
 
 impl Example for Fib8Example {
-    fn prove(
-        &self,
+    fn prepare(
+        &mut self,
         mut sequence_length: usize,
-        mut blowup_factor: usize,
-        mut num_queries: usize,
+        blowup_factor: usize,
+        num_queries: usize,
         grinding_factor: u32,
-    ) -> (StarkProof, Vec<Assertion>) {
-        // apply defaults
+    ) -> Vec<Assertion> {
         if sequence_length == 0 {
-            sequence_length = 1_048_576;
+            sequence_length = 1_048_576
         }
-        if blowup_factor == 0 {
-            blowup_factor = 16;
-        }
-        if num_queries == 0 {
-            num_queries = 28;
-        }
+        self.sequence_length = sequence_length;
+        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
         let now = Instant::now();
@@ -52,15 +53,25 @@ impl Example for Fib8Example {
             now.elapsed().as_millis()
         );
 
+        // assert that the trace starts with 7th and 8th terms of Fibonacci sequence (the first
+        // 6 terms are not recorded in the trace), and ends with the expected result
+        vec![
+            Assertion::new(0, 0, BaseElement::new(13)),
+            Assertion::new(1, 0, BaseElement::new(21)),
+            Assertion::new(1, trace_length - 1, result),
+        ]
+    }
+
+    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
         debug!(
             "Generating proof for computing Fibonacci sequence (8 terms per step) up to {}th term\n\
             ---------------------",
-            sequence_length
+            self.sequence_length
         );
 
         // generate execution trace
         let now = Instant::now();
-        let trace = build_fib_trace(sequence_length);
+        let trace = build_fib_trace(self.sequence_length);
         let trace_width = trace.len();
         let trace_length = trace[0].len();
         debug!(
@@ -70,19 +81,9 @@ impl Example for Fib8Example {
             now.elapsed().as_millis()
         );
 
-        // instantiate the prover
-        let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-        let prover = Prover::<Fib8Evaluator>::new(options);
-
-        // assert that the trace starts with 7th and 8th terms of Fibonacci sequence (the first
-        // 6 terms are not recorded in the trace), and ends with the expected result
-        let assertions = vec![
-            Assertion::new(0, 0, BaseElement::new(13)),
-            Assertion::new(1, 0, BaseElement::new(21)),
-            Assertion::new(1, trace_length - 1, result),
-        ];
         // generate the proof
-        (prover.prove(trace, assertions.clone()).unwrap(), assertions)
+        let prover = Prover::<Fib8Evaluator>::new(self.options.clone().unwrap());
+        prover.prove(trace, assertions).unwrap()
     }
 
     fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
