@@ -83,7 +83,7 @@ pub fn generate_trace(msg: &[BaseElement; 2], sig: &Signature) -> Vec<Vec<BaseEl
             rescue::apply_round(&mut sec_key_1_hash, step);
             rescue::apply_round(&mut sec_key_2_hash, step);
             rescue::apply_round(&mut pub_key_hash, step);
-        } else if cycle_pos == NUM_HASH_ROUNDS {
+        } else {
             let m0_bit = msg_acc_state[1];
             let m1_bit = msg_acc_state[2];
 

@@ -1,9 +1,10 @@
+use crate::utils::{are_equal, EvaluationResult};
 use prover::math::field::{BaseElement, FieldElement};
 
 /// Function state is set to 6 field elements or 96 bytes; 4 elements are reserved for rate
 /// and 2 elements are reserved for capacity.
-const STATE_WIDTH: usize = 6;
-const RATE_WIDTH: usize = 4;
+pub const STATE_WIDTH: usize = 6;
+pub const RATE_WIDTH: usize = 4;
 
 /// Two elements (32-bytes) are returned as digest.
 const DIGEST_SIZE: usize = 2;
@@ -88,6 +89,7 @@ impl Hasher {
 // ================================================================================================
 
 impl Hash {
+    #[allow(dead_code)]
     pub fn to_bytes(&self) -> [u8; 32] {
         let mut bytes = [0; 32];
         bytes[..16].copy_from_slice(&self.0[0].to_bytes());
@@ -96,7 +98,7 @@ impl Hash {
     }
 
     pub fn to_elements(&self) -> [BaseElement; DIGEST_SIZE] {
-        self.0.clone()
+        self.0
     }
 }
 
@@ -133,6 +135,63 @@ pub fn apply_round(state: &mut [BaseElement], step: usize) {
     }
 }
 
+// CONSTRAINTS
+// ================================================================================================
+
+/// when flag = 1, enforces constraints for a single round of Rescue hash functions
+pub fn enforce_round(
+    result: &mut [BaseElement],
+    current: &[BaseElement],
+    next: &[BaseElement],
+    ark: &[BaseElement],
+    flag: BaseElement,
+) {
+    // compute the state that should result from applying the first half of Rescue round
+    // to the current state of the computation
+    let mut step1 = [BaseElement::ZERO; STATE_WIDTH];
+    step1.copy_from_slice(current);
+    apply_sbox(&mut step1);
+    apply_mds(&mut step1);
+    for i in 0..STATE_WIDTH {
+        step1[i] = step1[i] + ark[i];
+    }
+
+    // compute the state that should result from applying the inverse for the second
+    // half for Rescue round to the next step of the computation
+    let mut step2 = [BaseElement::ZERO; STATE_WIDTH];
+    step2.copy_from_slice(next);
+    for i in 0..STATE_WIDTH {
+        step2[i] = step2[i] - ark[STATE_WIDTH + i];
+    }
+    apply_inv_mds(&mut step2);
+    apply_sbox(&mut step2);
+
+    // make sure that the results are equal
+    for i in 0..STATE_WIDTH {
+        result.agg_constraint(i, flag, are_equal(step2[i], step1[i]));
+    }
+}
+
+// ROUND CONSTANTS
+// ================================================================================================
+
+/// Returns Rescue round constants arranged in column-major form.
+pub fn get_round_constants() -> Vec<Vec<BaseElement>> {
+    let mut constants = Vec::new();
+    for _ in 0..(STATE_WIDTH * 2) {
+        constants.push(vec![BaseElement::ZERO; CYCLE_LENGTH]);
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..CYCLE_LENGTH {
+        for j in 0..(STATE_WIDTH * 2) {
+            constants[j][i] = ARK[i][j];
+        }
+    }
+
+    constants
+}
+
 // HELPER FUNCTIONS
 // ================================================================================================
 
@@ -161,6 +220,23 @@ fn apply_mds(state: &mut [BaseElement]) {
     for i in 0..STATE_WIDTH {
         for j in 0..STATE_WIDTH {
             temp[j] = MDS[i * STATE_WIDTH + j] * state[j];
+        }
+
+        for j in 0..STATE_WIDTH {
+            result[i] = result[i] + temp[j];
+        }
+    }
+    state.copy_from_slice(&result);
+}
+
+#[inline(always)]
+#[allow(clippy::needless_range_loop)]
+fn apply_inv_mds(state: &mut [BaseElement]) {
+    let mut result = [BaseElement::ZERO; STATE_WIDTH];
+    let mut temp = [BaseElement::ZERO; STATE_WIDTH];
+    for i in 0..STATE_WIDTH {
+        for j in 0..STATE_WIDTH {
+            temp[j] = INV_MDS[i * STATE_WIDTH + j] * state[j];
         }
 
         for j in 0..STATE_WIDTH {
@@ -217,6 +293,45 @@ const MDS: [BaseElement; STATE_WIDTH * STATE_WIDTH] = [
     BaseElement::new(1329039099788841441),
     BaseElement::new(340282366920938463463330243139804660633),
     BaseElement::new(366573514642546),
+];
+
+const INV_MDS: [BaseElement; STATE_WIDTH * STATE_WIDTH] = [
+    BaseElement::new(133202720344903784697302507504318451498),
+    BaseElement::new(9109562341901685402869515497167051415),
+    BaseElement::new(187114562320006661061623258692072377978),
+    BaseElement::new(217977550980311337650875125151512141987),
+    BaseElement::new(274535269264332978809051716514493438195),
+    BaseElement::new(198907435511358942768401550501671423539),
+    BaseElement::new(107211340690419935719675873160429442610),
+    BaseElement::new(93035459208639798096019355873148696692),
+    BaseElement::new(34612840942819361370119536876515785819),
+    BaseElement::new(28124271099756519590702162721340502811),
+    BaseElement::new(220883180661145883341796932300840696133),
+    BaseElement::new(196697641239095428808435254975214799010),
+    BaseElement::new(48198755643822249649260269442324041679),
+    BaseElement::new(64419499747985404280993270855996080557),
+    BaseElement::new(280207800449835933431237404716657540948),
+    BaseElement::new(61755931245950637038951462642746253929),
+    BaseElement::new(206737575380416523686108693210925354496),
+    BaseElement::new(19245171373866178840198015038840651466),
+    BaseElement::new(133290479635000282395391929030461304726),
+    BaseElement::new(256035933367497105928763702353648605000),
+    BaseElement::new(97077987470620839632334052346344687963),
+    BaseElement::new(144638736603246051821344039641662500876),
+    BaseElement::new(323753713558453221824969500168839490204),
+    BaseElement::new(66050250127997888787320450320278295843),
+    BaseElement::new(107416947271017171483976049725783774207),
+    BaseElement::new(29799978553141132526384006297614595309),
+    BaseElement::new(112991183841517485419461727429810868869),
+    BaseElement::new(27096959906733835564333321118624482460),
+    BaseElement::new(197262955506413467422574209301409294301),
+    BaseElement::new(205996708763053834510019802034246907929),
+    BaseElement::new(114827794598835201662537916675749328586),
+    BaseElement::new(22232541983454090535685600849896663137),
+    BaseElement::new(84718265936029339288536427868493390350),
+    BaseElement::new(176534200716138685131361645691447579493),
+    BaseElement::new(304590074876810806644622682832255680729),
+    BaseElement::new(317944222651547267127379399943392242317),
 ];
 
 /// Rescue round constants;

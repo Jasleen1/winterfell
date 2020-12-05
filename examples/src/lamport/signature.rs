@@ -57,7 +57,7 @@ impl PrivateKey {
 
     /// Returns a public key corresponding to this private key.
     pub fn pub_key(&self) -> PublicKey {
-        self.pub_key_hash.clone()
+        self.pub_key_hash
     }
 
     /// Signs the specified 'message` with this private key.
@@ -119,6 +119,7 @@ impl PublicKey {
         *self == pub_key_hash
     }
 
+    #[allow(dead_code)]
     pub fn to_bytes(&self) -> [u8; 32] {
         let mut bytes = [0; 32];
         bytes[..16].copy_from_slice(&self.0[0].to_bytes());
@@ -127,7 +128,7 @@ impl PublicKey {
     }
 
     pub fn to_elements(&self) -> [BaseElement; 2] {
-        self.0.clone()
+        self.0
     }
 }
 
