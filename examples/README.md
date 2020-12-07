@@ -28,11 +28,14 @@ There are several examples illustrating how to generate (and verify) proofs for 
 
 * `fib` - computes the n-th term of a Fibonacci sequence using trace table with 2 registers. Each step in the trace table advances Fibonacci sequence by 2 terms.
 * `fib8` - also computes the n-th term of a Fibonacci sequence and also uses trace table with 2 registers. But unlike the previous example, each step in the trace table advances Fibonacci sequence by 8 terms.
-* `mulfib` - a variation on Fibonacci sequence where addition is replaced with multiplication. The example uses a trace table with 4 registers, and each step in the trace table advances the sequence by 4 terms.
+* `mulfib` - a variation on Fibonacci sequence where addition is replaced with multiplication. The example uses a trace table with 2 registers, and each step in the trace table advances the sequence by 2 terms.
+* `mulfib8` - also computes the n-th term of the multiplicative Fibonacci sequence, but unlike the previous example, each step in the trace table advances the sequence by 8 terms. Unlike `fib8` example, this example uses a trace table with 8 registers.
 
-It is interesting to note that `fib` and `fib8` encode an identical computation but these different encodings have significant impact on performance. Specifically, proving time for `fib8` example is 4 times faster than for `fib` example, and also results in proofs which are about 15% smaller than in the `fib` example.
+It is interesting to note that `fib`/`fib8` and `mulfib`/`mulfib8` examples encode identical computations but these different encodings have significant impact on performance. Specifically, proving time for `fib8` example is 4x times faster than for `fib` example, while proving time for `mulfib8` example is about 2.4x times faster than for `mulfib` example. The difference stems from the fact that when we deal with additions only, we can omit intermediate states from the computation trace. But when multiplications are involved, we need to introduce additional registers to record intermediate results (another option would be to increase constraint degree, but this is not covered here).
 
-We can make this optimization largely because the computation requires only additions (no multiplications). But as illustrated by `mulfib` example, when multiplications are involved, we need to introduce additional registers to record intermediate results (another option would be to increase constraint degree, but this is not covered here). This still improves prover performance, but the impact of the improvement is not as pronounced.
+Additionally, proof sizes for `fib8` and `mulfib8` are about 15% smaller than for their "uncompressed" counterparts.
+
+These improvements come at the expense of slightly more complex proof verification: constraint evaluation now involves 4 times more work for each "compressed" example. But in case of Fibonacci sequences this additional work is negligible and has no measurable impact on verifier performance.
 
 You can run these examples like so:
 ```
@@ -75,7 +78,7 @@ where:
 * **num queries** defaults to 32.
 
 ### Anonymous token
-This example generates (and verifies) proofs for anonymous which are described in detail [here](https://docs.google.com/document/d/1AC5HNB3-d-zqir97r41Bb06vdHhN3M6grKAx-ZNPTHI) (under section 3). At the high level, given `token_seed` and `service_uuid` we define:
+This example generates (and verifies) proofs for anonymous tokens which are described in detail [here](https://docs.google.com/document/d/1AC5HNB3-d-zqir97r41Bb06vdHhN3M6grKAx-ZNPTHI) (under section 3). At the high level, given `token_seed` and `service_uuid` we define:
 
 * `issued_token` = hash(`token_seed`)
 * `subtoken` = hash(`token_seed` | `service_uuid`)
@@ -95,5 +98,23 @@ You can run the example like so:
 where:
 
 * **tree depth** is the depth of the Merkle tree in which the `issued_token` is stored. Currently, the depth must be one less than a power of 2 (e.g. 3, 7, 15). Note that a tree of depth 15 takes about 3 seconds to construct.
+* **blowup factor** defaults to 32.
+* **num queries** defaults to 32.
+
+### LamportPlus signature verification
+This example generates (and verifies) proofs for verifying LamportPlus signatures. The specific instantiation of LamportPlus we use has the following properties:
+
+* Public key size: 32 bytes
+* Signature size: 8 KB
+* Hash function: Rescue-Prime
+* Target security level: 123 bits (post-quantum)
+
+You can run the example like so:
+```
+./target/release/winterfell lamport [sig count] [blowup factor] [num queries]
+```
+where:
+
+* **sig count** currently unused. Will specify number of LamportPlus signature verifications aggregated into a single proof.
 * **blowup factor** defaults to 32.
 * **num queries** defaults to 32.

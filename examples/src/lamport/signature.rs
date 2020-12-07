@@ -150,13 +150,21 @@ pub fn message_to_elements(message: &[u8]) -> [BaseElement; 2] {
     // checksum bits
     m1 = (m1 << 9) >> 9;
 
-    // compute the checksum and put it into the most significant bits of the second values
+    // compute the checksum and put it into the most significant bits of the second values;
+    // specifically: bit 127 is zeroed out, and 8 bits of checksum should go into bits
+    // 119..127 thus, we just shift the checksum left by 119 bits and OR it with m1 (which
+    // has top 9 bits zeroed out)
     let checksum = m0.count_zeros() + m1.count_zeros();
     let m1 = m1 | ((checksum as u128) << 119);
 
     [BaseElement::from(m0), BaseElement::from(m1)]
 }
 
+/// Reduces a list of public key elements to a single 32-byte value. The reduction is done
+/// by breaking the list into two equal parts, and then updating hash state by taking turns
+/// drawing elements from each list. For example, the final hash would be equivalent to:
+/// hash(key[0] | key[127] | key[1] | key[128] | key[2] | key[129] ... )
+/// This hashing methodology is implemented to simplify AIR design.
 fn hash_pub_keys(keys: &[KeyData]) -> PublicKey {
     let mut pub_key_hash = Rescue::new();
     pub_key_hash.update(&[BaseElement::ZERO; 4]);
