@@ -96,17 +96,19 @@ pub fn compose_trace_polys<E: FieldElement + FromVec<BaseElement>>(
 
 /// Divides out OOD point z from the constraint polynomial and saves the
 /// result into the composition polynomial.
-pub fn compose_constraint_poly<E: FieldElement>(
+pub fn compose_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
     composition_poly: &mut CompositionPoly<E>,
-    constraint_poly: ConstraintPoly<E>,
+    constraint_poly: ConstraintPoly<BaseElement>,
     z: E,
     cc: &CompositionCoefficients<E>,
 ) {
+    // TODO: find a better ay to do this (ideally, with zero-copy)
+    let mut constraint_poly = E::from_vec(&constraint_poly.into_vec());
+
     // evaluate the polynomial at point z
-    let value_at_z = constraint_poly.evaluate_at(z);
+    let value_at_z = polynom::eval(&constraint_poly, z);
 
     // compute C(x) = (P(x) - P(z)) / (x - z)
-    let mut constraint_poly = constraint_poly.into_vec();
     constraint_poly[0] = constraint_poly[0] - value_at_z;
     polynom::syn_div_in_place(&mut constraint_poly, z);
 

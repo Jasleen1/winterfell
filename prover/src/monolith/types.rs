@@ -202,6 +202,7 @@ impl<E: FieldElement> ConstraintPoly<E> {
     }
 
     /// Evaluates the polynomial the the specified point `x`.
+    #[allow(dead_code)] // TODO: remove
     pub fn evaluate_at(&self, x: E) -> E {
         polynom::eval(&self.0, x)
     }

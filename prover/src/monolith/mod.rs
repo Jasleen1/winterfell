@@ -128,15 +128,8 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
-        #[cfg(not(feature = "extension_field"))]
         let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
             evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
-
-        #[cfg(feature = "extension_field")]
-        let constraint_evaluations: ConstraintEvaluationTable<
-            ExtensionElement<BaseElement>,
-        > = evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
-
         debug!(
             "Evaluated constraints over domain of 2^{} elements in {} ms",
             log2(constraint_evaluations.domain_size()),
