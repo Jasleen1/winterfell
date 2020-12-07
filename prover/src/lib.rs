@@ -1,6 +1,8 @@
 mod monolith;
 pub use monolith::Prover;
 
+mod distributed;
+
 mod channel;
 
 #[cfg(test)]

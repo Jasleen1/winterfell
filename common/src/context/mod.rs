@@ -130,6 +130,14 @@ impl ComputationContext {
         result
     }
 
+    pub fn fri_remainder_length(&self) -> usize {
+        let mut domain_size = self.lde_domain_size();
+        while domain_size > Self::MAX_FRI_REMAINDER_LENGTH {
+            domain_size /= Self::FRI_FOLDING_FACTOR;
+        }
+        domain_size
+    }
+
     pub fn options(&self) -> &ProofOptions {
         &self.options
     }

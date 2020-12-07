@@ -283,6 +283,23 @@ proptest! {
         let proof = tree.prove_batch(&indices[..]);
         prop_assert!(MerkleTree::verify_batch(tree.root(), &indices[..], &proof, hash::blake3));
     }
+
+    #[test]
+    fn batch_proof_from_paths(tree in random_blake3_merkle_tree(128),
+                      proof_indices in prop::collection::vec(any::<prop::sample::Index>(), 10..20)
+    )  {
+        let mut indices: Vec<usize> = proof_indices.iter().map(|idx| idx.index(128)).collect();
+        indices.sort_unstable(); indices.dedup();
+        let proof1 = tree.prove_batch(&indices[..]);
+
+        let mut paths = Vec::new();
+        for &idx in indices.iter() {
+            paths.push(tree.prove(idx));
+        }
+        let proof2 = BatchMerkleProof::from_paths(&paths, &indices);
+
+        prop_assert!(proof1 == proof2);
+    }
 }
 
 mod construction_test {
