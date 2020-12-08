@@ -135,12 +135,15 @@ pub fn transpose(values: Vec<Vec<BaseElement>>) -> Vec<Vec<BaseElement>> {
 }
 
 /// Prints out an execution trace.
-pub fn print_trace(trace: &[Vec<BaseElement>]) {
+pub fn print_trace(trace: &[Vec<BaseElement>], multiples_of: usize) {
     let trace_width = trace.len();
     let trace_length = trace[0].len();
 
     let mut state = vec![BaseElement::ZERO; trace_width];
     for i in 0..trace_length {
+        if i % multiples_of != 0 {
+            continue;
+        }
         for j in 0..trace_width {
             state[j] = trace[j][i];
         }

@@ -3,6 +3,7 @@ use prover::{Assertion, StarkProof};
 
 pub mod anon;
 pub mod fibonacci;
+pub mod lamport;
 pub mod merkle;
 pub mod rescue;
 pub mod utils;
