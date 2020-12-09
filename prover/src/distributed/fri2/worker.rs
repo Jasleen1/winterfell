@@ -1,7 +1,11 @@
-use kompact::prelude::*;
-use math::{field::{BaseElement, FieldElement}, quartic};
-use crypto::{HashFunction, MerkleTree};
 use common::fri_utils::hash_values;
+use crypto::{HashFunction, MerkleTree};
+use kompact::prelude::*;
+use math::{
+    field::{BaseElement, FieldElement},
+    quartic,
+};
+use std::collections::HashSet;
 
 // CONSTANTS
 // ================================================================================================
@@ -11,7 +15,7 @@ const FOLDING_FACTOR: usize = 4;
 // ================================================================================================
 
 #[derive(ComponentDefinition)]
-pub struct Worker <E: FieldElement + From<BaseElement>> {
+pub struct Worker<E: FieldElement + From<BaseElement> + 'static> {
     ctx: ComponentContext<Self>,
     config: WorkerConfig,
     domain: Vec<BaseElement>,
@@ -35,16 +39,16 @@ pub enum ProverRequest {
 }
 
 #[derive(Debug)]
-pub enum WorkerResponse {
+pub enum WorkerResponse<E: FieldElement + From<BaseElement>> {
     Commit([u8; 32]),
     ApplyDrp,
-    Query(Vec<Vec<QueryResult>>),
+    Query(Vec<Vec<QueryResult<E>>>),
 }
 
 #[derive(Debug)]
-pub struct QueryResult {
+pub struct QueryResult<E: FieldElement> {
     pub index: usize,
-    pub value: [BaseElement; 4],
+    pub value: [E; FOLDING_FACTOR],
     pub path: Vec<[u8; 32]>,
 }
 
@@ -52,7 +56,6 @@ pub struct QueryResult {
 // ================================================================================================
 
 impl<E: FieldElement + From<BaseElement>> Worker<E> {
-
     pub fn new(config: WorkerConfig) -> Self {
         Worker {
             ctx: ComponentContext::uninitialised(),
@@ -82,7 +85,7 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
         let xs = quartic::transpose(&self.domain, 1);
 
         let polys = quartic::interpolate_batch(&xs, ys);
-        let evaluations = quartic::evaluate_batch(&polys, alpha);
+        let evaluations = quartic::evaluate_batch(&polys, alpha.into());
 
         if evaluations.len() == 1 {
             self.remainder = evaluations[0];
@@ -98,7 +101,7 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
             .collect();
     }
 
-    pub fn query(&self, positions: &[usize]) -> Vec<Vec<QueryResult>> {
+    pub fn query(&self, positions: &[usize]) -> Vec<Vec<QueryResult<E>>> {
         // filter out positions which don't belong to this worker, and if there is
         // nothing to query, return with empty vector
         let mut positions = self.to_local_positions(positions);
@@ -128,6 +131,25 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
 
         result
     }
+
+    fn to_local_positions(&self, positions: &[usize]) -> Vec<usize> {
+        let mut local_positions = HashSet::new();
+        for &p in positions.iter() {
+            if p % self.config.num_partitions == self.config.index {
+                local_positions.insert((p - self.config.index) / self.config.num_partitions);
+            }
+        }
+        local_positions.into_iter().collect()
+    }
+
+    fn map_positions(&self, positions: &[usize], layer_depth: usize) -> Vec<usize> {
+        let mut result = HashSet::new();
+        let num_evaluations = self.evaluations[layer_depth].len();
+        positions.iter().for_each(|p| {
+            result.insert(p % num_evaluations);
+        });
+        result.into_iter().collect::<Vec<_>>()
+    }
 }
 
 // ACTOR IMPLEMENTATION
@@ -136,7 +158,7 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
 impl<E: FieldElement + From<BaseElement>> ComponentLifecycle for Worker<E> {}
 
 impl<E: FieldElement + From<BaseElement>> Actor for Worker<E> {
-    type Message = WithSender<ProverRequest, WorkerResponse>;
+    type Message = WithSender<ProverRequest, WorkerResponse<E>>;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg.content() {
