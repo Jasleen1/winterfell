@@ -11,6 +11,7 @@ math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
 log = "0.4.11"
+kompact = "0.10.1"
 
 [features]
 extension_field = []

@@ -2,3 +2,6 @@
 
 #[cfg(test)]
 pub mod fri;
+
+#[cfg(test)]
+pub mod fri2;
