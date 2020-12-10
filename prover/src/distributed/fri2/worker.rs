@@ -1,11 +1,13 @@
+use super::messages::{ManagerMessage, QueryResult, WorkerMessage};
 use common::fri_utils::hash_values;
 use crypto::{HashFunction, MerkleTree};
 use kompact::prelude::*;
 use math::{
-    field::{BaseElement, FieldElement},
+    field::{BaseElement, FieldElement, StarkField},
     quartic,
 };
 use std::collections::HashSet;
+use std::sync::Arc;
 
 // CONSTANTS
 // ================================================================================================
@@ -15,59 +17,67 @@ const FOLDING_FACTOR: usize = 4;
 // ================================================================================================
 
 #[derive(ComponentDefinition)]
-pub struct Worker<E: FieldElement + From<BaseElement> + 'static> {
+pub struct Worker {
     ctx: ComponentContext<Self>,
     config: WorkerConfig,
     domain: Vec<BaseElement>,
-    evaluations: Vec<Vec<[E; FOLDING_FACTOR]>>,
-    remainder: E,
+    evaluations: Vec<Vec<[BaseElement; FOLDING_FACTOR]>>,
+    remainder: BaseElement,
     trees: Vec<MerkleTree>,
 }
 
 pub struct WorkerConfig {
-    pub domain_size: usize,
     pub num_partitions: usize,
     pub index: usize,
     pub hash_fn: HashFunction,
 }
 
-#[derive(Debug)]
-pub enum ProverRequest {
-    Commit,
-    ApplyDrp(BaseElement),
-    Query(Vec<usize>),
-}
-
-#[derive(Debug)]
-pub enum WorkerResponse<E: FieldElement + From<BaseElement>> {
-    Commit([u8; 32]),
-    ApplyDrp,
-    Query(Vec<Vec<QueryResult<E>>>),
-}
-
-#[derive(Debug)]
-pub struct QueryResult<E: FieldElement> {
-    pub index: usize,
-    pub value: [E; FOLDING_FACTOR],
-    pub path: Vec<[u8; 32]>,
-}
-
 // WORKER IMPLEMENTATION
 // ================================================================================================
 
-impl<E: FieldElement + From<BaseElement>> Worker<E> {
+impl Worker {
     pub fn new(config: WorkerConfig) -> Self {
         Worker {
             ctx: ComponentContext::uninitialised(),
             config,
             domain: Vec::new(),
             evaluations: Vec::new(),
-            remainder: E::ZERO,
+            remainder: BaseElement::ZERO,
             trees: vec![],
         }
     }
 
-    pub fn commit(&mut self) -> [u8; 32] {
+    /// Prepares the worker for a new invocation of FRI protocol.
+    fn prepare(&mut self, evaluations: Arc<Vec<BaseElement>>) {
+        // build a domain for the top layer of evaluations
+        let global_domain_size = evaluations.len();
+        let g = BaseElement::get_root_of_unity(global_domain_size.trailing_zeros());
+        let stride = g.exp(self.config.num_partitions as u128);
+        let mut x = g.exp(self.config.index as u128);
+
+        let domain_size = global_domain_size / self.config.num_partitions;
+        self.domain = Vec::with_capacity(domain_size);
+        self.domain.push(x);
+        for _ in 1..domain_size {
+            x = x * stride;
+            self.domain.push(x);
+        }
+
+        // make a copy of evaluations relevant for this worker
+        let mut partition = Vec::new();
+        for i in (self.config.index..evaluations.len()).step_by(self.config.num_partitions) {
+            partition.push(evaluations[i]);
+        }
+        self.evaluations = vec![quartic::transpose(&partition, 1)];
+
+        // reset all other properties
+        self.trees.clear();
+        self.remainder = BaseElement::ZERO;
+    }
+
+    /// Commit to the current set of evaluations by putting them into a Merkle tree
+    /// and returning the root of this tree.
+    fn commit(&mut self) -> [u8; 32] {
         let evaluations = &self.evaluations[self.evaluations.len() - 1];
         let hashed_evaluations = hash_values(&evaluations, self.config.hash_fn);
         if hashed_evaluations.len() == 1 {
@@ -80,7 +90,7 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
         }
     }
 
-    pub fn apply_drp(&mut self, alpha: BaseElement) {
+    fn apply_drp(&mut self, alpha: BaseElement) {
         let ys = &self.evaluations[self.evaluations.len() - 1];
         let xs = quartic::transpose(&self.domain, 1);
 
@@ -101,7 +111,7 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
             .collect();
     }
 
-    pub fn query(&self, positions: &[usize]) -> Vec<Vec<QueryResult<E>>> {
+    fn query(&self, positions: &[usize]) -> Vec<Vec<QueryResult>> {
         // filter out positions which don't belong to this worker, and if there is
         // nothing to query, return with empty vector
         let mut positions = self.to_local_positions(positions);
@@ -155,24 +165,45 @@ impl<E: FieldElement + From<BaseElement>> Worker<E> {
 // ACTOR IMPLEMENTATION
 // ================================================================================================
 
-impl<E: FieldElement + From<BaseElement>> ComponentLifecycle for Worker<E> {}
+impl ComponentLifecycle for Worker {}
 
-impl<E: FieldElement + From<BaseElement>> Actor for Worker<E> {
-    type Message = WithSender<ProverRequest, WorkerResponse<E>>;
+impl Actor for Worker {
+    type Message = WithSender<WorkerMessage, ManagerMessage>;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg.content() {
-            ProverRequest::Commit => {
+            WorkerMessage::Prepare(evaluations) => {
+                println!("worker {}: Prepare message received", self.config.index);
+                self.prepare(evaluations.clone());
+                msg.reply(ManagerMessage::WorkerReady(self.config.index));
+            }
+            WorkerMessage::CommitToLayer => {
+                println!(
+                    "worker {}: CommitToLayer message received",
+                    self.config.index
+                );
                 let result = self.commit();
-                msg.reply(WorkerResponse::Commit(result));
+                msg.reply(ManagerMessage::WorkerCommit(self.config.index, result));
             }
-            ProverRequest::ApplyDrp(alpha) => {
+            WorkerMessage::ApplyDrp(alpha) => {
+                println!("worker {}: ApplyDrp message received", self.config.index);
                 self.apply_drp(*alpha);
-                msg.reply(WorkerResponse::ApplyDrp);
+                msg.reply(ManagerMessage::WorkerDrpComplete(self.config.index));
             }
-            ProverRequest::Query(positions) => {
+            WorkerMessage::RetrieveRemainder => {
+                println!(
+                    "worker {}: RetrieveRemainder message received",
+                    self.config.index
+                );
+                msg.reply(ManagerMessage::WorkerRemainder(
+                    self.config.index,
+                    self.remainder,
+                ));
+            }
+            WorkerMessage::Query(positions) => {
+                println!("worker {}: Query message received", self.config.index);
                 let result = self.query(positions);
-                msg.reply(WorkerResponse::Query(result));
+                msg.reply(ManagerMessage::WorkerQueryResult(self.config.index, result));
             }
         }
         Handled::Ok
