@@ -147,7 +147,7 @@ impl ComputationContext {
         }
         domain_size
     }
-    
+
     pub fn field_extension(&self) -> FieldExtension {
         self.field_extension
     }

@@ -139,16 +139,16 @@ pub fn apply_round(state: &mut [BaseElement], step: usize) {
 // ================================================================================================
 
 /// when flag = 1, enforces constraints for a single round of Rescue hash functions
-pub fn enforce_round(
-    result: &mut [BaseElement],
-    current: &[BaseElement],
-    next: &[BaseElement],
-    ark: &[BaseElement],
-    flag: BaseElement,
+pub fn enforce_round<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+    result: &mut [E],
+    current: &[E],
+    next: &[E],
+    ark: &[E],
+    flag: E,
 ) {
     // compute the state that should result from applying the first half of Rescue round
     // to the current state of the computation
-    let mut step1 = [BaseElement::ZERO; STATE_WIDTH];
+    let mut step1 = [E::ZERO; STATE_WIDTH];
     step1.copy_from_slice(current);
     apply_sbox(&mut step1);
     apply_mds(&mut step1);
@@ -158,7 +158,7 @@ pub fn enforce_round(
 
     // compute the state that should result from applying the inverse for the second
     // half for Rescue round to the next step of the computation
-    let mut step2 = [BaseElement::ZERO; STATE_WIDTH];
+    let mut step2 = [E::ZERO; STATE_WIDTH];
     step2.copy_from_slice(next);
     for i in 0..STATE_WIDTH {
         step2[i] = step2[i] - ark[STATE_WIDTH + i];
@@ -197,9 +197,9 @@ pub fn get_round_constants() -> Vec<Vec<BaseElement>> {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-fn apply_sbox(state: &mut [BaseElement]) {
+fn apply_sbox<E: FieldElement<PositiveInteger = u128>>(state: &mut [E]) {
     for i in 0..STATE_WIDTH {
-        state[i] = BaseElement::exp(state[i], ALPHA);
+        state[i] = E::exp(state[i], ALPHA);
     }
 }
 
@@ -214,12 +214,12 @@ fn apply_inv_sbox(state: &mut [BaseElement]) {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-fn apply_mds(state: &mut [BaseElement]) {
-    let mut result = [BaseElement::default(); STATE_WIDTH];
-    let mut temp = [BaseElement::default(); STATE_WIDTH];
+fn apply_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
+    let mut result = [E::ZERO; STATE_WIDTH];
+    let mut temp = [E::ZERO; STATE_WIDTH];
     for i in 0..STATE_WIDTH {
         for j in 0..STATE_WIDTH {
-            temp[j] = MDS[i * STATE_WIDTH + j] * state[j];
+            temp[j] = E::from(MDS[i * STATE_WIDTH + j]) * state[j];
         }
 
         for j in 0..STATE_WIDTH {
@@ -231,12 +231,12 @@ fn apply_mds(state: &mut [BaseElement]) {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-fn apply_inv_mds(state: &mut [BaseElement]) {
-    let mut result = [BaseElement::ZERO; STATE_WIDTH];
-    let mut temp = [BaseElement::ZERO; STATE_WIDTH];
+fn apply_inv_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
+    let mut result = [E::ZERO; STATE_WIDTH];
+    let mut temp = [E::ZERO; STATE_WIDTH];
     for i in 0..STATE_WIDTH {
         for j in 0..STATE_WIDTH {
-            temp[j] = INV_MDS[i * STATE_WIDTH + j] * state[j];
+            temp[j] = E::from(INV_MDS[i * STATE_WIDTH + j]) * state[j];
         }
 
         for j in 0..STATE_WIDTH {
