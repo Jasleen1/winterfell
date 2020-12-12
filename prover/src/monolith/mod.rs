@@ -6,7 +6,7 @@ use common::{
 use log::debug;
 use math::field::BaseElement;
 #[cfg(feature = "extension_field")]
-use math::field::ExtensionElement;
+use math::field::QuadExtension;
 use std::marker::PhantomData;
 use std::time::Instant;
 
@@ -182,7 +182,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let z = channel.draw_deep_point::<BaseElement>();
 
         #[cfg(feature = "extension_field")]
-        let z = channel.draw_deep_point::<ExtensionElement<BaseElement>>();
+        let z = channel.draw_deep_point::<QuadExtension<BaseElement>>();
 
         // allocate memory for the composition polynomial; this will allocate enough memory to
         // hold composition polynomial evaluations over the LDE domain (done in the next step)

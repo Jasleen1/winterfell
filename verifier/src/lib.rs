@@ -2,7 +2,7 @@ use common::{
     errors::VerifierError, proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext,
     DefaultAssertionEvaluator, FieldExtension, TransitionEvaluator,
 };
-use math::field::{BaseElement, ExtensionElement};
+use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 
 mod channel;
@@ -54,7 +54,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
             }
             FieldExtension::Quadratic => {
                 let channel = VerifierChannel::new(context, proof)?;
-                perform_verification::<T, A, ExtensionElement<BaseElement>>(&channel, assertions)
+                perform_verification::<T, A, QuadExtension<BaseElement>>(&channel, assertions)
             }
         }
     }

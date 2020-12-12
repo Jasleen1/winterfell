@@ -8,15 +8,15 @@ use serde::{Deserialize, Serialize};
 // ================================================================================================
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct ExtensionElement<E: FieldElement>(E, E);
+pub struct QuadExtension<E: FieldElement>(E, E);
 
-impl<E: FieldElement> ExtensionElement<E> {
+impl<E: FieldElement> QuadExtension<E> {
     pub fn conjugate(&self) -> Self {
         Self(self.0 + self.1, E::ZERO - self.1)
     }
 }
 
-impl<E: FieldElement> FieldElement for ExtensionElement<E> {
+impl<E: FieldElement> FieldElement for QuadExtension<E> {
     type PositiveInteger = E::PositiveInteger;
 
     const ELEMENT_BYTES: usize = E::ELEMENT_BYTES * 2;
@@ -46,9 +46,9 @@ impl<E: FieldElement> FieldElement for ExtensionElement<E> {
     }
 }
 
-impl<E: FieldElement> FromVec<E> for ExtensionElement<E> {}
+impl<E: FieldElement> FromVec<E> for QuadExtension<E> {}
 
-impl<E: FieldElement> Display for ExtensionElement<E> {
+impl<E: FieldElement> Display for QuadExtension<E> {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
         write!(f, "({}, {})", self.0, self.1)
     }
@@ -57,7 +57,7 @@ impl<E: FieldElement> Display for ExtensionElement<E> {
 // OVERLOADED OPERATORS
 // ================================================================================================
 
-impl<E: FieldElement> Add for ExtensionElement<E> {
+impl<E: FieldElement> Add for QuadExtension<E> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
@@ -65,7 +65,7 @@ impl<E: FieldElement> Add for ExtensionElement<E> {
     }
 }
 
-impl<E: FieldElement> Sub for ExtensionElement<E> {
+impl<E: FieldElement> Sub for QuadExtension<E> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
@@ -73,7 +73,7 @@ impl<E: FieldElement> Sub for ExtensionElement<E> {
     }
 }
 
-impl<E: FieldElement> Mul for ExtensionElement<E> {
+impl<E: FieldElement> Mul for QuadExtension<E> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
@@ -85,7 +85,7 @@ impl<E: FieldElement> Mul for ExtensionElement<E> {
     }
 }
 
-impl<E: FieldElement> Div for ExtensionElement<E> {
+impl<E: FieldElement> Div for QuadExtension<E> {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -94,7 +94,7 @@ impl<E: FieldElement> Div for ExtensionElement<E> {
     }
 }
 
-impl<E: FieldElement> Neg for ExtensionElement<E> {
+impl<E: FieldElement> Neg for QuadExtension<E> {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -105,43 +105,43 @@ impl<E: FieldElement> Neg for ExtensionElement<E> {
 // TYPE CONVERSIONS
 // ================================================================================================
 
-impl<E: FieldElement> From<E> for ExtensionElement<E> {
+impl<E: FieldElement> From<E> for QuadExtension<E> {
     fn from(e: E) -> Self {
         Self(e, E::ZERO)
     }
 }
 
-impl<E: FieldElement> From<u128> for ExtensionElement<E> {
+impl<E: FieldElement> From<u128> for QuadExtension<E> {
     fn from(value: u128) -> Self {
-        ExtensionElement(E::from(value), E::ZERO)
+        QuadExtension(E::from(value), E::ZERO)
     }
 }
 
-impl<E: FieldElement> From<u64> for ExtensionElement<E> {
+impl<E: FieldElement> From<u64> for QuadExtension<E> {
     fn from(value: u64) -> Self {
-        ExtensionElement(E::from(value), E::ZERO)
+        QuadExtension(E::from(value), E::ZERO)
     }
 }
 
-impl<E: FieldElement> From<u32> for ExtensionElement<E> {
+impl<E: FieldElement> From<u32> for QuadExtension<E> {
     fn from(value: u32) -> Self {
-        ExtensionElement(E::from(value), E::ZERO)
+        QuadExtension(E::from(value), E::ZERO)
     }
 }
 
-impl<E: FieldElement> From<u16> for ExtensionElement<E> {
+impl<E: FieldElement> From<u16> for QuadExtension<E> {
     fn from(value: u16) -> Self {
-        ExtensionElement(E::from(value), E::ZERO)
+        QuadExtension(E::from(value), E::ZERO)
     }
 }
 
-impl<E: FieldElement> From<u8> for ExtensionElement<E> {
+impl<E: FieldElement> From<u8> for QuadExtension<E> {
     fn from(value: u8) -> Self {
-        ExtensionElement(E::from(value), E::ZERO)
+        QuadExtension(E::from(value), E::ZERO)
     }
 }
 
-impl<'a, E: FieldElement> TryFrom<&'a [u8]> for ExtensionElement<E> {
+impl<'a, E: FieldElement> TryFrom<&'a [u8]> for QuadExtension<E> {
     type Error = String;
 
     /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
