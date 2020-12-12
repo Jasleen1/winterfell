@@ -10,6 +10,9 @@ use crate::Example;
 mod evaluator;
 use evaluator::MulFib8Evaluator;
 
+#[cfg(test)]
+mod tests;
+
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {

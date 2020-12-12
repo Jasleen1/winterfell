@@ -21,6 +21,9 @@ use trace::generate_trace;
 mod evaluator;
 use evaluator::LamportPlusEvaluator;
 
+#[cfg(test)]
+mod tests;
+
 // CONSTANTS
 // ================================================================================================
 

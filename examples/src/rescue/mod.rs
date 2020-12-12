@@ -17,6 +17,9 @@ use trace::generate_trace;
 mod evaluator;
 use evaluator::RescueEvaluator;
 
+#[cfg(test)]
+mod tests;
+
 // CONSTANTS
 // ================================================================================================
 

@@ -19,6 +19,9 @@ use trace::generate_trace;
 mod evaluator;
 use evaluator::MerkleEvaluator;
 
+#[cfg(test)]
+mod tests;
+
 // CONSTANTS
 // ================================================================================================
 
