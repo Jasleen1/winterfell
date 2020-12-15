@@ -36,14 +36,6 @@ impl VerifierContext {
     }
 
     pub fn num_fri_layers(&self) -> usize {
-        let mut result = 0;
-        let mut domain_size = self.domain_size;
-
-        while domain_size > self.options.max_remainder_length() {
-            domain_size /= self.options.folding_factor();
-            result += 1;
-        }
-
-        result
+        self.options.num_fri_layers(self.domain_size)
     }
 }

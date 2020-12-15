@@ -9,4 +9,5 @@ bench = false
 [dependencies]
 math = { path = "../math" }
 crypto = { path = "../crypto" }
+serde = { version = "1.0.117", features = ["derive"] }
 log = "0.4.11"
