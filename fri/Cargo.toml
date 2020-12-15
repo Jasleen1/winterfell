@@ -1,0 +1,12 @@
+[package]
+name = "fri"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+bench = false
+
+[dependencies]
+math = { path = "../math" }
+crypto = { path = "../crypto" }
+log = "0.4.11"
