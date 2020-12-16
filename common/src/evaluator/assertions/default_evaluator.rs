@@ -1,5 +1,5 @@
 use super::{
-    Assertion, AssertionEvaluator, ComputationContext, ConstraintDivisor, RandomGenerator,
+    Assertion, AssertionEvaluator, ComputationContext, ConstraintDivisor, RandomElementGenerator,
 };
 use crate::errors::EvaluatorError;
 use math::field::{BaseElement, FieldElement};
@@ -21,7 +21,7 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
     fn new(
         context: &ComputationContext,
         assertions: &[Assertion],
-        coeff_prng: RandomGenerator,
+        coeff_prng: RandomElementGenerator,
     ) -> Result<Self, EvaluatorError> {
         let constraint_groups = group_assertions(context, assertions, coeff_prng)?;
         Ok(DefaultAssertionEvaluator {
@@ -109,7 +109,7 @@ impl AssertionConstraintGroup {
 fn group_assertions(
     context: &ComputationContext,
     assertions: &[Assertion],
-    mut coeff_prng: RandomGenerator,
+    mut coeff_prng: RandomElementGenerator,
 ) -> Result<Vec<AssertionConstraintGroup>, EvaluatorError> {
     // use BTreeMap to make sure assertions are always grouped in consistent order
     let mut groups = BTreeMap::new();
@@ -173,8 +173,8 @@ fn group_assertions(
 #[cfg(test)]
 mod tests {
 
-    use crate::{Assertion, ComputationContext, FieldExtension, ProofOptions, RandomGenerator};
-    use crypto::hash::blake3;
+    use crate::{Assertion, ComputationContext, ProofOptions};
+    use crypto::{hash::blake3, RandomElementGenerator};
     use math::field::BaseElement;
 
     #[test]
@@ -191,7 +191,7 @@ mod tests {
                 Assertion::new(0, 4, BaseElement::new(3)),
                 Assertion::new(0, 7, BaseElement::new(5)),
             ],
-            RandomGenerator::new([0; 32], 0, blake3),
+            RandomElementGenerator::new([0; 32], 0, blake3),
         )
         .unwrap();
 

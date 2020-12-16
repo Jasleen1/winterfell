@@ -16,4 +16,4 @@ pub use evaluator::{
 };
 
 mod random;
-pub use random::{CompositionCoefficients, PublicCoin, RandomGenerator};
+pub use random::{CompositionCoefficients, PublicCoin};

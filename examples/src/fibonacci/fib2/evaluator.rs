@@ -1,7 +1,7 @@
 use prover::{
-    math::field::{BaseElement, FieldElement, FromVec},
-    ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
-    TransitionEvaluator,
+    crypto::RandomElementGenerator,
+    math::field::{BaseElement, FieldElement},
+    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 use crate::utils::are_equal;
@@ -16,7 +16,7 @@ pub struct FibEvaluator {
 impl TransitionEvaluator for FibEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
         let degrees = vec![ConstraintDegree::new(1); 2];
         FibEvaluator {
             constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),

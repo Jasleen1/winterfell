@@ -10,7 +10,7 @@ pub mod tests;
 
 pub use common::{
     proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext, ConstraintDegree,
-    ProofOptions, RandomGenerator, TransitionConstraintGroup, TransitionEvaluator,
+    ProofOptions, TransitionConstraintGroup, TransitionEvaluator,
 };
 pub use crypto;
 pub use math;

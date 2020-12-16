@@ -1,9 +1,9 @@
 use common::{
-    ComputationContext, ConstraintDegree, FieldExtension, ProofOptions, RandomGenerator,
-    TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, ProofOptions, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
-use crypto::hash::blake3;
-use math::field::{BaseElement, FieldElement, FromVec};
+use crypto::{hash::blake3, RandomElementGenerator};
+use math::field::{BaseElement, FieldElement};
 
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
@@ -47,7 +47,7 @@ pub struct FibEvaluator {
 impl TransitionEvaluator for FibEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
         let degrees = vec![ConstraintDegree::new(1); 2];
         FibEvaluator {
             constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),

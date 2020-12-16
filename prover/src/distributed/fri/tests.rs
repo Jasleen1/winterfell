@@ -2,9 +2,9 @@ use crate::{channel::ProverChannel, tests::build_proof_context};
 use common::{
     fri_utils,
     proof::{FriLayer, FriProof},
-    ComputationContext, PublicCoin, RandomGenerator,
+    ComputationContext, PublicCoin,
 };
-use crypto::{hash::blake3, MerkleTree};
+use crypto::{hash::blake3, MerkleTree, RandomElementGenerator};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
@@ -68,7 +68,7 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
     // commit phase -------------------------------------------------------------------------------
     let mut alphas = Vec::new();
     for seed in fri_roots.iter() {
-        let mut g = RandomGenerator::new(*seed, 0, blake3);
+        let mut g = RandomElementGenerator::new(*seed, 0, blake3);
         alphas.push(g.draw::<E>());
     }
 
