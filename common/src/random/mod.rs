@@ -12,19 +12,17 @@ const TRANSITION_COEFF_OFFSET: u64 = 0;
 const ASSERTION_COEFF_OFFSET: u64 = u32::MAX as u64;
 const DEEP_POINT_OFFSET: u64 = 0;
 const COMPOSITION_COEFF_OFFSET: u64 = 1024;
-const FRI_POINT_OFFSET: u64 = 0;
 
 // PUBLIC COIN
 // ================================================================================================
 
-pub trait PublicCoin {
+pub trait PublicCoin: fri::PublicCoin {
     // ABSTRACT METHODS
     // --------------------------------------------------------------------------------------------
 
     fn context(&self) -> &ComputationContext;
     fn constraint_seed(&self) -> [u8; 32];
     fn composition_seed(&self) -> [u8; 32];
-    fn fri_layer_seed(&self, layer_depth: usize) -> [u8; 32];
     fn query_seed(&self) -> [u8; 32];
 
     // PRNG BUILDERS
@@ -76,15 +74,6 @@ pub trait PublicCoin {
             self.context().options().hash_fn(),
         );
         CompositionCoefficients::new(generator, self.context().trace_width())
-    }
-
-    fn draw_fri_point<E: FieldElement>(&self, layer_depth: usize) -> E {
-        let mut generator = RandomElementGenerator::new(
-            self.fri_layer_seed(layer_depth),
-            FRI_POINT_OFFSET,
-            self.context().options().hash_fn(),
-        );
-        generator.draw()
     }
 
     /// Draws a set of unique query positions using PRNG seeded with query seed. The positions

@@ -8,24 +8,14 @@ use std::mem;
 mod context;
 pub use context::VerifierContext;
 
-// VERIFIER CHANEL TRAIT
-// ================================================================================================
-
-pub trait VerifierChannel {
-    fn read_fri_queries<E: FieldElement>(
-        &self,
-        depth: usize,
-        positions: &[usize],
-    ) -> Result<Vec<[E; 4]>, String>;
-
-    fn read_fri_remainder<E: FieldElement>(&self) -> Result<Vec<E>, String>;
-
-    fn draw_fri_point<E: FieldElement>(&self, layer_idx: usize) -> E;
-}
+mod channel;
+pub use channel::{DefaultVerifierChannel, VerifierChannel};
 
 // VERIFICATION PROCEDURE
 // ================================================================================================
 
+/// Returns OK(true) if values in the `evaluations` slice represent evaluations of a polynomial
+/// with degree <= context.max_degree() against x coordinates specified by the `positions` slice.
 pub fn verify<E, C>(
     context: &VerifierContext,
     channel: &C,
@@ -33,7 +23,7 @@ pub fn verify<E, C>(
     positions: &[usize],
 ) -> Result<bool, String>
 where
-    E: FieldElement<PositiveInteger = u128> + From<BaseElement>,
+    E: FieldElement + From<BaseElement>,
     C: VerifierChannel,
 {
     let domain_size = context.domain_size();
@@ -42,9 +32,9 @@ where
     // powers of the given root of unity 1, p, p^2, p^3 such that p^4 = 1
     let quartic_roots = [
         BaseElement::ONE,
-        BaseElement::exp(domain_root, (domain_size / 4) as u128),
-        BaseElement::exp(domain_root, (domain_size / 2) as u128),
-        BaseElement::exp(domain_root, (domain_size * 3 / 4) as u128),
+        BaseElement::exp(domain_root, (domain_size as u32 / 4).into()),
+        BaseElement::exp(domain_root, (domain_size as u32 / 2).into()),
+        BaseElement::exp(domain_root, (domain_size as u32 * 3 / 4).into()),
     ];
 
     // 1 ----- verify the recursive components of the FRI proof -----------------------------------
@@ -56,7 +46,7 @@ where
 
     for depth in 0..context.num_fri_layers() {
         let mut augmented_positions = get_augmented_positions(&positions, domain_size);
-        let layer_values = channel.read_fri_queries(depth, &augmented_positions)?;
+        let layer_values = channel.read_layer_queries(depth, &augmented_positions)?;
         let column_values =
             get_column_values(&layer_values, &positions, &augmented_positions, domain_size);
         if evaluations != column_values {
@@ -69,7 +59,7 @@ where
         // build a set of x for each row polynomial
         let mut xs = Vec::with_capacity(augmented_positions.len());
         for &i in augmented_positions.iter() {
-            let xe = BaseElement::exp(domain_root, i as u128);
+            let xe = BaseElement::exp(domain_root, (i as u32).into());
             xs.push([
                 quartic_roots[0] * xe,
                 quartic_roots[1] * xe,
@@ -81,12 +71,12 @@ where
         // interpolate x and y values into row polynomials
         let row_polys = quartic::interpolate_batch(&xs, &layer_values);
 
-        // calculate the pseudo-random x coordinate
-        let special_x = channel.draw_fri_point(depth);
+        // calculate the pseudo-random value used for linear combination in layer folding
+        let alpha = channel.draw_fri_alpha(depth);
 
-        // check that when the polynomials are evaluated at x, the result is equal to
+        // check that when the polynomials are evaluated at alpha, the result is equal to
         // the corresponding column value
-        evaluations = quartic::evaluate_batch(&row_polys, special_x);
+        evaluations = quartic::evaluate_batch(&row_polys, alpha);
 
         // update variables for the next iteration of the loop
         domain_root = BaseElement::exp(domain_root, 4);
@@ -99,7 +89,7 @@ where
 
     // read the remainder from the channel and make sure it matches with the columns
     // of the previous layer
-    let remainder = channel.read_fri_remainder::<E>()?;
+    let remainder = channel.read_remainder::<E>()?;
     for (&position, evaluation) in positions.iter().zip(evaluations) {
         if remainder[position] != evaluation {
             return Err(String::from(
@@ -118,7 +108,7 @@ where
 }
 
 /// Returns Ok(true) if values in the `remainder` slice represent evaluations of a polynomial
-/// with degree < max_degree_plus_1 against a domain specified by the `domain_root`
+/// with degree < max_degree_plus_1 against a domain specified by the `domain_root`.
 fn verify_remainder<E: FieldElement + From<BaseElement>>(
     remainder: Vec<E>,
     max_degree_plus_1: usize,

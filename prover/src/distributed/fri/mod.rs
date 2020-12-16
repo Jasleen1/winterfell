@@ -1,10 +1,9 @@
 use crate::channel::ProverChannel;
-use common::{
-    fri_utils,
-    proof::{FriLayer, FriProof},
-    ComputationContext, PublicCoin,
-};
+use common::ComputationContext;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
+use fri::{
+    utils as fri_utils, FriProof, FriProofLayer, ProverChannel as FriProverChannel, PublicCoin,
+};
 use math::{
     field::{BaseElement, FieldElement},
     quartic,
@@ -96,7 +95,7 @@ impl<E: FieldElement + From<BaseElement>> Prover<E> {
 
             // draw random coefficient from the channel and use it to perform degree-preserving
             // projections in each worker.
-            let alpha = channel.draw_fri_point::<E>(layer_depth);
+            let alpha = channel.draw_fri_alpha::<E>(layer_depth);
             self.workers.iter_mut().for_each(|w| w.apply_drp(alpha));
         }
 
@@ -188,7 +187,7 @@ fn partition<E: FieldElement>(evaluations: &[E], num_partitions: usize) -> Vec<V
     result
 }
 
-fn build_fri_layer<E: FieldElement>(queries: &mut [QueryResult<E>]) -> FriLayer {
+fn build_fri_layer<E: FieldElement>(queries: &mut [QueryResult<E>]) -> FriProofLayer {
     queries.sort_by_key(|q| q.index);
 
     let mut indexes = Vec::new();
@@ -203,7 +202,7 @@ fn build_fri_layer<E: FieldElement>(queries: &mut [QueryResult<E>]) -> FriLayer 
 
     let batch_proof = BatchMerkleProof::from_paths(&paths, &indexes);
 
-    FriLayer {
+    FriProofLayer {
         values,
         paths: batch_proof.nodes,
         depth: batch_proof.depth,

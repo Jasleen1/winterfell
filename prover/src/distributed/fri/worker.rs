@@ -1,6 +1,6 @@
 use super::FOLDING_FACTOR;
-use common::fri_utils::hash_values;
 use crypto::{HashFunction, MerkleTree};
+use fri::utils::hash_values;
 use math::{
     field::{BaseElement, FieldElement, StarkField},
     quartic,

@@ -1,10 +1,7 @@
 use crate::{channel::ProverChannel, tests::build_proof_context};
-use common::{
-    fri_utils,
-    proof::{FriLayer, FriProof},
-    ComputationContext, PublicCoin,
-};
+use common::{ComputationContext, PublicCoin};
 use crypto::{hash::blake3, MerkleTree, RandomElementGenerator};
+use fri::{utils as fri_utils, FriProof, FriProofLayer, PublicCoin as FriPublicCoin};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
@@ -39,7 +36,7 @@ fn fri_prover() {
     let orig_proof = build_proof_orig(
         &context,
         evaluations,
-        channel.fri_roots(),
+        channel.fri_layer_commitments(),
         prover.num_partitions(),
         &positions,
     );
@@ -103,7 +100,7 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
             queried_values.push(values[i][position]);
         }
 
-        layers.push(FriLayer {
+        layers.push(FriProofLayer {
             values: queried_values
                 .into_iter()
                 .map(|v| E::write_into_vec(&v))

@@ -11,5 +11,6 @@ displaydoc = "0.1.7"
 rand = "0.7.3"
 math = { path = "../math" }
 crypto = { path = "../crypto" }
+fri = { path = "../fri" }
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"

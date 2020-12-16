@@ -1,16 +1,13 @@
 use common::{
     errors::VerifierError,
-    fri_utils,
-    proof::{Commitments, FriLayer, OodEvaluationFrame, StarkProof},
+    proof::{Commitments, OodEvaluationFrame, StarkProof},
     utils::{log2, uninit_vector},
     ComputationContext, EvaluationFrame, ProofOptions, PublicCoin,
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{
-    field::{BaseElement, FieldElement},
-    quartic,
-};
+use fri::{self, VerifierChannel as FriVerifierChannel};
+use math::field::{BaseElement, FieldElement};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
@@ -26,8 +23,8 @@ pub struct VerifierChannel<E: FieldElement + From<BaseElement>> {
     trace_queries: Vec<Bytes>,
     constraint_proof: BatchMerkleProof,
     ood_frame: OodEvaluationFrame,
-    fri_proofs: Vec<BatchMerkleProof>,
-    fri_queries: Vec<Vec<Bytes>>,
+    fri_layer_proofs: Vec<BatchMerkleProof>,
+    fri_layer_queries: Vec<Vec<Bytes>>,
     fri_remainder: Bytes,
     query_seed: [u8; 32],
     _marker: PhantomData<E>,
@@ -49,10 +46,11 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
             hash_fn,
         );
 
-        // build FRI proofs ----------------------------------------------------
-        let (fri_proofs, fri_queries) = build_fri_proofs(proof.fri_proof.layers, hash_fn);
+        // parse FRI proofs ---------------------------------------------------
+        let (fri_layer_proofs, fri_layer_queries, fri_remainder) =
+            Self::parse_fri_proof(proof.fri_proof, hash_fn);
 
-        // build query seed ----------------------------------------------------
+        // build query seed ---------------------------------------------------
         let query_seed = build_query_seed(
             &proof.commitments.fri_roots,
             proof.pow_nonce,
@@ -66,9 +64,9 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
             trace_proof,
             trace_queries: queries.trace_states,
             constraint_proof: queries.constraint_proof,
-            fri_proofs,
-            fri_queries,
-            fri_remainder: proof.fri_proof.rem_values,
+            fri_layer_proofs,
+            fri_layer_queries,
+            fri_remainder,
             query_seed,
             _marker: PhantomData,
         })
@@ -140,59 +138,19 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
 
         Ok(evaluations)
     }
+}
 
-    /// Returns FRI query values at the specified positions from the FRI layer at the
-    /// specified depth. This also checks if the values are valid against the FRI layer
-    /// commitment sent by the prover.
-    pub fn read_fri_queries(
-        &self,
-        depth: usize,
-        positions: &[usize],
-    ) -> Result<Vec<[E; 4]>, String> {
-        let layer_root = self.commitments.fri_roots[depth];
-        let layer_proof = &self.fri_proofs[depth];
-        if !MerkleTree::verify_batch(
-            &layer_root,
-            &positions,
-            &layer_proof,
-            self.context.options().hash_fn(),
-        ) {
-            return Err(format!(
-                "FRI queries did not match the commitment at layer {}",
-                depth
-            ));
-        }
-
-        // convert query bytes into field elements of appropriate type
-        let mut queries = Vec::new();
-        for query_bytes in self.fri_queries[depth].iter() {
-            let mut query = [E::ZERO; 4];
-            E::read_into(query_bytes, &mut query)?;
-            queries.push(query);
-        }
-
-        Ok(queries)
+impl fri::VerifierChannel for VerifierChannel {
+    fn fri_layer_proofs(&self) -> &[BatchMerkleProof] {
+        &self.fri_layer_proofs
     }
 
-    /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
-    /// valid against the commitment sent by the prover.
-    pub fn read_fri_remainder(&self) -> Result<Vec<E>, String> {
-        // convert remainder bytes into field elements of appropriate type
-        let remainder = E::read_to_vec(&self.fri_remainder)?;
+    fn fri_layer_queries(&self) -> &[Vec<Bytes>] {
+        &self.fri_layer_queries
+    }
 
-        // build remainder Merkle tree
-        let hash_fn = self.context.options().hash_fn();
-        let remainder_values = quartic::transpose(&remainder, 1);
-        let hashed_values = fri_utils::hash_values(&remainder_values, hash_fn);
-        let remainder_tree = MerkleTree::new(hashed_values, hash_fn);
-
-        // make sure the root of the tree matches the committed root of the last layer
-        let committed_root = self.commitments.fri_roots.last().unwrap();
-        if committed_root != remainder_tree.root() {
-            return Err(String::from("FRI remainder did not match the commitment"));
-        }
-
-        Ok(remainder)
+    fn fri_remainder(&self) -> &[u8] {
+        &self.fri_remainder
     }
 }
 
@@ -211,12 +169,18 @@ impl<E: FieldElement + From<BaseElement>> PublicCoin for VerifierChannel<E> {
         self.commitments.constraint_root
     }
 
-    fn fri_layer_seed(&self, layer_depth: usize) -> [u8; 32] {
-        self.commitments.fri_roots[layer_depth]
-    }
-
     fn query_seed(&self) -> [u8; 32] {
         self.query_seed
+    }
+}
+
+impl fri::PublicCoin for VerifierChannel {
+    fn fri_layer_commitments(&self) -> &[[u8; 32]] {
+        &self.commitments.fri_roots
+    }
+
+    fn hash_fn(&self) -> HashFunction {
+        self.context.options().hash_fn()
     }
 }
 
@@ -239,31 +203,6 @@ fn build_trace_proof(
         values: hashed_states,
         depth: log2(lde_domain_size) as u8,
     }
-}
-
-fn build_fri_proofs(
-    layers: Vec<FriLayer>,
-    hash_fn: HashFunction,
-) -> (Vec<BatchMerkleProof>, Vec<Vec<Vec<u8>>>) {
-    let mut fri_queries = Vec::with_capacity(layers.len());
-    let mut fri_proofs = Vec::with_capacity(layers.len());
-    for layer in layers.into_iter() {
-        let mut hashed_values = Vec::new();
-        for value_bytes in layer.values.iter() {
-            let mut buf = [0u8; 32];
-            hash_fn(value_bytes, &mut buf);
-            hashed_values.push(buf);
-        }
-
-        fri_proofs.push(BatchMerkleProof {
-            values: hashed_values,
-            nodes: layer.paths.clone(),
-            depth: layer.depth,
-        });
-        fri_queries.push(layer.values);
-    }
-
-    (fri_proofs, fri_queries)
 }
 
 fn map_trace_to_constraint_positions(positions: &[usize]) -> Vec<usize> {

@@ -1,5 +1,6 @@
 use crate::ProofOptions;
 use crypto::BatchMerkleProof;
+use fri::FriProof;
 use serde::{Deserialize, Serialize};
 
 // CONSTANTS
@@ -44,19 +45,6 @@ pub struct Queries {
     pub trace_paths: Vec<Vec<[u8; 32]>>,
     pub trace_states: Vec<Vec<u8>>,
     pub constraint_proof: BatchMerkleProof,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct FriLayer {
-    pub values: Vec<Vec<u8>>,
-    pub paths: Vec<Vec<[u8; 32]>>,
-    pub depth: u8,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct FriProof {
-    pub layers: Vec<FriLayer>,
-    pub rem_values: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

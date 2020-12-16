@@ -1,5 +1,4 @@
 pub mod errors;
-pub mod fri_utils;
 pub mod proof;
 pub mod utils;
 

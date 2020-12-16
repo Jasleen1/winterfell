@@ -23,7 +23,7 @@ fn actor_fri() {
     let _proof = prover.build_proof(&positions);
 
     system.shutdown().expect("shutdown");
-    assert!(false);
+    //assert!(false);
 }
 
 fn build_prover_channel() -> ProverChannel {

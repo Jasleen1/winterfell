@@ -4,16 +4,14 @@ use math::{
     field::{BaseElement, FieldElement},
     quartic,
 };
-
 use std::marker::PhantomData;
 
-const FOLDING_FACTOR: usize = 4;
-const MAX_REMAINDER_LENGTH: usize = 256;
+const FOLDING_FACTOR: usize = crate::options::FOLDING_FACTOR;
 
 // TYPES AND INTERFACES
 // ================================================================================================
 
-pub struct FriProver<C: ProverChannel, E: FieldElement + From<BaseElement>> {
+pub struct FriProver<E: FieldElement + From<BaseElement>, C: ProverChannel> {
     options: FriOptions,
     layers: Vec<FriLayer<E>>,
     _marker: PhantomData<C>,
@@ -27,7 +25,7 @@ struct FriLayer<E: FieldElement + From<BaseElement>> {
 // PROVER IMPLEMENTATION
 // ================================================================================================
 
-impl<C: ProverChannel, E: FieldElement + From<BaseElement>> FriProver<C, E> {
+impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
     pub fn new(options: FriOptions) -> Self {
         FriProver {
             options,
@@ -64,7 +62,7 @@ impl<C: ProverChannel, E: FieldElement + From<BaseElement>> FriProver<C, E> {
 
             // draw a pseudo-random coefficient from the channel, and use it in degree-respecting
             // projection to reduce the degree of evaluations by 4
-            let alpha = channel.draw_fri_point::<E>(depth as usize);
+            let alpha = channel.draw_fri_alpha::<E>(depth as usize);
             evaluations = apply_drp(&transposed_evaluations, domain, depth, alpha);
 
             self.layers.push(FriLayer {
@@ -77,9 +75,9 @@ impl<C: ProverChannel, E: FieldElement + From<BaseElement>> FriProver<C, E> {
         let last_layer = &self.layers[self.layers.len() - 1];
         let remainder_length = last_layer.evaluations.len() * FOLDING_FACTOR;
         debug_assert!(
-            remainder_length <= MAX_REMAINDER_LENGTH,
+            remainder_length <= self.options.max_remainder_length(),
             "last FRI layer cannot exceed {} elements, but was {} elements",
-            MAX_REMAINDER_LENGTH,
+            self.options.max_remainder_length(),
             remainder_length
         );
     }

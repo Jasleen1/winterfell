@@ -10,3 +10,4 @@ bench = false
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
+fri = { path = "../fri" }

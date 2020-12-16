@@ -1,4 +1,5 @@
 use crypto::HashFunction;
+use fri::FriOptions;
 use serde::{Deserialize, Serialize};
 
 // TYPES AND INTERFACES
@@ -86,6 +87,10 @@ impl ProofOptions {
     /// Currently, supported hash functions are blake3 and sha3.
     pub fn hash_fn(&self) -> HashFunction {
         self.hash_fn
+    }
+
+    pub fn to_fri_options(&self) -> FriOptions {
+        FriOptions::new(self.blowup_factor(), self.hash_fn)
     }
 }
 

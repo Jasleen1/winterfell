@@ -1,5 +1,15 @@
 use crypto::HashFunction;
 
+// CONSTANTS
+// ================================================================================================
+
+// TODO: these are hard-coded for now, but in the future we should make them configurable
+pub const MAX_REMAINDER_LENGTH: usize = 256;
+pub const FOLDING_FACTOR: usize = 4;
+
+// FRI OPTIONS
+// ================================================================================================
+
 pub struct FriOptions {
     folding_factor: usize,
     max_remainder_length: usize,
@@ -8,6 +18,15 @@ pub struct FriOptions {
 }
 
 impl FriOptions {
+    pub fn new(blowup_factor: usize, hash_fn: HashFunction) -> Self {
+        FriOptions {
+            folding_factor: FOLDING_FACTOR,
+            max_remainder_length: MAX_REMAINDER_LENGTH,
+            blowup_factor,
+            hash_fn,
+        }
+    }
+
     pub fn folding_factor(&self) -> usize {
         self.folding_factor
     }

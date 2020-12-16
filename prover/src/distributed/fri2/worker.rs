@@ -1,6 +1,6 @@
 use super::messages::{ManagerMessage, QueryResult, WorkerMessage};
-use common::fri_utils::hash_values;
 use crypto::{HashFunction, MerkleTree};
+use fri::utils::hash_values;
 use kompact::prelude::*;
 use math::{
     field::{BaseElement, FieldElement, StarkField},

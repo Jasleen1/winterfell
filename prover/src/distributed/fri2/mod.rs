@@ -1,10 +1,8 @@
 use crate::channel::ProverChannel;
-use common::{
-    fri_utils,
-    proof::{FriLayer, FriProof},
-    PublicCoin,
-};
 use crypto::{hash, BatchMerkleProof, HashFunction, MerkleTree};
+use fri::{
+    utils as fri_utils, FriProof, FriProofLayer, ProverChannel as FriProverChannel, PublicCoin,
+};
 use kompact::prelude::*;
 use math::{
     field::{BaseElement, FieldElement},
@@ -86,7 +84,7 @@ impl FriProver {
 
             // draw random coefficient from the channel and use it to perform degree-respecting
             // projections in each worker.
-            let alpha = channel.draw_fri_point::<BaseElement>(layer_depth);
+            let alpha = channel.draw_fri_alpha::<BaseElement>(layer_depth);
             self.manager_ref
                 .ask(|promise| ManagerMessage::ApplyDrp(Ask::new(promise, alpha)))
                 .wait();
@@ -210,7 +208,7 @@ fn get_num_layers(
     result
 }
 
-fn build_fri_layer(queries: &mut [QueryResult]) -> FriLayer {
+fn build_fri_layer(queries: &mut [QueryResult]) -> FriProofLayer {
     queries.sort_by_key(|q| q.index);
 
     let mut indexes = Vec::new();
@@ -225,7 +223,7 @@ fn build_fri_layer(queries: &mut [QueryResult]) -> FriLayer {
 
     let batch_proof = BatchMerkleProof::from_paths(&paths, &indexes);
 
-    FriLayer {
+    FriProofLayer {
         values,
         paths: batch_proof.nodes,
         depth: batch_proof.depth,
