@@ -13,7 +13,7 @@ use std::mem;
 /// Returns OK(true) if values in the `evaluations` slice represent evaluations of a polynomial
 /// with degree <= context.deep_composition_degree() against x coordinates specified by
 /// `positions` slice
-pub fn verify<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+pub fn verify<E: FieldElement + From<BaseElement>>(
     context: &ComputationContext,
     channel: &VerifierChannel,
     evaluations: &[E],
@@ -24,11 +24,15 @@ pub fn verify<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
     let domain_root = context.generators().lde_domain;
 
     // powers of the given root of unity 1, p, p^2, p^3 such that p^4 = 1
+    let root_1_modp4: u32 = (domain_size / 4) as u32;
+    let root_2_modp4: u32 = (domain_size / 2) as u32;
+    let root_3_modp4: u32 = (domain_size * 3 / 4) as u32;
+
     let quartic_roots = [
         BaseElement::ONE,
-        BaseElement::exp(domain_root, (domain_size / 4) as u128),
-        BaseElement::exp(domain_root, (domain_size / 2) as u128),
-        BaseElement::exp(domain_root, (domain_size * 3 / 4) as u128),
+        BaseElement::exp(domain_root, root_1_modp4.into()),
+        BaseElement::exp(domain_root, root_2_modp4.into()),
+        BaseElement::exp(domain_root, root_3_modp4.into()),
     ];
 
     // 1 ----- verify the recursive components of the FRI proof -----------------------------------
@@ -53,7 +57,8 @@ pub fn verify<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
         // build a set of x for each row polynomial
         let mut xs = Vec::with_capacity(augmented_positions.len());
         for &i in augmented_positions.iter() {
-            let xe = BaseElement::exp(domain_root, i as u128);
+            let i_as_32 = i as u32;
+            let xe = BaseElement::exp(domain_root, i_as_32.into());
             xs.push([
                 quartic_roots[0] * xe,
                 quartic_roots[1] * xe,

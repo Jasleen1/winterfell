@@ -81,16 +81,18 @@ pub fn fft_in_place<E: FieldElement>(
     }
 }
 
-pub fn get_twiddles<E: FieldElement<PositiveInteger = u128>>(root: E, size: usize) -> Vec<E> {
+pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
     assert!(size.is_power_of_two());
-    assert!(E::exp(root, size as u128) == E::ONE);
+    let size_u32 = size as u32;
+    assert!(E::exp(root, size_u32.into()) == E::ONE);
     let mut twiddles = E::get_power_series(root, size / 2);
     permute(&mut twiddles);
     twiddles
 }
 
-pub fn get_inv_twiddles<E: FieldElement<PositiveInteger = u128>>(root: E, size: usize) -> Vec<E> {
-    let inv_root = E::exp(root, (size - 1) as u128);
+pub fn get_inv_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
+    let size_m1_u32 = (size - 1) as u32;
+    let inv_root = E::exp(root, size_m1_u32.into());
     get_twiddles(inv_root, size)
 }
 

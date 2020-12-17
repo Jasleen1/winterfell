@@ -58,7 +58,7 @@ fn fri_prover() {
 // ORIGINAL FRI
 // ================================================================================================
 
-fn build_proof_orig<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+fn build_proof_orig<E: FieldElement + From<BaseElement>>(
     context: &ComputationContext,
     evaluations: Vec<E>,
     fri_roots: &[[u8; 32]],
@@ -130,7 +130,7 @@ fn build_proof_orig<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>
     }
 }
 
-pub fn build_layers_orig<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+pub fn build_layers_orig<E: FieldElement + From<BaseElement>>(
     context: &ComputationContext,
     alphas: &[E],
     mut evaluations: Vec<E>,

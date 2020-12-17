@@ -148,7 +148,7 @@ pub fn evaluate_constraints_at<T: TransitionEvaluator, A: AssertionEvaluator>(
 // ================================================================================================
 
 /// TODO: add comments
-fn compose_registers<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+fn compose_registers<E: FieldElement + From<BaseElement>>(
     context: &ComputationContext,
     trace_states: &[Vec<BaseElement>],
     x_coordinates: &[BaseElement],
@@ -163,7 +163,7 @@ fn compose_registers<E: FieldElement<PositiveInteger = u128> + From<BaseElement>
 
     // TODO: this is computed in several paces; consolidate
     let composition_degree = context.deep_composition_degree();
-    let incremental_degree = (composition_degree - (context.trace_length() - 2)) as u128;
+    let incremental_degree: u32 = (composition_degree - (context.trace_length() - 2)) as u32;
 
     let mut result = Vec::with_capacity(trace_states.len());
     for (registers, &x) in trace_states.iter().zip(x_coordinates) {
@@ -183,7 +183,7 @@ fn compose_registers<E: FieldElement<PositiveInteger = u128> + From<BaseElement>
         }
 
         // raise the degree to match composition degree
-        let xp = E::exp(x, incremental_degree);
+        let xp = E::exp(x, incremental_degree.into());
         composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
 
         result.push(composition);

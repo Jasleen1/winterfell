@@ -27,9 +27,7 @@ pub fn mul_acc<E: FieldElement>(a: &mut [E], b: &[E], c: E) {
 }
 
 /// Determines degree of a polynomial implied by the provided evaluations
-pub fn infer_degree<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
-    evaluations: &[E],
-) -> usize {
+pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> usize {
     assert!(
         evaluations.len().is_power_of_two(),
         "number of evaluations must be a power of 2"
