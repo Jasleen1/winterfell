@@ -24,6 +24,9 @@ pub trait Example {
 }
 
 pub mod tests {
+    use common::Assertion;
+    use math::field::{BaseElement, FieldElement};
+
     use crate::Example;
 
     pub fn test_basic_proof_verification(
@@ -55,8 +58,18 @@ pub mod tests {
         let num_queries = this_num_queries.unwrap_or(32);
         let grinding_factor = this_grinding_factor.unwrap_or(0);
         let proof_assertions = e.prepare(size, blowup_factor, num_queries, grinding_factor);
-        let proof = e.prove(proof_assertions);
-        let fail_assertions = e.prepare(size + 1, blowup_factor, num_queries, grinding_factor);
+        let proof = e.prove(proof_assertions.clone());
+        let mut fail_assertions: Vec<Assertion> = proof_assertions;
+        let mut fail_assertions_last: Assertion = fail_assertions.pop().unwrap();
+        let mut last_val: BaseElement = fail_assertions_last.value();
+        let one_elt = BaseElement::ONE;
+        last_val = last_val + one_elt;
+        fail_assertions_last = Assertion::new(
+            fail_assertions_last.register(),
+            fail_assertions_last.step(),
+            last_val,
+        );
+        fail_assertions.push(fail_assertions_last);
         let verified = e.verify(proof, fail_assertions);
         assert!(verified.is_err());
     }
