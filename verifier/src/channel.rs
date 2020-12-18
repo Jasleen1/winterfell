@@ -19,7 +19,7 @@ use std::marker::PhantomData;
 
 type Bytes = Vec<u8>;
 
-pub struct VerifierChannel<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> {
+pub struct VerifierChannel<E: FieldElement + From<BaseElement>> {
     context: ComputationContext,
     commitments: Commitments,
     trace_proof: BatchMerkleProof,
@@ -36,7 +36,7 @@ pub struct VerifierChannel<E: FieldElement<PositiveInteger = u128> + From<BaseEl
 // VERIFIER CHANNEL IMPLEMENTATION
 // ================================================================================================
 
-impl<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> VerifierChannel<E> {
+impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
     /// Creates and returns a new verifier channel initialized from the specified `proof`.
     pub fn new(context: ComputationContext, proof: StarkProof) -> Result<Self, VerifierError> {
         // build trace proof --------------------------------------------------
@@ -198,9 +198,7 @@ impl<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> VerifierChanne
 
 // PUBLIC COIN IMPLEMENTATION
 // ================================================================================================
-impl<E: FieldElement<PositiveInteger = u128> + From<BaseElement>> PublicCoin
-    for VerifierChannel<E>
-{
+impl<E: FieldElement + From<BaseElement>> PublicCoin for VerifierChannel<E> {
     fn context(&self) -> &ComputationContext {
         &self.context
     }
