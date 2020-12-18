@@ -1,14 +1,8 @@
-use crate::channel::ProverChannel;
+use crate::{folding::quartic, utils, FriProof, FriProofLayer, ProverChannel};
 use crypto::{hash, BatchMerkleProof, HashFunction, MerkleTree};
-use fri::{
-    utils as fri_utils, FriProof, FriProofLayer, ProverChannel as FriProverChannel, PublicCoin,
-};
 use kompact::prelude::*;
-use math::{
-    field::{BaseElement, FieldElement},
-    quartic,
-};
-use std::sync::Arc;
+use math::field::{BaseElement, FieldElement};
+use std::{marker::PhantomData, sync::Arc};
 
 mod manager;
 use manager::Manager;
@@ -18,12 +12,13 @@ use messages::{ManagerMessage, QueryResult};
 
 mod worker;
 
+#[cfg(test)]
 mod tests;
 
 // FRI PROVER
 // ================================================================================================
 
-pub struct FriProver {
+pub struct FriProver<C: ProverChannel> {
     manager: Arc<Component<Manager>>,
     manager_ref: ActorRefStrong<ManagerMessage>,
     num_workers: usize,
@@ -31,9 +26,10 @@ pub struct FriProver {
     max_remainder_length: usize,
     hash_fn: HashFunction,
     request: Option<ProofRequest>,
+    _marker: PhantomData<C>,
 }
 
-impl FriProver {
+impl<C: ProverChannel> FriProver<C> {
     pub fn new(system: &KompactSystem, num_workers: usize) -> Self {
         let manager = system.create(move || Manager::new(num_workers));
         system.start(&manager);
@@ -47,6 +43,7 @@ impl FriProver {
             max_remainder_length: 256,
             hash_fn: hash::blake3,
             request: None,
+            _marker: PhantomData,
         }
     }
 
@@ -56,7 +53,7 @@ impl FriProver {
     /// to derive randomness for the subsequent application of degree-respecting projection.
     /// TODO: in a distributed context evaluations will need to be passed in as a set of data
     /// pointers (object IDs?) to data located on remote machines.
-    pub fn build_layers(&mut self, channel: &mut ProverChannel, evaluations: &[BaseElement]) {
+    pub fn build_layers(&mut self, channel: &mut C, evaluations: &[BaseElement]) {
         let domain_size = evaluations.len();
 
         // distribute evaluations
@@ -96,7 +93,7 @@ impl FriProver {
             .ask(|promise| ManagerMessage::RetrieveRemainder(Ask::new(promise, ())))
             .wait();
         let remainder_folded = quartic::transpose(&remainder, 1);
-        let remainder_hashes = fri_utils::hash_values(&remainder_folded, self.hash_fn);
+        let remainder_hashes = utils::hash_values(&remainder_folded, self.hash_fn);
         let remainder_tree = MerkleTree::new(remainder_hashes, self.hash_fn);
         channel.commit_fri_layer(*remainder_tree.root());
 

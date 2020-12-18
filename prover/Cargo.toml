@@ -12,7 +12,6 @@ crypto = { path = "../crypto" }
 common = { path = "../common" }
 fri = { path = '../fri' }
 log = "0.4.11"
-kompact = "0.10.1"
 
 [features]
 extension_field = []

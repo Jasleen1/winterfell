@@ -51,4 +51,11 @@ impl FriOptions {
         }
         result
     }
+
+    pub fn fri_remainder_length(&self, mut domain_size: usize) -> usize {
+        while domain_size > self.max_remainder_length {
+            domain_size /= self.folding_factor;
+        }
+        domain_size
+    }
 }

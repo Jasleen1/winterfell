@@ -10,4 +10,5 @@ bench = false
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 serde = { version = "1.0.117", features = ["derive"] }
+kompact = "0.10.1"
 log = "0.4.11"

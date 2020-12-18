@@ -1,13 +1,9 @@
 use super::messages::{ManagerMessage, QueryResult, WorkerMessage};
+use crate::{folding::quartic, utils::hash_values};
 use crypto::{HashFunction, MerkleTree};
-use fri::utils::hash_values;
 use kompact::prelude::*;
-use math::{
-    field::{BaseElement, FieldElement, StarkField},
-    quartic,
-};
-use std::collections::HashSet;
-use std::sync::Arc;
+use math::field::{BaseElement, FieldElement, StarkField};
+use std::{collections::HashSet, sync::Arc};
 
 // CONSTANTS
 // ================================================================================================

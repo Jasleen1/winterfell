@@ -1,13 +1,7 @@
-use crate::channel::ProverChannel;
-use common::ComputationContext;
+use crate::{folding::quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use fri::{
-    utils as fri_utils, FriProof, FriProofLayer, ProverChannel as FriProverChannel, PublicCoin,
-};
-use math::{
-    field::{BaseElement, FieldElement},
-    quartic,
-};
+use math::field::{BaseElement, FieldElement};
+use std::marker::PhantomData;
 
 mod worker;
 use worker::{QueryResult, Worker, WorkerConfig};
@@ -16,38 +10,36 @@ mod tests;
 
 // CONSTANTS
 // ================================================================================================
-const FOLDING_FACTOR: usize = ComputationContext::FRI_FOLDING_FACTOR;
+const FOLDING_FACTOR: usize = crate::options::FOLDING_FACTOR;
 
 // TYPES AND INTERFACES
 // ================================================================================================
 
-pub struct Prover<E: FieldElement + From<BaseElement>> {
+pub struct Prover<E: FieldElement + From<BaseElement>, C: ProverChannel> {
     workers: Vec<Worker<E>>,
     hash_fn: HashFunction,
     domain_size: usize,
     num_layers: usize,
     layer_trees: Vec<MerkleTree>,
+    _marker: PhantomData<C>,
 }
 
 // FRI PROVER IMPLEMENTATION
 // ================================================================================================
 
-impl<E: FieldElement + From<BaseElement>> Prover<E> {
+impl<E: FieldElement + From<BaseElement>, C: ProverChannel> Prover<E, C> {
     /// Returns a new FRI prover for the specified context and evaluations. In the actual
     /// distributed implementation evaluations will probably be provided via references to
     /// distributed data structure.
-    pub fn new(context: &ComputationContext, evaluations: &[E]) -> Self {
-        assert!(
-            context.lde_domain_size() == evaluations.len(),
-            "number of evaluations must match LDE domain size"
-        );
-        let hash_fn = context.options().hash_fn();
+    /// TODO: this is not a concurrent implementation - it needs to be converted into one
+    pub fn new(options: &FriOptions, evaluations: &[E]) -> Self {
+        let hash_fn = options.hash_fn();
         let domain_size = evaluations.len();
 
         // break up evaluations into partitions to be sent to individual workers; we set the
         // number of partitions to be equal to the length of FRI base layer (the remainder)
-        let num_layers = context.num_fri_layers();
-        let num_partitions = context.fri_remainder_length();
+        let num_layers = options.num_fri_layers(domain_size);
+        let num_partitions = options.fri_remainder_length(domain_size);
         let partitions = partition(&evaluations, num_partitions);
 
         // create workers and assign partitions to them; in the real distributed context,
@@ -70,6 +62,7 @@ impl<E: FieldElement + From<BaseElement>> Prover<E> {
             num_layers,
             hash_fn,
             layer_trees: Vec::new(),
+            _marker: PhantomData,
         }
     }
 
@@ -82,7 +75,7 @@ impl<E: FieldElement + From<BaseElement>> Prover<E> {
     /// to evaluations of some function F over a larger domain. At each layer of recursion the
     /// current evaluations are committed to using a Merkle tree, and the root of this tree is used
     /// to derive randomness for the subsequent application of degree-respecting projection.
-    pub fn build_layers(&mut self, channel: &mut ProverChannel) {
+    pub fn build_layers(&mut self, channel: &mut C) {
         for layer_depth in 0..self.num_layers {
             // commit to the current layer across all workers; we do this by first having each
             // worker commit to their current layers, and then building a Merkle tree from
@@ -106,7 +99,7 @@ impl<E: FieldElement + From<BaseElement>> Prover<E> {
             .map(|w| w.remainder())
             .collect::<Vec<_>>();
         let remainder = quartic::transpose(&remainder, 1);
-        let remainder_hashes = fri_utils::hash_values(&remainder, self.hash_fn);
+        let remainder_hashes = utils::hash_values(&remainder, self.hash_fn);
         let remainder_tree = MerkleTree::new(remainder_hashes, self.hash_fn);
         channel.commit_fri_layer(*remainder_tree.root());
     }
