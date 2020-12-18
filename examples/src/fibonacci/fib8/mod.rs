@@ -15,6 +15,9 @@ use crate::Example;
 
 mod evaluator;
 
+#[cfg(test)]
+mod tests;
+
 // FIBONACCI EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {

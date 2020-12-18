@@ -1,5 +1,5 @@
 use crate::{errors::*, ComputationContext, PublicCoin, RandomGenerator};
-use math::field::{BaseElement, FieldElement};
+use math::field::{BaseElement, FieldElement, FromVec};
 
 mod transition;
 pub use transition::{TransitionConstraintGroup, TransitionEvaluator};
@@ -125,14 +125,14 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// Evaluates transition and assertion constraints at the specified x coordinate. This
     /// method is used to evaluate constraints at an out-of-domain point. At such a point
     /// there is no `step`, and so the above method cannot be used.
-    pub fn evaluate_at_x(
+    pub fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
         &mut self,
-        current: &[BaseElement],
-        next: &[BaseElement],
-        x: BaseElement,
-    ) -> Vec<BaseElement> {
-        let mut evaluations = vec![BaseElement::ZERO; self.divisors.len()];
-        let mut t_evaluations = vec![BaseElement::ZERO; self.transition.num_constraints()];
+        current: &[E],
+        next: &[E],
+        x: E,
+    ) -> Vec<E> {
+        let mut evaluations = vec![E::ZERO; self.divisors.len()];
+        let mut t_evaluations = vec![E::ZERO; self.transition.num_constraints()];
 
         // evaluate transition constraints and merge them into a single value
         self.transition

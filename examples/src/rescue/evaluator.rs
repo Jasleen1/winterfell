@@ -1,6 +1,6 @@
 use prover::{
     math::{
-        field::{BaseElement, FieldElement},
+        field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
     ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
@@ -113,31 +113,31 @@ impl TransitionEvaluator for RescueEvaluator {
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
     /// invoked primarily during proof verification.
-    fn evaluate_at_x(
+    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
         &self,
-        result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
-        x: BaseElement,
+        result: &mut [E],
+        current: &[E],
+        next: &[E],
+        x: E,
     ) {
         // map x to the corresponding coordinate in constant cycles
         let num_cycles = (self.trace_length / CYCLE_LENGTH) as u128;
-        let x = BaseElement::exp(x, num_cycles);
+        let x = E::exp(x, num_cycles);
 
         // determine round constants at the specified x coordinate; we do this by
         // evaluating polynomials for round constants the augmented x coordinate
-        let mut ark = [BaseElement::ZERO; 2 * STATE_WIDTH];
+        let mut ark = [E::ZERO; 2 * STATE_WIDTH];
         for (i, poly) in self.ark_polys.iter().enumerate() {
-            ark[i] = polynom::eval(poly, x);
+            ark[i] = polynom::eval(&E::from_vec(poly), x);
         }
 
         // when hash_flag = 1, constraints for Rescue round are enforced
-        let hash_flag = polynom::eval(&self.mask_poly, x);
+        let hash_flag = polynom::eval(&E::from_vec(&self.mask_poly), x);
         rescue::enforce_round(result, current, next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
-        let copy_flag = BaseElement::ONE - hash_flag;
+        let copy_flag = E::ONE - hash_flag;
         enforce_hash_copy(result, current, next, copy_flag);
     }
 
@@ -156,12 +156,7 @@ impl TransitionEvaluator for RescueEvaluator {
 /// when flag = 1, enforces that the next state of the computation is defined like so:
 /// - the first two registers are equal to the values from the previous step
 /// - the other two registers are equal to 0
-fn enforce_hash_copy(
-    result: &mut [BaseElement],
-    current: &[BaseElement],
-    next: &[BaseElement],
-    flag: BaseElement,
-) {
+fn enforce_hash_copy<E: FieldElement>(result: &mut [E], current: &[E], next: &[E], flag: E) {
     result.agg_constraint(0, flag, are_equal(current[0], next[0]));
     result.agg_constraint(1, flag, are_equal(current[1], next[1]));
     result.agg_constraint(2, flag, is_zero(next[2]));

@@ -9,41 +9,41 @@ pub mod rescue;
 // CONSTRAINT EVALUATION HELPERS
 // ================================================================================================
 
-pub fn are_equal(a: BaseElement, b: BaseElement) -> BaseElement {
+pub fn are_equal<E: FieldElement>(a: E, b: E) -> E {
     a - b
 }
 
-pub fn is_zero(a: BaseElement) -> BaseElement {
+pub fn is_zero<E: FieldElement>(a: E) -> E {
     a
 }
 
-pub fn is_binary(a: BaseElement) -> BaseElement {
+pub fn is_binary<E: FieldElement>(a: E) -> E {
     a * a - a
 }
 
-pub fn not(a: BaseElement) -> BaseElement {
-    BaseElement::ONE - a
+pub fn not<E: FieldElement>(a: E) -> E {
+    E::ONE - a
 }
 
-pub fn when(a: BaseElement, b: BaseElement) -> BaseElement {
+pub fn when<E: FieldElement>(a: E, b: E) -> E {
     a * b
 }
 
 // TRAIT TO SIMPLIFY CONSTRAINT AGGREGATION
 // ================================================================================================
 
-pub trait EvaluationResult {
-    fn agg_constraint(&mut self, index: usize, flag: BaseElement, value: BaseElement);
+pub trait EvaluationResult<E> {
+    fn agg_constraint(&mut self, index: usize, flag: E, value: E);
 }
 
-impl EvaluationResult for [BaseElement] {
-    fn agg_constraint(&mut self, index: usize, flag: BaseElement, value: BaseElement) {
+impl<E: FieldElement> EvaluationResult<E> for [E] {
+    fn agg_constraint(&mut self, index: usize, flag: E, value: E) {
         self[index] = self[index] + flag * value;
     }
 }
 
-impl EvaluationResult for Vec<BaseElement> {
-    fn agg_constraint(&mut self, index: usize, flag: BaseElement, value: BaseElement) {
+impl<E: FieldElement> EvaluationResult<E> for Vec<E> {
+    fn agg_constraint(&mut self, index: usize, flag: E, value: E) {
         self[index] = self[index] + flag * value;
     }
 }

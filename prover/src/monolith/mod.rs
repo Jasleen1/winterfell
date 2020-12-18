@@ -1,17 +1,17 @@
 use common::{
     errors::ProverError, proof::StarkProof, utils::log2, Assertion, AssertionEvaluator,
-    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, ProofOptions, PublicCoin,
-    TransitionEvaluator,
+    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, FieldExtension,
+    ProofOptions, PublicCoin, TransitionEvaluator,
 };
 use log::debug;
 use math::field::BaseElement;
 #[cfg(feature = "extension_field")]
-use math::field::ExtensionElement;
+use math::field::QuadExtension;
 use std::marker::PhantomData;
 use std::time::Instant;
 
 mod types;
-use types::{CompositionPoly, TraceTable};
+use types::{CompositionPoly, ConstraintEvaluationTable, TraceTable};
 
 mod trace;
 use trace::{build_lde_domain, build_trace_tree, extend_trace, query_trace};
@@ -31,6 +31,13 @@ mod utils;
 
 #[cfg(test)]
 mod tests;
+
+// CONSTANTS
+// ================================================================================================
+#[cfg(not(feature = "extension_field"))]
+const FIELD_EXTENSION: FieldExtension = FieldExtension::None;
+#[cfg(feature = "extension_field")]
+const FIELD_EXTENSION: FieldExtension = FieldExtension::Quadratic;
 
 // PROVER
 // ================================================================================================
@@ -68,6 +75,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
             trace.num_registers(),
             trace.num_states(),
             T::get_ce_blowup_factor(),
+            FIELD_EXTENSION,
             self.options.clone(),
         );
 
@@ -120,7 +128,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
-        let constraint_evaluations =
+        let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
             evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
         debug!(
             "Evaluated constraints over domain of 2^{} elements in {} ms",
@@ -174,7 +182,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let z = channel.draw_deep_point::<BaseElement>();
 
         #[cfg(feature = "extension_field")]
-        let z = channel.draw_deep_point::<ExtensionElement<BaseElement>>();
+        let z = channel.draw_deep_point::<QuadExtension<BaseElement>>();
 
         // allocate memory for the composition polynomial; this will allocate enough memory to
         // hold composition polynomial evaluations over the LDE domain (done in the next step)

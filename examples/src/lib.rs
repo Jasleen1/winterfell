@@ -8,6 +8,9 @@ pub mod merkle;
 pub mod rescue;
 pub mod utils;
 
+#[cfg(test)]
+mod tests;
+
 // TYPES AND INTERFACES
 // ================================================================================================
 

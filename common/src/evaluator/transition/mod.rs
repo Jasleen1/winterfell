@@ -1,5 +1,5 @@
 use super::{ComputationContext, ConstraintDegree, RandomGenerator};
-use math::field::{BaseElement, FieldElement};
+use math::field::{BaseElement, FieldElement, FromVec};
 use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT
@@ -25,12 +25,12 @@ pub trait TransitionEvaluator {
     /// Evaluates transition constraints at the specified `x` coordinate, which could be in or out
     /// of evaluation domain. The evaluations are saved into the `results` slice. This method is
     /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
-    fn evaluate_at_x(
+    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
         &self,
-        result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
-        x: BaseElement,
+        result: &mut [E],
+        current: &[E],
+        next: &[E],
+        x: E,
     );
 
     /// Returns constraints grouped by their degree.
@@ -66,23 +66,27 @@ pub trait TransitionEvaluator {
     /// Merges all transition constraint evaluations into a single value; we can do this
     /// because all transition constraint evaluations have the same divisor, and this
     /// divisor will be applied later to this single value.
-    fn merge_evaluations(&self, evaluations: &[BaseElement], x: BaseElement) -> BaseElement {
-        let mut result = BaseElement::ZERO;
+    fn merge_evaluations<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+        &self,
+        evaluations: &[E],
+        x: E,
+    ) -> E {
+        let mut result = E::ZERO;
 
         for group in self.constraint_groups() {
             // for each group of constraints with the same degree, separately compute
             // combinations of D(x) and D(x) * x^p
-            let mut result_adj = BaseElement::ZERO;
+            let mut result_adj = E::ZERO;
             for (&constraint_idx, coefficients) in
                 group.indexes.iter().zip(group.coefficients.iter())
             {
                 let evaluation = evaluations[constraint_idx];
-                result = result + evaluation * coefficients.0;
-                result_adj = result_adj + evaluation * coefficients.1;
+                result = result + evaluation * E::from(coefficients.0);
+                result_adj = result_adj + evaluation * E::from(coefficients.1);
             }
 
             // increase the degree of D(x) * x^p
-            let xp = BaseElement::exp(x, group.degree_adjustment);
+            let xp = E::exp(x, group.degree_adjustment);
             result = result + result_adj * xp;
         }
 

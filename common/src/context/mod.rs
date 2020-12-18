@@ -10,7 +10,15 @@ pub struct ComputationContext {
     trace_width: usize,
     trace_length: usize,
     ce_blowup_factor: usize,
+    field_extension: FieldExtension,
     generators: Generators,
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone)]
+pub enum FieldExtension {
+    None = 1,
+    Quadratic = 2,
 }
 
 #[derive(Clone)]
@@ -37,6 +45,7 @@ impl ComputationContext {
         trace_width: usize,
         trace_length: usize,
         ce_blowup_factor: usize,
+        field_extension: FieldExtension,
         options: ProofOptions,
     ) -> Self {
         assert!(
@@ -73,6 +82,7 @@ impl ComputationContext {
             trace_width,
             trace_length,
             ce_blowup_factor,
+            field_extension,
             generators,
         }
     }
@@ -136,6 +146,10 @@ impl ComputationContext {
             domain_size /= Self::FRI_FOLDING_FACTOR;
         }
         domain_size
+    }
+
+    pub fn field_extension(&self) -> FieldExtension {
+        self.field_extension
     }
 
     pub fn options(&self) -> &ProofOptions {

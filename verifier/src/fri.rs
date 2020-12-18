@@ -15,7 +15,7 @@ use std::mem;
 /// `positions` slice
 pub fn verify<E: FieldElement + From<BaseElement>>(
     context: &ComputationContext,
-    channel: &VerifierChannel,
+    channel: &VerifierChannel<E>,
     evaluations: &[E],
     positions: &[usize],
 ) -> Result<bool, String> {
@@ -88,7 +88,7 @@ pub fn verify<E: FieldElement + From<BaseElement>>(
 
     // read the remainder from the channel and make sure it matches with the columns
     // of the previous layer
-    let remainder = channel.read_fri_remainder::<E>()?;
+    let remainder = channel.read_fri_remainder()?;
     for (&position, evaluation) in positions.iter().zip(evaluations) {
         if remainder[position] != evaluation {
             return Err(String::from(

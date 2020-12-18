@@ -4,7 +4,7 @@ pub mod proof;
 pub mod utils;
 
 mod context;
-pub use context::ComputationContext;
+pub use context::{ComputationContext, FieldExtension};
 
 mod options;
 pub use options::ProofOptions;

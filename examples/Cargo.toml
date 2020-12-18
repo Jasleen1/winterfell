@@ -21,6 +21,7 @@ serde = { version = "1.0.117", features = ["derive"] }
 common = { path = "../common" }
 prover = { path = "../prover" }
 verifier = { path = "../verifier" }
+math = { path = "../math" }
 
 [dev-dependencies]
 criterion = "0.3.3"

@@ -44,6 +44,8 @@ pub enum VerifierError {
     QuerySeedProofOfWorkVerificationFailed,
     /// Out-of-domain frame deserialization failed
     OodFrameDeserializationFailed,
+    /// Computation context deserialization failed
+    ComputationContextDeserializationFailed,
 }
 
 /// Represents an error thrown during evaluation
