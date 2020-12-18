@@ -34,7 +34,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
     /// Executes commit phase of FRI protocol which recursively applies a degree-respecting projection
     /// to evaluations of some function F over a larger domain. The degree of the function implied
     /// but evaluations is reduced by FOLDING_FACTOR at every step until the remaining evaluations
-    /// can fit into a vector of at most MAX_REMAINDER_LENGTH. At each layer of recursion the
+    /// can fit into a vector of at most max_remainder_length. At each layer of recursion the
     /// current evaluations are committed to using a Merkle tree, and the root of this tree is used
     /// to derive randomness for the subsequent application of degree-respecting projection.
     pub fn build_layers(
@@ -43,6 +43,15 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
         mut evaluations: Vec<E>,
         domain: &[BaseElement],
     ) {
+        assert!(
+            evaluations.len() == domain.len(),
+            "number of evaluations must match the domain size"
+        );
+        assert!(
+            self.layers.is_empty(),
+            "a prior proof generation request has not been completed yet"
+        );
+
         let hash_fn = self.options.hash_fn();
 
         // reduce the degree by 4 at each iteration until the remaining polynomial is small enough;
@@ -82,7 +91,11 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
     /// Executes query phase of FRI protocol. For each of the provided `positions`, corresponding
     /// evaluations from each of the layers are recorded into the proof together with Merkle
     /// authentication paths from the root of layer commitment trees.
-    pub fn build_proof(&self, positions: &[usize]) -> FriProof {
+    pub fn build_proof(&mut self, positions: &[usize]) -> FriProof {
+        assert!(
+            !self.layers.is_empty(),
+            "FRI layers have not been built yet"
+        );
         let mut positions = positions.to_vec();
         let mut domain_size = self.layers[0].evaluations.len() * FOLDING_FACTOR;
 
@@ -122,10 +135,23 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
             remainder[i + n * 3] = last_values[i][3];
         }
 
+        // clear layers so that another proof can be generated
+        self.reset();
+
         FriProof {
             layers,
             rem_values: E::write_into_vec(&remainder),
         }
+    }
+
+    /// Returns number of FRI layers computed during the last execution of build_layers() method
+    pub fn num_layers(&self) -> usize {
+        self.layers.len()
+    }
+
+    /// Clears a vector of internally stored layers.
+    pub fn reset(&mut self) {
+        self.layers.clear();
     }
 }
 

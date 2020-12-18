@@ -26,6 +26,10 @@ where
     E: FieldElement + From<BaseElement>,
     C: VerifierChannel,
 {
+    assert!(
+        evaluations.len() == positions.len(),
+        "number of positions must match the number of evaluations"
+    );
     let domain_size = context.domain_size();
     let domain_root = context.domain_root();
 

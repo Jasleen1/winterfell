@@ -223,7 +223,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         fri_prover.build_layers(&mut channel, composed_evaluations, &lde_domain.values());
         debug!(
             "Computed {} FRI layers from composition polynomial evaluations in {} ms",
-            0, //TODO: fri_trees.len(),
+            fri_prover.num_layers(),
             now.elapsed().as_millis()
         );
 
