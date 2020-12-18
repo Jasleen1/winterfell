@@ -24,7 +24,7 @@ pub fn verify<E, C>(
 ) -> Result<bool, String>
 where
     E: FieldElement + From<BaseElement>,
-    C: VerifierChannel,
+    C: VerifierChannel<E>,
 {
     assert!(
         evaluations.len() == positions.len(),
@@ -93,7 +93,7 @@ where
 
     // read the remainder from the channel and make sure it matches with the columns
     // of the previous layer
-    let remainder = channel.read_remainder::<E>()?;
+    let remainder = channel.read_remainder()?;
     for (&position, evaluation) in positions.iter().zip(evaluations) {
         if remainder[position] != evaluation {
             return Err(String::from(

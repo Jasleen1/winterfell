@@ -1,9 +1,9 @@
 use common::{
-    ComputationContext, ConstraintDegree, ProofOptions, TransitionConstraintGroup,
+    ComputationContext, ConstraintDegree, FieldExtension, ProofOptions, TransitionConstraintGroup,
     TransitionEvaluator,
 };
 use crypto::{hash::blake3, RandomElementGenerator};
-use math::field::{BaseElement, FieldElement};
+use math::field::{BaseElement, FieldElement, FromVec};
 
 // FIBONACCI TRACE BUILDER
 // ================================================================================================

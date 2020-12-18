@@ -1,17 +1,18 @@
 use crate::{folding::quartic, utils, FriOptions, FriProof, PublicCoin};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::field::FieldElement;
+use std::marker::PhantomData;
 
 type Bytes = Vec<u8>;
 
 // VERIFIER CHANNEL TRAIT
 // ================================================================================================
 
-pub trait VerifierChannel: PublicCoin {
+pub trait VerifierChannel<E: FieldElement>: PublicCoin {
     /// Returns FRI query values at the specified positions from the FRI layer at the
     /// specified index. This also checks if the values are valid against the FRI layer
     /// commitment sent by the prover.
-    fn read_layer_queries<E: FieldElement>(
+    fn read_layer_queries(
         &self,
         layer_idx: usize,
         positions: &[usize],
@@ -38,7 +39,7 @@ pub trait VerifierChannel: PublicCoin {
 
     /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
     /// valid against the commitment sent by the prover.
-    fn read_remainder<E: FieldElement>(&self) -> Result<Vec<E>, String> {
+    fn read_remainder(&self) -> Result<Vec<E>, String> {
         // convert remainder bytes into field elements of appropriate type
         let remainder = E::read_to_vec(&self.fri_remainder())?;
 
@@ -91,15 +92,16 @@ pub trait VerifierChannel: PublicCoin {
 // DEFAULT VERIFIER CHANNEL IMPLEMENTATION
 // ================================================================================================
 
-pub struct DefaultVerifierChannel {
+pub struct DefaultVerifierChannel<E: FieldElement> {
     commitments: Vec<[u8; 32]>,
     proofs: Vec<BatchMerkleProof>,
     queries: Vec<Vec<Bytes>>,
     remainder: Bytes,
     hash_fn: HashFunction,
+    _marker: PhantomData<E>,
 }
 
-impl DefaultVerifierChannel {
+impl<E: FieldElement> DefaultVerifierChannel<E> {
     /// Builds a new verifier channel from the specified parameters.
     pub fn new(proof: FriProof, commitments: Vec<[u8; 32]>, options: &FriOptions) -> Self {
         let hash_fn = options.hash_fn();
@@ -111,11 +113,12 @@ impl DefaultVerifierChannel {
             queries,
             remainder,
             hash_fn,
+            _marker: PhantomData,
         }
     }
 }
 
-impl VerifierChannel for DefaultVerifierChannel {
+impl<E: FieldElement> VerifierChannel<E> for DefaultVerifierChannel<E> {
     fn fri_layer_proofs(&self) -> &[BatchMerkleProof] {
         &self.proofs
     }
@@ -129,7 +132,7 @@ impl VerifierChannel for DefaultVerifierChannel {
     }
 }
 
-impl PublicCoin for DefaultVerifierChannel {
+impl<E: FieldElement> PublicCoin for DefaultVerifierChannel<E> {
     fn fri_layer_commitments(&self) -> &[[u8; 32]] {
         &self.commitments
     }

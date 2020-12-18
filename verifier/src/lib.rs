@@ -6,6 +6,10 @@ use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 
 mod channel;
+use channel::VerifierChannel;
+
+mod verification;
+use verification::perform_verification;
 
 // VERIFIER
 // ================================================================================================

@@ -3,11 +3,10 @@ use common::{
     ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, FieldExtension,
     ProofOptions, PublicCoin, TransitionEvaluator,
 };
-use fri::{self, FriOptions};
 use log::debug;
 use math::field::BaseElement;
 #[cfg(feature = "extension_field")]
-use math::field::ExtensionElement;
+use math::field::QuadExtension;
 use std::{marker::PhantomData, time::Instant};
 
 mod types;
@@ -219,7 +218,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // 7 ----- compute FRI layers for the composition polynomial ------------------------------
         let now = Instant::now();
-        let mut fri_prover = fri::FriProver::new(build_fri_options(&self.options));
+        let mut fri_prover = fri::FriProver::new(self.options.to_fri_options());
         fri_prover.build_layers(&mut channel, composed_evaluations, &lde_domain.values());
         debug!(
             "Computed {} FRI layers from composition polynomial evaluations in {} ms",
@@ -286,10 +285,4 @@ fn validate_assertions(trace: &TraceTable, assertions: &[Assertion]) {
             assertion
         );
     }
-}
-
-// FRI
-// ================================================================================================
-fn build_fri_options(options: &ProofOptions) -> FriOptions {
-    FriOptions::new(options.blowup_factor(), options.hash_fn())
 }

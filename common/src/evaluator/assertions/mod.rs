@@ -1,7 +1,7 @@
 use super::{ComputationContext, ConstraintDivisor};
 use crate::errors::EvaluatorError;
 use crypto::RandomElementGenerator;
-use math::field::BaseElement;
+use math::field::{BaseElement, FieldElement};
 
 mod default_evaluator;
 pub use default_evaluator::DefaultAssertionEvaluator;

@@ -1,6 +1,6 @@
 use prover::{
     crypto::RandomElementGenerator,
-    math::field::{BaseElement, FieldElement},
+    math::field::{BaseElement, FieldElement, FromVec},
     ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
 };
 

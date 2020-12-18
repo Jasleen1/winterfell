@@ -140,7 +140,7 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
     }
 }
 
-impl fri::VerifierChannel for VerifierChannel {
+impl<E: FieldElement + From<BaseElement>> fri::VerifierChannel<E> for VerifierChannel<E> {
     fn fri_layer_proofs(&self) -> &[BatchMerkleProof] {
         &self.fri_layer_proofs
     }
@@ -174,7 +174,7 @@ impl<E: FieldElement + From<BaseElement>> PublicCoin for VerifierChannel<E> {
     }
 }
 
-impl fri::PublicCoin for VerifierChannel {
+impl<E: FieldElement + From<BaseElement>> fri::PublicCoin for VerifierChannel<E> {
     fn fri_layer_commitments(&self) -> &[[u8; 32]] {
         &self.commitments.fri_roots
     }

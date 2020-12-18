@@ -1,4 +1,4 @@
-use super::{fri, VerifierChannel};
+use super::VerifierChannel;
 use common::CompositionCoefficients;
 use common::{
     errors::VerifierError, Assertion, AssertionEvaluator, ComputationContext, ConstraintEvaluator,
@@ -85,7 +85,12 @@ pub fn perform_verification<
     // 4 ----- Verify low-degree proof -------------------------------------------------------------
     // make sure that evaluations we computed in the previous step are in fact evaluations
     // of a polynomial of degree equal to context.deep_composition_degree()
-    fri::verify(context, channel, &evaluations, &query_positions)
+    let fri_context = fri::VerifierContext::new(
+        context.lde_domain_size(),
+        context.composition_degree(),
+        context.options().to_fri_options(),
+    );
+    fri::verify(&fri_context, channel, &evaluations, &query_positions)
         .map_err(VerifierError::VerificationFailed)
 }
 
