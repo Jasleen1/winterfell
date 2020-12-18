@@ -1,6 +1,6 @@
-use crate::{utils, FriOptions, FriProof, PublicCoin};
+use crate::{folding::quartic, utils, FriOptions, FriProof, PublicCoin};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{field::FieldElement, quartic};
+use math::field::FieldElement;
 
 type Bytes = Vec<u8>;
 

@@ -1,7 +1,7 @@
-use crate::utils::get_augmented_positions;
+use crate::{folding::quartic, utils::get_augmented_positions};
 use math::{
     field::{BaseElement, FieldElement},
-    polynom, quartic,
+    polynom,
 };
 use std::mem;
 

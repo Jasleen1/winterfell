@@ -1,9 +1,6 @@
-use crate::{utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
+use crate::{folding::quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
 use crypto::MerkleTree;
-use math::{
-    field::{BaseElement, FieldElement},
-    quartic,
-};
+use math::field::{BaseElement, FieldElement};
 use std::marker::PhantomData;
 
 const FOLDING_FACTOR: usize = crate::options::FOLDING_FACTOR;
