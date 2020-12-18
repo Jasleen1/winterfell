@@ -33,19 +33,14 @@ impl AssertionEvaluator for DefaultAssertionEvaluator {
         })
     }
 
-    fn evaluate<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
-        &self,
-        result: &mut [E],
-        state: &[E],
-        x: E,
-    ) {
+    fn evaluate<E: FieldElement + From<BaseElement>>(&self, result: &mut [E], state: &[E], x: E) {
         let mut degree_adjustment = self.constraint_groups[0].degree_adjustment;
-        let mut xp = E::exp(x, degree_adjustment);
+        let mut xp = E::exp(x, degree_adjustment.into());
 
         for (i, group) in self.constraint_groups.iter().enumerate() {
             if group.degree_adjustment != degree_adjustment {
                 degree_adjustment = group.degree_adjustment;
-                xp = E::exp(x, degree_adjustment);
+                xp = E::exp(x, degree_adjustment.into());
             }
             result[i] = group.evaluate(state, xp);
         }
@@ -74,7 +69,7 @@ struct AssertionConstraintGroup {
     constraints: Vec<AssertionConstraint>,
     coefficients: Vec<(BaseElement, BaseElement)>,
     divisor: ConstraintDivisor,
-    degree_adjustment: u128,
+    degree_adjustment: u32,
 }
 
 impl AssertionConstraintGroup {
@@ -84,7 +79,7 @@ impl AssertionConstraintGroup {
         // Assertion constraint degree is always deg(trace). So, the adjustment degree is simply:
         // deg(composition) + deg(divisor) - deg(trace)
         let target_degree = context.composition_degree() + divisor.degree();
-        let degree_adjustment = (target_degree - context.trace_poly_degree()) as u128;
+        let degree_adjustment = (target_degree - context.trace_poly_degree()) as u32;
 
         AssertionConstraintGroup {
             constraints: Vec::new(),

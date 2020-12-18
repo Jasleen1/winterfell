@@ -27,7 +27,7 @@ pub fn apply_round(state: &mut [BaseElement], step: usize) {
 // ================================================================================================
 
 /// when flag = 1, enforces constraints for a single round of Rescue hash functions
-pub fn enforce_round<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+pub fn enforce_round<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],
@@ -93,9 +93,9 @@ fn add_constants(state: &mut [BaseElement], ark: &[BaseElement], offset: usize) 
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-fn apply_sbox<E: FieldElement<PositiveInteger = u128>>(state: &mut [E]) {
+fn apply_sbox<E: FieldElement>(state: &mut [E]) {
     for i in 0..STATE_WIDTH {
-        state[i] = E::exp(state[i], ALPHA);
+        state[i] = E::exp(state[i], ALPHA.into());
     }
 }
 
@@ -144,7 +144,7 @@ fn apply_inv_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
 
 // RESCUE CONSTANTS
 // ================================================================================================
-const ALPHA: u128 = 3;
+const ALPHA: u32 = 3;
 const INV_ALPHA: u128 = 226854911280625642308916371969163307691;
 
 const MDS: [BaseElement; STATE_WIDTH * STATE_WIDTH] = [

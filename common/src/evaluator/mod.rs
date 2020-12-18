@@ -125,7 +125,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
     /// Evaluates transition and assertion constraints at the specified x coordinate. This
     /// method is used to evaluate constraints at an out-of-domain point. At such a point
     /// there is no `step`, and so the above method cannot be used.
-    pub fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
+    pub fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &mut self,
         current: &[E],
         next: &[E],
