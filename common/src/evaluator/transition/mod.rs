@@ -25,7 +25,7 @@ pub trait TransitionEvaluator {
     /// Evaluates transition constraints at the specified `x` coordinate, which could be in or out
     /// of evaluation domain. The evaluations are saved into the `results` slice. This method is
     /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
-    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
+    fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
         current: &[E],
@@ -66,11 +66,7 @@ pub trait TransitionEvaluator {
     /// Merges all transition constraint evaluations into a single value; we can do this
     /// because all transition constraint evaluations have the same divisor, and this
     /// divisor will be applied later to this single value.
-    fn merge_evaluations<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
-        &self,
-        evaluations: &[E],
-        x: E,
-    ) -> E {
+    fn merge_evaluations<E: FieldElement + From<BaseElement>>(&self, evaluations: &[E], x: E) -> E {
         let mut result = E::ZERO;
 
         for group in self.constraint_groups() {
@@ -86,7 +82,7 @@ pub trait TransitionEvaluator {
             }
 
             // increase the degree of D(x) * x^p
-            let xp = E::exp(x, group.degree_adjustment);
+            let xp = E::exp(x, group.degree_adjustment.into());
             result = result + result_adj * xp;
         }
 
@@ -111,7 +107,7 @@ pub trait TransitionEvaluator {
         let mut groups = HashMap::new();
         for (i, degree) in degrees.iter().enumerate() {
             let evaluation_degree = degree.get_evaluation_degree(context.trace_length());
-            let degree_adjustment = (target_degree - evaluation_degree) as u128;
+            let degree_adjustment = (target_degree - evaluation_degree) as u32;
             let group = groups
                 .entry(evaluation_degree)
                 .or_insert(TransitionConstraintGroup {
@@ -133,7 +129,7 @@ pub trait TransitionEvaluator {
 
 pub struct TransitionConstraintGroup {
     pub degree: ConstraintDegree,
-    pub degree_adjustment: u128,
+    pub degree_adjustment: u32,
     pub indexes: Vec<usize>,
     pub coefficients: Vec<(BaseElement, BaseElement)>,
 }

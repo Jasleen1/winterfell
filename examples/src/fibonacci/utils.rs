@@ -28,7 +28,6 @@ pub fn compute_mulfib_term(n: usize) -> BaseElement {
     t1
 }
 
-#[allow(clippy::unnecessary_wraps)]
 pub fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,

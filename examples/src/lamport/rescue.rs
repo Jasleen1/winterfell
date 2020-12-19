@@ -139,7 +139,7 @@ pub fn apply_round(state: &mut [BaseElement], step: usize) {
 // ================================================================================================
 
 /// when flag = 1, enforces constraints for a single round of Rescue hash functions
-pub fn enforce_round<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+pub fn enforce_round<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],
@@ -197,9 +197,9 @@ pub fn get_round_constants() -> Vec<Vec<BaseElement>> {
 
 #[inline(always)]
 #[allow(clippy::needless_range_loop)]
-fn apply_sbox<E: FieldElement<PositiveInteger = u128>>(state: &mut [E]) {
+fn apply_sbox<E: FieldElement>(state: &mut [E]) {
     for i in 0..STATE_WIDTH {
-        state[i] = E::exp(state[i], ALPHA);
+        state[i] = E::exp(state[i], ALPHA.into());
     }
 }
 
@@ -251,7 +251,7 @@ fn apply_inv_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
 
 /// S-Box and Inverse S-Box powers;
 /// computed using algorithm 6 from https://eprint.iacr.org/2020/1143.pdf
-const ALPHA: u128 = 5;
+const ALPHA: u32 = 5;
 const INV_ALPHA: u128 = 272225893536750770770699646362995969229;
 
 /// Rescue MDS matrix

@@ -36,7 +36,7 @@ impl TransitionEvaluator for MulFib2Evaluator {
         self.evaluate_at_x(result, current, next, BaseElement::ZERO)
     }
 
-    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
+    fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
         current: &[E],

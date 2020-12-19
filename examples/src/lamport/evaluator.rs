@@ -120,7 +120,7 @@ impl TransitionEvaluator for LamportPlusEvaluator {
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
     /// invoked primarily during proof verification.
-    fn evaluate_at_x<E: FieldElement<PositiveInteger = u128> + FromVec<BaseElement>>(
+    fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
         current: &[E],
@@ -128,8 +128,8 @@ impl TransitionEvaluator for LamportPlusEvaluator {
         x: E,
     ) {
         // map x to the corresponding coordinate in constant cycles
-        let num_cycles = (self.trace_length / CYCLE_LENGTH) as u128;
-        let x = E::exp(x, num_cycles);
+        let num_cycles = (self.trace_length / CYCLE_LENGTH) as u32;
+        let x = E::exp(x, num_cycles.into());
 
         // determine round constants at the specified x coordinate; we do this by
         // evaluating polynomials for round constants the augmented x coordinate
@@ -161,7 +161,7 @@ impl TransitionEvaluator for LamportPlusEvaluator {
 // ================================================================================================
 
 #[rustfmt::skip]
-fn evaluate_constraints<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
+fn evaluate_constraints<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],

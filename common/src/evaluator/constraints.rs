@@ -89,14 +89,11 @@ impl ConstraintDivisor {
         numerator_degree - denominator_degree
     }
 
-    pub fn evaluate_at<E: FieldElement<PositiveInteger = u128> + From<BaseElement>>(
-        &self,
-        x: E,
-    ) -> E {
+    pub fn evaluate_at<E: FieldElement + From<BaseElement>>(&self, x: E) -> E {
         let mut result = E::ONE;
 
         for (degree, constant) in self.numerator.iter() {
-            let v = E::exp(x, *degree as u128);
+            let v = E::exp(x, (*degree as u32).into());
             let v = v - E::from(*constant);
             result = result * v;
         }
