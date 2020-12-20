@@ -2,6 +2,7 @@ use super::messages::{ManagerMessage, QueryResult, WorkerMessage};
 use crate::{folding::quartic, utils::hash_values};
 use crypto::{HashFunction, MerkleTree};
 use kompact::prelude::*;
+use log::debug;
 use math::field::{BaseElement, FieldElement, StarkField};
 use std::{collections::HashSet, sync::Arc};
 
@@ -164,17 +165,17 @@ impl Worker {
 impl ComponentLifecycle for Worker {}
 
 impl Actor for Worker {
-    type Message = WithSender<WorkerMessage, ManagerMessage>;
+    type Message = WithSenderStrong<WorkerMessage, ManagerMessage>;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg.content() {
             WorkerMessage::Prepare(evaluations) => {
-                println!("worker {}: Prepare message received", self.config.index);
+                debug!("worker {}: Prepare message received", self.config.index);
                 self.prepare(evaluations.clone());
                 msg.reply(ManagerMessage::WorkerReady(self.config.index));
             }
             WorkerMessage::CommitToLayer => {
-                println!(
+                debug!(
                     "worker {}: CommitToLayer message received",
                     self.config.index
                 );
@@ -182,12 +183,12 @@ impl Actor for Worker {
                 msg.reply(ManagerMessage::WorkerCommit(self.config.index, result));
             }
             WorkerMessage::ApplyDrp(alpha) => {
-                println!("worker {}: ApplyDrp message received", self.config.index);
+                debug!("worker {}: ApplyDrp message received", self.config.index);
                 self.apply_drp(*alpha);
                 msg.reply(ManagerMessage::WorkerDrpComplete(self.config.index));
             }
             WorkerMessage::RetrieveRemainder => {
-                println!(
+                debug!(
                     "worker {}: RetrieveRemainder message received",
                     self.config.index
                 );
@@ -197,7 +198,7 @@ impl Actor for Worker {
                 ));
             }
             WorkerMessage::Query(positions) => {
-                println!("worker {}: Query message received", self.config.index);
+                debug!("worker {}: Query message received", self.config.index);
                 let result = self.query(positions);
                 msg.reply(ManagerMessage::WorkerQueryResult(self.config.index, result));
             }

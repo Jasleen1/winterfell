@@ -85,7 +85,7 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
 
     let mut layers = Vec::with_capacity(trees.len());
     for i in 0..(trees.len() - 1) {
-        positions = utils::get_augmented_positions(&positions, domain_size);
+        positions = get_augmented_positions(&positions, domain_size);
 
         let tree = &trees[i];
         // map positions to their equivalent in distributable FRI tree
@@ -122,6 +122,7 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
     FriProof {
         layers,
         rem_values: E::write_into_vec(&remainder),
+        partitioned: true,
     }
 }
 
@@ -208,5 +209,17 @@ fn map_positions(positions: &[usize], num_evaluations: usize, num_partitions: us
         result.push((p_idx << local_bits) | loc_p);
     }
     result.sort();
+    result
+}
+
+fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
+    let row_length = column_length / 4;
+    let mut result = Vec::new();
+    for position in positions {
+        let ap = position % row_length;
+        if !result.contains(&ap) {
+            result.push(ap);
+        }
+    }
     result
 }

@@ -4,6 +4,7 @@ use common::{
     errors::VerifierError, Assertion, AssertionEvaluator, ComputationContext, ConstraintEvaluator,
     EvaluationFrame, PublicCoin, TransitionEvaluator,
 };
+use fri::VerifierChannel as FriVerifierChannel;
 use math::field::{BaseElement, FieldElement, FromVec};
 
 // VERIFICATION PROCEDURE
@@ -88,6 +89,7 @@ pub fn perform_verification<
     let fri_context = fri::VerifierContext::new(
         context.lde_domain_size(),
         context.composition_degree(),
+        channel.num_fri_partitions(),
         context.options().to_fri_options(),
     );
     fri::verify(&fri_context, channel, &evaluations, &query_positions)

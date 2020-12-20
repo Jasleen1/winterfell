@@ -11,4 +11,5 @@ pub struct FriProofLayer {
 pub struct FriProof {
     pub layers: Vec<FriProofLayer>,
     pub rem_values: Vec<u8>,
+    pub partitioned: bool,
 }

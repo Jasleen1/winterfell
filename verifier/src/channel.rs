@@ -26,6 +26,7 @@ pub struct VerifierChannel<E: FieldElement + From<BaseElement>> {
     fri_layer_proofs: Vec<BatchMerkleProof>,
     fri_layer_queries: Vec<Vec<Bytes>>,
     fri_remainder: Bytes,
+    fri_partitioned: bool,
     query_seed: [u8; 32],
     _marker: PhantomData<E>,
 }
@@ -47,6 +48,7 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
         );
 
         // parse FRI proofs ---------------------------------------------------
+        let fri_partitioned = proof.fri_proof.partitioned;
         let (fri_layer_proofs, fri_layer_queries, fri_remainder) =
             Self::parse_fri_proof(proof.fri_proof, hash_fn);
 
@@ -67,6 +69,7 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
             fri_layer_proofs,
             fri_layer_queries,
             fri_remainder,
+            fri_partitioned,
             query_seed,
             _marker: PhantomData,
         })
@@ -151,6 +154,10 @@ impl<E: FieldElement + From<BaseElement>> fri::VerifierChannel<E> for VerifierCh
 
     fn fri_remainder(&self) -> &[u8] {
         &self.fri_remainder
+    }
+
+    fn fri_partitioned(&self) -> bool {
+        self.fri_partitioned
     }
 }
 

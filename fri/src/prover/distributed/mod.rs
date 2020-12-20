@@ -1,8 +1,8 @@
-use crate::{folding::quartic, utils, FriProof, FriProofLayer, ProverChannel};
-use crypto::{hash, BatchMerkleProof, HashFunction, MerkleTree};
+use crate::{folding::quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
+use crypto::{BatchMerkleProof, MerkleTree};
 use kompact::prelude::*;
 use math::field::{BaseElement, FieldElement};
-use std::{marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc};
 
 mod manager;
 use manager::Manager;
@@ -19,18 +19,16 @@ mod tests;
 // ================================================================================================
 
 pub struct FriProver<C: ProverChannel> {
+    options: FriOptions,
     manager: Arc<Component<Manager>>,
     manager_ref: ActorRefStrong<ManagerMessage>,
     num_workers: usize,
-    folding_factor: usize,
-    max_remainder_length: usize,
-    hash_fn: HashFunction,
     request: Option<ProofRequest>,
     _marker: PhantomData<C>,
 }
 
 impl<C: ProverChannel> FriProver<C> {
-    pub fn new(system: &KompactSystem, num_workers: usize) -> Self {
+    pub fn new(system: &KompactSystem, options: FriOptions, num_workers: usize) -> Self {
         let manager = system.create(move || Manager::new(num_workers));
         system.start(&manager);
         let manager_ref = manager.actor_ref().hold().expect("live");
@@ -39,9 +37,7 @@ impl<C: ProverChannel> FriProver<C> {
             manager,
             manager_ref,
             num_workers,
-            folding_factor: 4,
-            max_remainder_length: 256,
-            hash_fn: hash::blake3,
+            options,
             request: None,
             _marker: PhantomData,
         }
@@ -55,6 +51,7 @@ impl<C: ProverChannel> FriProver<C> {
     /// pointers (object IDs?) to data located on remote machines.
     pub fn build_layers(&mut self, channel: &mut C, evaluations: &[BaseElement]) {
         let domain_size = evaluations.len();
+        let hash_fn = self.options.hash_fn();
 
         // distribute evaluations
         let evaluations = Arc::new(evaluations.to_vec());
@@ -63,8 +60,7 @@ impl<C: ProverChannel> FriProver<C> {
             .wait();
 
         // determine number of layers
-        let num_layers =
-            get_num_layers(domain_size, self.folding_factor, self.max_remainder_length);
+        let num_layers = self.options.num_fri_layers(domain_size);
 
         let mut layer_trees = Vec::new();
         for layer_depth in 0..num_layers {
@@ -75,7 +71,7 @@ impl<C: ProverChannel> FriProver<C> {
                 .manager_ref
                 .ask(|promise| ManagerMessage::CommitToLayer(Ask::new(promise, ())))
                 .wait();
-            let layer_tree = MerkleTree::new(worker_commitments, self.hash_fn);
+            let layer_tree = MerkleTree::new(worker_commitments, hash_fn);
             channel.commit_fri_layer(*layer_tree.root());
             layer_trees.push(layer_tree);
 
@@ -93,14 +89,14 @@ impl<C: ProverChannel> FriProver<C> {
             .ask(|promise| ManagerMessage::RetrieveRemainder(Ask::new(promise, ())))
             .wait();
         let remainder_folded = quartic::transpose(&remainder, 1);
-        let remainder_hashes = utils::hash_values(&remainder_folded, self.hash_fn);
-        let remainder_tree = MerkleTree::new(remainder_hashes, self.hash_fn);
+        let remainder_hashes = utils::hash_values(&remainder_folded, hash_fn);
+        let remainder_tree = MerkleTree::new(remainder_hashes, hash_fn);
         channel.commit_fri_layer(*remainder_tree.root());
 
         // build and set active request
         self.request = Some(ProofRequest {
             domain_size,
-            folding_factor: self.folding_factor,
+            folding_factor: self.options.folding_factor(),
             num_partitions: self.num_workers,
             layer_trees,
             remainder,
@@ -149,14 +145,27 @@ impl<C: ProverChannel> FriProver<C> {
         }
 
         // build FRI layers from the queries
-        let layers = queries
-            .into_iter()
-            .map(|mut q| build_fri_layer(&mut q))
-            .collect();
+        let folding_factor = request.folding_factor;
+        let num_partitions = self.num_workers;
+        let mut positions = positions.to_vec();
+        let mut domain_size = request.domain_size;
+        let mut layers = Vec::new();
+        for mut layer_queries in queries {
+            positions = utils::fold_positions(&positions, domain_size, folding_factor);
+            let indexes = utils::map_positions_to_indexes(
+                &positions,
+                domain_size,
+                folding_factor,
+                num_partitions,
+            );
+            layers.push(build_fri_layer(&mut layer_queries, indexes));
+            domain_size /= request.folding_factor;
+        }
 
         FriProof {
             layers,
             rem_values: BaseElement::write_into_vec(&request.remainder),
+            partitioned: true,
         }
     }
 }
@@ -192,21 +201,20 @@ impl ProofRequest {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn get_num_layers(
-    mut domain_size: usize,
-    folding_factor: usize,
-    max_remainder_length: usize,
-) -> usize {
-    let mut result = 0;
-    while domain_size > max_remainder_length {
-        domain_size /= folding_factor;
-        result += 1;
-    }
-    result
-}
 
-fn build_fri_layer(queries: &mut [QueryResult]) -> FriProofLayer {
-    queries.sort_by_key(|q| q.index);
+fn build_fri_layer(queries: &mut [QueryResult], indexes: Vec<usize>) -> FriProofLayer {
+    // make sure queries are sorted in exact same way as indexes
+    let mut index_order_map = HashMap::new();
+    for (i, index) in indexes.into_iter().enumerate() {
+        index_order_map.insert(index, i);
+    }
+    queries.sort_by(|a, b| {
+        index_order_map
+            .get(&a.index)
+            .unwrap()
+            .partial_cmp(index_order_map.get(&b.index).unwrap())
+            .unwrap()
+    });
 
     let mut indexes = Vec::new();
     let mut paths = Vec::new();

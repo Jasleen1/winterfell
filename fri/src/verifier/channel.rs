@@ -84,9 +84,18 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
         (fri_proofs, fri_queries, proof.rem_values)
     }
 
+    fn num_fri_partitions(&self) -> usize {
+        if self.fri_partitioned() {
+            self.fri_remainder().len() / E::ELEMENT_BYTES
+        } else {
+            1
+        }
+    }
+
     fn fri_layer_proofs(&self) -> &[BatchMerkleProof];
     fn fri_layer_queries(&self) -> &[Vec<Bytes>];
     fn fri_remainder(&self) -> &[u8];
+    fn fri_partitioned(&self) -> bool;
 }
 
 // DEFAULT VERIFIER CHANNEL IMPLEMENTATION
@@ -97,6 +106,7 @@ pub struct DefaultVerifierChannel<E: FieldElement> {
     proofs: Vec<BatchMerkleProof>,
     queries: Vec<Vec<Bytes>>,
     remainder: Bytes,
+    partitioned: bool,
     hash_fn: HashFunction,
     _marker: PhantomData<E>,
 }
@@ -105,6 +115,7 @@ impl<E: FieldElement> DefaultVerifierChannel<E> {
     /// Builds a new verifier channel from the specified parameters.
     pub fn new(proof: FriProof, commitments: Vec<[u8; 32]>, options: &FriOptions) -> Self {
         let hash_fn = options.hash_fn();
+        let partitioned = proof.partitioned;
         let (proofs, queries, remainder) = Self::parse_fri_proof(proof, hash_fn);
 
         DefaultVerifierChannel {
@@ -112,6 +123,7 @@ impl<E: FieldElement> DefaultVerifierChannel<E> {
             proofs,
             queries,
             remainder,
+            partitioned,
             hash_fn,
             _marker: PhantomData,
         }
@@ -129,6 +141,10 @@ impl<E: FieldElement> VerifierChannel<E> for DefaultVerifierChannel<E> {
 
     fn fri_remainder(&self) -> &[u8] {
         &self.remainder
+    }
+
+    fn fri_partitioned(&self) -> bool {
+        self.partitioned
     }
 }
 

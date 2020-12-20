@@ -1,4 +1,5 @@
 use kompact::prelude::*;
+use log::debug;
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
@@ -15,7 +16,7 @@ use math::field::BaseElement;
 pub struct Manager {
     ctx: ComponentContext<Self>,
     workers: Vec<Arc<Component<Worker>>>,
-    worker_refs: Vec<ActorRefStrong<WithSender<WorkerMessage, ManagerMessage>>>,
+    worker_refs: Vec<ActorRefStrong<WithSenderStrong<WorkerMessage, ManagerMessage>>>,
     num_workers: usize,
     request: ManagerRequest,
 }
@@ -38,7 +39,7 @@ impl Manager {
     // --------------------------------------------------------------------------------------------
 
     fn handle_distribute_evaluations(&mut self, msg: Ask<Arc<Vec<BaseElement>>, ()>) {
-        println!(
+        debug!(
             "manager: received DistributeEvaluations message with {} evaluations",
             msg.request().len()
         );
@@ -51,7 +52,7 @@ impl Manager {
                 };
                 for worker in self.worker_refs.iter() {
                     let msg = WorkerMessage::Prepare(evaluations.clone());
-                    worker.tell(WithSender::from(msg, self));
+                    worker.tell(WithSenderStrong::from(msg, self));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -59,7 +60,7 @@ impl Manager {
     }
 
     fn handle_worker_ready(&mut self, worker_idx: usize) {
-        println!(
+        debug!(
             "manager: received WorkerReady message from worker {}",
             worker_idx
         );
@@ -82,7 +83,7 @@ impl Manager {
     // --------------------------------------------------------------------------------------------
 
     fn handle_commit_to_layer(&mut self, msg: Ask<(), Vec<[u8; 32]>>) {
-        println!("manager: received CommitToLayer message");
+        debug!("manager: received CommitToLayer message");
         match self.request {
             ManagerRequest::None => {
                 self.request = ManagerRequest::CommitToLayer {
@@ -90,7 +91,7 @@ impl Manager {
                     worker_commitments: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
-                    worker.tell(WithSender::from(WorkerMessage::CommitToLayer, self));
+                    worker.tell(WithSenderStrong::from(WorkerMessage::CommitToLayer, self));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -98,7 +99,7 @@ impl Manager {
     }
 
     fn handle_worker_commit(&mut self, worker_idx: usize, commitment: [u8; 32]) {
-        println!(
+        debug!(
             "manager: received WorkerCommit message from worker {}",
             worker_idx
         );
@@ -123,7 +124,7 @@ impl Manager {
     // --------------------------------------------------------------------------------------------
 
     fn handle_apply_drp(&mut self, msg: Ask<BaseElement, ()>) {
-        println!("manager: received ApplyDrp message");
+        debug!("manager: received ApplyDrp message");
         match self.request {
             ManagerRequest::None => {
                 let alpha = *msg.request();
@@ -132,7 +133,7 @@ impl Manager {
                     worker_replies: HashSet::new(),
                 };
                 for worker in self.worker_refs.iter() {
-                    worker.tell(WithSender::from(WorkerMessage::ApplyDrp(alpha), self));
+                    worker.tell(WithSenderStrong::from(WorkerMessage::ApplyDrp(alpha), self));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -140,7 +141,7 @@ impl Manager {
     }
 
     fn handle_worker_drp_complete(&mut self, worker_idx: usize) {
-        println!(
+        debug!(
             "manager: received WorkerDrpComplete message from worker {}",
             worker_idx
         );
@@ -162,7 +163,7 @@ impl Manager {
     // RETRIEVE REMAINDER WORKFLOW
     // --------------------------------------------------------------------------------------------
     fn handle_retrieve_remainder(&mut self, msg: Ask<(), Vec<BaseElement>>) {
-        println!("manager: received RetrieveRemainder message");
+        debug!("manager: received RetrieveRemainder message");
         match self.request {
             ManagerRequest::None => {
                 self.request = ManagerRequest::RetrieveRemainder {
@@ -170,7 +171,10 @@ impl Manager {
                     worker_remainders: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
-                    worker.tell(WithSender::from(WorkerMessage::RetrieveRemainder, self));
+                    worker.tell(WithSenderStrong::from(
+                        WorkerMessage::RetrieveRemainder,
+                        self,
+                    ));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -178,7 +182,7 @@ impl Manager {
     }
 
     fn handle_worker_remainder(&mut self, worker_idx: usize, remainder: BaseElement) {
-        println!(
+        debug!(
             "manager: received WorkerRemainder message from worker {}",
             worker_idx
         );
@@ -202,7 +206,7 @@ impl Manager {
     // QUERY LAYERS WORKFLOW
     // --------------------------------------------------------------------------------------------
     fn handle_query_layers(&mut self, msg: Ask<Vec<usize>, Vec<(usize, Vec<Vec<QueryResult>>)>>) {
-        println!("manager: received QueryLayers message");
+        debug!("manager: received QueryLayers message");
         match self.request {
             ManagerRequest::None => {
                 let positions = msg.request().clone();
@@ -212,7 +216,7 @@ impl Manager {
                 };
                 for worker in self.worker_refs.iter() {
                     let msg = WorkerMessage::Query(positions.clone());
-                    worker.tell(WithSender::from(msg, self));
+                    worker.tell(WithSenderStrong::from(msg, self));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -220,7 +224,7 @@ impl Manager {
     }
 
     fn handle_worker_query_result(&mut self, worker_idx: usize, queries: Vec<Vec<QueryResult>>) {
-        println!(
+        debug!(
             "manager: received WorkerQueryResult message from worker {}",
             worker_idx
         );

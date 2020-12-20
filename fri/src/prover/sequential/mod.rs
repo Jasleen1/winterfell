@@ -3,6 +3,9 @@ use crypto::MerkleTree;
 use math::field::{BaseElement, FieldElement};
 use std::marker::PhantomData;
 
+#[cfg(test)]
+mod tests;
+
 const FOLDING_FACTOR: usize = crate::options::FOLDING_FACTOR;
 
 // TYPES AND INTERFACES
@@ -103,7 +106,8 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
         // to row evaluations, and values for row evaluations
         let mut layers = Vec::with_capacity(self.layers.len());
         for i in 0..self.layers.len() - 1 {
-            positions = utils::get_augmented_positions(&positions, domain_size);
+            positions =
+                utils::fold_positions(&positions, domain_size, self.options.folding_factor());
 
             let proof = self.layers[i].tree.prove_batch(&positions);
 
@@ -141,6 +145,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
         FriProof {
             layers,
             rem_values: E::write_into_vec(&remainder),
+            partitioned: false,
         }
     }
 

@@ -9,3 +9,6 @@ mod concurrent;
 
 #[cfg(test)]
 mod distributed;
+
+#[cfg(test)]
+mod tests;

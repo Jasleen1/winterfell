@@ -1,4 +1,4 @@
-use crate::{folding::quartic, utils::get_augmented_positions};
+use crate::{folding::quartic, utils};
 use math::{
     field::{BaseElement, FieldElement},
     polynom,
@@ -32,6 +32,7 @@ where
     );
     let domain_size = context.domain_size();
     let domain_root = context.domain_root();
+    let num_partitions = channel.num_fri_partitions();
 
     // powers of the given root of unity 1, p, p^2, p^3 such that p^4 = 1
     let quartic_roots = [
@@ -49,20 +50,35 @@ where
     let mut evaluations = evaluations.to_vec();
 
     for depth in 0..context.num_fri_layers() {
-        let mut augmented_positions = get_augmented_positions(&positions, domain_size);
-        let layer_values = channel.read_layer_queries(depth, &augmented_positions)?;
-        let column_values =
-            get_column_values(&layer_values, &positions, &augmented_positions, domain_size);
-        if evaluations != column_values {
+        // determine which evaluations were queried in the folded layer
+        let mut folded_positions =
+            utils::fold_positions(&positions, domain_size, context.folding_factor());
+        // determine where these evaluations are in the commitment Merkle tree
+        let position_indexes = utils::map_positions_to_indexes(
+            &folded_positions,
+            domain_size,
+            context.folding_factor(),
+            num_partitions,
+        );
+        // read query values from the specified indexes in the Merkle tree
+        let layer_values = channel.read_layer_queries(depth, &position_indexes)?;
+        let query_values = get_query_values(
+            &layer_values,
+            &positions,
+            &folded_positions,
+            domain_size,
+            context.folding_factor(),
+        );
+        if evaluations != query_values {
             return Err(format!(
-                "evaluations did not match column value at depth {}",
+                "evaluations did not match query values at depth {}",
                 depth
             ));
         }
 
         // build a set of x for each row polynomial
-        let mut xs = Vec::with_capacity(augmented_positions.len());
-        for &i in augmented_positions.iter() {
+        let mut xs = Vec::with_capacity(folded_positions.len());
+        for &i in folded_positions.iter() {
             let xe = BaseElement::exp(domain_root, (i as u32).into());
             xs.push([
                 quartic_roots[0] * xe,
@@ -86,7 +102,7 @@ where
         domain_root = BaseElement::exp(domain_root, 4);
         max_degree_plus_1 /= 4;
         domain_size /= 4;
-        mem::swap(&mut positions, &mut augmented_positions);
+        mem::swap(&mut positions, &mut folded_positions);
     }
 
     // 2 ----- verify the remainder of the FRI proof ----------------------------------------------
@@ -158,17 +174,18 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn get_column_values<E: FieldElement>(
+fn get_query_values<E: FieldElement>(
     values: &[[E; 4]],
     positions: &[usize],
-    augmented_positions: &[usize],
-    column_length: usize,
+    folded_positions: &[usize],
+    domain_size: usize,
+    folding_factor: usize,
 ) -> Vec<E> {
-    let row_length = column_length / 4;
+    let row_length = domain_size / folding_factor;
 
     let mut result = Vec::new();
     for position in positions {
-        let idx = augmented_positions
+        let idx = folded_positions
             .iter()
             .position(|&v| v == position % row_length)
             .unwrap();

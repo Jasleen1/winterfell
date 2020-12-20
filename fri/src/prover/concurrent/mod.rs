@@ -150,6 +150,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> Prover<E, C> {
         FriProof {
             layers,
             rem_values: E::write_into_vec(&remainder),
+            partitioned: true,
         }
     }
 

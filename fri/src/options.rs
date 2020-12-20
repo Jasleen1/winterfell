@@ -10,6 +10,7 @@ pub const FOLDING_FACTOR: usize = 4;
 // FRI OPTIONS
 // ================================================================================================
 
+#[derive(Clone)]
 pub struct FriOptions {
     folding_factor: usize,
     max_remainder_length: usize,
