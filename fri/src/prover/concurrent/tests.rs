@@ -1,14 +1,10 @@
-use crate::{channel::ProverChannel, tests::build_proof_context};
-use common::{
-    fri_utils,
-    proof::{FriLayer, FriProof},
-    ComputationContext, PublicCoin, RandomGenerator,
+use crate::{
+    folding::quartic, utils, DefaultProverChannel, FriOptions, FriProof, FriProofLayer, PublicCoin,
 };
-use crypto::{hash::blake3, MerkleTree};
+use crypto::{hash::blake3, MerkleTree, RandomElementGenerator};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
-    quartic,
 };
 
 use super::{Prover, FOLDING_FACTOR};
@@ -21,25 +17,24 @@ fn fri_prover() {
     let trace_length = 4096;
     let ce_blowup = 2;
     let lde_blowup = 8;
-    let context = build_proof_context(trace_length, ce_blowup, lde_blowup);
+    let options = FriOptions::new(lde_blowup, crypto::hash::blake3);
+    let mut channel = build_prover_channel(trace_length, lde_blowup);
     let evaluations = build_evaluations(trace_length, ce_blowup, lde_blowup);
 
     // compute the proof using distributable FRI algorithm
-    let mut prover = Prover::new(&context, &evaluations);
+    let mut prover = Prover::new(&options, &evaluations);
 
-    let mut channel = ProverChannel::new(&context);
     prover.build_layers(&mut channel);
 
-    channel.grind_query_seed();
     let positions = channel.draw_query_positions();
 
     let proof = prover.build_proof(&positions);
 
     // compute the proof using original FRI algorithm
     let orig_proof = build_proof_orig(
-        &context,
+        &options,
         evaluations,
-        channel.fri_roots(),
+        channel.fri_layer_commitments(),
         prover.num_partitions(),
         &positions,
     );
@@ -59,7 +54,7 @@ fn fri_prover() {
 // ================================================================================================
 
 fn build_proof_orig<E: FieldElement + From<BaseElement>>(
-    context: &ComputationContext,
+    options: &FriOptions,
     evaluations: Vec<E>,
     fri_roots: &[[u8; 32]],
     num_partitions: usize,
@@ -68,18 +63,18 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
     // commit phase -------------------------------------------------------------------------------
     let mut alphas = Vec::new();
     for seed in fri_roots.iter() {
-        let mut g = RandomGenerator::new(*seed, 0, blake3);
+        let mut g = RandomElementGenerator::new(*seed, 0, blake3);
         alphas.push(g.draw::<E>());
     }
 
     let g = BaseElement::get_root_of_unity(evaluations.len().trailing_zeros());
     let domain = BaseElement::get_power_series(g, evaluations.len());
-    let (mut trees, mut values) = build_layers_orig(context, &alphas, evaluations, &domain);
+    let (mut trees, mut values) = build_layers_orig(options, &alphas, evaluations, &domain);
 
     // shuffle evaluations to match the order in the distributable FRI
     for i in 0..trees.len() - 2 {
         values[i] = shuffle_evaluations(&values[i], num_partitions);
-        let hashed_evaluations = fri_utils::hash_values(&values[i], blake3);
+        let hashed_evaluations = utils::hash_values(&values[i], blake3);
         trees[i] = MerkleTree::new(hashed_evaluations, blake3);
     }
 
@@ -90,7 +85,7 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
 
     let mut layers = Vec::with_capacity(trees.len());
     for i in 0..(trees.len() - 1) {
-        positions = fri_utils::get_augmented_positions(&positions, domain_size);
+        positions = get_augmented_positions(&positions, domain_size);
 
         let tree = &trees[i];
         // map positions to their equivalent in distributable FRI tree
@@ -103,7 +98,7 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
             queried_values.push(values[i][position]);
         }
 
-        layers.push(FriLayer {
+        layers.push(FriProofLayer {
             values: queried_values
                 .into_iter()
                 .map(|v| E::write_into_vec(&v))
@@ -127,23 +122,24 @@ fn build_proof_orig<E: FieldElement + From<BaseElement>>(
     FriProof {
         layers,
         rem_values: E::write_into_vec(&remainder),
+        partitioned: true,
     }
 }
 
 pub fn build_layers_orig<E: FieldElement + From<BaseElement>>(
-    context: &ComputationContext,
+    options: &FriOptions,
     alphas: &[E],
     mut evaluations: Vec<E>,
     domain: &[BaseElement],
 ) -> (Vec<MerkleTree>, Vec<Vec<[E; FOLDING_FACTOR]>>) {
-    let hash_fn = context.options().hash_fn();
+    let hash_fn = options.hash_fn();
 
     let mut tree_results: Vec<MerkleTree> = Vec::new();
     let mut value_results: Vec<Vec<[E; FOLDING_FACTOR]>> = Vec::new();
 
-    for depth in 0..context.num_fri_layers() + 1 {
+    for depth in 0..options.num_fri_layers(evaluations.len()) + 1 {
         let transposed_evaluations = quartic::transpose(&evaluations, 1);
-        let hashed_evaluations = fri_utils::hash_values(&transposed_evaluations, hash_fn);
+        let hashed_evaluations = utils::hash_values(&transposed_evaluations, hash_fn);
         let evaluation_tree = MerkleTree::new(hashed_evaluations, hash_fn);
 
         evaluations = apply_drp(&transposed_evaluations, domain, depth, alphas[depth]);
@@ -171,6 +167,11 @@ fn apply_drp<E: FieldElement + From<BaseElement>>(
 
 // HELPER FUNCTIONS
 // ================================================================================================
+
+fn build_prover_channel(trace_length: usize, lde_blowup: usize) -> DefaultProverChannel {
+    let options = FriOptions::new(lde_blowup, crypto::hash::blake3);
+    DefaultProverChannel::new(options, trace_length * lde_blowup, 32)
+}
 
 fn build_evaluations(trace_length: usize, ce_blowup: usize, lde_blowup: usize) -> Vec<BaseElement> {
     let len = (trace_length * ce_blowup) as u128;
@@ -208,5 +209,17 @@ fn map_positions(positions: &[usize], num_evaluations: usize, num_partitions: us
         result.push((p_idx << local_bits) | loc_p);
     }
     result.sort();
+    result
+}
+
+fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usize> {
+    let row_length = column_length / 4;
+    let mut result = Vec::new();
+    for position in positions {
+        let ap = position % row_length;
+        if !result.contains(&ap) {
+            result.push(ap);
+        }
+    }
     result
 }

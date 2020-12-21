@@ -11,8 +11,6 @@ use channel::VerifierChannel;
 mod verification;
 use verification::perform_verification;
 
-mod fri;
-
 // VERIFIER
 // ================================================================================================
 

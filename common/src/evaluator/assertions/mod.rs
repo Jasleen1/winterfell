@@ -1,5 +1,6 @@
-use super::{ComputationContext, ConstraintDivisor, RandomGenerator};
+use super::{ComputationContext, ConstraintDivisor};
 use crate::errors::EvaluatorError;
+use crypto::RandomElementGenerator;
 use math::field::{BaseElement, FieldElement};
 
 mod default_evaluator;
@@ -12,7 +13,7 @@ pub trait AssertionEvaluator {
     fn new(
         context: &ComputationContext,
         assertions: &[Assertion],
-        coeff_prng: RandomGenerator,
+        coeff_prng: RandomElementGenerator,
     ) -> Result<Self, EvaluatorError>
     where
         Self: Sized;

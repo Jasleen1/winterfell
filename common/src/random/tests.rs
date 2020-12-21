@@ -3,7 +3,7 @@ use math::field::BaseElement;
 
 #[test]
 fn random_generator_draw() {
-    let mut generator = super::RandomGenerator::new([0; 32], 0, blake3);
+    let mut generator = super::RandomElementGenerator::new([0; 32], 0, blake3);
 
     let result = generator.draw::<BaseElement>();
     assert_eq!(

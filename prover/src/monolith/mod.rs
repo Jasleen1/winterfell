@@ -7,8 +7,7 @@ use log::debug;
 use math::field::BaseElement;
 #[cfg(feature = "extension_field")]
 use math::field::QuadExtension;
-use std::marker::PhantomData;
-use std::time::Instant;
+use std::{marker::PhantomData, time::Instant};
 
 mod types;
 use types::{CompositionPoly, ConstraintEvaluationTable, TraceTable};
@@ -23,7 +22,7 @@ use constraints::{
 };
 
 mod deep_fri;
-use deep_fri::{compose_constraint_poly, compose_trace_polys, evaluate_composition_poly, fri};
+use deep_fri::{compose_constraint_poly, compose_trace_polys, evaluate_composition_poly};
 
 use crate::channel::ProverChannel;
 
@@ -219,11 +218,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 
         // 7 ----- compute FRI layers for the composition polynomial ------------------------------
         let now = Instant::now();
-        let (fri_trees, fri_values) =
-            fri::build_layers(&context, &mut channel, composed_evaluations, &lde_domain);
+        let mut fri_prover = fri::FriProver::new(self.options.to_fri_options());
+        fri_prover.build_layers(&mut channel, composed_evaluations, &lde_domain.values());
         debug!(
             "Computed {} FRI layers from composition polynomial evaluations in {} ms",
-            fri_trees.len(),
+            fri_prover.num_layers(),
             now.elapsed().as_millis()
         );
 
@@ -245,7 +244,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         let now = Instant::now();
 
         // generate FRI proof
-        let fri_proof = fri::build_proof(fri_trees, fri_values, &query_positions);
+        let fri_proof = fri_prover.build_proof(&query_positions);
 
         // query the execution trace at the selected position; for each query, we need the
         // state of the trace at that position + Merkle authentication path

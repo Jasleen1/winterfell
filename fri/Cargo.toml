@@ -1,0 +1,14 @@
+[package]
+name = "fri"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+bench = false
+
+[dependencies]
+math = { path = "../math" }
+crypto = { path = "../crypto" }
+serde = { version = "1.0.117", features = ["derive"] }
+kompact = "0.10.1"
+log = "0.4.11"

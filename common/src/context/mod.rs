@@ -34,8 +34,6 @@ pub struct Generators {
 impl ComputationContext {
     // CONSTANTS
     // --------------------------------------------------------------------------------------------
-    pub const MAX_FRI_REMAINDER_LENGTH: usize = 256;
-    pub const FRI_FOLDING_FACTOR: usize = 4;
     pub const MIN_TRACE_LENGTH: usize = 8;
 
     // CONSTRUCTORS
@@ -127,26 +125,6 @@ impl ComputationContext {
 
     // OTHER PROPERTIES
     // --------------------------------------------------------------------------------------------
-
-    pub fn num_fri_layers(&self) -> usize {
-        let mut result = 0;
-        let mut domain_size = self.lde_domain_size();
-
-        while domain_size > Self::MAX_FRI_REMAINDER_LENGTH {
-            domain_size /= Self::FRI_FOLDING_FACTOR;
-            result += 1;
-        }
-
-        result
-    }
-
-    pub fn fri_remainder_length(&self) -> usize {
-        let mut domain_size = self.lde_domain_size();
-        while domain_size > Self::MAX_FRI_REMAINDER_LENGTH {
-            domain_size /= Self::FRI_FOLDING_FACTOR;
-        }
-        domain_size
-    }
 
     pub fn field_extension(&self) -> FieldExtension {
         self.field_extension

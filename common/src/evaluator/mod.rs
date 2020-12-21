@@ -1,4 +1,4 @@
-use crate::{errors::*, ComputationContext, PublicCoin, RandomGenerator};
+use crate::{errors::*, ComputationContext, PublicCoin};
 use math::field::{BaseElement, FieldElement, FromVec};
 
 mod transition;

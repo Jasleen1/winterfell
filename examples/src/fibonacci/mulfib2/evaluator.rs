@@ -1,9 +1,9 @@
 use super::NUM_REGISTERS;
 use crate::utils::are_equal;
 use prover::{
+    crypto::RandomElementGenerator,
     math::field::{BaseElement, FieldElement, FromVec},
-    ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
-    TransitionEvaluator,
+    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 // FIBONACCI TRANSITION CONSTRAINT EVALUATOR
@@ -16,7 +16,7 @@ pub struct MulFib2Evaluator {
 impl TransitionEvaluator for MulFib2Evaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
         let degrees = vec![ConstraintDegree::new(2); NUM_REGISTERS];
         MulFib2Evaluator {
             constraint_groups: Self::group_constraints(context, &degrees, coeff_prng),

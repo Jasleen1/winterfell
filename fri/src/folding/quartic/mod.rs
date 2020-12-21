@@ -1,7 +1,5 @@
-use crate::{
-    field::{BaseElement, FieldElement},
-    utils::uninit_vector,
-};
+use crate::utils::uninit_vector;
+use math::field::{BaseElement, FieldElement};
 
 #[cfg(test)]
 mod tests;

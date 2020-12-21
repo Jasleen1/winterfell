@@ -1,4 +1,5 @@
-use super::{ComputationContext, ConstraintDegree, RandomGenerator};
+use super::{ComputationContext, ConstraintDegree};
+use crypto::RandomElementGenerator;
 use math::field::{BaseElement, FieldElement, FromVec};
 use std::collections::HashMap;
 
@@ -6,7 +7,7 @@ use std::collections::HashMap;
 // ================================================================================================
 
 pub trait TransitionEvaluator {
-    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self;
+    fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self;
 
     // ABSTRACT METHODS
     // --------------------------------------------------------------------------------------------
@@ -95,7 +96,7 @@ pub trait TransitionEvaluator {
     fn group_constraints(
         context: &ComputationContext,
         degrees: &[ConstraintDegree],
-        mut coeff_prng: RandomGenerator,
+        mut coeff_prng: RandomElementGenerator,
     ) -> Vec<TransitionConstraintGroup> {
         // We want to make sure that once we divide constraint polynomials by the divisor,
         // the degree of the resulting polynomial will be exactly equal to the composition_degree.

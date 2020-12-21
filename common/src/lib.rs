@@ -1,5 +1,4 @@
 pub mod errors;
-pub mod fri_utils;
 pub mod proof;
 pub mod utils;
 
@@ -16,4 +15,4 @@ pub use evaluator::{
 };
 
 mod random;
-pub use random::{CompositionCoefficients, PublicCoin, RandomGenerator};
+pub use random::{CompositionCoefficients, PublicCoin};

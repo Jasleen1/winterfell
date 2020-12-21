@@ -1,10 +1,10 @@
 use prover::{
+    crypto::RandomElementGenerator,
     math::{
         field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
-    ComputationContext, ConstraintDegree, RandomGenerator, TransitionConstraintGroup,
-    TransitionEvaluator,
+    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
@@ -29,7 +29,7 @@ pub struct AnonTokenEvaluator {
 impl TransitionEvaluator for AnonTokenEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(context: &ComputationContext, coeff_prng: RandomGenerator) -> Self {
+    fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
         let (inv_twiddles, ev_twiddles) =
             build_cyclic_domain(CYCLE_LENGTH, context.ce_blowup_factor());
 

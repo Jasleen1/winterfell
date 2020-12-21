@@ -1,8 +1,9 @@
 use common::{
-    proof::{Commitments, Context, FriProof, OodEvaluationFrame, Queries, StarkProof},
+    proof::{Commitments, Context, OodEvaluationFrame, Queries, StarkProof},
     ComputationContext, EvaluationFrame, PublicCoin,
 };
 use crypto::{BatchMerkleProof, HashFunction};
+use fri::{self, FriProof};
 use math::field::{BaseElement, FieldElement, StarkField};
 use std::convert::TryInto;
 
@@ -50,11 +51,6 @@ impl ProverChannel {
             "constraint root has already been committed"
         );
         self.constraint_root = Some(constraint_root);
-    }
-
-    /// Commits the prover to the a FRI layer.
-    pub fn commit_fri_layer(&mut self, layer_root: [u8; 32]) {
-        self.fri_roots.push(layer_root);
     }
 
     /// Computes query seed from a combination of FRI layers and applies PoW to the seed
@@ -115,10 +111,12 @@ impl ProverChannel {
             pow_nonce: self.pow_nonce,
         }
     }
+}
 
-    #[cfg(test)]
-    pub fn fri_roots(&self) -> &[[u8; 32]] {
-        &self.fri_roots
+impl fri::ProverChannel for ProverChannel {
+    /// Commits the prover to the a FRI layer.
+    fn commit_fri_layer(&mut self, layer_root: [u8; 32]) {
+        self.fri_roots.push(layer_root);
     }
 }
 
@@ -143,14 +141,20 @@ impl PublicCoin for ProverChannel {
         self.constraint_root.unwrap()
     }
 
-    fn fri_layer_seed(&self, layer_depth: usize) -> [u8; 32] {
-        assert!(!self.fri_roots.is_empty(), "FRI layers are not set");
-        self.fri_roots[layer_depth]
-    }
-
     fn query_seed(&self) -> [u8; 32] {
         assert!(self.query_seed.is_some(), "query seed is not set");
         self.query_seed.unwrap()
+    }
+}
+
+impl fri::PublicCoin for ProverChannel {
+    fn fri_layer_commitments(&self) -> &[[u8; 32]] {
+        assert!(!self.fri_roots.is_empty(), "FRI layers are not set");
+        &self.fri_roots
+    }
+
+    fn hash_fn(&self) -> HashFunction {
+        self.context.options().hash_fn()
     }
 }
 
