@@ -10,6 +10,7 @@ use manager::Manager;
 mod messages;
 use messages::{ManagerMessage, QueryResult};
 
+mod partition;
 mod worker;
 
 #[cfg(test)]
