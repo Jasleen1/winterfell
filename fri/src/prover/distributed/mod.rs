@@ -9,8 +9,9 @@ use manager::Manager;
 
 mod messages;
 use fasthash::xx::Hash64;
-use messages::{ManagerMessage, QueryResult};
+use messages::{Evaluations, ManagerMessage, ProverRequest, QueryResult};
 
+mod partition;
 mod worker;
 
 #[cfg(test)]
@@ -23,7 +24,6 @@ pub struct FriProver<C: ProverChannel> {
     options: FriOptions,
     manager: Arc<Component<Manager>>,
     manager_ref: ActorRefStrong<ManagerMessage>,
-    num_workers: usize,
     request: Option<ProofRequest>,
     _marker: PhantomData<C>,
 }
@@ -37,7 +37,6 @@ impl<C: ProverChannel> FriProver<C> {
         FriProver {
             manager,
             manager_ref,
-            num_workers,
             options,
             request: None,
             _marker: PhantomData,
@@ -54,10 +53,18 @@ impl<C: ProverChannel> FriProver<C> {
         let domain_size = evaluations.len();
         let hash_fn = self.options.hash_fn();
 
-        // distribute evaluations
-        let evaluations = Arc::new(evaluations.to_vec());
+        // distribute evaluations; number of partitions is set to the remainder length
+        // so that each partitions resolves to a single value
+        let num_partitions = self.options.fri_remainder_length(domain_size);
+        let evaluations = Evaluations {
+            evaluations: Arc::new(evaluations.to_vec()),
+            num_partitions,
+        };
         self.manager_ref
-            .ask(|promise| ManagerMessage::DistributeEvaluations(Ask::new(promise, evaluations)))
+            .ask(|promise| {
+                let request = ProverRequest::DistributeEvaluations(Ask::new(promise, evaluations));
+                ManagerMessage::ProverRequest(request)
+            })
             .wait();
 
         // determine number of layers
@@ -70,7 +77,10 @@ impl<C: ProverChannel> FriProver<C> {
             // worker commitments.
             let worker_commitments = self
                 .manager_ref
-                .ask(|promise| ManagerMessage::CommitToLayer(Ask::new(promise, ())))
+                .ask(|promise| {
+                    let request = ProverRequest::CommitToLayer(Ask::new(promise, ()));
+                    ManagerMessage::ProverRequest(request)
+                })
                 .wait();
             let layer_tree = MerkleTree::new(worker_commitments, hash_fn);
             channel.commit_fri_layer(*layer_tree.root());
@@ -80,14 +90,20 @@ impl<C: ProverChannel> FriProver<C> {
             // projections in each worker.
             let alpha = channel.draw_fri_alpha::<BaseElement>(layer_depth);
             self.manager_ref
-                .ask(|promise| ManagerMessage::ApplyDrp(Ask::new(promise, alpha)))
+                .ask(|promise| {
+                    let request = ProverRequest::ApplyDrp(Ask::new(promise, alpha));
+                    ManagerMessage::ProverRequest(request)
+                })
                 .wait();
         }
 
         // retrieve remainder and commit to it
         let remainder = self
             .manager_ref
-            .ask(|promise| ManagerMessage::RetrieveRemainder(Ask::new(promise, ())))
+            .ask(|promise| {
+                let request = ProverRequest::RetrieveRemainder(Ask::new(promise, ()));
+                ManagerMessage::ProverRequest(request)
+            })
             .wait();
         let remainder_folded = quartic::transpose(&remainder, 1);
         let remainder_hashes = utils::hash_values(&remainder_folded, hash_fn);
@@ -98,7 +114,7 @@ impl<C: ProverChannel> FriProver<C> {
         self.request = Some(ProofRequest {
             domain_size,
             folding_factor: self.options.folding_factor(),
-            num_partitions: self.num_workers,
+            num_partitions,
             layer_trees,
             remainder,
         });
@@ -116,7 +132,10 @@ impl<C: ProverChannel> FriProver<C> {
         // get query results for all partitions from the manager
         let partition_queries = self
             .manager_ref
-            .ask(|promise| ManagerMessage::QueryLayers(Ask::new(promise, positions.to_vec())))
+            .ask(|promise| {
+                let request = ProverRequest::QueryLayers(Ask::new(promise, positions.to_vec()));
+                ManagerMessage::ProverRequest(request)
+            })
             .wait();
 
         // iterate over all queried partitions
@@ -147,7 +166,7 @@ impl<C: ProverChannel> FriProver<C> {
 
         // build FRI layers from the queries
         let folding_factor = request.folding_factor;
-        let num_partitions = self.num_workers;
+        let num_partitions = request.num_partitions;
         let mut positions = positions.to_vec();
         let mut domain_size = request.domain_size;
         let mut layers = Vec::new();

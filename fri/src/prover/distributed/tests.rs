@@ -4,9 +4,16 @@ use super::{
 };
 use crate::{FriOptions, PublicCoin};
 use kompact::prelude::*;
+use std::io::Write;
 
 #[test]
 fn distributed_fri_prove_verify() {
+    // configure logging
+    env_logger::Builder::new()
+        .format(|buf, record| writeln!(buf, "{}", record.args()))
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
     let trace_length = 4096;
     let ce_blowup = 2;
     let lde_blowup = 8;

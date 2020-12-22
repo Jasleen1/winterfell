@@ -1,15 +1,13 @@
-use super::messages::{ManagerMessage, QueryResult, WorkerMessage};
-use crate::{folding::quartic, utils::hash_values};
 use crypto::{HashFunction, MerkleTree};
 use fasthash::xx::Hash64;
+use super::{
+    messages::{ManagerMessage, QueryResult, WorkerPartitions, WorkerRequest, WorkerResponse},
+    partition::Partition,
+};
+use crypto::HashFunction;
 use kompact::prelude::*;
 use log::debug;
-use math::field::{BaseElement, FieldElement, StarkField};
-use std::{collections::HashSet, sync::Arc};
-
-// CONSTANTS
-// ================================================================================================
-const FOLDING_FACTOR: usize = 4;
+use math::field::BaseElement;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -18,10 +16,7 @@ const FOLDING_FACTOR: usize = 4;
 pub struct Worker {
     ctx: ComponentContext<Self>,
     config: WorkerConfig,
-    domain: Vec<BaseElement>,
-    evaluations: Vec<Vec<[BaseElement; FOLDING_FACTOR]>>,
-    remainder: BaseElement,
-    trees: Vec<MerkleTree>,
+    partitions: Vec<Partition>,
 }
 
 pub struct WorkerConfig {
@@ -38,75 +33,38 @@ impl Worker {
         Worker {
             ctx: ComponentContext::uninitialised(),
             config,
-            domain: Vec::new(),
-            evaluations: Vec::new(),
-            remainder: BaseElement::ZERO,
-            trees: vec![],
+            partitions: Vec::new(),
         }
     }
 
     /// Prepares the worker for a new invocation of FRI protocol.
-    fn prepare(&mut self, evaluations: Arc<Vec<BaseElement>>) {
-        // build a domain for the top layer of evaluations
-        let global_domain_size = evaluations.len();
-        let g = BaseElement::get_root_of_unity(global_domain_size.trailing_zeros());
-        let stride = g.exp(self.config.num_partitions as u128);
-        let mut x = g.exp(self.config.index as u128);
-
-        let domain_size = global_domain_size / self.config.num_partitions;
-        self.domain = Vec::with_capacity(domain_size);
-        self.domain.push(x);
-        for _ in 1..domain_size {
-            x = x * stride;
-            self.domain.push(x);
+    fn prepare(&mut self, worker_partitions: &WorkerPartitions) {
+        self.partitions.clear();
+        for &partition_idx in worker_partitions.partition_indexes.iter() {
+            self.partitions.push(Partition::new(
+                partition_idx,
+                worker_partitions.num_partitions,
+                worker_partitions.evaluations.clone(),
+            ));
         }
-
-        // make a copy of evaluations relevant for this worker
-        let mut partition = Vec::new();
-        for i in (self.config.index..evaluations.len()).step_by(self.config.num_partitions) {
-            partition.push(evaluations[i]);
-        }
-        self.evaluations = vec![quartic::transpose(&partition, 1)];
-
-        // reset all other properties
-        self.trees.clear();
-        self.remainder = BaseElement::ZERO;
     }
 
     /// Commit to the current set of evaluations by putting them into a Merkle tree
     /// and returning the root of this tree.
     fn commit(&mut self) -> [u8; 32] {
-        let evaluations = &self.evaluations[self.evaluations.len() - 1];
-        let hashed_evaluations = hash_values(&evaluations, self.config.hash_fn);
-        if hashed_evaluations.len() == 1 {
-            hashed_evaluations[0]
-        } else {
-            let evaluation_tree = MerkleTree::new(hashed_evaluations, self.config.hash_fn);
-            let root = *evaluation_tree.root();
-            self.trees.push(evaluation_tree);
-            root
-        }
+        let hash_fn = self.config.hash_fn;
+        let result = self
+            .partitions
+            .iter_mut()
+            .map(|p| p.commit_layer(hash_fn))
+            .collect::<Vec<_>>();
+        result[0] // TODO: return the full array
     }
 
     fn apply_drp(&mut self, alpha: BaseElement) {
-        let ys = &self.evaluations[self.evaluations.len() - 1];
-        let xs = quartic::transpose(&self.domain, 1);
-
-        let polys = quartic::interpolate_batch(&xs, ys);
-        let evaluations = quartic::evaluate_batch(&polys, alpha.into());
-
-        if evaluations.len() == 1 {
-            self.remainder = evaluations[0];
-        } else {
-            self.evaluations.push(quartic::transpose(&evaluations, 1));
+        for partition in self.partitions.iter_mut() {
+            partition.apply_drp(alpha);
         }
-
-        self.domain = self
-            .domain
-            .iter()
-            .take(self.domain.len() / FOLDING_FACTOR)
-            .map(|&x| x.exp(FOLDING_FACTOR as u128))
-            .collect();
     }
 
     fn query(&self, positions: &[usize]) -> Vec<Vec<QueryResult>> {
@@ -166,42 +124,54 @@ impl Worker {
 impl ComponentLifecycle for Worker {}
 
 impl Actor for Worker {
-    type Message = WithSenderStrong<WorkerMessage, ManagerMessage>;
+    type Message = WithSenderStrong<WorkerRequest, ManagerMessage>;
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg.content() {
-            WorkerMessage::Prepare(evaluations) => {
-                debug!("worker {}: Prepare message received", self.config.index);
-                self.prepare(evaluations.clone());
-                msg.reply(ManagerMessage::WorkerReady(self.config.index));
+            WorkerRequest::Prepare(worker_partitions) => {
+                debug!(
+                    "worker {}: Prepare message received with partitions {:?}",
+                    self.config.index, worker_partitions.partition_indexes
+                );
+                self.prepare(&worker_partitions);
+                msg.reply(ManagerMessage::WorkerResponse(WorkerResponse::WorkerReady(
+                    self.config.index,
+                )));
             }
-            WorkerMessage::CommitToLayer => {
+            WorkerRequest::CommitToLayer => {
                 debug!(
                     "worker {}: CommitToLayer message received",
                     self.config.index
                 );
                 let result = self.commit();
-                msg.reply(ManagerMessage::WorkerCommit(self.config.index, result));
+                msg.reply(ManagerMessage::WorkerResponse(
+                    WorkerResponse::CommitResult(self.config.index, result),
+                ));
             }
-            WorkerMessage::ApplyDrp(alpha) => {
+            WorkerRequest::ApplyDrp(alpha) => {
                 debug!("worker {}: ApplyDrp message received", self.config.index);
                 self.apply_drp(*alpha);
-                msg.reply(ManagerMessage::WorkerDrpComplete(self.config.index));
+                msg.reply(ManagerMessage::WorkerResponse(WorkerResponse::DrpComplete(
+                    self.config.index,
+                )));
             }
-            WorkerMessage::RetrieveRemainder => {
+            WorkerRequest::RetrieveRemainder => {
                 debug!(
                     "worker {}: RetrieveRemainder message received",
                     self.config.index
                 );
-                msg.reply(ManagerMessage::WorkerRemainder(
-                    self.config.index,
-                    self.remainder,
+                let p = &self.partitions[0];
+                msg.reply(ManagerMessage::WorkerResponse(
+                    WorkerResponse::RemainderResult(p.index(), p.remainder()),
                 ));
             }
-            WorkerMessage::Query(positions) => {
+            WorkerRequest::Query(positions) => {
                 debug!("worker {}: Query message received", self.config.index);
                 let result = self.query(positions);
-                msg.reply(ManagerMessage::WorkerQueryResult(self.config.index, result));
+                msg.reply(ManagerMessage::WorkerResponse(WorkerResponse::QueryResult(
+                    self.config.index,
+                    result,
+                )));
             }
         }
         Handled::Ok

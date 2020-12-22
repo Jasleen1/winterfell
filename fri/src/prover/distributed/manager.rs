@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
 use super::{
-    messages::{ManagerMessage, QueryResult, WorkerMessage},
+    messages::{
+        Evaluations, ManagerMessage, ProverRequest, QueryResult, WorkerPartitions, WorkerRequest,
+        WorkerResponse,
+    },
     worker::{Worker, WorkerConfig},
 };
 use fasthash::xx::Hash64;
@@ -17,7 +20,7 @@ use math::field::BaseElement;
 pub struct Manager {
     ctx: ComponentContext<Self>,
     workers: Vec<Arc<Component<Worker>>>,
-    worker_refs: Vec<ActorRefStrong<WithSenderStrong<WorkerMessage, ManagerMessage>>>,
+    worker_refs: Vec<ActorRefStrong<WithSenderStrong<WorkerRequest, ManagerMessage>>>,
     num_workers: usize,
     request: ManagerRequest,
 }
@@ -39,20 +42,27 @@ impl Manager {
     // DISTRIBUTE EVALUATIONS WORKFLOW
     // --------------------------------------------------------------------------------------------
 
-    fn handle_distribute_evaluations(&mut self, msg: Ask<Arc<Vec<BaseElement>>, ()>) {
+    fn handle_distribute_evaluations(&mut self, msg: Ask<Evaluations, ()>) {
         debug!(
             "manager: received DistributeEvaluations message with {} evaluations",
-            msg.request().len()
+            msg.request().evaluations.len()
         );
         match self.request {
             ManagerRequest::None => {
-                let evaluations = msg.request().clone();
+                let evaluations = msg.request().evaluations.clone();
+                let num_partitions = msg.request().num_partitions;
                 self.request = ManagerRequest::DistributeEvaluations {
                     request: Some(msg),
                     worker_replies: HashSet::with_hasher(Hash64),
                 };
-                for worker in self.worker_refs.iter() {
-                    let msg = WorkerMessage::Prepare(evaluations.clone());
+                for (i, worker) in self.worker_refs.iter().enumerate() {
+                    let worker_partitions = build_worker_partitions(
+                        i,
+                        self.num_workers,
+                        num_partitions,
+                        evaluations.clone(),
+                    );
+                    let msg = WorkerRequest::Prepare(worker_partitions);
                     worker.tell(WithSenderStrong::from(msg, self));
                 }
             }
@@ -92,7 +102,7 @@ impl Manager {
                     worker_commitments: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
-                    worker.tell(WithSenderStrong::from(WorkerMessage::CommitToLayer, self));
+                    worker.tell(WithSenderStrong::from(WorkerRequest::CommitToLayer, self));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -134,7 +144,7 @@ impl Manager {
                     worker_replies: HashSet::with_hasher(Hash64),
                 };
                 for worker in self.worker_refs.iter() {
-                    worker.tell(WithSenderStrong::from(WorkerMessage::ApplyDrp(alpha), self));
+                    worker.tell(WithSenderStrong::from(WorkerRequest::ApplyDrp(alpha), self));
                 }
             }
             _ => panic!("an outstanding request is already in progress"),
@@ -173,7 +183,7 @@ impl Manager {
                 };
                 for worker in self.worker_refs.iter() {
                     worker.tell(WithSenderStrong::from(
-                        WorkerMessage::RetrieveRemainder,
+                        WorkerRequest::RetrieveRemainder,
                         self,
                     ));
                 }
@@ -216,7 +226,7 @@ impl Manager {
                     worker_queries: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
-                    let msg = WorkerMessage::Query(positions.clone());
+                    let msg = WorkerRequest::Query(positions.clone());
                     worker.tell(WithSenderStrong::from(msg, self));
                 }
             }
@@ -260,29 +270,30 @@ impl Actor for Manager {
 
     fn receive_local(&mut self, msg: Self::Message) -> Handled {
         match msg {
-            // distribute evaluations workflow ----------------------------------------------------
-            ManagerMessage::DistributeEvaluations(msg) => self.handle_distribute_evaluations(msg),
-            ManagerMessage::WorkerReady(worker_idx) => self.handle_worker_ready(worker_idx),
-            // layer commitment workflow ----------------------------------------------------------
-            ManagerMessage::CommitToLayer(msg) => self.handle_commit_to_layer(msg),
-            ManagerMessage::WorkerCommit(worker_idx, commitment) => {
-                self.handle_worker_commit(worker_idx, commitment)
-            }
-            // degree-respecting projection workflow ----------------------------------------------
-            ManagerMessage::ApplyDrp(msg) => self.handle_apply_drp(msg),
-            ManagerMessage::WorkerDrpComplete(worker_idx) => {
-                self.handle_worker_drp_complete(worker_idx)
-            }
-            // remainder retrieval workflow -------------------------------------------------------
-            ManagerMessage::RetrieveRemainder(msg) => self.handle_retrieve_remainder(msg),
-            ManagerMessage::WorkerRemainder(worker_idx, remainder) => {
-                self.handle_worker_remainder(worker_idx, remainder)
-            }
-            // layer query workflow ---------------------------------------------------------------
-            ManagerMessage::QueryLayers(msg) => self.handle_query_layers(msg),
-            ManagerMessage::WorkerQueryResult(worker_idx, queries) => {
-                self.handle_worker_query_result(worker_idx, queries)
-            }
+            ManagerMessage::ProverRequest(request) => match request {
+                ProverRequest::DistributeEvaluations(msg) => {
+                    self.handle_distribute_evaluations(msg)
+                }
+                ProverRequest::CommitToLayer(msg) => self.handle_commit_to_layer(msg),
+                ProverRequest::ApplyDrp(msg) => self.handle_apply_drp(msg),
+                ProverRequest::RetrieveRemainder(msg) => self.handle_retrieve_remainder(msg),
+                ProverRequest::QueryLayers(msg) => self.handle_query_layers(msg),
+            },
+            ManagerMessage::WorkerResponse(response) => match response {
+                WorkerResponse::WorkerReady(worker_idx) => self.handle_worker_ready(worker_idx),
+                WorkerResponse::CommitResult(worker_idx, commitment) => {
+                    self.handle_worker_commit(worker_idx, commitment)
+                }
+                WorkerResponse::DrpComplete(worker_idx) => {
+                    self.handle_worker_drp_complete(worker_idx)
+                }
+                WorkerResponse::RemainderResult(worker_idx, remainder) => {
+                    self.handle_worker_remainder(worker_idx, remainder)
+                }
+                WorkerResponse::QueryResult(worker_idx, queries) => {
+                    self.handle_worker_query_result(worker_idx, queries)
+                }
+            },
         }
 
         if self.request.is_handled() {
@@ -335,7 +346,7 @@ impl ComponentLifecycle for Manager {
 
 enum ManagerRequest {
     DistributeEvaluations {
-        request: Option<Ask<Arc<Vec<BaseElement>>, ()>>,
+        request: Option<Ask<Evaluations, ()>>,
         worker_replies: HashSet<usize, Hash64>,
     },
     CommitToLayer {
@@ -367,5 +378,26 @@ impl ManagerRequest {
             ManagerRequest::QueryLayers { request, .. } => request.is_none(),
             ManagerRequest::None => true,
         }
+    }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+fn build_worker_partitions(
+    worker_idx: usize,
+    num_workers: usize,
+    num_partitions: usize,
+    evaluations: Arc<Vec<BaseElement>>,
+) -> WorkerPartitions {
+    let partitions_per_worker = num_partitions / num_workers;
+    let partition_indexes = (0..num_partitions)
+        .skip(worker_idx * partitions_per_worker)
+        .take(partitions_per_worker)
+        .collect();
+
+    WorkerPartitions {
+        evaluations: evaluations.clone(),
+        num_partitions,
+        partition_indexes,
     }
 }
