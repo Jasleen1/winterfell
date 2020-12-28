@@ -1,6 +1,6 @@
 use kompact::prelude::*;
 use log::debug;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use super::{
@@ -8,7 +8,7 @@ use super::{
         Evaluations, ManagerMessage, ProverRequest, QueryResult, WorkerPartitions, WorkerRequest,
         WorkerResponse,
     },
-    worker::{Worker, WorkerConfig},
+    worker::Worker,
 };
 use fasthash::xx::Hash64;
 use math::field::BaseElement;
@@ -22,6 +22,7 @@ pub struct Manager {
     workers: Vec<Arc<Component<Worker>>>,
     worker_refs: Vec<ActorRefStrong<WithSenderStrong<WorkerRequest, ManagerMessage>>>,
     num_workers: usize,
+    worker_partitions: HashMap<usize, Vec<usize>>,
     request: ManagerRequest,
 }
 
@@ -35,6 +36,7 @@ impl Manager {
             workers: Vec::with_capacity(num_workers),
             worker_refs: Vec::with_capacity(num_workers),
             num_workers,
+            worker_partitions: HashMap::new(),
             request: ManagerRequest::None,
         }
     }
@@ -55,6 +57,7 @@ impl Manager {
                     request: Some(msg),
                     worker_replies: HashSet::with_hasher(Hash64),
                 };
+                self.worker_partitions.clear();
                 for (i, worker) in self.worker_refs.iter().enumerate() {
                     let worker_partitions = build_worker_partitions(
                         i,
@@ -62,6 +65,8 @@ impl Manager {
                         num_partitions,
                         evaluations.clone(),
                     );
+                    self.worker_partitions
+                        .insert(i, worker_partitions.partition_indexes.clone());
                     let msg = WorkerRequest::Prepare(worker_partitions);
                     worker.tell(WithSenderStrong::from(msg, self));
                 }
@@ -99,7 +104,8 @@ impl Manager {
             ManagerRequest::None => {
                 self.request = ManagerRequest::CommitToLayer {
                     request: Some(msg),
-                    worker_commitments: BTreeMap::new(),
+                    worker_replies: HashSet::new(),
+                    commitments: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
                     worker.tell(WithSenderStrong::from(WorkerRequest::CommitToLayer, self));
@@ -109,7 +115,7 @@ impl Manager {
         }
     }
 
-    fn handle_worker_commit(&mut self, worker_idx: usize, commitment: [u8; 32]) {
+    fn handle_worker_commit(&mut self, worker_idx: usize, worker_commitments: Vec<[u8; 32]>) {
         debug!(
             "manager: received WorkerCommit message from worker {}",
             worker_idx
@@ -117,13 +123,18 @@ impl Manager {
         match &mut self.request {
             ManagerRequest::CommitToLayer {
                 request,
-                worker_commitments,
+                worker_replies,
+                commitments,
             } => {
-                worker_commitments.insert(worker_idx, commitment);
-                if worker_commitments.len() == self.num_workers {
+                worker_replies.insert(worker_idx);
+                let worker_partitions = &self.worker_partitions[&worker_idx];
+                for (&i, &c) in worker_partitions.iter().zip(worker_commitments.iter()) {
+                    commitments.insert(i, c);
+                }
+                if worker_replies.len() == self.worker_partitions.len() {
                     let request = request.take().expect("request");
                     request
-                        .reply(worker_commitments.values().cloned().collect())
+                        .reply(commitments.values().cloned().collect())
                         .unwrap();
                 }
             }
@@ -179,7 +190,8 @@ impl Manager {
             ManagerRequest::None => {
                 self.request = ManagerRequest::RetrieveRemainder {
                     request: Some(msg),
-                    worker_remainders: BTreeMap::new(),
+                    worker_replies: HashSet::new(),
+                    remainder: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
                     worker.tell(WithSenderStrong::from(
@@ -192,7 +204,7 @@ impl Manager {
         }
     }
 
-    fn handle_worker_remainder(&mut self, worker_idx: usize, remainder: BaseElement) {
+    fn handle_worker_remainder(&mut self, worker_idx: usize, worker_remainder: Vec<BaseElement>) {
         debug!(
             "manager: received WorkerRemainder message from worker {}",
             worker_idx
@@ -200,13 +212,18 @@ impl Manager {
         match &mut self.request {
             ManagerRequest::RetrieveRemainder {
                 request,
-                worker_remainders,
+                worker_replies,
+                remainder,
             } => {
-                worker_remainders.insert(worker_idx, remainder);
-                if worker_remainders.len() == self.num_workers {
+                worker_replies.insert(worker_idx);
+                let worker_partitions = &self.worker_partitions[&worker_idx];
+                for (&i, &c) in worker_partitions.iter().zip(worker_remainder.iter()) {
+                    remainder.insert(i, c);
+                }
+                if worker_replies.len() == self.worker_partitions.len() {
                     let request = request.take().expect("request");
                     request
-                        .reply(worker_remainders.values().cloned().collect())
+                        .reply(remainder.values().cloned().collect())
                         .unwrap();
                 }
             }
@@ -223,7 +240,8 @@ impl Manager {
                 let positions = msg.request().clone();
                 self.request = ManagerRequest::QueryLayers {
                     request: Some(msg),
-                    worker_queries: BTreeMap::new(),
+                    worker_replies: HashSet::new(),
+                    query_results: BTreeMap::new(),
                 };
                 for worker in self.worker_refs.iter() {
                     let msg = WorkerRequest::Query(positions.clone());
@@ -234,7 +252,11 @@ impl Manager {
         }
     }
 
-    fn handle_worker_query_result(&mut self, worker_idx: usize, queries: Vec<Vec<QueryResult>>) {
+    fn handle_worker_query_result(
+        &mut self,
+        worker_idx: usize,
+        worker_queries: Vec<Vec<Vec<QueryResult>>>,
+    ) {
         debug!(
             "manager: received WorkerQueryResult message from worker {}",
             worker_idx
@@ -242,14 +264,19 @@ impl Manager {
         match &mut self.request {
             ManagerRequest::QueryLayers {
                 request,
-                worker_queries,
+                worker_replies,
+                query_results,
             } => {
-                worker_queries.insert(worker_idx, queries);
-                if worker_queries.len() == self.num_workers {
+                worker_replies.insert(worker_idx);
+                let worker_partitions = &self.worker_partitions[&worker_idx];
+                for (&i, c) in worker_partitions.iter().zip(worker_queries.iter()) {
+                    query_results.insert(i, c.clone());
+                }
+                if worker_replies.len() == self.worker_partitions.len() {
                     let request = request.take().expect("request");
                     request
                         .reply(
-                            worker_queries
+                            query_results
                                 .into_iter()
                                 .map(|(&i, q)| (i, q.clone()))
                                 .collect(),
@@ -281,8 +308,8 @@ impl Actor for Manager {
             },
             ManagerMessage::WorkerResponse(response) => match response {
                 WorkerResponse::WorkerReady(worker_idx) => self.handle_worker_ready(worker_idx),
-                WorkerResponse::CommitResult(worker_idx, commitment) => {
-                    self.handle_worker_commit(worker_idx, commitment)
+                WorkerResponse::CommitResult(worker_idx, worker_commitments) => {
+                    self.handle_worker_commit(worker_idx, worker_commitments)
                 }
                 WorkerResponse::DrpComplete(worker_idx) => {
                     self.handle_worker_drp_complete(worker_idx)
@@ -312,12 +339,10 @@ impl ComponentLifecycle for Manager {
     fn on_start(&mut self) -> Handled {
         // set up our workers
         for i in 0..self.num_workers {
-            let config = WorkerConfig {
-                num_partitions: self.num_workers,
-                index: i,
-                hash_fn: crypto::hash::blake3,
-            };
-            let worker = self.ctx.system().create(|| Worker::new(config));
+            let worker = self
+                .ctx
+                .system()
+                .create(|| Worker::new(i, crypto::hash::blake3));
             let worker_ref = worker.actor_ref().hold().expect("live");
             self.ctx.system().start(&worker);
             self.workers.push(worker);
@@ -351,7 +376,8 @@ enum ManagerRequest {
     },
     CommitToLayer {
         request: Option<Ask<(), Vec<[u8; 32]>>>,
-        worker_commitments: BTreeMap<usize, [u8; 32]>,
+        worker_replies: HashSet<usize>,
+        commitments: BTreeMap<usize, [u8; 32]>,
     },
     ApplyDrp {
         request: Option<Ask<BaseElement, ()>>,
@@ -359,11 +385,13 @@ enum ManagerRequest {
     },
     RetrieveRemainder {
         request: Option<Ask<(), Vec<BaseElement>>>,
-        worker_remainders: BTreeMap<usize, BaseElement>,
+        worker_replies: HashSet<usize>,
+        remainder: BTreeMap<usize, BaseElement>,
     },
     QueryLayers {
         request: Option<Ask<Vec<usize>, Vec<(usize, Vec<Vec<QueryResult>>)>>>,
-        worker_queries: BTreeMap<usize, Vec<Vec<QueryResult>>>,
+        worker_replies: HashSet<usize>,
+        query_results: BTreeMap<usize, Vec<Vec<QueryResult>>>,
     },
     None,
 }

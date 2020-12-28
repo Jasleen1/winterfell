@@ -22,10 +22,10 @@ pub enum ProverRequest {
 #[derive(Debug)]
 pub enum WorkerResponse {
     WorkerReady(usize),
-    CommitResult(usize, [u8; 32]),
+    CommitResult(usize, Vec<[u8; 32]>),
     DrpComplete(usize),
-    RemainderResult(usize, BaseElement),
-    QueryResult(usize, Vec<Vec<QueryResult>>),
+    RemainderResult(usize, Vec<BaseElement>),
+    QueryResult(usize, Vec<Vec<Vec<QueryResult>>>),
 }
 
 /// Messages sent from the manager to the workers.
@@ -56,4 +56,36 @@ pub struct WorkerPartitions {
     pub evaluations: Arc<Vec<BaseElement>>,
     pub num_partitions: usize,
     pub partition_indexes: Vec<usize>,
+}
+
+// WORKER CHECK-IN MESSAGE
+// ================================================================================================
+
+#[derive(Debug, Clone, Copy)]
+struct WorkerCheckIn;
+
+impl Serialisable for WorkerCheckIn {
+    fn ser_id(&self) -> SerId {
+        Self::SER_ID
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        Some(0)
+    }
+
+    fn serialise(&self, _buf: &mut dyn BufMut) -> Result<(), SerError> {
+        Ok(())
+    }
+
+    fn local(self: Box<Self>) -> Result<Box<dyn Any + Send>, Box<dyn Serialisable>> {
+        Ok(self)
+    }
+}
+
+impl Deserialiser<WorkerCheckIn> for WorkerCheckIn {
+    const SER_ID: SerId = 3456;
+
+    fn deserialise(_buf: &mut dyn Buf) -> Result<WorkerCheckIn, SerError> {
+        Ok(WorkerCheckIn)
+    }
 }
