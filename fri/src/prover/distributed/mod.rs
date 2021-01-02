@@ -2,20 +2,24 @@ use crate::{folding::quartic, utils, FriOptions, FriProof, FriProofLayer, Prover
 use crypto::{BatchMerkleProof, MerkleTree};
 use kompact::prelude::*;
 use math::field::{BaseElement, FieldElement};
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 mod manager;
 use manager::Manager;
 
 mod messages;
 use fasthash::xx::Hash64;
-use messages::{Evaluations, ManagerMessage, ProverRequest, QueryResult};
+use messages::{Evaluations, ProverRequest, QueryResult};
 
-mod partition;
 mod worker;
 
 #[cfg(test)]
 mod tests;
+
+// CONSTANTS
+// ================================================================================================
+const PROVER_PATH: &str = "fri_prover";
+const SETTLE_TIME: Duration = Duration::from_millis(1000);
 
 // FRI PROVER
 // ================================================================================================
@@ -23,15 +27,22 @@ mod tests;
 pub struct FriProver<C: ProverChannel> {
     options: FriOptions,
     manager: Arc<Component<Manager>>,
-    manager_ref: ActorRefStrong<ManagerMessage>,
+    manager_ref: ActorRefStrong<ProverRequest>,
     request: Option<ProofRequest>,
     _marker: PhantomData<C>,
 }
 
 impl<C: ProverChannel> FriProver<C> {
-    pub fn new(system: &KompactSystem, options: FriOptions, num_workers: usize) -> Self {
-        let manager = system.create(move || Manager::new(num_workers));
+    pub fn new(system: &KompactSystem, options: FriOptions) -> Self {
+        let (manager, manager_registration) = system.create_and_register(Manager::new);
+        let manager_service_registration = system.register_by_alias(&manager, PROVER_PATH);
+
+        let _manager_path =
+            manager_registration.wait_expect(SETTLE_TIME, "prover never registered");
+        let _manager_named_path =
+            manager_service_registration.wait_expect(SETTLE_TIME, "prover never registered");
         system.start(&manager);
+
         let manager_ref = manager.actor_ref().hold().expect("live");
 
         FriProver {
@@ -61,10 +72,7 @@ impl<C: ProverChannel> FriProver<C> {
             num_partitions,
         };
         self.manager_ref
-            .ask(|promise| {
-                let request = ProverRequest::DistributeEvaluations(Ask::new(promise, evaluations));
-                ManagerMessage::ProverRequest(request)
-            })
+            .ask(|promise| ProverRequest::DistributeEvaluations(Ask::new(promise, evaluations)))
             .wait();
 
         // determine number of layers
@@ -77,10 +85,7 @@ impl<C: ProverChannel> FriProver<C> {
             // worker commitments.
             let worker_commitments = self
                 .manager_ref
-                .ask(|promise| {
-                    let request = ProverRequest::CommitToLayer(Ask::new(promise, ()));
-                    ManagerMessage::ProverRequest(request)
-                })
+                .ask(|promise| ProverRequest::CommitToLayer(Ask::new(promise, ())))
                 .wait();
             let layer_tree = MerkleTree::new(worker_commitments, hash_fn);
             channel.commit_fri_layer(*layer_tree.root());
@@ -90,20 +95,14 @@ impl<C: ProverChannel> FriProver<C> {
             // projections in each worker.
             let alpha = channel.draw_fri_alpha::<BaseElement>(layer_depth);
             self.manager_ref
-                .ask(|promise| {
-                    let request = ProverRequest::ApplyDrp(Ask::new(promise, alpha));
-                    ManagerMessage::ProverRequest(request)
-                })
+                .ask(|promise| ProverRequest::ApplyDrp(Ask::new(promise, alpha)))
                 .wait();
         }
 
         // retrieve remainder and commit to it
         let remainder = self
             .manager_ref
-            .ask(|promise| {
-                let request = ProverRequest::RetrieveRemainder(Ask::new(promise, ()));
-                ManagerMessage::ProverRequest(request)
-            })
+            .ask(|promise| ProverRequest::RetrieveRemainder(Ask::new(promise, ())))
             .wait();
         let remainder_folded = quartic::transpose(&remainder, 1);
         let remainder_hashes = utils::hash_values(&remainder_folded, hash_fn);
@@ -132,14 +131,11 @@ impl<C: ProverChannel> FriProver<C> {
         // get query results for all partitions from the manager
         let partition_queries = self
             .manager_ref
-            .ask(|promise| {
-                let request = ProverRequest::QueryLayers(Ask::new(promise, positions.to_vec()));
-                ManagerMessage::ProverRequest(request)
-            })
+            .ask(|promise| ProverRequest::QueryLayers(Ask::new(promise, positions.to_vec())))
             .wait();
 
         // iterate over all queried partitions
-        for (partition_idx, partition_results) in partition_queries.into_iter() {
+        for (partition_idx, partition_results) in partition_queries.into_iter().enumerate() {
             // iterate over all layers within a partition result
             for (layer_depth, layer_results) in partition_results.into_iter().enumerate() {
                 // queries for each partition contain only starting segments of Merkle

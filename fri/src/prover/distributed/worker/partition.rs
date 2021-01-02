@@ -1,4 +1,4 @@
-use super::QueryResult;
+use super::super::QueryResult;
 use crate::{folding::quartic, utils::hash_values};
 use crypto::{HashFunction, MerkleTree};
 use math::field::{BaseElement, FieldElement, StarkField};
