@@ -65,6 +65,7 @@ impl Partition {
         }
     }
 
+    #[allow(dead_code)]
     pub fn index(&self) -> usize {
         self.partition_idx
     }

@@ -3,10 +3,13 @@ use math::field::BaseElement;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+// PROVER REQUEST MESSAGES
+// ================================================================================================
+
 /// Messages sent from the main thread to the manager.
 #[derive(Debug)]
 pub enum ProverRequest {
-    DistributeEvaluations(Ask<Evaluations, ()>),
+    InitRequest(Ask<RequestInfo, ()>),
     CommitToLayer(Ask<(), Vec<[u8; 32]>>),
     ApplyDrp(Ask<BaseElement, ()>),
     RetrieveRemainder(Ask<(), Vec<BaseElement>>),
@@ -21,16 +24,10 @@ pub struct QueryResult {
 }
 
 #[derive(Debug)]
-pub struct Evaluations {
+pub struct RequestInfo {
     pub evaluations: Arc<Vec<BaseElement>>,
     pub num_partitions: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct WorkerPartitions {
-    pub evaluations: Vec<BaseElement>,
-    pub num_partitions: usize,
-    pub partition_indexes: Vec<usize>,
+    pub num_layers: usize,
 }
 
 // WORKER CHECK-IN MESSAGE
@@ -65,7 +62,7 @@ impl Deserialiser<WorkerCheckIn> for WorkerCheckIn {
     }
 }
 
-// WORKER REQUEST MESSAGE
+// WORKER REQUEST MESSAGES
 // ================================================================================================
 
 // TODO: implement better handling of WorkerRequest serialization/deserialization
@@ -73,11 +70,20 @@ impl Deserialiser<WorkerCheckIn> for WorkerCheckIn {
 /// Messages sent from the manager to the workers.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum WorkerRequest {
-    Prepare(WorkerPartitions),
+    AssignPartitions(WorkerPartitions),
     CommitToLayer,
     ApplyDrp(BaseElement),
     RetrieveRemainder,
     Query(Vec<usize>),
+    Reset,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct WorkerPartitions {
+    pub evaluations: Vec<BaseElement>,
+    pub num_layers: usize,
+    pub num_partitions: usize,
+    pub partition_indexes: Vec<usize>,
 }
 
 impl Serialisable for WorkerRequest {
@@ -111,8 +117,10 @@ impl Deserialiser<WorkerRequest> for WorkerRequest {
     }
 }
 
-// WORKER RESPONSE MESSAGE
+// WORKER RESPONSE MESSAGES
 // ================================================================================================
+
+// TODO: implement better handling of WorkerResponse serialization/deserialization
 
 /// Messages sent from workers to the manager.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -146,7 +154,7 @@ impl Serialisable for WorkerResponse {
 }
 
 impl Deserialiser<WorkerResponse> for WorkerResponse {
-    const SER_ID: SerId = 102;
+    const SER_ID: SerId = 103;
 
     fn deserialise(buf: &mut dyn Buf) -> Result<WorkerResponse, SerError> {
         let len = buf.get_u64() as usize;

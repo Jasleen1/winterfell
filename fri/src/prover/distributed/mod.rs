@@ -9,7 +9,7 @@ use manager::Manager;
 
 mod messages;
 use fasthash::xx::Hash64;
-use messages::{Evaluations, ProverRequest, QueryResult};
+use messages::{ProverRequest, QueryResult, RequestInfo};
 
 mod worker;
 
@@ -26,27 +26,31 @@ const SETTLE_TIME: Duration = Duration::from_millis(1000);
 
 pub struct FriProver<C: ProverChannel> {
     options: FriOptions,
-    manager: Arc<Component<Manager>>,
     manager_ref: ActorRefStrong<ProverRequest>,
     request: Option<ProofRequest>,
     _marker: PhantomData<C>,
 }
 
 impl<C: ProverChannel> FriProver<C> {
+    /// Returns a new instance of the FRI prover instantiated with the specified `options`.
+    /// This also starts a manager actor in the specified Kompact `system` and registers
+    /// a named path to this actor at /fri_prover address.
     pub fn new(system: &KompactSystem, options: FriOptions) -> Self {
+        // create a new manager actor and register it at the named path
         let (manager, manager_registration) = system.create_and_register(Manager::new);
         let manager_service_registration = system.register_by_alias(&manager, PROVER_PATH);
 
+        // allow some time for registrations to settle
         let _manager_path =
-            manager_registration.wait_expect(SETTLE_TIME, "prover never registered");
-        let _manager_named_path =
-            manager_service_registration.wait_expect(SETTLE_TIME, "prover never registered");
-        system.start(&manager);
+            manager_registration.wait_expect(SETTLE_TIME, "failed to register manager");
+        let _manager_named_path = manager_service_registration
+            .wait_expect(SETTLE_TIME, "failed to register manager's named path");
 
+        // start the manager and get a local reference to it
+        system.start(&manager);
         let manager_ref = manager.actor_ref().hold().expect("live");
 
         FriProver {
-            manager,
             manager_ref,
             options,
             request: None,
@@ -66,17 +70,16 @@ impl<C: ProverChannel> FriProver<C> {
 
         // distribute evaluations; number of partitions is set to the remainder length
         // so that each partitions resolves to a single value
+        let num_layers = self.options.num_fri_layers(domain_size);
         let num_partitions = self.options.fri_remainder_length(domain_size);
-        let evaluations = Evaluations {
+        let evaluations = RequestInfo {
             evaluations: Arc::new(evaluations.to_vec()),
             num_partitions,
+            num_layers,
         };
         self.manager_ref
-            .ask(|promise| ProverRequest::DistributeEvaluations(Ask::new(promise, evaluations)))
+            .ask(|promise| ProverRequest::InitRequest(Ask::new(promise, evaluations)))
             .wait();
-
-        // determine number of layers
-        let num_layers = self.options.num_fri_layers(domain_size);
 
         let mut layer_trees = Vec::new();
         for layer_depth in 0..num_layers {
@@ -212,6 +215,43 @@ impl ProofRequest {
             self.domain_size / usize::pow(self.folding_factor, (layer_depth + 1) as u32);
         let local_bits = num_evaluations.trailing_zeros() - self.num_partitions.trailing_zeros();
         (partition_idx << local_bits) | local_idx
+    }
+}
+
+// PROTOCOL STEP
+// ================================================================================================
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProtocolStep {
+    None,
+    Ready(usize),          // num_layers
+    LayerCommitted(usize), // remaining _layers
+    DrpApplied(usize),     // remaining layers
+}
+
+impl ProtocolStep {
+    pub fn get_next_state(&self) -> ProtocolStep {
+        match self {
+            ProtocolStep::None => ProtocolStep::None,
+            ProtocolStep::Ready(num_layers) => ProtocolStep::LayerCommitted(*num_layers),
+            ProtocolStep::LayerCommitted(rem_layers) => ProtocolStep::DrpApplied(*rem_layers),
+            ProtocolStep::DrpApplied(rem_layers) => {
+                let rem_layers = *rem_layers;
+                assert!(
+                    rem_layers > 1,
+                    "cannot apply degree-preserving projection to the last layer"
+                );
+                ProtocolStep::LayerCommitted(rem_layers - 1)
+            }
+        }
+    }
+
+    pub fn is_completed(&self) -> bool {
+        if let ProtocolStep::DrpApplied(rem_layers) = self {
+            *rem_layers == 1
+        } else {
+            false
+        }
     }
 }
 
