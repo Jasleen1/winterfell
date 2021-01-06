@@ -14,3 +14,4 @@ crypto = { path = "../crypto" }
 fri = { path = "../fri" }
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"
+fasthash = "0.4"

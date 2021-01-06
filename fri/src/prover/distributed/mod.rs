@@ -8,6 +8,7 @@ mod manager;
 use manager::Manager;
 
 mod messages;
+use fasthash::xx::Hash64;
 use messages::{ManagerMessage, QueryResult};
 
 mod worker;
@@ -204,7 +205,7 @@ impl ProofRequest {
 
 fn build_fri_layer(queries: &mut [QueryResult], indexes: Vec<usize>) -> FriProofLayer {
     // make sure queries are sorted in exact same way as indexes
-    let mut index_order_map = HashMap::new();
+    let mut index_order_map = HashMap::with_hasher(Hash64);
     for (i, index) in indexes.into_iter().enumerate() {
         index_order_map.insert(index, i);
     }

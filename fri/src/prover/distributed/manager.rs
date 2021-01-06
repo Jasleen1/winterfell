@@ -7,6 +7,7 @@ use super::{
     messages::{ManagerMessage, QueryResult, WorkerMessage},
     worker::{Worker, WorkerConfig},
 };
+use fasthash::xx::Hash64;
 use math::field::BaseElement;
 
 // TYPES AND INTERFACES
@@ -48,7 +49,7 @@ impl Manager {
                 let evaluations = msg.request().clone();
                 self.request = ManagerRequest::DistributeEvaluations {
                     request: Some(msg),
-                    worker_replies: HashSet::new(),
+                    worker_replies: HashSet::with_hasher(Hash64),
                 };
                 for worker in self.worker_refs.iter() {
                     let msg = WorkerMessage::Prepare(evaluations.clone());
@@ -130,7 +131,7 @@ impl Manager {
                 let alpha = *msg.request();
                 self.request = ManagerRequest::ApplyDrp {
                     request: Some(msg),
-                    worker_replies: HashSet::new(),
+                    worker_replies: HashSet::with_hasher(Hash64),
                 };
                 for worker in self.worker_refs.iter() {
                     worker.tell(WithSenderStrong::from(WorkerMessage::ApplyDrp(alpha), self));
@@ -335,7 +336,7 @@ impl ComponentLifecycle for Manager {
 enum ManagerRequest {
     DistributeEvaluations {
         request: Option<Ask<Arc<Vec<BaseElement>>, ()>>,
-        worker_replies: HashSet<usize>,
+        worker_replies: HashSet<usize, Hash64>,
     },
     CommitToLayer {
         request: Option<Ask<(), Vec<[u8; 32]>>>,
@@ -343,7 +344,7 @@ enum ManagerRequest {
     },
     ApplyDrp {
         request: Option<Ask<BaseElement, ()>>,
-        worker_replies: HashSet<usize>,
+        worker_replies: HashSet<usize, Hash64>,
     },
     RetrieveRemainder {
         request: Option<Ask<(), Vec<BaseElement>>>,

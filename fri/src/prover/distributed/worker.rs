@@ -1,6 +1,7 @@
 use super::messages::{ManagerMessage, QueryResult, WorkerMessage};
 use crate::{folding::quartic, utils::hash_values};
 use crypto::{HashFunction, MerkleTree};
+use fasthash::xx::Hash64;
 use kompact::prelude::*;
 use log::debug;
 use math::field::{BaseElement, FieldElement, StarkField};
@@ -140,7 +141,7 @@ impl Worker {
     }
 
     fn to_local_positions(&self, positions: &[usize]) -> Vec<usize> {
-        let mut local_positions = HashSet::new();
+        let mut local_positions = HashSet::with_hasher(Hash64);
         for &p in positions.iter() {
             if p % self.config.num_partitions == self.config.index {
                 local_positions.insert((p - self.config.index) / self.config.num_partitions);
@@ -150,7 +151,7 @@ impl Worker {
     }
 
     fn map_positions(&self, positions: &[usize], layer_depth: usize) -> Vec<usize> {
-        let mut result = HashSet::new();
+        let mut result = HashSet::with_hasher(Hash64);
         let num_evaluations = self.evaluations[layer_depth].len();
         positions.iter().for_each(|p| {
             result.insert(p % num_evaluations);

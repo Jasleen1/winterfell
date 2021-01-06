@@ -5,6 +5,7 @@ use std::{
 };
 
 mod proofs;
+use fasthash::xx::Hash64;
 pub use proofs::BatchMerkleProof;
 
 #[cfg(test)]
@@ -196,13 +197,13 @@ pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 3
     nodes
 }
 
-fn map_indexes(indexes: &[usize], max_valid: usize) -> HashMap<usize, usize> {
-    let mut map = HashMap::new();
+fn map_indexes(indexes: &[usize], max_valid: usize) -> HashMap<usize, usize, Hash64> {
+    let mut map = HashMap::with_hasher(Hash64);
     for (i, index) in indexes.iter().cloned().enumerate() {
         map.insert(index, i);
         assert!(index <= max_valid, "invalid index {}", index);
     }
-    assert!(indexes.len() == map.len(), "repeating indexes detected");
+    assert_eq!(indexes.len(), map.len(), "repeating indexes detected");
     map
 }
 

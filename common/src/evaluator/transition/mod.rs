@@ -1,5 +1,6 @@
 use super::{ComputationContext, ConstraintDegree};
 use crypto::RandomElementGenerator;
+use fasthash::xx::Hash64;
 use math::field::{BaseElement, FieldElement, FromVec};
 use std::collections::HashMap;
 
@@ -105,7 +106,7 @@ pub trait TransitionEvaluator {
         let divisor_degree = context.trace_length() - 1;
         let target_degree = context.composition_degree() + divisor_degree;
 
-        let mut groups = HashMap::new();
+        let mut groups = HashMap::with_hasher(Hash64);
         for (i, degree) in degrees.iter().enumerate() {
             let evaluation_degree = degree.get_evaluation_degree(context.trace_length());
             let degree_adjustment = (target_degree - evaluation_degree) as u32;

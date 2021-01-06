@@ -26,6 +26,7 @@ serde = { version = "1.0.117", features = ["derive"] }
 math = { path = "../math" }
 kompact = { git = "https://github.com/kompics/kompact.git", version = "0.10",  default-features = false, features = ["serde_support", "ser_id_64"]}
 bytes = "0.6"
+fasthash = "0.4"
 
 [dev-dependencies]
 criterion = "0.3.3"
