@@ -4,6 +4,7 @@ members = [
   "crypto",
   "common",
   "fri",
+  "plasma",
   "prover",
   "verifier",
   "examples"
