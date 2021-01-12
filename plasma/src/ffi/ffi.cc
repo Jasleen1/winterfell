@@ -14,9 +14,7 @@ namespace plasma {
   }
 
   rust::Slice<const uint8_t> oid_to_binary(const ObjectID& oid) {
-    std::string bin = oid.binary();
-    uint8_t const *c = reinterpret_cast<const uint8_t*>(bin.data());
-    return rust::Slice<const uint8_t>(c, sizeof(c));
+    return rust::Slice<const uint8_t>(oid.data(), kUniqueIDSize);
   }
 
   rust::String oid_to_hex(const ObjectID& oid) {
@@ -52,6 +50,10 @@ namespace plasma {
     uint8_t *c = buffer->mutable_data();
     int64_t len = buffer->size();
     return rust::Slice<unsigned char>(c, len);
+  }
+
+  bool is_buffer_mutable(std::shared_ptr<Buffer> buffer) {
+    return buffer->is_mutable();
   }
 
   //////////////////

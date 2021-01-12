@@ -1,8 +1,8 @@
 use super::*;
 use cxx::UniquePtr;
+use rand::Rng;
 use std::panic::{self, AssertUnwindSafe};
 use std::pin::Pin;
-use rand::Rng;
 
 // OBJECT ID TESTS
 // ================================================================================================
@@ -177,5 +177,4 @@ fn flex_code_check(s: ffi::StatusCode) -> bool {
 fn get_random_oid() -> UniquePtr<ffi::ObjectID> {
     let bytes: [u8; 20] = rand::thread_rng().gen();
     ffi::oid_from_binary(&bytes)
-
 }

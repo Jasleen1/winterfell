@@ -1,6 +1,7 @@
 #pragma once
 #include "rust/cxx.h"
 #include "arrow/cpp/src/plasma/client.h"
+#include "arrow/cpp/src/plasma/common.h"
 #include "plasma/src/ffi/mod.rs.h"
 
 namespace plasma {
@@ -28,6 +29,8 @@ namespace plasma {
   rust::Slice<const unsigned char> get_buffer_data(std::shared_ptr<Buffer> buffer);
   
   rust::Slice<unsigned char> get_buffer_data_mut(std::shared_ptr<Buffer> buffer);
+
+  bool is_buffer_mutable(std::shared_ptr<Buffer> buffer);
 
   //////////////////
   // PlasmaClient //

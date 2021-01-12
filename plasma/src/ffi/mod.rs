@@ -56,6 +56,7 @@ pub mod ffi {
 
         fn get_buffer_data<'a>(buffer: SharedPtr<Buffer>) -> &'a [u8];
         fn get_buffer_data_mut<'a>(buffer: SharedPtr<Buffer>) -> &'a mut [u8];
+        fn is_buffer_mutable(buffer: SharedPtr<Buffer>) -> bool;
 
         #[namespace = "arrow"]
         type MutableBuffer;
