@@ -8,44 +8,42 @@ use std::pin::Pin;
 // ================================================================================================
 
 #[test]
-fn binary_oid() {
+fn plasma_ffi_oid_from_binary() {
     let _oid: UniquePtr<ffi::ObjectID> = ffi::oid_from_binary(&[
         1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
     ]);
 }
 
 #[test]
-fn binary_roundtrip() {
+fn plasma_ffi_oid_roundtrip() {
     let oid: UniquePtr<ffi::ObjectID> = get_random_oid();
     let bin = ffi::oid_to_binary(&oid);
     let oid_deser = ffi::oid_from_binary(&bin);
-    assert!(!ffi::oid_equals(&oid, &oid_deser));
+    assert!(ffi::oid_equals(&oid, &oid_deser));
     assert_eq!(bin, ffi::oid_to_binary(&oid_deser));
 }
 
 #[test]
-fn size() {
-    let oid: UniquePtr<ffi::ObjectID> = get_random_oid();
-    let size = ffi::oid_size(&oid);
-    assert_eq!(20, size)
-}
-
-#[test]
-fn hex() {
-    let oid: UniquePtr<ffi::ObjectID> = get_random_oid();
-    let _hex = ffi::oid_to_hex(&oid);
+fn plasma_ffi_oid_to_hex() {
+    let oid: UniquePtr<ffi::ObjectID> = ffi::oid_from_binary(&[
+        1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    ]);
+    assert_eq!(
+        "0102030405060708090a0b0c0d0e0f1011121314",
+        ffi::oid_to_hex(&oid)
+    );
 }
 
 // CLIENT TESTS
 // ================================================================================================
 
 #[test]
-fn new_client() {
+fn plasma_ffi_new_client() {
     let _pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
 }
 
 #[test]
-fn connect() {
+fn plasma_ffi_connect_error() {
     let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
     assert_eq!(
         ffi::StatusCode::IOError,
@@ -53,10 +51,8 @@ fn connect() {
     ); // -> IOError
 }
 
-// TODO: integration test on set_client_options
-
 #[test]
-fn disconnected_store_capacity() {
+fn plasma_ffi_disconnected_store_capacity() {
     let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
     let val = ffi::store_capacity_bytes(pc.pin_mut());
     assert_eq!(val, 0); // store is not connected
@@ -66,19 +62,19 @@ fn disconnected_store_capacity() {
 // ================================================================================================
 
 #[test]
-fn conn_connect() {
+fn plasma_ffi_connect() {
     let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
     let res = ffi::connect(pc.pin_mut(), "/tmp/plasma", 0);
     assert_eq!(res.code, ffi::StatusCode::OK);
 }
 
 #[test]
-fn conn_connect_disconnect() {
+fn plasma_ffi_connect_disconnect() {
     run_test(|_| {})
 }
 
 #[test]
-fn conn_connect_create() {
+fn plasma_ffi_create() {
     run_test(|pc| {
         let mut ob = ffi::new_obj_buffer();
         let oid = get_random_oid();
@@ -95,7 +91,7 @@ fn conn_connect_create() {
 }
 
 #[test]
-fn conn_connect_create_seal() {
+fn plasma_ffi_create_and_seal() {
     run_test(|pc| {
         let oid = get_random_oid();
         let data = [0u8; 32];
@@ -106,7 +102,7 @@ fn conn_connect_create_seal() {
 }
 
 #[test]
-fn conn_connect_get() {
+fn plasma_ffi_get() {
     run_test(|mut pc| {
         let oid = get_random_oid();
         // put object into the store
@@ -123,7 +119,7 @@ fn conn_connect_get() {
 }
 
 #[test]
-fn conn_connect_contains() {
+fn plasma_ffi_contains() {
     run_test(|mut pc| {
         let oid = get_random_oid();
         // put object into the store

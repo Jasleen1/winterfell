@@ -16,8 +16,6 @@ namespace plasma {
 
   rust::String oid_to_hex(const ObjectID& oid);
 
-  int64_t oid_size(const ObjectID& oid);
-
   bool oid_equals(const ObjectID& oid1, const ObjectID& oid2);
 
   ////////////
@@ -29,8 +27,6 @@ namespace plasma {
   rust::Slice<const unsigned char> get_buffer_data(std::shared_ptr<Buffer> buffer);
   
   rust::Slice<unsigned char> get_buffer_data_mut(std::shared_ptr<Buffer> buffer);
-
-  bool is_buffer_mutable(std::shared_ptr<Buffer> buffer);
 
   //////////////////
   // PlasmaClient //

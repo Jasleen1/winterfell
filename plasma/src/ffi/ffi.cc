@@ -22,11 +22,7 @@ namespace plasma {
     return rust::String(hex);
   }
 
-  int64_t oid_size(const ObjectID& oid){
-    return oid.size();
-  }
-
-  bool oid_equals(const ObjectID& oid1, const ObjectID& oid2){
+  bool oid_equals(const ObjectID& oid1, const ObjectID& oid2) {
     return oid1 == oid2;
   }
 
@@ -52,10 +48,6 @@ namespace plasma {
     return rust::Slice<unsigned char>(c, len);
   }
 
-  bool is_buffer_mutable(std::shared_ptr<Buffer> buffer) {
-    return buffer->is_mutable();
-  }
-
   //////////////////
   // PlasmaClient //
   //////////////////
@@ -70,19 +62,19 @@ namespace plasma {
     return ArrowStatus{make_plasma_error(conn_status.code()), conn_status.message()};
   }
 
-  ArrowStatus set_client_options(PlasmaClient& pc, rust::Str client_name, int64_t output_memory_quota){
+  ArrowStatus set_client_options(PlasmaClient& pc, rust::Str client_name, int64_t output_memory_quota) {
     Status client_status = pc.SetClientOptions(std::string(client_name), output_memory_quota);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus create(PlasmaClient& pc, ObjectBuffer& ob, const ObjectID& oid, int64_t data_size, rust::Slice<const uint8_t> metadata){
+  ArrowStatus create(PlasmaClient& pc, ObjectBuffer& ob, const ObjectID& oid, int64_t data_size, rust::Slice<const uint8_t> metadata) {
     std::shared_ptr<Buffer>* data_ptr = &ob.data;
     Status client_status = pc.Create(oid, data_size, metadata.data(), metadata.size(), data_ptr, 0, true);
     ob.metadata = std::make_shared<Buffer>(metadata.data(), metadata.size());
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus create_and_seal(PlasmaClient& pc, const ObjectID& oid, rust::Slice<const uint8_t> data, rust::Slice<const uint8_t> metadata){
+  ArrowStatus create_and_seal(PlasmaClient& pc, const ObjectID& oid, rust::Slice<const uint8_t> data, rust::Slice<const uint8_t> metadata) {
     std::string bin_data = std::string(reinterpret_cast<const char*>(data.data()), data.size());
     std::string bin_metadata = std::string(reinterpret_cast<const char*>(metadata.data()), metadata.size());
 
@@ -97,7 +89,7 @@ namespace plasma {
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus multi_get(PlasmaClient& pc, const std::vector<ObjectID>& oids, int64_t timeout_ms, std::vector<ObjectBuffer>& obs){
+  ArrowStatus multi_get(PlasmaClient& pc, const std::vector<ObjectID>& oids, int64_t timeout_ms, std::vector<ObjectBuffer>& obs) {
     std::vector<ObjectBuffer>* buffers = &obs;
     Status client_status = pc.Get(oids, timeout_ms, buffers);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
@@ -108,13 +100,13 @@ namespace plasma {
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus contains(PlasmaClient& pc, const ObjectID& oid, bool& has_object){
+  ArrowStatus contains(PlasmaClient& pc, const ObjectID& oid, bool& has_object) {
     bool* has_res = &has_object;
     Status client_status = pc.Contains(oid, has_res);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus abort(PlasmaClient& pc, const ObjectID& oid){
+  ArrowStatus abort(PlasmaClient& pc, const ObjectID& oid) {
     Status client_status = pc.Abort(oid);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }

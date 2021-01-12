@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests;
 
+#[allow(clippy::module_inception)]
 #[cxx::bridge(namespace = plasma)]
 pub mod ffi {
 
@@ -48,7 +49,6 @@ pub mod ffi {
         fn oid_from_binary(binary: &[u8]) -> UniquePtr<ObjectID>;
         fn oid_to_binary(oid: &ObjectID) -> &[u8];
         fn oid_to_hex(oid: &ObjectID) -> String;
-        fn oid_size(oid: &ObjectID) -> i64;
         fn oid_equals(oid1: &ObjectID, oid2: &ObjectID) -> bool;
 
         #[namespace = "arrow"]
@@ -56,7 +56,6 @@ pub mod ffi {
 
         fn get_buffer_data<'a>(buffer: SharedPtr<Buffer>) -> &'a [u8];
         fn get_buffer_data_mut<'a>(buffer: SharedPtr<Buffer>) -> &'a mut [u8];
-        fn is_buffer_mutable(buffer: SharedPtr<Buffer>) -> bool;
 
         #[namespace = "arrow"]
         type MutableBuffer;
@@ -76,7 +75,7 @@ pub mod ffi {
         fn set_client_options(
             pc: Pin<&mut PlasmaClient>,
             client_name: &str,
-            output_memory_quote: i64,
+            output_memory_quota: i64,
         ) -> ArrowStatus;
 
         fn create(
@@ -101,6 +100,8 @@ pub mod ffi {
             ob: Pin<&mut ObjectBuffer>,
         ) -> ArrowStatus;
 
+        // TODO: implement multi_get abstraction
+        #[allow(dead_code)]
         fn multi_get(
             pc: Pin<&mut PlasmaClient>,
             oids: &CxxVector<ObjectID>,
@@ -123,8 +124,12 @@ pub mod ffi {
         #[cxx_name = "single_delete"]
         fn delete(pc: Pin<&mut PlasmaClient>, oid: &ObjectID) -> ArrowStatus;
 
+        // TODO: implement multi_delete abstraction
+        #[allow(dead_code)]
         fn multi_delete(pc: Pin<&mut PlasmaClient>, oid: &CxxVector<ObjectID>) -> ArrowStatus;
 
+        // TODO: implement refresh abstraction
+        #[allow(dead_code)]
         fn refresh(pc: Pin<&mut PlasmaClient>, oid: &CxxVector<ObjectID>) -> ArrowStatus;
 
         fn disconnect(pc: Pin<&mut PlasmaClient>) -> ArrowStatus;
