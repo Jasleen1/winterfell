@@ -60,8 +60,12 @@ fn plasma_ffi_disconnected_store_capacity() {
 
 // CONNECTION-REQUIRING TESTS
 // ================================================================================================
+// tests below require plasma store server to be running on the local machine; building plasma
+// server is expensive, and thus these tests are excluded from regular test runs.
+// running ignored tests can be done via: cargo test -- --ignored
 
 #[test]
+#[ignore]
 fn plasma_ffi_connect() {
     let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
     let res = ffi::connect(pc.pin_mut(), "/tmp/plasma", 0);
@@ -69,11 +73,13 @@ fn plasma_ffi_connect() {
 }
 
 #[test]
+#[ignore]
 fn plasma_ffi_connect_disconnect() {
     run_test(|_| {})
 }
 
 #[test]
+#[ignore]
 fn plasma_ffi_create() {
     run_test(|pc| {
         let mut ob = ffi::new_obj_buffer();
@@ -91,6 +97,7 @@ fn plasma_ffi_create() {
 }
 
 #[test]
+#[ignore]
 fn plasma_ffi_create_and_seal() {
     run_test(|pc| {
         let oid = get_random_oid();
@@ -102,6 +109,7 @@ fn plasma_ffi_create_and_seal() {
 }
 
 #[test]
+#[ignore]
 fn plasma_ffi_get() {
     run_test(|mut pc| {
         let oid = get_random_oid();
@@ -119,6 +127,7 @@ fn plasma_ffi_get() {
 }
 
 #[test]
+#[ignore]
 fn plasma_ffi_contains() {
     run_test(|mut pc| {
         let oid = get_random_oid();

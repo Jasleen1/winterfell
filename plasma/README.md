@@ -9,17 +9,22 @@ Arrow Plasma resources:
 ## Plasma server
 Plasma object store runs in a separate process and before clients can make API requests to it, the process can be started like so:
 ```
-plasma_store_server -m 1000000000 -s /tmp/plasma
+./plasma-store-server -m 1000000000 -s /tmp/plasma
 ```
 where:
 * The `-m` flag specifies the size of the object store in bytes.
 * The `-s` flag specifies the path of the Unix domain socket that the store will listen at.
 
-To build plasma server, Arrow project can be compiled using the following command:
+To build plasma server, Arrow project can be compiled using the following script:
 ```
-cmake -DARROW_PLASMA=ON
+git clone https://github.com/apache/arrow.git
+cd arrow/cpp
+mkdir release
+cd release
+cmake .. -DARROW_PLASMA=ON
+make
 ```
-For general instructions on building Apace Arrow see [here](https://arrow.apache.org/docs/developers/cpp/building.html).
+Once this is done, `plasma-store-server` executable will be in `arrow/cpp/release/release` directory. For general instructions on building Apace Arrow see [here](https://arrow.apache.org/docs/developers/cpp/building.html).
 
 ## Plasma client API
 Plasma client Rust API provides three primary structs to interact with Plasma store:

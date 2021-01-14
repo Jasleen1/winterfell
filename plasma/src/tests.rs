@@ -34,14 +34,19 @@ fn plasma_object_id_clone() {
 
 /// CLIENT TESTS
 /// ===============================================================================================
+// tests below require plasma store server to be running on the local machine; building plasma
+// server is expensive, and thus these tests are excluded from regular test runs.
+// running ignored tests can be done via: cargo test -- --ignored
 
 #[test]
+#[ignore]
 fn plasma_client_new() {
     assert_eq!(true, PlasmaClient::new(PLASMA_SOCKET, 0).is_ok());
     assert_eq!(true, PlasmaClient::new("/tmp/plasma2", 0).is_err());
 }
 
 #[test]
+#[ignore]
 fn plasma_client_create_and_seal() {
     let pc = build_client();
     let oid = ObjectId::rand();
@@ -55,6 +60,7 @@ fn plasma_client_create_and_seal() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_get() {
     let pc = build_client();
 
@@ -76,6 +82,7 @@ fn plasma_client_get() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_contains() {
     let pc = build_client();
 
@@ -101,6 +108,7 @@ fn plasma_client_contains() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_create_then_seal() {
     let pc = build_client();
     let pc2 = build_client();
@@ -155,6 +163,7 @@ fn plasma_client_create_then_seal() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_create_then_seal_error() {
     let pc = build_client();
 
@@ -171,6 +180,7 @@ fn plasma_client_create_then_seal_error() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_create_then_abort() {
     let pc = build_client();
 
@@ -197,6 +207,7 @@ fn plasma_client_create_then_abort() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_create_error() {
     let pc = build_client();
 
@@ -210,6 +221,7 @@ fn plasma_client_create_error() {
 }
 
 #[test]
+#[ignore]
 fn plasma_client_delete() {
     let pc = build_client();
     let pc2 = build_client();

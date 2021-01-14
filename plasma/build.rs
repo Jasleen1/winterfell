@@ -11,6 +11,7 @@ fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     cxx.files(&[
         "arrow/cpp/src/arrow/util/future.cc",
+        "arrow/cpp/src/arrow/util/string.cc",
         "arrow/cpp/src/arrow/util/logging.cc",
         "arrow/cpp/src/arrow/util/thread_pool.cc",
         "arrow/cpp/src/arrow/util/string_builder.cc",
