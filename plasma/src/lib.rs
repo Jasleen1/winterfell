@@ -204,7 +204,7 @@ impl PlasmaClient {
         }
     }
 
-    /// Set runtime options for this client.
+    /// Sets runtime options for this client.
     /// * The name of the client, used in debug messages.
     /// * The memory quota in bytes for objects created by this client.
     pub fn set_options(
@@ -226,10 +226,8 @@ impl PlasmaClient {
     /// Retrieves an object with the specified ID from the store. This function will block until
     /// the object has been created and sealed in the Plasma store or the timeout expires.
     /// * `oid` The ID of the object to get.
-    /// * `timeout_ms` The amount of time in milliseconds to wait before this
-    ///        request times out. If this value is -1, then no timeout is set.
-    /// The caller is responsible for releasing any retrieved objects, but it
-    /// should not release objects that were not retrieved.
+    /// * `timeout_ms` The amount of time in milliseconds to wait before this request times out.
+    ///    If this value is -1, then no timeout is set.
     pub fn get(&self, oid: ObjectId, timeout_ms: i64) -> Result<Option<ObjectBuffer>, PlasmaError> {
         let mut ob = plasma::new_obj_buffer();
         let status = plasma::get(
@@ -250,15 +248,14 @@ impl PlasmaClient {
         }
     }
 
-    /// Create an object in the Plasma Store. Any metadata for this object must be
-    /// be passed in when the object is created.
+    /// Creates an object in the Plasma Store. Any metadata for this object must be
+    /// passed in when the object is created.
     /// * `oid` The ID to use for the newly crated object.
     /// * `data_size` The size in bytes of the space to be allocated for this object's data
     ///     (this does not included space used for metadata).
     /// * `meta` The object's metadata; if there is no metadata, this should be an empty slice.
     ///
-    /// The returned object must be released once it is done with. It must also
-    /// be either sealed or aborted.
+    /// The returned object must be either sealed or aborted when done with.
     pub fn create(
         &self,
         oid: ObjectId,
@@ -280,7 +277,7 @@ impl PlasmaClient {
         }
     }
 
-    /// Create and seal an object in the object store. This is an optimization which allows
+    /// Creates and seals an object in the object store. This is an optimization which allows
     /// small objects to be created quickly with fewer messages to the store.
     /// * `oid` The ID for the object to create.
     /// * `data` The data for the object to create.
@@ -300,7 +297,7 @@ impl PlasmaClient {
         }
     }
 
-    /// Delete an object from the object store. This currently assumes that the
+    /// Deletes an object from the object store. This currently assumes that the
     /// object is present, has been sealed and not used by another client. Otherwise,
     /// it is a no operation.
     pub fn delete(&self, oid: &ObjectId) -> Result<(), PlasmaError> {
@@ -311,7 +308,7 @@ impl PlasmaClient {
         }
     }
 
-    /// Check if the object store contains a particular object and the object has been sealed.
+    /// Checks if the object store contains a particular object and the object has been sealed.
     pub fn contains(&self, oid: &ObjectId) -> Result<bool, PlasmaError> {
         let mut has_object = false;
         let status = plasma::contains(self.0.borrow_mut().pin_mut(), oid.inner(), &mut has_object);
