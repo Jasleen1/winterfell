@@ -17,6 +17,8 @@ jobs:
         os: [ubuntu]
     steps:
       - uses: actions/checkout@master
+        with:
+            submodules: recursive
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -37,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+        with:
+          submodules: recursive
       - name: Install minimal nightly with clippy
         uses: actions-rs/toolchain@v1
         with:
