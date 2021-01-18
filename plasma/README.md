@@ -26,6 +26,21 @@ make
 ```
 Once this is done, `plasma-store-server` executable will be in `arrow/cpp/release/release` directory. For general instructions on building Apace Arrow see [here](https://arrow.apache.org/docs/developers/cpp/building.html).
 
+### Huge page support
+On Linux it is possible to use the Plasma store with huge pages for increased throughput. To do this, we first need to create a file system and activate huge pages like so:
+```
+sudo mkdir -p /mnt/hugepages
+gid=`id -g`
+uid=`id -u`
+sudo mount -t hugetlbfs -o uid=$uid -o gid=$gid none /mnt/hugepages
+sudo bash -c "echo $gid > /proc/sys/vm/hugetlb_shm_group"
+sudo bash -c "echo 20000 > /proc/sys/vm/nr_hugepages"
+```
+Once this is done, you can start the Plasma store with the `-d` flag for the mount point of the huge page file system and the `-h` flag which indicates that huge pages are activated:
+```
+./plasma-store-server -m 1000000000 -s /tmp/plasma -d /mnt/hugepages -h
+```
+
 ## Plasma client API
 Plasma client Rust API provides three primary structs to interact with Plasma store:
 
