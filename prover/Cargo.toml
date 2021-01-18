@@ -11,7 +11,7 @@ math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
 fri = { path = '../fri' }
-log = "0.4.11"
+log = "0.4"
 
 [features]
 extension_field = []
