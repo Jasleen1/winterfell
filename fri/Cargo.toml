@@ -6,6 +6,11 @@ edition = "2018"
 [lib]
 bench = false
 
+[[bench]]
+name = "prover"
+harness = false
+
+
 [dependencies]
 math = { path = "../math" }
 crypto = { path = "../crypto" }
@@ -17,3 +22,4 @@ fasthash = "0.4"
 
 [dev-dependencies]
 env_logger = "0.8"
+criterion = "0.3.3"
