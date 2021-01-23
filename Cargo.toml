@@ -5,6 +5,7 @@ members = [
   "common",
   "fri",
   "plasma",
+  "stream",
   "prover",
   "verifier",
   "examples"
