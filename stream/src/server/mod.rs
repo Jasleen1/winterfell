@@ -14,26 +14,33 @@ use handler::Handler;
 // ================================================================================================
 
 const DEFAULT_PORT: &str = "2021";
-const DEFAULT_SOCKET: &str = "/tmp/plasma";
+const DEFAULT_PLASMA_SOCKET: &str = "/tmp/plasma";
+const DEFAULT_PLASMA_TIMEOUT: &str = "10";
 const DEFAULT_MAX_CONNECTIONS: &str = "128";
+
+const PLASMA_CONNECT_RETRIES: u32 = 4;
 
 // COMMAND LINE ARGUMENTS
 // ================================================================================================
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "porter", version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"), about = "Plasma object porter")]
-pub struct Cla {
+pub struct ServerOptions {
     /// TCP port for the porter to listen on
     #[structopt(short, long, default_value=DEFAULT_PORT)]
     port: String,
 
-    /// Unix socket bound to the local Plasma Store
-    #[structopt(short, long, default_value=DEFAULT_SOCKET)]
-    socket: String,
-
     /// Maximum number of TCP connections accepted by this server
     #[structopt(short="c", long, default_value=DEFAULT_MAX_CONNECTIONS)]
     max_connections: u32,
+
+    /// Unix socket bound to the local Plasma Store
+    #[structopt(short="s", long, default_value=DEFAULT_PLASMA_SOCKET)]
+    plasma_socket: String,
+
+    /// The amount of time in milliseconds to wait before requests to Plasma Store time out.
+    #[structopt(short="t", long, default_value=DEFAULT_PLASMA_TIMEOUT)]
+    plasma_timeout: i64,
 }
 
 // PROGRAM ENTRY POINT
@@ -51,10 +58,10 @@ pub async fn main() -> Result<()> {
     let shutdown = signal::ctrl_c();
 
     // read command-line args
-    let args = Cla::from_args();
+    let options = ServerOptions::from_args();
 
     // create the listener
-    let mut server = Listener::new(args).await?;
+    let mut server = Listener::new(options).await?;
 
     // TODO: add comment
     tokio::select! {

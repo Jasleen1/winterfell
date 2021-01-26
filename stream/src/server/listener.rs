@@ -1,3 +1,4 @@
+use plasma::PlasmaClient;
 use std::sync::Arc;
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -6,17 +7,28 @@ use tokio::{
 };
 use tracing::{debug, error, info};
 
-use super::{Cla, Handler, Result, Store};
+use super::{Handler, Result, ServerOptions, Store, PLASMA_CONNECT_RETRIES};
 
 #[derive(Debug)]
 pub struct Listener {
+    /// TCP listener bound to the address provided during server startup. The server
+    /// will listen for connections at this address.
     listener: TcpListener,
+
+    /// Shared handle to the Plasma Store. Contains a reference to Plasma Store client
+    /// as well as other info needed to ensure data is read from / written to the store
+    /// in a consistent manner.
     store: Arc<Store>,
+
+    /// Limit the max number of connections to the server. Before attempting to accept a
+    /// new connection, a permit is acquired from the semaphore. If none are available,
+    /// the listener waits for one. When handlers complete processing a connection, the
+    /// permit is returned to the semaphore.
     limit_connections: Arc<Semaphore>,
 }
 
 impl Listener {
-    pub async fn new(options: Cla) -> Result<Listener> {
+    pub async fn new(options: ServerOptions) -> Result<Listener> {
         // Bind a TCP listener
         let address = format!("127.0.0.1:{}", options.port);
         info!("starting server on {}", address);
@@ -25,8 +37,14 @@ impl Listener {
         // create a semaphore to enforce connection limit
         let limit_connections = Arc::new(Semaphore::new(options.max_connections as usize));
 
+        // connect to the plasma store
+        let plasma_socket = options.plasma_socket.as_str();
+        let plasma_client = PlasmaClient::new(plasma_socket, PLASMA_CONNECT_RETRIES)?;
+        info!("connected to plasma store at {}", options.plasma_socket);
+
         // create an object store
-        let store = Arc::new(Store::new());
+        let plasma_timeout_ms = options.plasma_timeout;
+        let store = Arc::new(Store::new(plasma_client, plasma_timeout_ms));
 
         Ok(Listener {
             listener,
@@ -46,7 +64,7 @@ impl Listener {
             // Wait for a permit to become available
             //
             // `acquire()` returns `Err` when the semaphore has been closed. We don't ever
-            // close the sempahore, so `unwrap()` is safe.
+            // close the semaphore, so `unwrap()` is safe.
             self.limit_connections.acquire().await.unwrap().forget();
 
             // Accept a new socket. This will attempt to perform error handling. The `accept`
@@ -54,18 +72,13 @@ impl Listener {
             let socket = self.accept().await?;
             debug!("accepted connection from {}", socket.peer_addr().unwrap());
 
-            // Create the necessary per-connection handler state.
-            let mut handler = Handler {
-                store: self.store.clone(),
-                socket,
-                // The connection state needs a handle to the max connections
-                // semaphore. When the handler is done processing the
-                // connection, a permit is added back to the semaphore.
-                limit_connections: self.limit_connections.clone(),
-            };
+            // Create the necessary per-connection handler state. The handler needs a handle to
+            // the max connections semaphore. When the handler is done processing the connection,
+            // a permit is added back to the semaphore.
+            let mut handler =
+                Handler::new(socket, self.store.clone(), self.limit_connections.clone());
 
-            // Spawn a new task to process the connections. Tokio tasks are like
-            // asynchronous green threads and are executed concurrently.
+            // Spawn a new task to process the connections
             tokio::spawn(async move {
                 // Process the connection. If an error is encountered, log it.
                 if let Err(err) = handler.run().await {
@@ -91,6 +104,7 @@ impl Listener {
                 Ok((socket, _)) => return Ok(socket),
                 Err(err) => {
                     // If accept has failed too many times. Return the error.
+                    debug!("failed to accept connection: {}", err);
                     if backoff > 4 {
                         return Err(err.into());
                     }

@@ -4,6 +4,8 @@ pub use request::{Request, SyncSubtask};
 mod store;
 pub use store::Store;
 
+mod errors;
+
 // CONSTANTS
 // ================================================================================================
 

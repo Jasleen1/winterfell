@@ -9,12 +9,20 @@ use tracing::{debug, instrument};
 /// Per-connection handler
 #[derive(Debug)]
 pub struct Handler {
-    pub store: Arc<Store>,
-    pub socket: TcpStream,
-    pub limit_connections: Arc<Semaphore>,
+    socket: TcpStream,
+    store: Arc<Store>,
+    limit_connections: Arc<Semaphore>,
 }
 
 impl Handler {
+    pub fn new(socket: TcpStream, store: Arc<Store>, limit_connections: Arc<Semaphore>) -> Self {
+        Handler {
+            socket,
+            store,
+            limit_connections,
+        }
+    }
+
     /// Process a single connection.
     ///
     /// Requests are read from the socket and processed until there are no requests left.
@@ -79,8 +87,8 @@ impl Handler {
 
 impl Drop for Handler {
     fn drop(&mut self) {
-        // Add a permit back to the semaphore. Doing so unblocks the listener
-        // if the max number of connections has been reached.
+        // Add a permit back to the semaphore. Doing so unblocks the listener if the max
+        // number of connections has been reached.
         self.limit_connections.add_permits(1);
         debug!("closed connection to {}", self.socket.peer_addr().unwrap());
     }

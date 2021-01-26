@@ -92,10 +92,7 @@ impl Display for Request {
                 write!(
                     f,
                     "COPY {:?}",
-                    object_ids
-                        .iter()
-                        .map(|v| hex::encode(v))
-                        .collect::<Vec<_>>()
+                    object_ids.iter().map(hex::encode).collect::<Vec<_>>()
                 )
             }
             Request::Take(object_ids) => {
@@ -162,7 +159,7 @@ impl Display for SyncSubtask {
                     f,
                     "COPY {} {:?}",
                     from,
-                    objects.iter().map(|o| hex::encode(o)).collect::<Vec<_>>()
+                    objects.iter().map(hex::encode).collect::<Vec<_>>()
                 )
             }
             SyncSubtask::Take { from, objects } => {
@@ -170,7 +167,7 @@ impl Display for SyncSubtask {
                     f,
                     "TAKE {} {:x?}",
                     from,
-                    objects.iter().map(|o| hex::encode(o)).collect::<Vec<_>>()
+                    objects.iter().map(hex::encode).collect::<Vec<_>>()
                 )
             }
         }
