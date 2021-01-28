@@ -1,4 +1,4 @@
-use stream::{Request, Result, Store, SyncSubtask};
+use stream::{status_codes, Error, Request, Result, Store, SyncSubtask};
 use structopt::StructOpt;
 use tokio::signal;
 use tracing::{error, info, Level};
@@ -51,6 +51,8 @@ pub async fn main() -> Result<()> {
     // turn tracing on
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::TRACE)
+        .with_target(false)
+        .with_thread_ids(true)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
