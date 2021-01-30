@@ -1,9 +1,6 @@
 use cxx::UniquePtr;
 use rand::Rng;
-use std::{
-    cell::UnsafeCell,
-    fmt::{self, Debug, Display, Formatter},
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 mod ffi;
 use ffi::ffi as plasma;
@@ -88,7 +85,7 @@ unsafe impl<'a> Sync for ObjectBuffer<'a> {}
 
 pub struct ObjectBuffer<'a> {
     id: ObjectId,
-    pc: &'a UnsafeCell<UniquePtr<plasma::PlasmaClient>>,
+    pc: &'a UniquePtr<plasma::PlasmaClient>,
     buf: UniquePtr<plasma::ObjectBuffer>,
     is_mutable: bool,
     is_aborted: bool,
@@ -97,7 +94,7 @@ pub struct ObjectBuffer<'a> {
 impl<'a> ObjectBuffer<'a> {
     fn new(
         id: ObjectId,
-        pc: &'a UnsafeCell<UniquePtr<plasma::PlasmaClient>>,
+        pc: &'a UniquePtr<plasma::PlasmaClient>,
         buf: UniquePtr<plasma::ObjectBuffer>,
         is_mutable: bool,
     ) -> Self {
@@ -138,10 +135,7 @@ impl<'a> ObjectBuffer<'a> {
 
     /// Seals an object in the object store. The object will be immutable after this call.
     pub fn seal(&mut self) -> Result<(), PlasmaError> {
-        let status = unsafe {
-            let client_ptr = &mut *self.pc.get();
-            plasma::seal(client_ptr.pin_mut(), self.id.inner())
-        };
+        let status = plasma::seal(self.pc.as_ref().unwrap(), self.id.inner());
         match status.code {
             plasma::StatusCode::OK => {
                 self.is_mutable = false;
@@ -160,17 +154,11 @@ impl<'a> ObjectBuffer<'a> {
         }
 
         // release the object before it is aborted
-        let status = unsafe {
-            let client_ptr = &mut *self.pc.get();
-            plasma::release(client_ptr.pin_mut(), self.id.inner())
-        };
+        let status = plasma::release(self.pc.as_ref().unwrap(), self.id.inner());
         match status.code {
             plasma::StatusCode::OK => {
                 // once the object has been released, call abort
-                let status = unsafe {
-                    let client_ptr = &mut *self.pc.get();
-                    plasma::abort(client_ptr.pin_mut(), self.id.inner())
-                };
+                let status = plasma::abort(self.pc.as_ref().unwrap(), self.id.inner());
                 match status.code {
                     plasma::StatusCode::OK => {
                         self.is_aborted = true;
@@ -202,10 +190,7 @@ impl<'a> Display for ObjectBuffer<'a> {
 impl<'a> Drop for ObjectBuffer<'a> {
     fn drop(&mut self) {
         if !self.is_aborted {
-            let status = unsafe {
-                let client_ptr = &mut *self.pc.get();
-                plasma::release(client_ptr.pin_mut(), self.id().inner())
-            };
+            let status = plasma::release(self.pc.as_ref().unwrap(), self.id().inner());
             if let plasma::StatusCode::OK = status.code {
             } else {
                 panic!("failed to release object buffer: {}", status.msg);
@@ -221,27 +206,23 @@ impl<'a> Drop for ObjectBuffer<'a> {
 unsafe impl Send for plasma::PlasmaClient {}
 unsafe impl Sync for plasma::PlasmaClient {}
 
-// this should be OK because client_ptr is never mutated, and PlasmaClient is thread-safe on
-// the C++ side
-unsafe impl Sync for PlasmaClient {}
-
 pub struct PlasmaClient {
     socket_name: String,
-    client_ptr: UnsafeCell<UniquePtr<plasma::PlasmaClient>>,
+    client_ptr: UniquePtr<plasma::PlasmaClient>,
 }
 
 impl PlasmaClient {
     /// Creates a new client and connects it to the local plasma store.
-    /// * `store_socket_name` The name of the UNIX domain socket to use to
-    ///        connect to the Plasma store.
+    /// * `store_socket_name` The name of the UNIX domain socket to use to connect
+    ///   to the Plasma store.
     /// * `num_retries` number of attempts to connect to IPC socket, default 50
     pub fn new(store_socket_name: &str, num_retries: u32) -> Result<Self, PlasmaError> {
-        let mut client_ptr = plasma::new_plasma_client();
-        let status = plasma::connect(client_ptr.pin_mut(), store_socket_name, num_retries);
+        let client_ptr = plasma::new_plasma_client();
+        let status = plasma::connect(client_ptr.as_ref().unwrap(), store_socket_name, num_retries);
         match status.code {
             plasma::StatusCode::OK => Ok(PlasmaClient {
                 socket_name: String::from(store_socket_name),
-                client_ptr: UnsafeCell::new(client_ptr),
+                client_ptr,
             }),
             _ => Err(PlasmaError::ConnectError(status.msg)),
         }
@@ -255,14 +236,11 @@ impl PlasmaClient {
         client_name: &str,
         output_memory_quota: usize,
     ) -> Result<(), PlasmaError> {
-        let status = unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::set_client_options(
-                client_ptr.pin_mut(),
-                client_name,
-                output_memory_quota as i64,
-            )
-        };
+        let status = plasma::set_client_options(
+            self.client_ptr.as_ref().unwrap(),
+            client_name,
+            output_memory_quota as i64,
+        );
         match status.code {
             plasma::StatusCode::OK => Ok(()),
             _ => Err(PlasmaError::UnknownError(status.msg)),
@@ -276,10 +254,12 @@ impl PlasmaClient {
     ///    If this value is -1, then no timeout is set.
     pub fn get(&self, oid: ObjectId, timeout_ms: i64) -> Result<Option<ObjectBuffer>, PlasmaError> {
         let mut ob = plasma::new_obj_buffer();
-        let status = unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::get(client_ptr.pin_mut(), oid.inner(), timeout_ms, ob.pin_mut())
-        };
+        let status = plasma::get(
+            self.client_ptr.as_ref().unwrap(),
+            oid.inner(),
+            timeout_ms,
+            ob.pin_mut(),
+        );
         match status.code {
             plasma::StatusCode::OK => {
                 if ob.data.is_null() {
@@ -307,16 +287,13 @@ impl PlasmaClient {
         meta: &[u8],
     ) -> Result<ObjectBuffer, PlasmaError> {
         let mut ob = plasma::new_obj_buffer();
-        let status = unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::create(
-                client_ptr.pin_mut(),
-                ob.pin_mut(),
-                oid.inner(),
-                data_size as i64,
-                meta,
-            )
-        };
+        let status = plasma::create(
+            self.client_ptr.as_ref().unwrap(),
+            ob.pin_mut(),
+            oid.inner(),
+            data_size as i64,
+            meta,
+        );
         match status.code {
             plasma::StatusCode::OK => Ok(ObjectBuffer::new(oid, &self.client_ptr, ob, true)),
             plasma::StatusCode::AlreadyExists => Err(PlasmaError::AlreadyExists),
@@ -335,10 +312,8 @@ impl PlasmaClient {
         data: &[u8],
         meta: &[u8],
     ) -> Result<(), PlasmaError> {
-        let status = unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::create_and_seal(client_ptr.pin_mut(), oid.inner(), data, meta)
-        };
+        let status =
+            plasma::create_and_seal(self.client_ptr.as_ref().unwrap(), oid.inner(), data, meta);
         match status.code {
             plasma::StatusCode::OK => Ok(()),
             plasma::StatusCode::AlreadyExists => Err(PlasmaError::AlreadyExists),
@@ -350,10 +325,7 @@ impl PlasmaClient {
     /// object is present, has been sealed and not used by another client. Otherwise,
     /// it is a no operation.
     pub fn delete(&self, oid: &ObjectId) -> Result<(), PlasmaError> {
-        let status = unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::delete(client_ptr.pin_mut(), oid.inner())
-        };
+        let status = plasma::delete(self.client_ptr.as_ref().unwrap(), oid.inner());
         match status.code {
             plasma::StatusCode::OK => Ok(()),
             _ => Err(PlasmaError::UnknownError(status.msg)),
@@ -363,10 +335,11 @@ impl PlasmaClient {
     /// Checks if the object store contains a particular object and the object has been sealed.
     pub fn contains(&self, oid: &ObjectId) -> Result<bool, PlasmaError> {
         let mut has_object = false;
-        let status = unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::contains(client_ptr.pin_mut(), oid.inner(), &mut has_object)
-        };
+        let status = plasma::contains(
+            self.client_ptr.as_ref().unwrap(),
+            oid.inner(),
+            &mut has_object,
+        );
         match status.code {
             plasma::StatusCode::OK => Ok(has_object),
             _ => Err(PlasmaError::UnknownError(status.msg)),
@@ -375,19 +348,13 @@ impl PlasmaClient {
 
     /// Returns memory capacity of the store in bytes.
     pub fn store_capacity(&self) -> usize {
-        unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::store_capacity_bytes(client_ptr.pin_mut()) as usize
-        }
+        plasma::store_capacity_bytes(self.client_ptr.as_ref().unwrap()) as usize
     }
 }
 
 impl Drop for PlasmaClient {
     fn drop(&mut self) {
-        unsafe {
-            let client_ptr = &mut *self.client_ptr.get();
-            plasma::disconnect(client_ptr.pin_mut());
-        }
+        plasma::disconnect(self.client_ptr.as_ref().unwrap());
     }
 }
 

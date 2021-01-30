@@ -66,20 +66,16 @@ pub mod ffi {
         type PlasmaClient;
 
         fn new_plasma_client() -> UniquePtr<PlasmaClient>;
-        fn connect(
-            pc: Pin<&mut PlasmaClient>,
-            store_socket_name: &str,
-            num_retries: u32,
-        ) -> ArrowStatus;
+        fn connect(pc: &PlasmaClient, store_socket_name: &str, num_retries: u32) -> ArrowStatus;
 
         fn set_client_options(
-            pc: Pin<&mut PlasmaClient>,
+            pc: &PlasmaClient,
             client_name: &str,
             output_memory_quota: i64,
         ) -> ArrowStatus;
 
         fn create(
-            pc: Pin<&mut PlasmaClient>,
+            pc: &PlasmaClient,
             ob: Pin<&mut ObjectBuffer>,
             oid: &ObjectID,
             data_size: i64,
@@ -87,14 +83,14 @@ pub mod ffi {
         ) -> ArrowStatus;
 
         fn create_and_seal(
-            pc: Pin<&mut PlasmaClient>,
+            pc: &PlasmaClient,
             oid: &ObjectID,
             data: &[u8],
             metadata: &[u8],
         ) -> ArrowStatus;
 
         fn get(
-            pc: Pin<&mut PlasmaClient>,
+            pc: &PlasmaClient,
             oid: &ObjectID,
             timeout_ms: i64,
             ob: Pin<&mut ObjectBuffer>,
@@ -103,37 +99,33 @@ pub mod ffi {
         // TODO: implement multi_get abstraction
         #[allow(dead_code)]
         fn multi_get(
-            pc: Pin<&mut PlasmaClient>,
+            pc: &PlasmaClient,
             oids: &CxxVector<ObjectID>,
             timeout_ms: i64,
             obs: Pin<&mut CxxVector<ObjectBuffer>>,
         ) -> ArrowStatus;
 
-        fn release(pc: Pin<&mut PlasmaClient>, oid: &ObjectID) -> ArrowStatus;
+        fn release(pc: &PlasmaClient, oid: &ObjectID) -> ArrowStatus;
 
-        fn contains(
-            pc: Pin<&mut PlasmaClient>,
-            oid: &ObjectID,
-            has_object: &mut bool,
-        ) -> ArrowStatus;
+        fn contains(pc: &PlasmaClient, oid: &ObjectID, has_object: &mut bool) -> ArrowStatus;
 
-        fn abort(pc: Pin<&mut PlasmaClient>, oid: &ObjectID) -> ArrowStatus;
+        fn abort(pc: &PlasmaClient, oid: &ObjectID) -> ArrowStatus;
 
-        fn seal(pc: Pin<&mut PlasmaClient>, oid: &ObjectID) -> ArrowStatus;
+        fn seal(pc: &PlasmaClient, oid: &ObjectID) -> ArrowStatus;
 
         #[cxx_name = "single_delete"]
-        fn delete(pc: Pin<&mut PlasmaClient>, oid: &ObjectID) -> ArrowStatus;
+        fn delete(pc: &PlasmaClient, oid: &ObjectID) -> ArrowStatus;
 
         // TODO: implement multi_delete abstraction
         #[allow(dead_code)]
-        fn multi_delete(pc: Pin<&mut PlasmaClient>, oid: &CxxVector<ObjectID>) -> ArrowStatus;
+        fn multi_delete(pc: &PlasmaClient, oid: &CxxVector<ObjectID>) -> ArrowStatus;
 
         // TODO: implement refresh abstraction
         #[allow(dead_code)]
-        fn refresh(pc: Pin<&mut PlasmaClient>, oid: &CxxVector<ObjectID>) -> ArrowStatus;
+        fn refresh(pc: &PlasmaClient, oid: &CxxVector<ObjectID>) -> ArrowStatus;
 
-        fn disconnect(pc: Pin<&mut PlasmaClient>) -> ArrowStatus;
+        fn disconnect(pc: &PlasmaClient) -> ArrowStatus;
 
-        fn store_capacity_bytes(pc: Pin<&mut PlasmaClient>) -> i64;
+        fn store_capacity_bytes(pc: &PlasmaClient) -> i64;
     }
 }
