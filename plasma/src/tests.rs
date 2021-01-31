@@ -83,6 +83,46 @@ fn plasma_client_get() {
 
 #[test]
 #[ignore]
+fn plasma_client_get_many() {
+    let pc = build_client();
+
+    let meta = [1, 2, 3, 4];
+
+    // put objects into the store
+    let oid1 = ObjectId::rand();
+    let data1 = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    pc.create_and_seal(oid1.clone(), &data1, &meta).unwrap();
+
+    let oid2 = ObjectId::rand();
+    let data2 = [1u8, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31];
+    pc.create_and_seal(oid2.clone(), &data2, &meta).unwrap();
+
+    // get objects out of the store and make sure they are returned correctly
+    let oids = [oid1, oid2, ObjectId::rand()];
+    let mut result = pc.get_many(&oids, 5).unwrap();
+    assert_eq!(
+        oids.len(),
+        result.len(),
+        "number of results and IDs should match"
+    );
+    assert!(result[0].is_some(), "first result should be Some");
+    assert!(result[1].is_some(), "second result should be Some");
+    assert!(result[2].is_none(), "third result should be Some");
+
+    assert_eq!(
+        data1,
+        result[0].take().unwrap().data(),
+        "object1 data should match"
+    );
+    assert_eq!(
+        data2,
+        result[1].take().unwrap().data(),
+        "object2 data should match"
+    );
+}
+
+#[test]
+#[ignore]
 fn plasma_client_contains() {
     let pc = build_client();
 
@@ -105,6 +145,30 @@ fn plasma_client_contains() {
         pc.contains(&oid).unwrap(),
         "object should be in the store"
     );
+}
+
+#[test]
+#[ignore]
+fn plasma_client_contains_many() {
+    let pc = build_client();
+
+    let meta = [1, 2, 3, 4];
+
+    // put objects into the store
+    let oid1 = ObjectId::rand();
+    let data1 = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    pc.create_and_seal(oid1.clone(), &data1, &meta).unwrap();
+
+    let oid2 = ObjectId::rand();
+    let data2 = [1u8, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31];
+    pc.create_and_seal(oid2.clone(), &data2, &meta).unwrap();
+
+    // check which objects are in the store
+    let oids = [oid1.clone(), oid2.clone(), ObjectId::rand()];
+    let result = pc.contains_many(&oids).unwrap();
+    assert_eq!(2, result.len(), "two results should be found");
+    assert_eq!(oid1, result[0], "oid1 data should match");
+    assert_eq!(oid2, result[1], "oid2 data should match");
 }
 
 #[test]
@@ -248,6 +312,30 @@ fn plasma_client_delete() {
         pc2.contains(&oid).unwrap(),
         "client2: object should not be in the store"
     );
+}
+
+#[test]
+#[ignore]
+fn plasma_client_delete_many() {
+    let pc = build_client();
+
+    let meta = [1, 2, 3, 4];
+
+    // put objects into the store
+    let oid1 = ObjectId::rand();
+    let data1 = [1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    pc.create_and_seal(oid1.clone(), &data1, &meta).unwrap();
+
+    let oid2 = ObjectId::rand();
+    let data2 = [1u8, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31];
+    pc.create_and_seal(oid2.clone(), &data2, &meta).unwrap();
+
+    // delete the objects from the store
+    let oids = [oid1.clone(), oid2.clone(), ObjectId::rand()];
+    pc.delete_many(&oids).unwrap();
+
+    let result = pc.contains_many(&oids).unwrap();
+    assert_eq!(0, result.len(), "all objects should be deleted");
 }
 
 /// HELPER FUNCTIONS
