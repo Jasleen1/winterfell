@@ -56,88 +56,103 @@ namespace plasma {
     return std::make_unique<PlasmaClient>(plasma::PlasmaClient());
   }
 
-  ArrowStatus connect(PlasmaClient& pc, rust::Str store_socket_name, uint32_t num_retries) {
+  ArrowStatus connect(PlasmaClient const& pc, rust::Str store_socket_name, uint32_t num_retries) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
     std::string manager_socket("");
-    Status conn_status = pc.Connect(std::string(store_socket_name), manager_socket, 0, num_retries);
+    Status conn_status = pc_mut.Connect(std::string(store_socket_name), manager_socket, 0, num_retries);
     return ArrowStatus{make_plasma_error(conn_status.code()), conn_status.message()};
   }
 
-  ArrowStatus set_client_options(PlasmaClient& pc, rust::Str client_name, int64_t output_memory_quota) {
-    Status client_status = pc.SetClientOptions(std::string(client_name), output_memory_quota);
+  ArrowStatus set_client_options(PlasmaClient const& pc, rust::Str client_name, int64_t output_memory_quota) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.SetClientOptions(std::string(client_name), output_memory_quota);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus create(PlasmaClient& pc, ObjectBuffer& ob, const ObjectID& oid, int64_t data_size, rust::Slice<const uint8_t> metadata) {
+  ArrowStatus create(PlasmaClient const& pc, ObjectBuffer& ob, const ObjectID& oid, int64_t data_size, rust::Slice<const uint8_t> metadata) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
     std::shared_ptr<Buffer>* data_ptr = &ob.data;
-    Status client_status = pc.Create(oid, data_size, metadata.data(), metadata.size(), data_ptr, 0, true);
+    Status client_status = pc_mut.Create(oid, data_size, metadata.data(), metadata.size(), data_ptr, 0, true);
     ob.metadata = std::make_shared<Buffer>(metadata.data(), metadata.size());
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus create_and_seal(PlasmaClient& pc, const ObjectID& oid, rust::Slice<const uint8_t> data, rust::Slice<const uint8_t> metadata) {
+  ArrowStatus create_and_seal(PlasmaClient const& pc, const ObjectID& oid, rust::Slice<const uint8_t> data, rust::Slice<const uint8_t> metadata) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
     std::string bin_data = std::string(reinterpret_cast<const char*>(data.data()), data.size());
     std::string bin_metadata = std::string(reinterpret_cast<const char*>(metadata.data()), metadata.size());
 
-    Status client_status = pc.CreateAndSeal(oid, bin_data, bin_metadata, true);
+    Status client_status = pc_mut.CreateAndSeal(oid, bin_data, bin_metadata, true);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus get(PlasmaClient& pc, const ObjectID& oid, int64_t timeout_ms, ObjectBuffer& ob) {
+  ArrowStatus get(PlasmaClient const& pc, const ObjectID& oid, int64_t timeout_ms, ObjectBuffer& ob) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
     const ObjectID* oidp = &oid;
     ObjectBuffer* obp = &ob;
-    Status client_status = pc.Get(oidp, 1, timeout_ms, obp);
+    Status client_status = pc_mut.Get(oidp, 1, timeout_ms, obp);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus multi_get(PlasmaClient& pc, const std::vector<ObjectID>& oids, int64_t timeout_ms, std::vector<ObjectBuffer>& obs) {
+  ArrowStatus multi_get(PlasmaClient const& pc, const std::vector<ObjectID>& oids, int64_t timeout_ms, std::vector<ObjectBuffer>& obs) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
     std::vector<ObjectBuffer>* buffers = &obs;
-    Status client_status = pc.Get(oids, timeout_ms, buffers);
+    Status client_status = pc_mut.Get(oids, timeout_ms, buffers);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus release(PlasmaClient& pc, const ObjectID& oid) {
-    Status client_status = pc.Release(oid);
+  ArrowStatus release(PlasmaClient const& pc, const ObjectID& oid) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Release(oid);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus contains(PlasmaClient& pc, const ObjectID& oid, bool& has_object) {
+  ArrowStatus contains(PlasmaClient const& pc, const ObjectID& oid, bool& has_object) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
     bool* has_res = &has_object;
-    Status client_status = pc.Contains(oid, has_res);
+    Status client_status = pc_mut.Contains(oid, has_res);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus abort(PlasmaClient& pc, const ObjectID& oid) {
-    Status client_status = pc.Abort(oid);
+  ArrowStatus abort(PlasmaClient const& pc, const ObjectID& oid) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Abort(oid);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus seal(PlasmaClient& pc, const ObjectID& oid) {
-    Status client_status = pc.Seal(oid);
+  ArrowStatus seal(PlasmaClient const& pc, const ObjectID& oid) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Seal(oid);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus single_delete(PlasmaClient& pc, const ObjectID& oid) {
-    Status client_status = pc.Delete(oid);
+  ArrowStatus single_delete(PlasmaClient const& pc, const ObjectID& oid) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Delete(oid);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus multi_delete(PlasmaClient& pc, const std::vector<ObjectID>& oids) {
-    Status client_status = pc.Delete(oids);
+  ArrowStatus multi_delete(PlasmaClient const& pc, const std::vector<ObjectID>& oids) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Delete(oids);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus refresh(PlasmaClient& pc, const std::vector<ObjectID>& oids) {
-    Status client_status = pc.Refresh(oids);
+  ArrowStatus refresh(PlasmaClient const& pc, const std::vector<ObjectID>& oids) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Refresh(oids);
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  ArrowStatus disconnect(PlasmaClient& pc) {
-    Status client_status = pc.Disconnect();
+  ArrowStatus disconnect(PlasmaClient const& pc) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    Status client_status = pc_mut.Disconnect();
     return ArrowStatus{make_plasma_error(client_status.code()), client_status.message()};
   }
 
-  int64_t store_capacity_bytes(PlasmaClient& pc) {
-    return pc.store_capacity();
+  int64_t store_capacity_bytes(PlasmaClient const& pc) {
+    auto pc_mut = const_cast<PlasmaClient&>(pc);
+    return pc_mut.store_capacity();
   }
 
   ///////////

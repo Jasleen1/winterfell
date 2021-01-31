@@ -58,9 +58,7 @@ impl MerkleTree {
     pub fn prove(&self, index: usize) -> Vec<[u8; 32]> {
         assert!(index < self.values.len(), "invalid index {}", index);
 
-        let mut proof = Vec::new();
-        proof.push(self.values[index]);
-        proof.push(self.values[index ^ 1]);
+        let mut proof = vec![self.values[index], self.values[index ^ 1]];
 
         let mut index = (index + self.nodes.len()) >> 1;
         while index > 1 {

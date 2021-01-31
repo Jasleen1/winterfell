@@ -2,7 +2,6 @@ use super::*;
 use cxx::UniquePtr;
 use rand::Rng;
 use std::panic::{self, AssertUnwindSafe};
-use std::pin::Pin;
 
 // OBJECT ID TESTS
 // ================================================================================================
@@ -44,17 +43,17 @@ fn plasma_ffi_new_client() {
 
 #[test]
 fn plasma_ffi_connect_error() {
-    let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
+    let pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
     assert_eq!(
         ffi::StatusCode::IOError,
-        ffi::connect(pc.pin_mut(), "/dev/null", 0).code
+        ffi::connect(pc.as_ref().unwrap(), "/dev/null", 0).code
     ); // -> IOError
 }
 
 #[test]
 fn plasma_ffi_disconnected_store_capacity() {
-    let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
-    let val = ffi::store_capacity_bytes(pc.pin_mut());
+    let pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
+    let val = ffi::store_capacity_bytes(pc.as_ref().unwrap());
     assert_eq!(val, 0); // store is not connected
 }
 
@@ -67,8 +66,8 @@ fn plasma_ffi_disconnected_store_capacity() {
 #[test]
 #[ignore]
 fn plasma_ffi_connect() {
-    let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
-    let res = ffi::connect(pc.pin_mut(), "/tmp/plasma", 0);
+    let pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
+    let res = ffi::connect(pc.as_ref().unwrap(), "/tmp/plasma", 0);
     assert_eq!(res.code, ffi::StatusCode::OK);
 }
 
@@ -111,12 +110,12 @@ fn plasma_ffi_create_and_seal() {
 #[test]
 #[ignore]
 fn plasma_ffi_get() {
-    run_test(|mut pc| {
+    run_test(|pc| {
         let oid = get_random_oid();
         // put object into the store
         let data = [2u8; 16];
         let meta = vec![1, 2, 3, 4];
-        let _ = ffi::create_and_seal(pc.as_mut(), &oid, &data, &meta);
+        let _ = ffi::create_and_seal(pc, &oid, &data, &meta);
 
         // get object from the store
         let mut ob = ffi::new_obj_buffer();
@@ -129,12 +128,12 @@ fn plasma_ffi_get() {
 #[test]
 #[ignore]
 fn plasma_ffi_contains() {
-    run_test(|mut pc| {
+    run_test(|pc| {
         let oid = get_random_oid();
         // put object into the store
         let data = [1u8; 32];
         let meta = vec![];
-        let _ = ffi::create_and_seal(pc.as_mut(), &oid, &data, &meta);
+        let _ = ffi::create_and_seal(pc, &oid, &data, &meta);
 
         // check if the object is in the store
         let mut contained = false;
@@ -150,27 +149,27 @@ fn plasma_ffi_contains() {
 // TODO: automate setting up this connection for tests
 
 fn conn_setup() -> UniquePtr<ffi::PlasmaClient> {
-    let mut pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
-    let res1 = ffi::connect(pc.pin_mut(), "/tmp/plasma", 0);
+    let pc: UniquePtr<ffi::PlasmaClient> = ffi::new_plasma_client();
+    let res1 = ffi::connect(pc.as_ref().unwrap(), "/tmp/plasma", 0);
     assert_eq!(res1.code, ffi::StatusCode::OK);
     pc
 }
 
-fn conn_teardown(pc: Pin<&mut ffi::PlasmaClient>) {
+fn conn_teardown(pc: &ffi::PlasmaClient) {
     let res2 = ffi::disconnect(pc);
     assert_eq!(res2.code, ffi::StatusCode::OK);
 }
 
 fn run_test<T>(test: T) -> ()
 where
-    T: FnOnce(Pin<&mut ffi::PlasmaClient>) -> () + panic::UnwindSafe,
+    T: FnOnce(&ffi::PlasmaClient) -> () + panic::UnwindSafe,
 {
-    let mut pc = conn_setup();
-    let pc_ref = pc.pin_mut();
+    let pc = conn_setup();
+    let pc_ref = pc.as_ref().unwrap();
 
     let result = panic::catch_unwind(AssertUnwindSafe(|| test(pc_ref)));
 
-    conn_teardown(pc.pin_mut());
+    conn_teardown(pc.as_ref().unwrap());
     assert!(result.is_ok())
 }
 
