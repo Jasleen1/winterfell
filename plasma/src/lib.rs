@@ -272,6 +272,24 @@ impl PlasmaClient {
         }
     }
 
+    /// Retrieves a list of specified objects from the store.This function will block until
+    /// all objects have been created and sealed in the Plasma store or the timeout expires.
+    /// * `object_ids` The list of IDs for objects to get.
+    /// * `timeout_ms` The amount of time in milliseconds to wait before this request times out.
+    ///    If this value is -1, then no timeout is set.
+    pub fn get_many(
+        &self,
+        object_ids: &[ObjectId],
+        timeout_ms: i64,
+    ) -> Result<Vec<Option<ObjectBuffer>>, PlasmaError> {
+        // TODO: use native C++ function to retrieve all objects at once
+        let mut result = Vec::with_capacity(object_ids.len());
+        for oid in object_ids {
+            result.push(self.get(oid.clone(), timeout_ms)?);
+        }
+        Ok(result)
+    }
+
     /// Creates an object in the Plasma Store. Any metadata for this object must be
     /// passed in when the object is created.
     /// * `oid` The ID to use for the newly crated object.
@@ -332,6 +350,17 @@ impl PlasmaClient {
         }
     }
 
+    /// Deletes all objects specified by `object_ids` list from the object store. This
+    /// currently assumes that the objects are present, haven been sealed and are not
+    /// used by another client. Otherwise it is a no operation.
+    pub fn delete_many(&self, object_ids: &[ObjectId]) -> Result<(), PlasmaError> {
+        // TODO: use native C++ function to retrieve all objects at once
+        for oid in object_ids {
+            self.delete(oid)?;
+        }
+        Ok(())
+    }
+
     /// Checks if the object store contains a particular object and the object has been sealed.
     pub fn contains(&self, oid: &ObjectId) -> Result<bool, PlasmaError> {
         let mut has_object = false;
@@ -344,6 +373,18 @@ impl PlasmaClient {
             plasma::StatusCode::OK => Ok(has_object),
             _ => Err(PlasmaError::UnknownError(status.msg)),
         }
+    }
+
+    /// Returns a list of IDs for objects contained in the object store.
+    pub fn contains_many(&self, object_ids: &[ObjectId]) -> Result<Vec<ObjectId>, PlasmaError> {
+        let mut found_objects = Vec::new();
+        // TODO: move this to C++ side to make it more efficient?
+        for oid in object_ids.iter() {
+            if self.contains(oid)? {
+                found_objects.push(oid.clone());
+            }
+        }
+        Ok(found_objects)
     }
 
     /// Returns memory capacity of the store in bytes.
