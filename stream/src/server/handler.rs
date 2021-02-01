@@ -1,7 +1,7 @@
-use super::{status_codes, Request, Result, Store, SyncSubtask};
+use super::{Request, Store, Dispatcher};
 use std::sync::Arc;
-use tokio::{io::AsyncWriteExt, net::TcpStream, sync::Semaphore};
-use tracing::{debug, error};
+use tokio::{net::TcpStream, sync::Semaphore};
+use tracing::debug;
 
 // CONNECTION HANDLER
 // ================================================================================================
@@ -9,8 +9,11 @@ use tracing::{debug, error};
 /// Per-connection handler
 #[derive(Debug)]
 pub struct Handler {
+    /// TCP connection for this handler.
     socket: TcpStream,
+    /// Shared handle to the Plasma Store.
     store: Arc<Store>,
+    /// Limit the max number of connections to the server.
     limit_connections: Arc<Semaphore>,
 }
 
@@ -38,6 +41,9 @@ impl Handler {
             let peer_addr = self.socket.peer_addr()?;
             debug!("Received request from {}\n{}", peer_addr, request);
 
+            // make sure the received request is valid
+            request.validate()?;
+
             // process the request
             match request {
                 Request::Copy(object_ids) => {
@@ -54,37 +60,15 @@ impl Handler {
                         .run(&mut self.socket)
                         .await?;
                 }
-                Request::Sync(subtasks) => {
-                    // for SYNC request, use separate task to fullfil each sync subtask; this
-                    // is done to enable parallel streaming of objects from multiple peers
-                    let mut handles = Vec::new();
-                    for subtask in subtasks.into_iter() {
-                        let store = self.store.clone();
-                        let handle =
-                            tokio::spawn(async move { handle_sync_subtask(store, subtask).await });
-                        handles.push(handle);
-                    }
-
-                    // wait for all subtasks to finish, and write the result of each subtasks
-                    // (success or error) into the socket
-                    for handle in handles {
-                        match handle.await {
-                            Ok(result) => match result {
-                                Ok(_) => self.socket.write_u8(status_codes::SUCCESS).await?,
-                                Err(err) => self.handle_sync_subtask_error(err).await?,
-                            },
-                            Err(err) => self.handle_sync_subtask_error(err.into()).await?,
-                        }
-                    }
+                Request::Sync(requests) => {
+                    // for SYNC request, use use a dispatcher to process peer requests
+                    let dispatcher = Dispatcher {
+                        store: self.store.clone(),
+                    };
+                    dispatcher.run(requests, &mut self.socket).await?;
                 }
             };
         }
-    }
-
-    async fn handle_sync_subtask_error(&mut self, err: crate::Error) -> Result<()> {
-        error!("sync subtask failed: {}", err);
-        self.socket.write_u8(status_codes::FAILURE).await?;
-        Ok(())
     }
 }
 
@@ -95,26 +79,4 @@ impl Drop for Handler {
         self.limit_connections.add_permits(1);
         debug!("closed connection to {}", self.socket.peer_addr().unwrap());
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-async fn handle_sync_subtask(store: Arc<Store>, subtask: SyncSubtask) -> Result<()> {
-    match subtask {
-        SyncSubtask::Copy { from, objects } | SyncSubtask::Take { from, objects } => {
-            // build the receiver and prepare it to receive objects
-            let receiver = store.build_receiver(from, objects.clone());
-            receiver.prepare()?;
-
-            // open the socket and send the request
-            let mut socket = TcpStream::connect(from).await?;
-            let request = Request::Copy(objects);
-            request.write_into(&mut socket).await?;
-
-            // read the response and close connection when done
-            receiver.run(&mut socket).await?;
-            socket.shutdown().await?;
-        }
-    }
-    Ok(())
 }

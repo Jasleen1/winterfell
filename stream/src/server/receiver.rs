@@ -1,4 +1,4 @@
-use crate::{errors::ObjectReceiveError, status_codes, utils::map_object_ids, ObjectId};
+use super::{errors::ObjectReceiveError, status_codes, utils::map_object_ids, ObjectId};
 use plasma::{ObjectBuffer, PlasmaClient};
 use std::{
     collections::HashSet,

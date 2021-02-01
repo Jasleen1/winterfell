@@ -1,4 +1,4 @@
-use crate::{ObjectId, ObjectReceiver, ObjectSender};
+use super::{ObjectId, ObjectReceiver, ObjectSender};
 use plasma::PlasmaClient;
 use std::{
     collections::HashSet,

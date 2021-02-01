@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2018"
 
 [[bin]]
+name = "plasma-stream-cli"
+path = "src/client/cli.rs"
+
+[[bin]]
 name = "plasma-stream-server"
 path = "src/server/mod.rs"
 

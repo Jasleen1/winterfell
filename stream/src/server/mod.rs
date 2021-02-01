@@ -1,4 +1,4 @@
-use stream::{status_codes, Error, Request, Result, Store, SyncSubtask};
+use stream::{Request, Result, PeerRequest, ObjectId, status_codes, MAX_META_SIZE, MAX_DATA_SIZE, utils, errors};
 use structopt::StructOpt;
 use tokio::signal;
 use tracing::{error, info, Level};
@@ -9,6 +9,18 @@ use listener::Listener;
 
 mod handler;
 use handler::Handler;
+
+mod store;
+use store::Store;
+
+mod sender;
+use sender::ObjectSender;
+
+mod receiver;
+use receiver::ObjectReceiver;
+
+mod dispatcher;
+use dispatcher::Dispatcher;
 
 // CONSTANTS
 // ================================================================================================
@@ -24,7 +36,7 @@ const PLASMA_CONNECT_RETRIES: u32 = 4;
 // ================================================================================================
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "porter", version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"), about = "Plasma object porter")]
+#[structopt(name = "plasma stream server", version = env!("CARGO_PKG_VERSION"), author = env!("CARGO_PKG_AUTHORS"), about = "Plasma Stream server")]
 pub struct ServerOptions {
     /// TCP port for the porter to listen on
     #[structopt(short, long, default_value=DEFAULT_PORT)]
@@ -65,7 +77,9 @@ pub async fn main() -> Result<()> {
     // create the listener
     let mut server = Listener::new(options).await?;
 
-    // TODO: add comment
+    // run the server until the shutdown signal is received. Currently, this is a
+    // placeholder for graceful shutdown capability.
+    // TODO: implement graceful shutdown
     tokio::select! {
         res = server.start() => {
             // If an error is received here, accepting connections from the TCP listener failed
