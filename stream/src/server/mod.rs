@@ -1,4 +1,7 @@
-use stream::{Request, Result, PeerRequest, ObjectId, status_codes, MAX_META_SIZE, MAX_DATA_SIZE, utils, errors};
+use stream::{
+    errors, status_codes, utils, ObjectId, PeerRequest, Request, Result, MAX_DATA_SIZE,
+    MAX_META_SIZE,
+};
 use structopt::StructOpt;
 use tokio::signal;
 use tracing::{error, info, Level};

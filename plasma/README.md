@@ -1,5 +1,5 @@
 # Arrow Plasma bindings
-This module contains Rust bindings for Arrow Plasma, an in-memory object store which enables efficient memory sharing across processes on the same machine.
+This crate contains Rust bindings for Arrow Plasma, an in-memory object store which enables efficient memory sharing across processes on the same machine.
 
 Arrow Plasma resources:
 * [Blog post](https://arrow.apache.org/blog/2017/08/08/plasma-in-memory-object-store/)

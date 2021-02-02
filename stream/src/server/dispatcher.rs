@@ -1,4 +1,4 @@
-use crate::{errors::SyncError, status_codes, Request, Store, PeerRequest};
+use crate::{errors::SyncError, status_codes, PeerRequest, Request, Store};
 use std::sync::Arc;
 use tokio::{io::AsyncWriteExt, net::TcpStream};
 use tracing::error;

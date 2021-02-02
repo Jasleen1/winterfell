@@ -241,13 +241,13 @@ async fn send_object(ob: &ObjectBuffer<'_>, socket: &mut TcpStream) -> std::io::
     // Write object header into the socket. The object header consists of a 16-bit value
     // describing the size of the metadata, and a 48-bit value describing the size of that
     // data. Thus, object metadata is limited to at most 64 KB, while object data can be
-    // potentially as larger as 256 TB.
+    // potentially as larger as 256 TB (though MAX_DATA_SIZE imposes 16 TB limit).
     // asserts are OK here because we check object sizes beforehand, and asserts should
     // never fail
     let meta_size = ob.meta().len() as u64;
-    assert!(meta_size <= MAX_META_SIZE, "object metadata is too larger");
+    assert!(meta_size <= MAX_META_SIZE, "object metadata is too large");
     let data_size = ob.data().len() as u64;
-    assert!(data_size <= MAX_DATA_SIZE, "object data is too larger");
+    assert!(data_size <= MAX_DATA_SIZE, "object data is too large");
     let header = meta_size | (data_size << 16);
     socket.write_u64_le(header).await?;
 

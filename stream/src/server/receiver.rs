@@ -1,4 +1,7 @@
-use super::{errors::ObjectReceiveError, status_codes, utils::map_object_ids, ObjectId};
+use super::{
+    errors::ObjectReceiveError, status_codes, utils::map_object_ids, ObjectId, MAX_DATA_SIZE,
+    MAX_META_SIZE,
+};
 use plasma::{ObjectBuffer, PlasmaClient};
 use std::{
     collections::HashSet,
@@ -174,6 +177,22 @@ async fn receive_object<'a>(
     if data_size == 0 {
         let oid = oid.to_bytes().try_into().unwrap();
         return Err(ObjectReceiveError::ZeroLengthObjectData(from_peer, oid));
+    }
+
+    // make sure data size does not exceed the allowed limit
+    if data_size as u64 > MAX_DATA_SIZE {
+        let oid = oid.to_bytes().try_into().unwrap();
+        return Err(ObjectReceiveError::ObjectDataTooLarge(
+            from_peer, oid, data_size,
+        ));
+    }
+
+    // make sure data size does not exceed the allowed limit
+    if meta_size as u64 > MAX_META_SIZE {
+        let oid = oid.to_bytes().try_into().unwrap();
+        return Err(ObjectReceiveError::ObjectMetaTooLarge(
+            from_peer, oid, meta_size,
+        ));
     }
 
     // read the metadata from the socket and save it into a vector

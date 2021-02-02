@@ -51,7 +51,7 @@ impl Display for ObjectSendError {
             Self::ObjectMetaTooLarge(peer, oid, _) => {
                 write!(
                     f,
-                    "failed to send objects to {}; metadata too larger for 0x{}",
+                    "failed to send objects to {}; metadata too large for 0x{}",
                     peer,
                     hex::encode(oid),
                 )?;
@@ -59,7 +59,7 @@ impl Display for ObjectSendError {
             Self::ObjectDataTooLarge(peer, oid, _) => {
                 write!(
                     f,
-                    "failed to send objects to {}; data too larger for 0x{}",
+                    "failed to send objects to {}; data too large for 0x{}",
                     peer,
                     hex::encode(oid),
                 )?;
@@ -158,7 +158,7 @@ impl Display for ObjectReceiveError {
             Self::ObjectMetaTooLarge(peer, oid, _) => {
                 write!(
                     f,
-                    "failed to receive objects from {}; metadata too larger for 0x{}",
+                    "failed to receive objects from {}; metadata too large for 0x{}",
                     peer,
                     hex::encode(oid),
                 )?;
@@ -166,7 +166,7 @@ impl Display for ObjectReceiveError {
             Self::ObjectDataTooLarge(peer, oid, _) => {
                 write!(
                     f,
-                    "failed to receiver objects from {}; data too larger for 0x{}",
+                    "failed to receiver objects from {}; data too large for 0x{}",
                     peer,
                     hex::encode(oid),
                 )?;
@@ -232,11 +232,20 @@ pub enum RequestError {
     #[error("invalid peer address type {0}")]
     InvalidPeerAddressType(u8),
 
+    #[error("object ID list is empty")]
+    ObjectIdListTooShort,
+
     #[error("object ID list is too long {0}")]
     ObjectIdListTooLong(usize),
 
     #[error("request contains duplicate object IDs")]
     DuplicateObjectIds,
+
+    #[error("peer request list is empty")]
+    PeerRequestListTooShort,
+
+    #[error("peer request list is too long {0}")]
+    PeerRequestListTooLong(usize),
 }
 
 // SYNC ERROR

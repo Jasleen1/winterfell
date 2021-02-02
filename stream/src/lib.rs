@@ -13,9 +13,10 @@ pub mod utils;
 pub const OBJECT_ID_BYTES: usize = 20;
 
 pub const MAX_META_SIZE: u64 = 65_536; // 2^16 or 64 KB
-pub const MAX_DATA_SIZE: u64 = 281_474_976_710_656; // 2^44 or 256 TB
+pub const MAX_DATA_SIZE: u64 = 17_592_186_044_416; // 2^44 or 16 TB
 
 const MAX_OBJECT_ID_LIST_LEN: usize = 65_536; // 2^16
+const MAX_NUM_SYNC_PEERS: usize = 1024;
 
 pub mod status_codes {
     pub const BEGIN: u8 = 0x00;

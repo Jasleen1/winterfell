@@ -1,4 +1,4 @@
-use super::{Request, Store, Dispatcher};
+use super::{Dispatcher, Request, Store};
 use std::sync::Arc;
 use tokio::{net::TcpStream, sync::Semaphore};
 use tracing::debug;

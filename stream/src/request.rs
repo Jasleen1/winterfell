@@ -1,4 +1,6 @@
-use crate::{errors::RequestError, ObjectId, MAX_OBJECT_ID_LIST_LEN, OBJECT_ID_BYTES};
+use crate::{
+    errors::RequestError, ObjectId, MAX_NUM_SYNC_PEERS, MAX_OBJECT_ID_LIST_LEN, OBJECT_ID_BYTES,
+};
 use std::{
     collections::HashSet,
     fmt::{Display, Formatter},
@@ -33,7 +35,7 @@ impl Request {
     /// * A well-formed request has been read.
     /// * The socket has been closed; in this case `None` will be returned.
     /// * The data read from the socket does not represent a valid request; in this case
-    ///   an error will be returned
+    ///   an error will be returned.
     pub async fn read_from(socket: &mut TcpStream) -> crate::Result<Option<Self>> {
         // determine request type; also return `None` if the connection has been closed
         let request_type = match socket.read_u8().await {
@@ -65,7 +67,7 @@ impl Request {
         }
     }
 
-    /// Writes this result into the socket.
+    /// Writes this request into the socket.
     pub async fn write_into(&self, socket: &mut TcpStream) -> Result<(), std::io::Error> {
         match self {
             Request::Sync(peer_requests) => {
@@ -93,13 +95,18 @@ impl Request {
     pub fn validate(&self) -> Result<(), RequestError> {
         match self {
             Request::Sync(peer_requests) => {
+                // make sure peer request lists is neither too long nor too short
+                if peer_requests.is_empty() {
+                    return Err(RequestError::PeerRequestListTooShort);
+                }
+                if peer_requests.len() > MAX_NUM_SYNC_PEERS {
+                    return Err(RequestError::PeerRequestListTooLong(peer_requests.len()));
+                }
+                // TODO: use non-cryptographic hashing
                 let mut unique_objects = HashSet::new();
                 for peer_request in peer_requests.iter() {
+                    peer_request.validate()?;
                     let incoming_objects = peer_request.incoming_objects();
-                    // make sure the list does not exceed allowed length
-                    if incoming_objects.len() > MAX_OBJECT_ID_LIST_LEN {
-                        return Err(RequestError::ObjectIdListTooLong(incoming_objects.len()));
-                    }
                     // if a duplicate ID is found, return an error
                     for oid in incoming_objects {
                         if !unique_objects.insert(oid) {
@@ -109,11 +116,15 @@ impl Request {
                 }
             }
             Request::Take(object_ids) | Request::Copy(object_ids) => {
-                // make sure the list does not exceed allowed length
+                // make sure object ID list is neither too long nor too short
+                if object_ids.is_empty() {
+                    return Err(RequestError::ObjectIdListTooShort);
+                }
                 if object_ids.len() > MAX_OBJECT_ID_LIST_LEN {
                     return Err(RequestError::ObjectIdListTooLong(object_ids.len()));
                 }
                 // if a duplicate ID is found, return an error
+                // TODO: use non-cryptographic hashing
                 let mut unique_objects = HashSet::new();
                 for oid in object_ids {
                     if !unique_objects.insert(oid) {
@@ -191,15 +202,31 @@ impl PeerRequest {
     // Writes a SYNC peer request into the specified socket.
     pub async fn write_into(&self, socket: &mut TcpStream) -> Result<(), std::io::Error> {
         match self {
-            PeerRequest::Copy { from, objects } => {
+            Self::Copy { from, objects } => {
                 socket.write_u8(COPY_TYPE_ID).await?;
                 write_peer_addr(from, socket).await?;
                 write_object_id_list(objects, socket).await?;
             }
-            PeerRequest::Take { from, objects } => {
+            Self::Take { from, objects } => {
                 socket.write_u8(TAKE_TYPE_ID).await?;
                 write_peer_addr(from, socket).await?;
                 write_object_id_list(objects, socket).await?;
+            }
+        }
+        Ok(())
+    }
+
+    // Checks whether this peer request is valid.
+    pub fn validate(&self) -> Result<(), RequestError> {
+        match self {
+            Self::Copy { objects, .. } | Self::Take { objects, .. } => {
+                // make sure object ID list is neither too long nor too short
+                if objects.is_empty() {
+                    return Err(RequestError::ObjectIdListTooShort);
+                }
+                if objects.len() > MAX_OBJECT_ID_LIST_LEN {
+                    return Err(RequestError::ObjectIdListTooLong(objects.len()));
+                }
             }
         }
         Ok(())
