@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-#[allow(clippy::module_inception)]
+#[allow(clippy::all)]
 #[cxx::bridge(namespace = plasma)]
 pub mod ffi {
 

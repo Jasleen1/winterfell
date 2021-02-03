@@ -128,6 +128,14 @@ impl<'a> ObjectBuffer<'a> {
         plasma::get_buffer_data(self.buf.metadata.clone())
     }
 
+    /// Returns the size of this object buffer in bytes; this includes size of data and
+    /// metadata.
+    pub fn size(&self) -> usize {
+        let meta_size = plasma::get_buffer_data(self.buf.metadata.clone()).len();
+        let data_size = plasma::get_buffer_data(self.buf.data.clone()).len();
+        meta_size + data_size
+    }
+
     /// Returns true if data of this object buffer is mutable.
     pub fn is_mutable(&self) -> bool {
         self.is_mutable
