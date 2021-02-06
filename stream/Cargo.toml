@@ -3,13 +3,18 @@ name = "stream"
 version = "0.1.0"
 edition = "2018"
 
+[lib]
+bench = false
+
 [[bin]]
 name = "plasma-stream-cli"
 path = "src/client/cli.rs"
+bench = false
 
 [[bin]]
 name = "plasma-stream-server"
 path = "src/server/mod.rs"
+bench = false
 
 [dependencies]
 bytes = "1.0"
