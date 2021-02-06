@@ -3,6 +3,9 @@ name = "plasma"
 version = "0.1.0"
 edition = "2018"
 
+[lib]
+bench = false
+
 [dependencies]
 cxx = { version = "1.0"}
 libc = "0.2"
