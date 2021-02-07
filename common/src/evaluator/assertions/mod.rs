@@ -6,6 +6,9 @@ use math::field::{BaseElement, FieldElement};
 mod default_evaluator;
 pub use default_evaluator::DefaultAssertionEvaluator;
 
+mod assertion;
+pub use assertion::Assertions;
+
 // ASSERTION EVALUATOR TRAIT
 // ================================================================================================
 
