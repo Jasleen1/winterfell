@@ -2,7 +2,7 @@ use common::errors::VerifierError;
 use log::debug;
 use prover::{
     math::field::{BaseElement, FieldElement},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -18,6 +18,8 @@ mod tests;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
+const TRACE_WIDTH: usize = 2;
+
 pub fn get_example() -> Box<dyn Example> {
     Box::new(FibExample {
         options: None,
@@ -37,7 +39,7 @@ impl Example for FibExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Vec<Assertion> {
+    ) -> Assertions {
         if sequence_length == 0 {
             sequence_length = 1_048_576
         }
@@ -56,14 +58,14 @@ impl Example for FibExample {
 
         // a valid Fibonacci sequence should start with two ones and terminate with
         // the same result as computed above
-        vec![
-            Assertion::new(0, 0, BaseElement::ONE),
-            Assertion::new(1, 0, BaseElement::ONE),
-            Assertion::new(1, trace_length - 1, result),
-        ]
+        let mut assertions = Assertions::new(TRACE_WIDTH, trace_length).unwrap();
+        assertions.add_point(0, 0, BaseElement::ONE).unwrap();
+        assertions.add_point(1, 0, BaseElement::ONE).unwrap();
+        assertions.add_point(1, trace_length - 1, result).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: &Assertions) -> StarkProof {
         debug!(
             "Generating proof for computing Fibonacci sequence (2 terms per step) up to {}th term\n\
             ---------------------",
@@ -88,7 +90,7 @@ impl Example for FibExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<FibEvaluator>::new();
         verifier.verify(proof, assertions)
     }

@@ -18,7 +18,7 @@ fn fibonacci(c: &mut Criterion) {
             BenchmarkId::from_parameter(size),
             &assertions,
             |bench, a| {
-                bench.iter(|| fib.prove(a.clone()));
+                bench.iter(|| fib.prove(&a));
             },
         );
     }

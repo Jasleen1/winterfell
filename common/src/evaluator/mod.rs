@@ -5,7 +5,7 @@ mod transition;
 pub use transition::{TransitionConstraintGroup, TransitionEvaluator};
 
 mod assertions;
-pub use assertions::{Assertion, AssertionEvaluator, DefaultAssertionEvaluator};
+pub use assertions::{AssertionConstraint, AssertionConstraintGroup, Assertions};
 
 mod constraints;
 pub use constraints::{ConstraintDegree, ConstraintDivisor};
@@ -19,8 +19,8 @@ mod tests;
 // CONSTRAINT EVALUATOR
 // ================================================================================================
 
-pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
-    assertions: A,
+pub struct ConstraintEvaluator<T: TransitionEvaluator> {
+    assertions: Vec<AssertionConstraintGroup>,
     transition: T,
     context: ComputationContext,
     divisors: Vec<ConstraintDivisor>,
@@ -29,32 +29,34 @@ pub struct ConstraintEvaluator<T: TransitionEvaluator, A: AssertionEvaluator> {
     t_evaluation_table: Vec<Vec<BaseElement>>,
 }
 
-impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
+impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
 
     pub fn new<C: PublicCoin>(
         coin: &C,
         context: &ComputationContext,
-        assertions: Vec<Assertion>,
+        assertions: &Assertions,
     ) -> Result<Self, EvaluatorError> {
-        assert!(
-            !assertions.is_empty(),
-            "at least one assertion must be provided"
-        );
+        if assertions.is_empty() {
+            return Err(EvaluatorError::NoAssertionsSpecified);
+        }
 
         // instantiate transition and assertion constraint evaluators
         let transition = T::new(context, coin.get_transition_coefficient_prng());
-        let assertions = A::new(context, &assertions, coin.get_assertion_coefficient_prng())?;
+        let assertions = assertions::build_assertion_constraints(
+            context,
+            assertions,
+            coin.get_assertion_coefficient_prng(),
+        );
 
         // determine divisors for all constraints; since divisor for all transition constraints
         // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
         // merged into a single value, and the divisor for that value will be first in the list
-        let mut divisors = vec![ConstraintDivisor::from_transition(
+        let divisors = vec![ConstraintDivisor::from_transition(
             context.trace_length(),
             context.get_trace_x_at(context.trace_length() - 1),
         )];
-        divisors.extend_from_slice(assertions.divisors());
 
         Ok(ConstraintEvaluator {
             // in debug mode, we keep track of all evaluated transition constraints so that
@@ -115,10 +117,6 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             self.transition.merge_evaluations(&t_evaluations, x)
         };
 
-        // evaluate boundary constraints defined by assertions and save the result into
-        // the evaluations buffer starting at slot 1
-        self.assertions.evaluate(&mut evaluations[1..], current, x);
-
         Ok(evaluations)
     }
 
@@ -139,11 +137,12 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> ConstraintEvaluator<T, A> {
             .evaluate_at_x(&mut t_evaluations, current, next, x);
         evaluations[0] = self.transition.merge_evaluations(&t_evaluations, x);
 
-        // evaluate boundary constraints defined by assertions and save the result into
-        // the evaluations buffer starting at slot 1
-        self.assertions.evaluate(&mut evaluations[1..], current, x);
-
         evaluations
+    }
+
+    // TODO: add comment
+    pub fn assertion_constraints(&self) -> &[AssertionConstraintGroup] {
+        &self.assertions
     }
 
     // ACCESSORS

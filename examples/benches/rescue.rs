@@ -18,7 +18,7 @@ fn rescue(c: &mut Criterion) {
             BenchmarkId::from_parameter(size),
             &assertions,
             |bench, a| {
-                bench.iter(|| resc.prove(a.clone()));
+                bench.iter(|| resc.prove(&a));
             },
         );
     }

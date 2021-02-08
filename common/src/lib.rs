@@ -10,8 +10,8 @@ pub use options::ProofOptions;
 
 mod evaluator;
 pub use evaluator::{
-    Assertion, AssertionEvaluator, ConstraintDegree, ConstraintDivisor, ConstraintEvaluator,
-    DefaultAssertionEvaluator, EvaluationFrame, TransitionConstraintGroup, TransitionEvaluator,
+    AssertionConstraint, AssertionConstraintGroup, Assertions, ConstraintDegree, ConstraintDivisor,
+    ConstraintEvaluator, EvaluationFrame, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 mod random;

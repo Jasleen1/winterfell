@@ -78,12 +78,8 @@ pub enum AssertionError {
 /// Represents an error thrown during evaluation
 #[derive(Debug, Display, Error)]
 pub enum EvaluatorError {
-    /// Duplicate assertion for (register={0}, step={1})
-    DuplicateAssertion(usize, usize),
-    /// Invalid register index {0}
-    InvalidAssertionRegisterIndex(usize),
-    /// Invalid assertion step {0}
-    InvalidAssertionStep(usize),
+    /// At least one assertion must be provided
+    NoAssertionsSpecified,
 }
 
 impl From<EvaluatorError> for ProverError {

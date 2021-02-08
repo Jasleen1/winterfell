@@ -3,7 +3,7 @@ use log::debug;
 use prover::{
     crypto::hash::{blake3, rescue_s},
     math::field::{BaseElement, FieldElement},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -50,7 +50,7 @@ impl Example for RescueExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Vec<Assertion> {
+    ) -> Assertions {
         self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         self.chain_length = if chain_length == 0 {
             1024
@@ -70,15 +70,15 @@ impl Example for RescueExample {
         // Assert starting and ending values of the hash chain
         let last_step = (self.chain_length * 16) - 1;
         let result = BaseElement::read_to_vec(&result).unwrap();
-        vec![
-            Assertion::new(0, 0, self.seed[0]),
-            Assertion::new(1, 0, self.seed[1]),
-            Assertion::new(0, last_step, result[0]),
-            Assertion::new(1, last_step, result[1]),
-        ]
+        let mut assertions = Assertions::new(STATE_WIDTH, last_step + 1).unwrap();
+        assertions.add_point(0, 0, self.seed[0]).unwrap();
+        assertions.add_point(1, 0, self.seed[1]).unwrap();
+        assertions.add_point(0, last_step, result[0]).unwrap();
+        assertions.add_point(1, last_step, result[1]).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: &Assertions) -> StarkProof {
         // generate the execution trace
         debug!(
             "Generating proof for computing a chain of {} Rescue hashes\n\
@@ -100,7 +100,7 @@ impl Example for RescueExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<RescueEvaluator>::new();
         verifier.verify(proof, assertions)
     }

@@ -35,7 +35,7 @@ fn main() {
 
     // generate proof
     let now = Instant::now();
-    let proof = example.prove(assertions.clone());
+    let proof = example.prove(&assertions);
     debug!(
         "---------------------\nProof generated in {} ms",
         now.elapsed().as_millis()
@@ -47,7 +47,7 @@ fn main() {
     // verify the proof
     debug!("---------------------");
     let now = Instant::now();
-    match example.verify(proof, assertions) {
+    match example.verify(proof, &assertions) {
         Ok(_) => debug!("Proof verified in {} ms", now.elapsed().as_millis()),
         Err(msg) => debug!("Failed to verify proof: {}", msg),
     }

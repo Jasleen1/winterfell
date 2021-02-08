@@ -8,7 +8,7 @@ use prover::{
         MerkleTree,
     },
     math::field::{BaseElement, FieldElement, StarkField},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -25,6 +25,7 @@ use evaluator::AnonTokenEvaluator;
 const CYCLE_LENGTH: usize = 16;
 const NUM_HASH_ROUNDS: usize = 14;
 const HASH_STATE_WIDTH: usize = 4;
+const TRACE_TABLE_WIDTH: usize = 9;
 
 // ANONYMOUS TOKEN EXAMPLE
 // ================================================================================================
@@ -53,7 +54,7 @@ impl Example for AnonTokenExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Vec<Assertion> {
+    ) -> Assertions {
         self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         if tree_depth == 0 {
             tree_depth = 7;
@@ -109,16 +110,17 @@ impl Example for AnonTokenExample {
         // - service_uuid was inserted into register 6 at the first step
         let last_step = ((tree_depth + 1) * 16) - 1;
         let root = BaseElement::read_to_vec(tree.root()).unwrap();
-        vec![
-            Assertion::new(1, last_step, root[0]),
-            Assertion::new(2, last_step, root[1]),
-            Assertion::new(6, 0, self.service_uuid),
-            Assertion::new(5, 14, subtoken.0),
-            Assertion::new(6, 14, subtoken.1),
-        ]
+        let mut assertions = Assertions::new(TRACE_TABLE_WIDTH, last_step + 1).unwrap();
+        assertions.add_point(1, last_step, root[0]).unwrap();
+        assertions.add_point(2, last_step, root[1]).unwrap();
+        assertions.add_point(6, 0, self.service_uuid).unwrap();
+        assertions.add_point(5, 14, subtoken.0).unwrap();
+        assertions.add_point(6, 14, subtoken.1).unwrap();
+
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: &Assertions) -> StarkProof {
         // generate the execution trace
         debug!("Generating anonymous subtoken proof\n---------------------");
         let now = Instant::now();
@@ -141,7 +143,7 @@ impl Example for AnonTokenExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<AnonTokenEvaluator>::new();
         verifier.verify(proof, assertions)
     }

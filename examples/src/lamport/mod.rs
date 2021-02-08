@@ -4,7 +4,7 @@ use log::debug;
 use prover::{
     crypto::hash::blake3,
     math::field::{BaseElement, FieldElement},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -55,7 +55,7 @@ impl Example for LamportExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Vec<Assertion> {
+    ) -> Assertions {
         self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
 
         // generate private/public key pair from a seed
@@ -91,42 +91,50 @@ impl Example for LamportExample {
         // assert that the trace terminates with tree root
         let pk_elements = pk.to_elements();
         let last_step = (128 * CYCLE_LENGTH) - 1;
-        vec![
-            // power of two register is initialized to one
-            Assertion::new(0, 0, BaseElement::ONE),
-            // message aggregators are initialized to zeros
-            Assertion::new(3, 0, BaseElement::ZERO),
-            Assertion::new(4, 0, BaseElement::ZERO),
-            // last two rate registers and capacity registers are
-            // are initialized to zeros
-            Assertion::new(7, 0, BaseElement::ZERO),
-            Assertion::new(8, 0, BaseElement::ZERO),
-            Assertion::new(9, 0, BaseElement::ZERO),
-            Assertion::new(10, 0, BaseElement::ZERO),
-            Assertion::new(13, 0, BaseElement::ZERO),
-            Assertion::new(14, 0, BaseElement::ZERO),
-            Assertion::new(15, 0, BaseElement::ZERO),
-            Assertion::new(16, 0, BaseElement::ZERO),
-            // all public key registers are initialized to zeros
-            Assertion::new(17, 0, BaseElement::ZERO),
-            Assertion::new(18, 0, BaseElement::ZERO),
-            Assertion::new(19, 0, BaseElement::ZERO),
-            Assertion::new(20, 0, BaseElement::ZERO),
-            Assertion::new(21, 0, BaseElement::ZERO),
-            Assertion::new(22, 0, BaseElement::ZERO),
-            // last bits of m0 and m1 are 0s
-            Assertion::new(1, last_step, BaseElement::ZERO),
-            Assertion::new(2, last_step, BaseElement::ZERO),
-            // correct message was used during proof generation
-            Assertion::new(3, last_step, self.msg_elements[0]),
-            Assertion::new(4, last_step, self.msg_elements[1]),
-            // correct public key was used during proof generation
-            Assertion::new(17, last_step, pk_elements[0]),
-            Assertion::new(18, last_step, pk_elements[1]),
-        ]
+        let mut assertions = Assertions::new(STATE_WIDTH, last_step + 1).unwrap();
+        // power of two register is initialized to one
+        assertions.add_point(0, 0, BaseElement::ONE).unwrap();
+        // message aggregators are initialized to zeros
+        assertions.add_point(3, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(4, 0, BaseElement::ZERO).unwrap();
+        // last two rate registers and capacity registers are
+        // are initialized to zeros
+        assertions.add_point(7, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(8, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(9, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(10, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(13, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(14, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(15, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(16, 0, BaseElement::ZERO).unwrap();
+        // all public key registers are initialized to zeros
+        assertions.add_point(17, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(18, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(19, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(20, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(21, 0, BaseElement::ZERO).unwrap();
+        assertions.add_point(22, 0, BaseElement::ZERO).unwrap();
+        // last bits of m0 and m1 are 0s
+        assertions
+            .add_point(1, last_step, BaseElement::ZERO)
+            .unwrap();
+        assertions
+            .add_point(2, last_step, BaseElement::ZERO)
+            .unwrap();
+        // correct message was used during proof generation
+        assertions
+            .add_point(3, last_step, self.msg_elements[0])
+            .unwrap();
+        assertions
+            .add_point(4, last_step, self.msg_elements[1])
+            .unwrap();
+        // correct public key was used during proof generation
+        assertions.add_point(17, last_step, pk_elements[0]).unwrap();
+        assertions.add_point(18, last_step, pk_elements[1]).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: &Assertions) -> StarkProof {
         // generate the execution trace
         debug!(
             "Generating proof for verifying Lamport+ signature \n\
@@ -148,7 +156,7 @@ impl Example for LamportExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<LamportPlusEvaluator>::new();
         verifier.verify(proof, assertions)
     }
