@@ -120,7 +120,7 @@ impl Example for AnonTokenExample {
         assertions
     }
 
-    fn prove(&self, assertions: &Assertions) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         // generate the execution trace
         debug!("Generating anonymous subtoken proof\n---------------------");
         let now = Instant::now();
@@ -143,7 +143,7 @@ impl Example for AnonTokenExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<AnonTokenEvaluator>::new();
         verifier.verify(proof, assertions)
     }

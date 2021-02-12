@@ -15,8 +15,8 @@ pub fn test_basic_proof_verification(
     let num_queries = this_num_queries.unwrap_or(32);
     let grinding_factor = this_grinding_factor.unwrap_or(0);
     let assertions = e.prepare(size, blowup_factor, num_queries, grinding_factor);
-    let proof = e.prove(&assertions);
-    let verified = e.verify(proof, &assertions);
+    let proof = e.prove(assertions.clone());
+    let verified = e.verify(proof, assertions);
     assert_eq!(true, verified.unwrap());
 }
 
@@ -32,9 +32,9 @@ pub fn test_basic_proof_verification_fail(
     let num_queries = this_num_queries.unwrap_or(32);
     let grinding_factor = this_grinding_factor.unwrap_or(0);
     let assertions = e.prepare(size, blowup_factor, num_queries, grinding_factor);
-    let proof = e.prove(&assertions);
+    let proof = e.prove(assertions.clone());
     let assertions = temper_with_assertions(assertions);
-    let verified = e.verify(proof, &assertions);
+    let verified = e.verify(proof, assertions);
     assert!(verified.is_err());
 }
 
@@ -44,21 +44,25 @@ fn temper_with_assertions(assertions: Assertions) -> Assertions {
     let mut result = Assertions::new(assertions.trace_width(), assertions.trace_length()).unwrap();
 
     // copy over point assertions but add 1 to all values
-    for (&step, assertions) in assertions.point_assertions() {
-        for assertion in assertions {
-            result
-                .add_point(assertion.register, step, assertion.value + BaseElement::ONE)
-                .unwrap();
-        }
+    for assertion in assertions.point_assertions() {
+        result
+            .add_point(
+                assertion.register,
+                assertion.step,
+                assertion.value + BaseElement::ONE,
+            )
+            .unwrap();
     }
 
     // copy over cyclic assertions
-    for (&register, assertions) in assertions.cyclic_assertions() {
-        for assertion in assertions {
-            result
-                .add_cyclic(register, assertion.first_step, assertion.values.clone())
-                .unwrap();
-        }
+    for assertion in assertions.cyclic_assertions() {
+        result
+            .add_cyclic(
+                assertion.register,
+                assertion.first_step,
+                assertion.values.clone(),
+            )
+            .unwrap();
     }
 
     result

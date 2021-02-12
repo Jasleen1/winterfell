@@ -94,7 +94,7 @@ impl Example for MerkleExample {
         assertions
     }
 
-    fn prove(&self, assertions: &Assertions) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         // generate the execution trace
         debug!(
             "Generating proof for proving membership in a Merkle tree of depth {}\n\
@@ -116,7 +116,7 @@ impl Example for MerkleExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<MerkleEvaluator>::new();
         verifier.verify(proof, assertions)
     }

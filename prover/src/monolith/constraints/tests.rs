@@ -21,7 +21,7 @@ fn test_fib_evaluate_constraints_good_case() {
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
-        &assertions,
+        assertions.clone(),
     )
     .unwrap()
     .into_vec();
@@ -97,7 +97,7 @@ fn test_fib_invalid_assertions() {
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
-        &assertions,
+        assertions.clone(),
     )
     .unwrap()
     .into_vec();
@@ -128,7 +128,7 @@ fn test_bad_fib_evaluate_constraints() {
         fib_trace_extended,
         ce_blowup_factor,
         lde_blowup_factor,
-        &assertions,
+        assertions.clone(),
     );
     let res = matches!(
         eval,
@@ -150,7 +150,7 @@ fn build_bad_constraint_poly() {
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
-        &assertions,
+        assertions.clone(),
     )
     .unwrap();
 
@@ -189,7 +189,7 @@ fn test_build_constraint_poly() {
         fib_trace,
         ce_blowup_factor,
         lde_blowup_factor,
-        &assertions,
+        assertions.clone(),
     )
     .unwrap();
 
@@ -204,7 +204,7 @@ fn build_constraint_evaluations<T: TransitionEvaluator, E: FieldElement + FromVe
     trace: super::TraceTable,
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
-    assertions: &Assertions,
+    assertions: Assertions,
 ) -> Result<ConstraintEvaluationTable<E>, ProverError> {
     let trace_length = trace.num_states();
     // build proof context

@@ -134,7 +134,7 @@ impl Example for LamportExample {
         assertions
     }
 
-    fn prove(&self, assertions: &Assertions) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         // generate the execution trace
         debug!(
             "Generating proof for verifying Lamport+ signature \n\
@@ -156,7 +156,7 @@ impl Example for LamportExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<LamportPlusEvaluator>::new();
         verifier.verify(proof, assertions)
     }

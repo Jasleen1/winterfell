@@ -1,3 +1,4 @@
+use crate::ComputationContext;
 use math::field::{BaseElement, FieldElement};
 
 // CONSTRAINT DEGREE
@@ -64,28 +65,38 @@ impl ConstraintDivisor {
     /// (x^trace_length - 1) / (x - x_at_last_step)
     /// this specifies that transition constraints must hold on all steps of the execution trace
     /// except for the last one.
-    pub fn from_transition(trace_length: usize, x_at_last_step: BaseElement) -> Self {
-        assert!(trace_length > 1, "trace length must be greater than 1");
-        assert!(
-            trace_length.is_power_of_two(),
-            "trace length must be a power of two"
-        );
+    pub fn from_transition(context: &ComputationContext) -> Self {
+        let trace_length = context.trace_length();
+        let x_at_last_step = context.get_trace_x_at(trace_length - 1);
         ConstraintDivisor {
             numerator: vec![(trace_length, BaseElement::ONE)],
             exclude: vec![x_at_last_step],
         }
     }
 
-    /// Builds divisor for assertion constraints; the resulting divisor polynomial will be:
-    /// (x - x_at_asserted_steps[0]) * ... * (x - x_at_asserted_steps[n])
-    /// this specifies that assertion constraints must hold only at the specified steps
-    pub fn from_assertion(x_at_asserted_steps: &[BaseElement]) -> Self {
-        assert!(
-            !x_at_asserted_steps.is_empty(),
-            "list of assertion steps cannot be empty"
-        );
+    /// Builds a divisor for a point assertion constraint; The divisor polynomial is defined as:
+    /// (x - g^step), where g is the generator of execution trace domain
+    pub fn from_point_assertion(step: usize, context: &ComputationContext) -> Self {
         ConstraintDivisor {
-            numerator: x_at_asserted_steps.iter().map(|&x| (1, x)).collect(),
+            numerator: vec![(1, context.get_trace_x_at(step))],
+            exclude: vec![],
+        }
+    }
+
+    /// Builds a divisor for a cyclic assertion constraint. The divisor polynomial is defined as:
+    /// (x^num_asserted_values - g^(first_step * num_asserted_values)), where g is the generator
+    /// of execution trace domain. Assuming num_asserted_values is power of two, this is a
+    /// succinct way to represent:
+    /// (x - g^first_step) * (x - g^(first_step + stride)) * (x - g^(first_step + 2 * stride))...
+    pub fn from_cyclic_assertion(
+        first_step: usize,
+        stride: usize,
+        context: &ComputationContext,
+    ) -> Self {
+        let num_asserted_values = context.trace_length() / stride;
+        let offset = num_asserted_values * first_step;
+        ConstraintDivisor {
+            numerator: vec![(num_asserted_values, context.get_trace_x_at(offset))],
             exclude: vec![],
         }
     }

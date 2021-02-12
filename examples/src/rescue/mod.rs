@@ -78,7 +78,7 @@ impl Example for RescueExample {
         assertions
     }
 
-    fn prove(&self, assertions: &Assertions) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         // generate the execution trace
         debug!(
             "Generating proof for computing a chain of {} Rescue hashes\n\
@@ -100,7 +100,7 @@ impl Example for RescueExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<RescueEvaluator>::new();
         verifier.verify(proof, assertions)
     }

@@ -2,10 +2,7 @@ use common::{
     AssertionConstraintGroup, CompositionCoefficients, ConstraintEvaluator, EvaluationFrame,
     TransitionEvaluator,
 };
-use math::{
-    field::{BaseElement, FieldElement, FromVec},
-    polynom,
-};
+use math::field::{BaseElement, FieldElement, FromVec};
 
 // CONSTRAINT EVALUATION
 // ================================================================================================
@@ -77,22 +74,11 @@ fn evaluate_assertion_group<E: FieldElement + From<BaseElement>>(
     // iterate over all constraints in the group, evaluate them, and add the evaluation
     // into result aggregators.
     for constraint in group.constraints().iter() {
-        let value = if constraint.poly.len() == 1 {
-            // if constraint polynomial consists of just a constant, use that constant as value
-            E::from(constraint.poly[0])
-        } else {
-            // otherwise, we need to evaluate the polynomial at `x`; but first we need to map
-            // the original polynomial into the evaluation field. When we are working in the base
-            // field, this has not effect, but when we are working in the extension field,  every
-            // coefficient of the polynomial is mapped from the base field into the extension field
-            let poly: Vec<E> = constraint.poly.iter().map(|&c| E::from(c)).collect();
-            polynom::eval(&poly, x)
-        };
-        // compute the numerator of the constraint: P(x) - C(x),
+        // evaluate the constraint at `x`
+        let evaluation = constraint.evaluate_at(x, state[constraint.register()]);
         // then multiply the result by combination coefficients, and add them to the aggregators
-        let value = state[constraint.register] - value;
-        result = result + value * E::from(constraint.cc.0);
-        result_adj = result_adj + value * E::from(constraint.cc.1);
+        result = result + evaluation * E::from(constraint.cc().0);
+        result_adj = result_adj + evaluation * E::from(constraint.cc().1);
     }
 
     // perform degree adjustment and complete the linear combination

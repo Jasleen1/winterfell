@@ -65,7 +65,7 @@ impl Example for FibExample {
         assertions
     }
 
-    fn prove(&self, assertions: &Assertions) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         debug!(
             "Generating proof for computing Fibonacci sequence (2 terms per step) up to {}th term\n\
             ---------------------",
@@ -90,7 +90,7 @@ impl Example for FibExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<FibEvaluator>::new();
         verifier.verify(proof, assertions)
     }

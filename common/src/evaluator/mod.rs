@@ -36,27 +36,26 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     pub fn new<C: PublicCoin>(
         coin: &C,
         context: &ComputationContext,
-        assertions: &Assertions,
+        assertions: Assertions,
     ) -> Result<Self, EvaluatorError> {
         if assertions.is_empty() {
             return Err(EvaluatorError::NoAssertionsSpecified);
         }
 
-        // instantiate transition and assertion constraint evaluators
+        // instantiate transition evaluator
         let transition = T::new(context, coin.get_transition_coefficient_prng());
+        
+        // determine divisors for all constraints; since divisor for all transition constraints
+        // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
+        // merged into a single value, and the divisor for that value will be first in the list
+        let divisors = vec![ConstraintDivisor::from_transition(context)];
+
+        // build assertion constraints
         let assertions = assertions::build_assertion_constraints(
             context,
             assertions,
             coin.get_assertion_coefficient_prng(),
         );
-
-        // determine divisors for all constraints; since divisor for all transition constraints
-        // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
-        // merged into a single value, and the divisor for that value will be first in the list
-        let divisors = vec![ConstraintDivisor::from_transition(
-            context.trace_length(),
-            context.get_trace_x_at(context.trace_length() - 1),
-        )];
 
         Ok(ConstraintEvaluator {
             // in debug mode, we keep track of all evaluated transition constraints so that
@@ -140,11 +139,6 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         evaluations
     }
 
-    // TODO: add comment
-    pub fn assertion_constraints(&self) -> &[AssertionConstraintGroup] {
-        &self.assertions
-    }
-
     // ACCESSORS
     // --------------------------------------------------------------------------------------------
 
@@ -176,6 +170,11 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     /// Returns a list of constraint divisors defined for this evaluator.
     pub fn constraint_divisors(&self) -> &[ConstraintDivisor] {
         &self.divisors
+    }
+
+    // Returns a list of assertion constraints for this evaluator.
+    pub fn assertion_constraints(&self) -> &[AssertionConstraintGroup] {
+        &self.assertions
     }
 
     // HELPER METHODS

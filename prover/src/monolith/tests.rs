@@ -16,6 +16,6 @@ fn generate_proof() {
     assertions.add_point(1, trace_length - 1, result).unwrap();
 
     let prover = Prover::<FibEvaluator>::new(options);
-    let _proof = prover.prove(trace, &assertions);
+    let _proof = prover.prove(trace, assertions);
     // TODO: verify that the proof is valid
 }

@@ -1,5 +1,10 @@
 use super::*;
-use math::field::FieldElement;
+use crate::{ComputationContext, FieldExtension, ProofOptions};
+use crypto::{hash::blake3, RandomElementGenerator};
+use math::field::{BaseElement, FieldElement};
+
+// ASSERTION TESTS
+// ================================================================================================
 
 #[test]
 fn create_assertions_collection() {
@@ -168,4 +173,294 @@ fn assertions_for_each() {
     });
 
     assert_eq!(expected, actual);
+}
+
+// CONSTRAINT TESTS
+// ================================================================================================
+#[test]
+fn build_assertion_constraints_one_cyclic_assertion() {
+    // set up computation context
+    let trace_length = 16;
+    let context = build_context(trace_length);
+    let coeff_prng = RandomElementGenerator::new([1; 32], 0, blake3);
+    let domain = BaseElement::get_power_series(context.generators().trace_domain, trace_length);
+
+    // initialize assertions collection
+    let mut assertions = super::Assertions::new(1, trace_length).unwrap();
+
+    // add an assertion specifying that the following should hold for register 0:
+    // assert(step = 0) = 1,
+    // assert(step = 4) = 2,
+    // assert(step = 8) = 3,
+    // assert(step = 12) = 4,
+    let values = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+    assertions.add_cyclic(0, 0, values.clone()).unwrap();
+
+    // build assertion constraint groups
+    let groups = super::build_assertion_constraints(&context, assertions, coeff_prng);
+
+    // make sure only one group and one constraint were created
+    assert_eq!(1, groups.len(), "one assertion group should be created");
+    assert_eq!(
+        1,
+        groups[0].constraints().len(),
+        "a single constraint should be in the group"
+    );
+
+    // both divisor and the constraint should evaluate to 0s at x's corresponding to
+    // steps 0, 4, 8, and 12
+    let divisor = groups[0].divisor();
+    let constraint = &groups[0].constraints()[0];
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            0 | 4 | 8 | 12 => {
+                let trace_value = values[step / 4];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(BaseElement::ZERO, constraint.evaluate_at(x, trace_value));
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+}
+
+#[test]
+fn build_assertion_constraints_many_cyclic_assertions() {
+    // set up computation context
+    let trace_length = 16;
+    let context = build_context(trace_length);
+    let coeff_prng = RandomElementGenerator::new([1; 32], 0, blake3);
+    let domain = BaseElement::get_power_series(context.generators().trace_domain, trace_length);
+
+    // initialize assertions collection
+    let mut assertions = super::Assertions::new(2, trace_length).unwrap();
+    let values = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    // add various constraints to the collection
+    assertions.add_cyclic(0, 0, values.clone()).unwrap(); // steps: 0, 4, 8, 12
+    assertions.add_cyclic(0, 3, values.clone()).unwrap(); // steps: 3, 7, 11, 15
+    assertions.add_cyclic(0, 2, values[..2].to_vec()).unwrap(); // steps: 2, 10
+    assertions.add_cyclic(1, 3, values.clone()).unwrap(); // steps: 3, 7, 11, 15
+    assertions.add_cyclic(1, 2, values.clone()).unwrap(); // steps: 2, 6, 10, 14
+    assertions.add_cyclic(1, 0, values.clone()).unwrap(); // steps: 0, 4, 8, 12
+
+    // build assertion constraint groups
+    let groups = super::build_assertion_constraints(&context, assertions, coeff_prng);
+
+    // make sure the constraints were grouped correctly
+    assert_eq!(4, groups.len(), "one assertion group should be created");
+    assert_eq!(1, groups[0].constraints().len());
+    assert_eq!(2, groups[1].constraints().len());
+    assert_eq!(1, groups[2].constraints().len());
+    assert_eq!(2, groups[3].constraints().len());
+
+    // group 0 for constraints on steps: 2, 10
+    let divisor = groups[0].divisor();
+    let constraints = groups[0].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            2 | 10 => {
+                let trace_value = values[step / 8];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, trace_value)
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+
+    // group 1 for constraints on steps: 0, 4, 8, 12
+    let divisor = groups[1].divisor();
+    let constraints = groups[1].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            0 | 4 | 8 | 12 => {
+                let trace_value = values[step / 4];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, trace_value)
+                );
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[1].evaluate_at(x, trace_value)
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+
+    // group 2 for constraints on steps: 2, 6, 10, 14
+    let divisor = groups[2].divisor();
+    let constraints = groups[2].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            2 | 6 | 10 | 14 => {
+                let trace_value = values[step / 4];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, trace_value)
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+
+    // group 3 for constraints on steps: 3, 7, 11, 15
+    let divisor = groups[3].divisor();
+    let constraints = groups[3].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            3 | 7 | 11 | 15 => {
+                let trace_value = values[step / 4];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, trace_value)
+                );
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[1].evaluate_at(x, trace_value)
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+}
+
+#[test]
+fn build_assertion_constraints_point_and_cyclic_assertions() {
+    // set up computation context
+    let trace_length = 16;
+    let context = build_context(trace_length);
+    let coeff_prng = RandomElementGenerator::new([1; 32], 0, blake3);
+    let domain = BaseElement::get_power_series(context.generators().trace_domain, trace_length);
+
+    // initialize assertions collection
+    let mut assertions = super::Assertions::new(2, trace_length).unwrap();
+    let values = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    // add assertions
+    assertions.add_point(0, 1, BaseElement::new(5)).unwrap();
+    assertions.add_point(0, 5, BaseElement::new(7)).unwrap();
+    assertions.add_point(1, 1, BaseElement::new(9)).unwrap();
+    assertions.add_cyclic(0, 0, values.clone()).unwrap();
+    assertions.add_cyclic(0, 2, values.clone()).unwrap();
+    assertions.add_cyclic(1, 0, values.clone()).unwrap();
+
+    // build assertion constraint groups
+    let groups = super::build_assertion_constraints(&context, assertions, coeff_prng);
+
+    // make sure the assertions were grouped correctly
+    assert_eq!(4, groups.len());
+    assert_eq!(2, groups[0].constraints().len());
+    assert_eq!(1, groups[1].constraints().len());
+    assert_eq!(2, groups[2].constraints().len());
+    assert_eq!(1, groups[3].constraints().len());
+
+    // group 0 for constraints on steps: 1 for registers 0 and 1
+    let divisor = groups[0].divisor();
+    let constraints = groups[0].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            1 => {
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, BaseElement::new(5))
+                );
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[1].evaluate_at(x, BaseElement::new(9))
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+
+    // group 1 for constraints on steps: 5 for registers 0
+    let divisor = groups[1].divisor();
+    let constraints = groups[1].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            5 => {
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, BaseElement::new(7))
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+
+    // group 2 for constraints on steps: 0, 4, 8, 12 for registers 0 and 1
+    let divisor = groups[2].divisor();
+    let constraints = groups[2].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            0 | 4 | 8 | 12 => {
+                let trace_value = values[step / 4];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, trace_value)
+                );
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[1].evaluate_at(x, trace_value)
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+
+    // group 3 for constraints on steps: 2, 6, 10, 14 for register 0
+    let divisor = groups[3].divisor();
+    let constraints = groups[3].constraints();
+    for (step, &x) in domain.iter().enumerate() {
+        match step {
+            2 | 6 | 10 | 14 => {
+                let trace_value = values[step / 4];
+                assert_eq!(BaseElement::ZERO, divisor.evaluate_at(x));
+                assert_eq!(
+                    BaseElement::ZERO,
+                    constraints[0].evaluate_at(x, trace_value)
+                );
+            }
+            _ => assert_ne!(BaseElement::ZERO, divisor.evaluate_at(x)),
+        }
+    }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+fn build_context(trace_length: usize) -> ComputationContext {
+    let ce_blowup_factor = 4;
+    let lde_blowup_factor = 16;
+    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
+    ComputationContext::new(
+        2,
+        trace_length,
+        ce_blowup_factor,
+        FieldExtension::None,
+        options,
+    )
 }

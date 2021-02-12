@@ -60,7 +60,7 @@ impl<T: TransitionEvaluator> Prover<T> {
     pub fn prove(
         &self,
         trace: Vec<Vec<BaseElement>>,
-        assertions: &Assertions,
+        assertions: Assertions,
     ) -> Result<StarkProof, ProverError> {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);

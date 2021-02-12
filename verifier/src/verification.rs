@@ -15,7 +15,7 @@ pub fn perform_verification<
     E: FieldElement + From<BaseElement> + FromVec<BaseElement>,
 >(
     channel: &VerifierChannel<E>,
-    assertions: &Assertions,
+    assertions: Assertions,
 ) -> Result<bool, VerifierError> {
     let context = channel.context();
 

@@ -60,7 +60,7 @@ impl Example for MulFib8Example {
         assertions
     }
 
-    fn prove(&self, assertions: &Assertions) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         let sequence_length = self.sequence_length;
         debug!(
             "Generating proof for computing multiplicative Fibonacci sequence (8 terms per step) up to {}th term\n\
@@ -85,7 +85,7 @@ impl Example for MulFib8Example {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: &Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<MulFib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }

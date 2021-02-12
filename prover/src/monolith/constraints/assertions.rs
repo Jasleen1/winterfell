@@ -32,15 +32,15 @@ pub fn evaluate_assertion_group<E: FieldElement + From<BaseElement>>(
     let mut result_adj = E::ZERO;
 
     for constraint in group.constraints().iter() {
-        let value = if constraint.poly.len() == 1 {
-            E::from(constraint.poly[0])
+        let value = if constraint.poly().len() == 1 {
+            E::from(constraint.poly()[0])
         } else {
-            let poly: Vec<E> = constraint.poly.iter().map(|&c| E::from(c)).collect();
+            let poly: Vec<E> = constraint.poly().iter().map(|&c| E::from(c)).collect();
             polynom::eval(&poly, x)
         };
-        let value = state[constraint.register] - value;
-        result = result + value * E::from(constraint.cc.0);
-        result_adj = result_adj + value * E::from(constraint.cc.1);
+        let value = state[constraint.register()] - value;
+        result = result + value * E::from(constraint.cc().0);
+        result_adj = result_adj + value * E::from(constraint.cc().1);
     }
 
     result + result_adj * xp

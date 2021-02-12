@@ -1,6 +1,6 @@
 use crate::errors::AssertionError;
 use math::field::BaseElement;
-use std::collections::{btree_map, BTreeMap};
+use std::cmp::Ordering;
 
 mod constraints;
 pub use constraints::{build_assertion_constraints, AssertionConstraint, AssertionConstraintGroup};
@@ -36,11 +36,11 @@ pub struct Assertions {
     trace_width: usize,
     trace_length: usize,
 
-    /// point assertions indexed by step
-    point_assertions: BTreeMap<usize, Vec<PointAssertion>>,
+    /// point assertions sorted first by step and then by register.
+    point_assertions: Vec<PointAssertion>,
 
-    /// cyclic assertions indexed by register
-    cyclic_assertions: BTreeMap<usize, Vec<CyclicAssertion>>,
+    /// cyclic assertions sorted first by stride and then by first_step.
+    cyclic_assertions: Vec<CyclicAssertion>,
 }
 
 // ASSERTIONS IMPLEMENTATION
@@ -65,8 +65,8 @@ impl Assertions {
         Ok(Assertions {
             trace_width,
             trace_length,
-            point_assertions: BTreeMap::new(),
-            cyclic_assertions: BTreeMap::new(),
+            point_assertions: Vec::new(),
+            cyclic_assertions: Vec::new(),
         })
     }
 
@@ -91,14 +91,14 @@ impl Assertions {
     // ITERATORS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns an iterator over point assertions grouped by step.
-    pub fn point_assertions(&self) -> btree_map::Iter<usize, Vec<PointAssertion>> {
-        self.point_assertions.iter()
+    /// Returns list of point assertions sorted first by step and then by register.
+    pub fn point_assertions(&self) -> &[PointAssertion] {
+        &self.point_assertions
     }
 
-    /// Returns an iterator over cyclic assertions grouped by register.
-    pub fn cyclic_assertions(&self) -> btree_map::Iter<usize, Vec<CyclicAssertion>> {
-        self.cyclic_assertions.iter()
+    /// Returns a list of cyclic assertions sorted first by stride and then by first_step.
+    pub fn cyclic_assertions(&self) -> &[CyclicAssertion] {
+        &self.cyclic_assertions
     }
 
     /// Executes the provided closure for all assertions in this collection.
@@ -107,22 +107,18 @@ impl Assertions {
         F: FnMut(usize, usize, BaseElement),
     {
         // iterate over all point assertions
-        for assertions in self.point_assertions.values() {
-            for assertion in assertions {
-                f(assertion.register, assertion.step, assertion.value)
-            }
+        for assertion in self.point_assertions.iter() {
+            f(assertion.register, assertion.step, assertion.value)
         }
 
         // iterate over all instances of cyclic assertions
-        for assertions in self.cyclic_assertions.values() {
-            for assertion in assertions {
-                for (i, &value) in assertion.values.iter().enumerate() {
-                    f(
-                        assertion.register,
-                        assertion.first_step + assertion.stride * i,
-                        value,
-                    );
-                }
+        for assertion in self.cyclic_assertions.iter() {
+            for (i, &value) in assertion.values.iter().enumerate() {
+                f(
+                    assertion.register,
+                    assertion.first_step + assertion.stride * i,
+                    value,
+                );
             }
         }
     }
@@ -153,13 +149,15 @@ impl Assertions {
         }
 
         // check if the assertion is covered by any of the cyclic assertions for the same register
-        if self.cyclic_assertions.contains_key(&register) {
-            for cyclic_assertion in &self.cyclic_assertions[&register] {
-                if is_covered_by_cyclic_assertion(step, cyclic_assertion) {
-                    return Err(AssertionError::AssertionCoveredByCyclicAssertion(
-                        register, step,
-                    ));
-                }
+        for cyclic_assertion in self
+            .cyclic_assertions
+            .iter()
+            .filter(|a| a.register == register)
+        {
+            if is_covered_by_cyclic_assertion(step, cyclic_assertion) {
+                return Err(AssertionError::AssertionCoveredByCyclicAssertion(
+                    register, step,
+                ));
             }
         }
 
@@ -170,15 +168,15 @@ impl Assertions {
             value,
         };
 
-        // get the list of point existing assertions for the specified step
-        let assertions = self.point_assertions.entry(step).or_default();
-
-        // add assertion to the list using binary search; this makes sure that
-        // assertions are always sorted in consistent order (by register index)
-        match assertions.binary_search_by_key(&register, |e| e.register) {
+        // add assertion to the list using binary search; this makes sure that assertions
+        // are always sorted in consistent order (first by step and then by register index)
+        match self
+            .point_assertions
+            .binary_search_by(|a| point_assertion_comparator(a, step, register))
+        {
             Ok(_) => Err(AssertionError::DuplicateAssertion(register, step)),
             Err(pos) => {
-                assertions.insert(pos, assertion);
+                self.point_assertions.insert(pos, assertion);
                 Ok(())
             }
         }
@@ -232,20 +230,47 @@ impl Assertions {
             values,
         };
         // check if it overlaps with any of the existing cyclic assertions for the same register
-        let assertions = self.cyclic_assertions.entry(register).or_default();
-        is_overlapping_with_cycles(&assertion, assertions)?;
-        // check if it overlaps with any of the point assertions for the same register
-        for assertions in self.point_assertions.values() {
-            if let Ok(pos) = assertions.binary_search_by_key(&register, |e| e.register) {
-                if is_covered_by_cyclic_assertion(assertions[pos].step, &assertion) {
-                    return Err(AssertionError::CoveringCyclicAssertion(first_step, stride));
-                }
+        for a in self
+            .cyclic_assertions
+            .iter()
+            .filter(|a| a.register == register)
+        {
+            if are_cyclic_assertions_overlapping(a, &assertion) {
+                return Err(AssertionError::OverlappingCyclicAssertion(
+                    assertion.first_step,
+                    assertion.stride,
+                ));
             }
         }
 
-        // add assertion to the list of cycles for the register and return
-        assertions.push(assertion);
+        // check if it overlaps with any of the point assertions for the same register
+        for point_assertion in self
+            .point_assertions
+            .iter()
+            .filter(|a| a.register == register)
+        {
+            if is_covered_by_cyclic_assertion(point_assertion.step, &assertion) {
+                return Err(AssertionError::CoveringCyclicAssertion(first_step, stride));
+            }
+        }
+
+        // add assertion to the list in the position required to ensure that cyclic assertions
+        // are sorted by stride and first_step
+        match self
+            .cyclic_assertions
+            .binary_search_by(|a| cyclic_assertion_comparator(a, stride, first_step))
+        {
+            Ok(pos) | Err(pos) => self.cyclic_assertions.insert(pos, assertion),
+        }
         Ok(())
+    }
+
+    // DESTRUCTURING
+    // --------------------------------------------------------------------------------------------
+
+    /// Destructures this assertion collection into vectors of assertions.
+    pub fn into_lists(self) -> (Vec<PointAssertion>, Vec<CyclicAssertion>) {
+        (self.point_assertions, self.cyclic_assertions)
     }
 }
 
@@ -266,41 +291,53 @@ fn is_covered_by_cyclic_assertion(step: usize, assertion: &CyclicAssertion) -> b
     false
 }
 
-/// Checks if the provided cyclic assertion overlaps with any of the other cyclic assertions
-fn is_overlapping_with_cycles(
-    assertion: &CyclicAssertion,
-    assertions: &[CyclicAssertion],
-) -> Result<(), AssertionError> {
-    for cycle in assertions {
-        if cycle.first_step == assertion.first_step {
-            return Err(AssertionError::OverlappingCyclicAssertion(
-                assertion.first_step,
-                assertion.stride,
-            ));
-        } else if cycle.stride != assertion.stride {
-            let (start, end, stride) = if cycle.stride < assertion.stride {
-                let end = if cycle.first_step > assertion.first_step {
-                    assertion.first_step + assertion.stride
-                } else {
-                    assertion.first_step
-                };
-                (cycle.first_step, end, cycle.stride)
+/// Checks if the provided cyclic assertions overlaps with each other.
+fn are_cyclic_assertions_overlapping(a: &CyclicAssertion, b: &CyclicAssertion) -> bool {
+    if a.first_step == b.first_step {
+        return true;
+    } else if a.stride != b.stride {
+        let (start, end, stride) = if a.stride < b.stride {
+            let end = if a.first_step > b.first_step {
+                b.first_step + b.stride
             } else {
-                let end = if assertion.first_step > cycle.first_step {
-                    cycle.first_step + cycle.stride
-                } else {
-                    cycle.first_step
-                };
-                (assertion.first_step, end, assertion.stride)
+                b.first_step
             };
-            if (end - start) % stride == 0 {
-                return Err(AssertionError::OverlappingCyclicAssertion(
-                    assertion.first_step,
-                    assertion.stride,
-                ));
-            }
+            (a.first_step, end, a.stride)
+        } else {
+            let end = if b.first_step > a.first_step {
+                a.first_step + a.stride
+            } else {
+                a.first_step
+            };
+            (b.first_step, end, b.stride)
+        };
+        if (end - start) % stride == 0 {
+            return true;
         }
     }
+    false
+}
 
-    Ok(())
+fn point_assertion_comparator(
+    assertion: &PointAssertion,
+    step: usize,
+    register: usize,
+) -> Ordering {
+    if assertion.step == step {
+        assertion.register.partial_cmp(&register).unwrap()
+    } else {
+        assertion.step.partial_cmp(&step).unwrap()
+    }
+}
+
+fn cyclic_assertion_comparator(
+    assertion: &CyclicAssertion,
+    stride: usize,
+    first_step: usize,
+) -> Ordering {
+    if assertion.stride == stride {
+        assertion.first_step.partial_cmp(&first_step).unwrap()
+    } else {
+        assertion.stride.partial_cmp(&stride).unwrap()
+    }
 }
