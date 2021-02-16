@@ -1,7 +1,5 @@
-use common::{
-    errors::VerifierError, proof::StarkProof, Assertions, ComputationContext, FieldExtension,
-    TransitionEvaluator,
-};
+pub use common::{errors::VerifierError, proof::StarkProof, Assertions};
+use common::{ComputationContext, FieldExtension, TransitionEvaluator};
 use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 

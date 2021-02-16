@@ -44,7 +44,7 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
 
         // instantiate transition evaluator
         let transition = T::new(context, coin.get_transition_coefficient_prng());
-        
+
         // determine divisors for all constraints; since divisor for all transition constraints
         // are the same: (x^steps - 1) / (x - x_at_last_step), all transition constraints will be
         // merged into a single value, and the divisor for that value will be first in the list

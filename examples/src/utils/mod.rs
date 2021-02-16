@@ -154,3 +154,16 @@ pub fn print_trace(trace: &[Vec<BaseElement>], multiples_of: usize) {
         );
     }
 }
+
+pub fn print_trace_step(trace: &[Vec<BaseElement>], step: usize) {
+    let trace_width = trace.len();
+    let mut state = vec![BaseElement::ZERO; trace_width];
+    for i in 0..trace_width {
+        state[i] = trace[i][step];
+    }
+    println!(
+        "{}\t{:?}",
+        step,
+        state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+    );
+}
