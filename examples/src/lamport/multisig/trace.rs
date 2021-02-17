@@ -51,7 +51,6 @@ pub fn append_sig_verification(
     // initialize first state of signature verification
     let mut state: [BaseElement; STATE_WIDTH] = [
         // message accumulators
-        BaseElement::ONE,         // powers of two
         BaseElement::new(m0 & 1), // m0 bits
         BaseElement::new(m1 & 1), // m1 bits
         BaseElement::ZERO,        // m0 accumulator
@@ -86,6 +85,8 @@ pub fn append_sig_verification(
         trace[reg][first_step] = val;
     }
 
+    let mut power_of_two = BaseElement::ONE;
+
     // execute the transition function for all steps
     for step in first_step..last_step {
         // determine which cycle we are in and also where in the cycle we are
@@ -93,7 +94,7 @@ pub fn append_sig_verification(
         let cycle_step = (step % SIG_CYCLE_LENGTH) % CYCLE_LENGTH;
 
         // break the state into logical parts
-        let (mut msg_acc_state, rest) = state.split_at_mut(5);
+        let (mut msg_acc_state, rest) = state.split_at_mut(4);
         let (mut sec_key_1_hash, rest) = rest.split_at_mut(6);
         let (mut sec_key_2_hash, mut pub_key_hash) = rest.split_at_mut(6);
 
@@ -104,8 +105,8 @@ pub fn append_sig_verification(
             rescue::apply_round(&mut sec_key_2_hash, cycle_step);
             rescue::apply_round(&mut pub_key_hash, cycle_step);
         } else {
-            let m0_bit = msg_acc_state[1];
-            let m1_bit = msg_acc_state[2];
+            let m0_bit = msg_acc_state[0];
+            let m1_bit = msg_acc_state[1];
 
             // copy next set of public keys into the registers computing hash of the public key
             update_pub_key_hash(
@@ -123,7 +124,7 @@ pub fn append_sig_verification(
             init_hash_state(&mut sec_key_2_hash, &key_schedule.sec_keys2[cycle_num + 1]);
 
             // update message accumulator with the next set of message bits
-            apply_message_acc(&mut msg_acc_state, m0, m1, cycle_num);
+            power_of_two = apply_message_acc(&mut msg_acc_state, m0, m1, cycle_num, power_of_two);
         }
 
         // copy state into the trace
@@ -133,16 +134,22 @@ pub fn append_sig_verification(
     }
 }
 
-fn apply_message_acc(state: &mut [BaseElement], m0: u128, m1: u128, cycle_num: usize) {
-    let power_of_two = state[0];
-    let m0_bit = state[1];
-    let m1_bit = state[2];
+fn apply_message_acc(
+    state: &mut [BaseElement],
+    m0: u128,
+    m1: u128,
+    cycle_num: usize,
+    power_of_two: BaseElement,
+) -> BaseElement {
+    let m0_bit = state[0];
+    let m1_bit = state[1];
 
-    state[0] = power_of_two * TWO;
-    state[1] = BaseElement::from((m0 >> (cycle_num + 1)) & 1);
-    state[2] = BaseElement::from((m1 >> (cycle_num + 1)) & 1);
-    state[3] = state[3] + power_of_two * m0_bit;
-    state[4] = state[4] + power_of_two * m1_bit;
+    state[0] = BaseElement::from((m0 >> (cycle_num + 1)) & 1);
+    state[1] = BaseElement::from((m1 >> (cycle_num + 1)) & 1);
+    state[2] = state[2] + power_of_two * m0_bit;
+    state[3] = state[3] + power_of_two * m1_bit;
+
+    power_of_two * TWO
 }
 
 fn init_hash_state(state: &mut [BaseElement], values: &[BaseElement; 2]) {

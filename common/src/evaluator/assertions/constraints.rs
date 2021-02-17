@@ -85,7 +85,11 @@ pub fn build_assertion_constraints(
                 stride = assertion.stride;
                 first_step = assertion.first_step;
 
-                inv_twiddles = build_inv_twiddles(assertion.values.len());
+                // TODO: avoid building twiddles when not needed
+                let num_asserted_values = context.trace_length() / stride;
+                if num_asserted_values > 1 {
+                    inv_twiddles = build_inv_twiddles(num_asserted_values);
+                }
                 groups.push(AssertionConstraintGroup::for_cyclic_assertions(
                     context, first_step, stride,
                 ));
@@ -174,20 +178,22 @@ impl AssertionConstraintGroup {
         inv_twiddles: &[BaseElement],
         coeff_prng: &mut RandomElementGenerator,
     ) {
-        // build a polynomial which evaluates at to constraint values at steps implied
-        // by `inv_twiddles`
+        // build a polynomial which evaluates to constraint values at asserted steps; for
+        // single-value assertions we use the value as constant coefficient of degree 0
+        // polynomial; but if there is more than value, we need to interpolate them into
+        // a polynomial using inverse FFT
+        let mut offset = BaseElement::ONE;
         let mut poly = assertion.values;
-        fft::interpolate_poly(&mut poly, &inv_twiddles, true);
-
-        // if the assertions don't fall on the steps which are powers of two, we can't use FFT
-        // to interpolate the values into a polynomial. This would make such assertions quite
-        // impractical. To get around this, we still use FFT to build the polynomial, but then
-        // we evaluate it as f(x * offset) instead of f(x)
-        let offset = if assertion.first_step != 0 {
-            inv_g.exp((assertion.first_step as u64).into())
-        } else {
-            BaseElement::ONE
-        };
+        if poly.len() > 1 {
+            fft::interpolate_poly(&mut poly, &inv_twiddles, true);
+            if assertion.first_step != 0 {
+                // if the assertions don't fall on the steps which are powers of two, we can't
+                // use FFT to interpolate the values into a polynomial. This would make such
+                // assertions quite impractical. To get around this, we still use FFT to build
+                // the polynomial, but then we evaluate it as f(x * offset) instead of f(x)
+                offset = inv_g.exp((assertion.first_step as u64).into());
+            }
+        }
 
         self.constraints.push(AssertionConstraint {
             register: assertion.register,
@@ -233,6 +239,10 @@ impl AssertionConstraint {
     /// Returns composition coefficients for this constraint.
     pub fn cc(&self) -> &(BaseElement, BaseElement) {
         &self.cc
+    }
+
+    pub fn x_offset(&self) -> BaseElement {
+        self.offset
     }
 
     /// Evaluates this constraint at the specified point `x` by computing trace_value - P(x).

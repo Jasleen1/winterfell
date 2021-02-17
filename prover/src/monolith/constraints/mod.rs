@@ -14,7 +14,7 @@ use math::{
 };
 
 mod assertions;
-use assertions::evaluate_assertions;
+use assertions::{evaluate_assertions, prepare_assertion_constraints, evaluate_assertions2};
 
 #[cfg(test)]
 mod tests;
@@ -32,7 +32,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<Ba
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
 
-    let assertion_constraints = evaluator.assertion_constraints().to_vec();
+    let assertion_constraints = prepare_assertion_constraints(evaluator.assertion_constraints());
     let mut divisors = evaluator.constraint_divisors().to_vec();
     for group in assertion_constraints.iter() {
         divisors.push(group.divisor().clone());
@@ -71,7 +71,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<Ba
         let mut evaluation_row =
             evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
 
-        evaluate_assertions(
+        evaluate_assertions2(
             &assertion_constraints,
             &current,
             lde_domain[lde_step],
@@ -185,21 +185,24 @@ pub fn query_constraints(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn divide_poly<E: FieldElement + FromVec<BaseElement>>(
-    poly: &mut [E],
-    divisor: &ConstraintDivisor,
-) {
+fn divide_poly<E: FieldElement + From<BaseElement>>(poly: &mut [E], divisor: &ConstraintDivisor) {
     let numerator = divisor.numerator();
     assert!(
         numerator.len() == 1,
         "complex divisors are not yet supported"
     );
-    let numerator = numerator[0];
+    assert!(
+        divisor.exclude().len() <= 1,
+        "multiple exclusion points are not yet supported"
+    );
 
+    let numerator = numerator[0];
     let numerator_degree = numerator.0;
-    if numerator_degree == 1 {
-        polynom::syn_div_in_place(poly, E::from(numerator.1));
+
+    if divisor.exclude().is_empty() {
+        polynom::syn_div_in_place(poly, numerator_degree, E::from(numerator.1));
     } else {
-        polynom::syn_div_expanded_in_place(poly, numerator_degree, &E::from_vec(divisor.exclude()));
+        let exception = E::from(divisor.exclude()[0]);
+        polynom::syn_div_in_place_with_exception(poly, numerator_degree, exception);
     }
 }

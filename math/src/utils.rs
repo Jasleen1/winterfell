@@ -11,12 +11,6 @@ pub fn uninit_vector<T>(length: usize) -> Vec<T> {
     vector
 }
 
-pub fn filled_vector<T: Copy>(length: usize, capacity: usize, value: T) -> Vec<T> {
-    let mut vector = vec![value; capacity];
-    vector.truncate(length);
-    vector
-}
-
 pub fn remove_leading_zeros<E: FieldElement>(values: &[E]) -> Vec<E> {
     for i in (0..values.len()).rev() {
         if values[i] != E::ZERO {

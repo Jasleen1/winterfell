@@ -157,10 +157,10 @@ fn build_bad_constraint_poly() {
     let mut divisors = evaluations.divisors().to_vec();
     let eval_vec = &evaluations.into_vec();
 
-    // Take the first divisor and increase its degree by appending an element to the vec
-    let mut exclude = divisors[0].exclude().to_vec();
-    exclude.push(BaseElement::from(7u8));
-    divisors[0] = ConstraintDivisor::new(divisors[0].numerator().to_vec(), exclude);
+    // Take the first divisor and increase degree of the numerator
+    let mut numerator = divisors[0].numerator().to_vec();
+    numerator[0] = (numerator[0].0 + 1, numerator[0].1);
+    divisors[0] = ConstraintDivisor::new(numerator, divisors[0].exclude().to_vec());
     let modified_evaluations = ConstraintEvaluationTable::new(eval_vec.to_vec(), divisors);
 
     // should throw error if debug assertions is enabled

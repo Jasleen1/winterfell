@@ -57,8 +57,8 @@ pub fn compose_trace_polys<E: FieldElement + FromVec<BaseElement>>(
     // divide the two composition polynomials by (x - z) and (x - z * g) respectively,
     // and add the resulting polynomials together; the output of this step is a single
     // trace polynomial T(x) and deg(T(x)) = trace_length - 2
-    polynom::syn_div_in_place(&mut t1_composition, z);
-    polynom::syn_div_in_place(&mut t2_composition, next_z);
+    polynom::syn_div_in_place(&mut t1_composition, 1, z);
+    polynom::syn_div_in_place(&mut t2_composition, 1, next_z);
     utils::add_in_place(&mut t1_composition, &t2_composition);
     let trace_poly = t1_composition;
     debug_assert_eq!(trace_length - 2, polynom::degree_of(&trace_poly));
@@ -110,7 +110,7 @@ pub fn compose_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
 
     // compute C(x) = (P(x) - P(z)) / (x - z)
     constraint_poly[0] = constraint_poly[0] - value_at_z;
-    polynom::syn_div_in_place(&mut constraint_poly, z);
+    polynom::syn_div_in_place(&mut constraint_poly, 1, z);
 
     // add C(x) * K into the result
     let composition_poly = composition_poly.coefficients_mut();

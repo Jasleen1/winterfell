@@ -182,6 +182,69 @@ impl Assertions {
         }
     }
 
+    pub fn add_cyclic_value(
+        &mut self,
+        register: usize,
+        first_step: usize,
+        num_cycles: usize,
+        value: BaseElement,
+    ) -> Result<(), AssertionError> {
+        // make sure the register index is valid
+        if register >= self.trace_width {
+            return Err(AssertionError::InvalidAssertionRegisterIndex(register));
+        }
+
+        let stride = self.trace_length / num_cycles;
+
+        if !stride.is_power_of_two() {}
+
+        if stride > self.trace_length {}
+
+        // create the assertion
+        let assertion = CyclicAssertion {
+            register,
+            first_step,
+            stride,
+            values: vec![value],
+        };
+
+        // check if it overlaps with any of the existing cyclic assertions for the same register
+        for a in self
+            .cyclic_assertions
+            .iter()
+            .filter(|a| a.register == register)
+        {
+            if are_cyclic_assertions_overlapping(a, &assertion) {
+                return Err(AssertionError::OverlappingCyclicAssertion(
+                    assertion.first_step,
+                    assertion.stride,
+                ));
+            }
+        }
+
+        // check if it overlaps with any of the point assertions for the same register
+        for point_assertion in self
+            .point_assertions
+            .iter()
+            .filter(|a| a.register == register)
+        {
+            if is_covered_by_cyclic_assertion(point_assertion.step, &assertion) {
+                return Err(AssertionError::CoveringCyclicAssertion(first_step, stride));
+            }
+        }
+
+        // add assertion to the list in the position required to ensure that cyclic assertions
+        // are sorted by stride and first_step
+        match self
+            .cyclic_assertions
+            .binary_search_by(|a| cyclic_assertion_comparator(a, stride, first_step))
+        {
+            Ok(pos) | Err(pos) => self.cyclic_assertions.insert(pos, assertion),
+        }
+
+        Ok(())
+    }
+
     /// Adds a cyclic assertion to the specified register. If `values` contains
     /// only a single value, this is equivalent to creating a point assertion.
     ///

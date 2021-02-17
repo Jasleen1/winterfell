@@ -20,8 +20,8 @@ use assertions::build_assertions;
 // CONSTANTS
 // ================================================================================================
 
-const STATE_WIDTH: usize = 23;
-const SIG_CYCLE_LENGTH: usize = 128 * CYCLE_LENGTH; // 2048 steps
+const STATE_WIDTH: usize = 22;
+const SIG_CYCLE_LENGTH: usize = 128 * CYCLE_LENGTH; // 1024 steps
 
 // LAMPORT SIGNATURE EXAMPLE
 // ================================================================================================
@@ -70,9 +70,9 @@ impl Example for LamportExample {
 
         // sign messages
         let now = Instant::now();
-        for i in 0..num_signatures {
+        for (i, private_key) in private_keys.iter().enumerate() {
             let msg = format!("test message {}", i);
-            self.signatures.push(private_keys[i].sign(msg.as_bytes()));
+            self.signatures.push(private_key.sign(msg.as_bytes()));
             self.messages.push(message_to_elements(msg.as_bytes()));
         }
         debug!(
@@ -83,10 +83,10 @@ impl Example for LamportExample {
 
         // verify signature
         let now = Instant::now();
-        for i in 0..num_signatures {
+        for (i, signature) in self.signatures.iter().enumerate() {
             let pk = private_keys[i].pub_key();
             let msg = format!("test message {}", i);
-            assert_eq!(true, pk.verify(msg.as_bytes(), &self.signatures[i]));
+            assert_eq!(true, pk.verify(msg.as_bytes(), &signature));
         }
         debug!(
             "Verified {} signature in {} ms",
@@ -115,8 +115,6 @@ impl Example for LamportExample {
             trace_length.trailing_zeros(),
             now.elapsed().as_millis()
         );
-
-        //print_trace(&trace, 8);
 
         // generate the proof
         let prover = Prover::<LamportPlusEvaluator>::new(self.options.clone().unwrap());

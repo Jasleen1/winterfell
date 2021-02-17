@@ -5,78 +5,61 @@ use prover::Assertions;
 // ASSERTION BUILDER
 // ================================================================================================
 
+#[rustfmt::skip]
 pub fn build_assertions(
-    messages: &Vec<[BaseElement; 2]>,
-    pub_keys: &Vec<[BaseElement; 2]>,
+    messages: &[[BaseElement; 2]],
+    pub_keys: &[[BaseElement; 2]],
 ) -> Assertions {
-    let num_signatures = messages.len();
+    let num_cycles = messages.len();
 
     let messages = transpose(messages);
     let pub_keys = transpose(pub_keys);
 
-    // create a collection to hold assertions
-    let trace_length = SIG_CYCLE_LENGTH * num_signatures;
+    // create a collection to hold the assertions assertions
+    let trace_length = SIG_CYCLE_LENGTH * num_cycles;
     let mut assertions = Assertions::new(STATE_WIDTH, trace_length).unwrap();
-
-    // build a vector with zeros for each signature; this will be used to reset
-    // trace states to zeros or ones when we start verifying a new signature
-    let ones = vec![BaseElement::ONE; num_signatures];
-    let zeros = vec![BaseElement::ZERO; num_signatures];
 
     // set assertions against the first step of every cycle: 0, 1024, 2048 etc.
 
-    // power of two register is initialized to one
-    assertions.add_cyclic(0, 0, ones.clone()).unwrap();
-    // message aggregators are initialized to zeros
-    assertions.add_cyclic(3, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(4, 0, zeros.clone()).unwrap();
-    // last two rate registers and capacity registers are are initialized to zeros
-    assertions.add_cyclic(7, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(8, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(9, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(10, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(13, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(14, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(15, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(16, 0, zeros.clone()).unwrap();
-    // all public key registers are initialized to zeros
-    assertions.add_cyclic(17, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(18, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(19, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(20, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(21, 0, zeros.clone()).unwrap();
-    assertions.add_cyclic(22, 0, zeros.clone()).unwrap();
+    // message aggregators should be set to zeros
+    assertions.add_cyclic_value(2, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(3, 0, num_cycles, BaseElement::ZERO).unwrap();
+    // for private key hasher, last 4 state register should be set to zeros
+    assertions.add_cyclic_value(6, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(7, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(8, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(9, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(12, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(13, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(14, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(15, 0, num_cycles, BaseElement::ZERO).unwrap();
+    // for public key hasher, all registers should be set to zeros
+    assertions.add_cyclic_value(16, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(17, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(18, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(19, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(20, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(21, 0, num_cycles, BaseElement::ZERO).unwrap();
 
     // set assertions against the last step of every cycle: 1023, 2047, 3071 etc.
 
     let last_cycle_step = SIG_CYCLE_LENGTH - 1;
-    // last bits of m0 and m1 are 0s
-    assertions
-        .add_cyclic(1, last_cycle_step, zeros.clone())
-        .unwrap();
-    assertions
-        .add_cyclic(2, last_cycle_step, zeros.clone())
-        .unwrap();
-    // correct message was used during proof generation
-    assertions
-        .add_cyclic(3, last_cycle_step, messages.0)
-        .unwrap();
-    assertions
-        .add_cyclic(4, last_cycle_step, messages.1)
-        .unwrap();
-    // correct public key was used during proof generation
-    assertions
-        .add_cyclic(17, last_cycle_step, pub_keys.0)
-        .unwrap();
-    assertions
-        .add_cyclic(18, last_cycle_step, pub_keys.1)
-        .unwrap();
+    // last bits of message bit registers should be set to zeros; this is because we truncate
+    // message elements to 127 bits each - so, 128th bit must always be zero
+    assertions.add_cyclic_value(0, last_cycle_step, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic_value(1, last_cycle_step, num_cycles, BaseElement::ZERO).unwrap();
+    // message accumulator registers should be set to message element values
+    assertions.add_cyclic(2, last_cycle_step, messages.0).unwrap();
+    assertions.add_cyclic(3, last_cycle_step, messages.1).unwrap();
+    // public key hasher should terminate with public key elements
+    assertions.add_cyclic(16, last_cycle_step, pub_keys.0).unwrap();
+    assertions.add_cyclic(17, last_cycle_step, pub_keys.1).unwrap();
     assertions
 }
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn transpose(values: &Vec<[BaseElement; 2]>) -> (Vec<BaseElement>, Vec<BaseElement>) {
+fn transpose(values: &[[BaseElement; 2]]) -> (Vec<BaseElement>, Vec<BaseElement>) {
     let n = values[0].len();
     let mut r1 = Vec::with_capacity(n);
     let mut r2 = Vec::with_capacity(n);

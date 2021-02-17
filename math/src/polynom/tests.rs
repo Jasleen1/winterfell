@@ -181,19 +181,89 @@ fn div() {
 
 #[test]
 fn syn_div() {
+    // ----- division by degree 1 polynomial ------------------------------------------------------
+
+    // poly = (x + 2) * (x + 3)
     let poly = super::mul(
         &[BaseElement::from(2u8), BaseElement::ONE],
         &[BaseElement::from(3u8), BaseElement::ONE],
     );
 
-    let result = super::syn_div(&poly, -BaseElement::from(3u8));
-    let expected = super::div(&poly, &[BaseElement::from(3u8), BaseElement::ONE]);
-
+    // divide by (x + 3), this divides evenly
+    let result = super::syn_div(&poly, 1, -BaseElement::from(3u8));
+    let expected = vec![BaseElement::from(2u8), BaseElement::ONE];
     assert_eq!(expected, remove_leading_zeros(&result));
+
+    // poly = x^3 - 12x^2 - 42
+    let poly = [
+        -BaseElement::from(42u8),
+        BaseElement::ZERO,
+        -BaseElement::from(12u8),
+        BaseElement::ONE,
+    ];
+
+    // divide by (x - 3), this does not divide evenly, but the remainder is ignored
+    let result = super::syn_div(&poly, 1, BaseElement::from(3u8));
+    let expected = vec![
+        -BaseElement::from(27u8),
+        -BaseElement::from(9u8),
+        BaseElement::ONE,
+    ];
+    assert_eq!(expected, remove_leading_zeros(&result));
+
+    // ----- division by high-degree polynomial ---------------------------------------------------
+
+    // evaluations of a polynomial which evaluates to 0 at steps: 0, 4, 8, 12
+    let ys: Vec<BaseElement> = vec![0u8, 1, 2, 3, 0, 5, 6, 7, 0, 9, 10, 11, 0, 13, 14, 15]
+        .into_iter()
+        .map(BaseElement::from)
+        .collect();
+
+    // build the domain
+    let root = BaseElement::get_root_of_unity(ys.len().trailing_zeros());
+    let domain = BaseElement::get_power_series(root, ys.len());
+
+    // build the polynomial
+    let poly = super::interpolate(&domain, &ys, false);
+
+    // build the divisor polynomial: (x^4 - 1)
+    let z_poly = vec![
+        -BaseElement::ONE,
+        BaseElement::ZERO,
+        BaseElement::ZERO,
+        BaseElement::ZERO,
+        BaseElement::ONE,
+    ];
+
+    let result = super::syn_div(&poly, 4, BaseElement::ONE);
+    assert_eq!(poly, remove_leading_zeros(&super::mul(&result, &z_poly)));
+
+    // ----- division by high-degree polynomial with non-unary constant ---------------------------
+
+    // evaluations of a polynomial which evaluates to 0 at steps: 1, 5, 9, 13
+    let ys: Vec<BaseElement> = vec![18u8, 0, 2, 3, 4, 0, 6, 7, 8, 0, 10, 11, 12, 0, 14, 15]
+        .into_iter()
+        .map(BaseElement::from)
+        .collect();
+
+    // build the polynomial
+    let poly = super::interpolate(&domain, &ys, false);
+
+    // build the divisor polynomial: (x^4 - g^4)
+    let z_poly = vec![
+        -root.exp(4),
+        BaseElement::ZERO,
+        BaseElement::ZERO,
+        BaseElement::ZERO,
+        BaseElement::ONE,
+    ];
+
+    let result = super::syn_div(&poly, 4, root.exp(4));
+    assert_eq!(poly, remove_leading_zeros(&super::mul(&result, &z_poly)));
 }
 
 #[test]
-fn syn_div_expanded_in_place() {
+pub fn syn_div_in_place_with_exception() {
     let ys: Vec<BaseElement> = vec![0u8, 1, 2, 3, 0, 5, 6, 7, 0, 9, 10, 11, 12, 13, 14, 15]
         .into_iter()
         .map(BaseElement::from)
@@ -219,7 +289,7 @@ fn syn_div_expanded_in_place() {
 
     // compute the result
     let mut result = poly.clone();
-    super::syn_div_expanded_in_place(&mut result, z_degree, &[domain[12]]);
+    super::syn_div_in_place_with_exception(&mut result, z_degree, domain[12]);
 
     let expected = super::div(&poly, &z_poly);
 
