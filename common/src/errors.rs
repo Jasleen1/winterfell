@@ -1,5 +1,6 @@
 //! A list of error types which are produced during an execution of the protocol
 
+use crate::Assertion;
 use displaydoc::Display;
 use thiserror::Error;
 
@@ -55,24 +56,20 @@ pub enum AssertionError {
     TraceWidthTooShort,
     /// Execution trace length ({0}) is not a power of two
     TraceLengthNotPowerOfTwo(usize),
-    /// Duplicate assertion for (register={0}, step={1})
-    DuplicateAssertion(usize, usize),
+    /// Duplicate assertion: {0}
+    DuplicateAssertion(Assertion),
     /// Invalid register index {0}
     InvalidAssertionRegisterIndex(usize),
-    /// Invalid assertion step {0}
-    InvalidAssertionStep(usize),
-    /// Cyclic assertion (start={0}, stride={1}) overlaps with an existing assertions
-    OverlappingCyclicAssertion(usize, usize),
-    /// Cyclic assertion (start={0}, stride={1}) covers an existing point assertion
-    CoveringCyclicAssertion(usize, usize),
-    /// Assertion (register={0}, step={1}) is covered by an existing cyclic assertion
-    AssertionCoveredByCyclicAssertion(usize, usize),
-    /// Number of cyclic assertion values ({0}) is not a power of two
-    NumberOfValuesNotPowerOfTwo(usize),
-    /// Number of cyclic assertion values ({0}) is too larger for the execution trace
-    TooManyCyclicAssertionValues(usize),
-    /// First cycle start ({0}) must be smaller than {1}
-    InvalidFirstCycleStart(usize, usize),
+    /// Assertion trace length ({0}) is invalid; expected {1}
+    InvalidAssertionTraceLength(usize, usize),
+    /// Invalid assertion step {0}, must be in [0, {1})
+    InvalidAssertionStep(usize, usize),
+    /// Number of asserted values must be greater than zero
+    ZeroAssertedValues,
+    /// Number of asserted values ({0}) must be smaller than trace length ({1})
+    TooManyAssertedValues(usize, usize),
+    /// Number of asserted values ({0}) must be a power of two
+    AssertedValuesNotPowerOfTwo(usize),
 }
 
 /// Represents an error thrown during evaluation

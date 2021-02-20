@@ -61,9 +61,9 @@ impl Example for Fib8Example {
         // assert that the trace starts with 7th and 8th terms of Fibonacci sequence (the first
         // 6 terms are not recorded in the trace), and ends with the expected result
         let mut assertions = Assertions::new(TRACE_WIDTH, trace_length).unwrap();
-        assertions.add_point(0, 0, BaseElement::new(13)).unwrap();
-        assertions.add_point(1, 0, BaseElement::new(21)).unwrap();
-        assertions.add_point(1, trace_length - 1, result).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(13)).unwrap();
+        assertions.add_single(1, 0, BaseElement::new(21)).unwrap();
+        assertions.add_single(1, trace_length - 1, result).unwrap();
         assertions
     }
 

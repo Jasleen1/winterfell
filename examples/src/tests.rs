@@ -42,28 +42,15 @@ pub fn test_basic_proof_verification_fail(
 // ================================================================================================
 fn temper_with_assertions(assertions: Assertions) -> Assertions {
     let mut result = Assertions::new(assertions.trace_width(), assertions.trace_length()).unwrap();
-
-    // copy over point assertions but add 1 to all values
-    for assertion in assertions.point_assertions() {
-        result
-            .add_point(
-                assertion.register,
-                assertion.step,
-                assertion.value + BaseElement::ONE,
-            )
-            .unwrap();
+    for (i, assertion) in assertions.into_vec().into_iter().enumerate() {
+        if i == 0 {
+            let value = assertion.values()[0] + BaseElement::ONE;
+            result
+                .add_single(assertion.register(), assertion.first_step(), value)
+                .unwrap();
+        } else {
+            result.add(assertion).unwrap();
+        }
     }
-
-    // copy over cyclic assertions
-    for assertion in assertions.cyclic_assertions() {
-        result
-            .add_cyclic(
-                assertion.register,
-                assertion.first_step,
-                assertion.values.clone(),
-            )
-            .unwrap();
-    }
-
     result
 }

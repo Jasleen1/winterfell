@@ -86,44 +86,48 @@ impl Example for LamportExample {
         let last_step = (128 * CYCLE_LENGTH) - 1;
         let mut assertions = Assertions::new(STATE_WIDTH, last_step + 1).unwrap();
         // power of two register is initialized to one
-        assertions.add_point(0, 0, BaseElement::ONE).unwrap();
+        assertions.add_single(0, 0, BaseElement::ONE).unwrap();
         // message aggregators are initialized to zeros
-        assertions.add_point(3, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(4, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(3, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(4, 0, BaseElement::ZERO).unwrap();
         // last two rate registers and capacity registers are
         // are initialized to zeros
-        assertions.add_point(7, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(8, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(9, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(10, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(13, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(14, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(15, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(16, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(7, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(8, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(9, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(10, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(13, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(14, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(15, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(16, 0, BaseElement::ZERO).unwrap();
         // all public key registers are initialized to zeros
-        assertions.add_point(17, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(18, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(19, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(20, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(21, 0, BaseElement::ZERO).unwrap();
-        assertions.add_point(22, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(17, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(18, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(19, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(20, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(21, 0, BaseElement::ZERO).unwrap();
+        assertions.add_single(22, 0, BaseElement::ZERO).unwrap();
         // last bits of m0 and m1 are 0s
         assertions
-            .add_point(1, last_step, BaseElement::ZERO)
+            .add_single(1, last_step, BaseElement::ZERO)
             .unwrap();
         assertions
-            .add_point(2, last_step, BaseElement::ZERO)
+            .add_single(2, last_step, BaseElement::ZERO)
             .unwrap();
         // correct message was used during proof generation
         assertions
-            .add_point(3, last_step, self.msg_elements[0])
+            .add_single(3, last_step, self.msg_elements[0])
             .unwrap();
         assertions
-            .add_point(4, last_step, self.msg_elements[1])
+            .add_single(4, last_step, self.msg_elements[1])
             .unwrap();
         // correct public key was used during proof generation
-        assertions.add_point(17, last_step, pk_elements[0]).unwrap();
-        assertions.add_point(18, last_step, pk_elements[1]).unwrap();
+        assertions
+            .add_single(17, last_step, pk_elements[0])
+            .unwrap();
+        assertions
+            .add_single(18, last_step, pk_elements[1])
+            .unwrap();
         assertions
     }
 

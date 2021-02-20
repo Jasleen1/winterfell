@@ -231,14 +231,14 @@ fn build_fib_assertions(trace: &super::TraceTable, make_invalid: bool) -> Assert
 
     let last_step = trace_length - 1;
     if make_invalid {
-        assertions.add_point(0, 0, BaseElement::new(2)).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(2)).unwrap();
     } else {
-        assertions.add_point(0, 0, BaseElement::ONE).unwrap();
+        assertions.add_single(0, 0, BaseElement::ONE).unwrap();
     }
 
-    assertions.add_point(1, 0, BaseElement::ONE).unwrap();
+    assertions.add_single(1, 0, BaseElement::ONE).unwrap();
     assertions
-        .add_point(1, last_step, trace.get(1, last_step))
+        .add_single(1, last_step, trace.get(1, last_step))
         .unwrap();
 
     assertions

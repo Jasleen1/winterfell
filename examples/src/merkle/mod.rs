@@ -89,8 +89,8 @@ impl Example for MerkleExample {
         let root = BaseElement::read_to_vec(tree.root()).unwrap();
         let last_step = ((tree_depth + 1) * 16) - 1;
         let mut assertions = Assertions::new(TRACE_WIDTH, last_step + 1).unwrap();
-        assertions.add_point(0, last_step, root[0]).unwrap();
-        assertions.add_point(1, last_step, root[1]).unwrap();
+        assertions.add_single(0, last_step, root[0]).unwrap();
+        assertions.add_single(1, last_step, root[1]).unwrap();
         assertions
     }
 

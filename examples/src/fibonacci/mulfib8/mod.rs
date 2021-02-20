@@ -54,9 +54,9 @@ impl Example for MulFib8Example {
         );
 
         let mut assertions = Assertions::new(NUM_REGISTERS, trace_length).unwrap();
-        assertions.add_point(0, 0, BaseElement::new(1)).unwrap();
-        assertions.add_point(1, 0, BaseElement::new(2)).unwrap();
-        assertions.add_point(6, trace_length - 1, result).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(1)).unwrap();
+        assertions.add_single(1, 0, BaseElement::new(2)).unwrap();
+        assertions.add_single(6, trace_length - 1, result).unwrap();
         assertions
     }
 

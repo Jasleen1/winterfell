@@ -111,11 +111,11 @@ impl Example for AnonTokenExample {
         let last_step = ((tree_depth + 1) * 16) - 1;
         let root = BaseElement::read_to_vec(tree.root()).unwrap();
         let mut assertions = Assertions::new(TRACE_TABLE_WIDTH, last_step + 1).unwrap();
-        assertions.add_point(1, last_step, root[0]).unwrap();
-        assertions.add_point(2, last_step, root[1]).unwrap();
-        assertions.add_point(6, 0, self.service_uuid).unwrap();
-        assertions.add_point(5, 14, subtoken.0).unwrap();
-        assertions.add_point(6, 14, subtoken.1).unwrap();
+        assertions.add_single(1, last_step, root[0]).unwrap();
+        assertions.add_single(2, last_step, root[1]).unwrap();
+        assertions.add_single(6, 0, self.service_uuid).unwrap();
+        assertions.add_single(5, 14, subtoken.0).unwrap();
+        assertions.add_single(6, 14, subtoken.1).unwrap();
 
         assertions
     }

@@ -71,10 +71,10 @@ impl Example for RescueExample {
         let last_step = (self.chain_length * 16) - 1;
         let result = BaseElement::read_to_vec(&result).unwrap();
         let mut assertions = Assertions::new(STATE_WIDTH, last_step + 1).unwrap();
-        assertions.add_point(0, 0, self.seed[0]).unwrap();
-        assertions.add_point(1, 0, self.seed[1]).unwrap();
-        assertions.add_point(0, last_step, result[0]).unwrap();
-        assertions.add_point(1, last_step, result[1]).unwrap();
+        assertions.add_single(0, 0, self.seed[0]).unwrap();
+        assertions.add_single(1, 0, self.seed[1]).unwrap();
+        assertions.add_single(0, last_step, result[0]).unwrap();
+        assertions.add_single(1, last_step, result[1]).unwrap();
         assertions
     }
 

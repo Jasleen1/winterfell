@@ -1,4 +1,4 @@
-use crate::ComputationContext;
+use crate::{Assertion, ComputationContext};
 use math::field::{BaseElement, FieldElement};
 
 // CONSTRAINT DEGREE
@@ -50,8 +50,8 @@ impl ConstraintDegree {
 ///   exclude: vec![3]
 #[derive(Clone, Debug)]
 pub struct ConstraintDivisor {
-    numerator: Vec<(usize, BaseElement)>,
-    exclude: Vec<BaseElement>,
+    pub(crate) numerator: Vec<(usize, BaseElement)>,
+    pub(crate) exclude: Vec<BaseElement>,
 }
 
 impl ConstraintDivisor {
@@ -74,29 +74,23 @@ impl ConstraintDivisor {
         }
     }
 
-    /// Builds a divisor for a point assertion constraint; The divisor polynomial is defined as:
-    /// (x - g^step), where g is the generator of execution trace domain
-    pub fn from_point_assertion(step: usize, context: &ComputationContext) -> Self {
+    /// Builds a divisor for an assertion constraint. The divisor polynomial is defined as:
+    /// (x^n - g^(a * n)), where `g` is the generator of the trace domain, `n` is the number
+    /// of asserted values, and `a` is the step offset in the trace domain.
+    /// Specifically:
+    /// * For an assertion against a single step, the polynomial is (x - g^step), where `step`
+    ///   is the step on which the assertion should hold;
+    /// * For an assertion against a sequence of steps which fall on powers of two, it is
+    ///   (x^n - g^n) where `n` is the number of asserted values;
+    /// * For assertions against a sequence of steps which repeat with a period that is a power
+    ///   of two but don't fall exactly on steps which are powers of two (e.g. 1, 7, 15 ...)
+    ///   it is (x^n - g^(n + offset)), where `offset` is the number of steps by which the
+    ///   assertion steps deviate from a power of two. This is equivalent to
+    ///   (x - g^first_step) * (x - g^(first_step + stride)) * (x - g^(first_step + 2 * stride))..
+    pub fn from_assertion(assertion: &Assertion, context: &ComputationContext) -> Self {
+        let trace_offset = assertion.num_values * assertion.first_step;
         ConstraintDivisor {
-            numerator: vec![(1, context.get_trace_x_at(step))],
-            exclude: vec![],
-        }
-    }
-
-    /// Builds a divisor for a cyclic assertion constraint. The divisor polynomial is defined as:
-    /// (x^num_asserted_values - g^(first_step * num_asserted_values)), where g is the generator
-    /// of execution trace domain. Assuming num_asserted_values is power of two, this is a
-    /// succinct way to represent:
-    /// (x - g^first_step) * (x - g^(first_step + stride)) * (x - g^(first_step + 2 * stride))...
-    pub fn from_cyclic_assertion(
-        first_step: usize,
-        stride: usize,
-        context: &ComputationContext,
-    ) -> Self {
-        let num_asserted_values = context.trace_length() / stride;
-        let offset = num_asserted_values * first_step;
-        ConstraintDivisor {
-            numerator: vec![(num_asserted_values, context.get_trace_x_at(offset))],
+            numerator: vec![(assertion.num_values, context.get_trace_x_at(trace_offset))],
             exclude: vec![],
         }
     }

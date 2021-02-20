@@ -5,7 +5,7 @@ mod transition;
 pub use transition::{TransitionConstraintGroup, TransitionEvaluator};
 
 mod assertions;
-pub use assertions::{AssertionConstraint, AssertionConstraintGroup, Assertions};
+pub use assertions::{Assertion, AssertionConstraint, AssertionConstraintGroup, Assertions};
 
 mod constraints;
 pub use constraints::{ConstraintDegree, ConstraintDivisor};
@@ -150,6 +150,11 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     /// Returns size of the constraint evaluation domain.
     pub fn ce_domain_size(&self) -> usize {
         self.context.ce_domain_size()
+    }
+
+    /// Returns the generator of the constraint evaluation domain.
+    pub fn ce_domain_generator(&self) -> BaseElement {
+        self.context.generators().ce_domain
     }
 
     /// Returns blowup factor for constraint evaluation domain.

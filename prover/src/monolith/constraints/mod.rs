@@ -14,7 +14,7 @@ use math::{
 };
 
 mod assertions;
-use assertions::{evaluate_assertions, prepare_assertion_constraints, evaluate_assertions2};
+use assertions::{evaluate_assertions, prepare_assertion_constraints};
 
 #[cfg(test)]
 mod tests;
@@ -32,11 +32,11 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<Ba
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
 
-    let assertion_constraints = prepare_assertion_constraints(evaluator.assertion_constraints());
+    // perform pre-processing of assertion constraints, extract divisors from them, and combine
+    // divisors into a single vector of all constraint divisors (assertion constraint divisors)
+    // should be appended at the end
     let mut divisors = evaluator.constraint_divisors().to_vec();
-    for group in assertion_constraints.iter() {
-        divisors.push(group.divisor().clone());
-    }
+    let assertion_constraints = prepare_assertion_constraints(evaluator, &mut divisors);
 
     // allocate space for constraint evaluations; there should be as many columns in the
     // table as there are divisors
@@ -67,17 +67,19 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<Ba
         extended_trace.copy_row(next_lde_step, &mut next);
 
         // pass the current and next rows of the trace table through the constraint evaluator
-        // and record the result in the evaluation table
         let mut evaluation_row =
             evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
 
-        evaluate_assertions2(
+        // evaluate assertion constraints
+        evaluate_assertions(
             &assertion_constraints,
             &current,
             lde_domain[lde_step],
+            i,
             &mut evaluation_row,
         );
 
+        // record the result in the evaluation table
         for (j, &evaluation) in evaluation_row.iter().enumerate() {
             evaluation_table[j][i] = E::from(evaluation);
         }

@@ -59,9 +59,9 @@ impl Example for FibExample {
         // a valid Fibonacci sequence should start with two ones and terminate with
         // the same result as computed above
         let mut assertions = Assertions::new(TRACE_WIDTH, trace_length).unwrap();
-        assertions.add_point(0, 0, BaseElement::ONE).unwrap();
-        assertions.add_point(1, 0, BaseElement::ONE).unwrap();
-        assertions.add_point(1, trace_length - 1, result).unwrap();
+        assertions.add_single(0, 0, BaseElement::ONE).unwrap();
+        assertions.add_single(1, 0, BaseElement::ONE).unwrap();
+        assertions.add_single(1, trace_length - 1, result).unwrap();
         assertions
     }
 

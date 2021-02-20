@@ -11,9 +11,9 @@ fn generate_proof() {
     let trace = build_fib_trace(trace_length * 2);
     let result = trace[1][trace_length - 1];
     let mut assertions = Assertions::new(trace.len(), trace_length).unwrap();
-    assertions.add_point(0, 0, BaseElement::from(1u8)).unwrap();
-    assertions.add_point(1, 0, BaseElement::from(1u8)).unwrap();
-    assertions.add_point(1, trace_length - 1, result).unwrap();
+    assertions.add_single(0, 0, BaseElement::from(1u8)).unwrap();
+    assertions.add_single(1, 0, BaseElement::from(1u8)).unwrap();
+    assertions.add_single(1, trace_length - 1, result).unwrap();
 
     let prover = Prover::<FibEvaluator>::new(options);
     let _proof = prover.prove(trace, assertions);

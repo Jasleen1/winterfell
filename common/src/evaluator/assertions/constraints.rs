@@ -1,4 +1,4 @@
-use super::{Assertions, CyclicAssertion, PointAssertion};
+use super::Assertions;
 use crate::{ComputationContext, ConstraintDivisor};
 use crypto::RandomElementGenerator;
 use math::{
@@ -19,10 +19,11 @@ pub struct AssertionConstraintGroup {
 
 #[derive(Debug, Clone)]
 pub struct AssertionConstraint {
-    register: usize,
-    poly: Vec<BaseElement>,
-    offset: BaseElement,
-    cc: (BaseElement, BaseElement),
+    pub(crate) register: usize,
+    pub(crate) poly: Vec<BaseElement>,
+    pub(crate) x_offset: BaseElement,
+    pub(crate) step_offset: usize,
+    pub(crate) cc: (BaseElement, BaseElement),
 }
 
 // CONSTRAINT BUILDER
@@ -38,78 +39,48 @@ pub fn build_assertion_constraints(
     let mut groups: Vec<AssertionConstraintGroup> = Vec::new();
 
     // break the assertion collection into lists of individual assertions
-    let (point_assertions, cyclic_assertions) = assertions.into_lists();
+    let assertions = assertions.into_vec();
 
-    // build constraints for point assertions
-    if !point_assertions.is_empty() {
-        // this will store step values from the previous iteration of the loop
-        let mut step = usize::MAX;
+    // compute inverse of the trace domain generator; this will be used for offset
+    // computations when creating a new constraint
+    let inv_g = context.generators().trace_domain.inv();
 
-        // iterate over all point assertions which are sorted first by step, and then by register
-        // in ascending order
-        for assertion in point_assertions {
-            if step != assertion.step {
-                // step changes, create a new assertion group; this results in point assertions
-                // which are made against the same step to be grouped together
-                step = assertion.step;
-                groups.push(AssertionConstraintGroup::for_point_assertions(
-                    context, step,
-                ));
+    // set up variables to track values from the previous iteration of the loop
+    let mut stride = usize::MAX;
+    let mut first_step = usize::MAX;
+    let mut inv_twiddles = Vec::new();
+
+    // iterate over all assertions, which are sorted first by stride and then by first_step
+    // in ascending order
+    for assertion in assertions {
+        if assertion.stride != stride {
+            // when strides change, we need to build new inv_twiddles and also
+            // start a new assertion group
+            stride = assertion.stride;
+            first_step = assertion.first_step;
+
+            // if an assertion consists of two values or more, we'll need to interpolate
+            // an assertion polynomial from these values; for that, we'll need twiddles
+            if assertion.num_values > 1 {
+                inv_twiddles = build_inv_twiddles(assertion.num_values);
             }
-
-            // add a new assertion constraint to current group (last group in the list)
-            groups
-                .last_mut()
-                .unwrap()
-                .add_point_assertion(assertion, &mut coeff_prng);
+            groups.push(AssertionConstraintGroup::new(
+                context,
+                ConstraintDivisor::from_assertion(&assertion, &context),
+            ));
+        } else if assertion.first_step != first_step {
+            // if only the first_step changed, we can use inv_twiddles from the previous
+            // iteration, but we do need to start a new assertion group
+            first_step = assertion.first_step;
+            groups.push(AssertionConstraintGroup::new(
+                context,
+                ConstraintDivisor::from_assertion(&assertion, &context),
+            ));
         }
-    }
 
-    // build constraints for cyclic assertions
-    if !cyclic_assertions.is_empty() {
-        // compute inverse of the trace domain generator; this will be used for
-        // offset computations when creating a new constraint
-        let inv_g = context.generators().trace_domain.inv();
-
-        // set up variables to track values from the previous iteration of the loop
-        let mut stride = usize::MAX;
-        let mut first_step = usize::MAX;
-        let mut inv_twiddles = Vec::new();
-
-        // iterate over all cyclic assertions, which are sorted first by stride and then
-        // by first_step in ascending order
-        for assertion in cyclic_assertions {
-            if assertion.stride != stride {
-                // when strides change, we need to build new inv_twiddles and also
-                // start a new assertion group
-                stride = assertion.stride;
-                first_step = assertion.first_step;
-
-                // TODO: avoid building twiddles when not needed
-                let num_asserted_values = context.trace_length() / stride;
-                if num_asserted_values > 1 {
-                    inv_twiddles = build_inv_twiddles(num_asserted_values);
-                }
-                groups.push(AssertionConstraintGroup::for_cyclic_assertions(
-                    context, first_step, stride,
-                ));
-            } else if assertion.first_step != first_step {
-                // if only the first_step changed, we can use inv_twiddles from the
-                // previous iteration, but we do need to start a new assertion group
-                first_step = assertion.first_step;
-                groups.push(AssertionConstraintGroup::for_cyclic_assertions(
-                    context, first_step, stride,
-                ));
-            }
-
-            // add a new assertion constraint to the current group (last group in the list)
-            groups.last_mut().unwrap().add_cyclic_assertion(
-                assertion,
-                inv_g,
-                &inv_twiddles,
-                &mut coeff_prng,
-            );
-        }
+        // add a new assertion constraint to the current group (last group in the list)
+        let constraint = assertion.into_constraint(inv_g, &inv_twiddles, &mut coeff_prng);
+        groups.last_mut().unwrap().add_constraint(constraint);
     }
 
     // make sure groups are sorted by adjustment degree
@@ -139,70 +110,6 @@ impl AssertionConstraintGroup {
         }
     }
 
-    /// Returns a new assertion group which can hold point assertions at the specified step.
-    pub fn for_point_assertions(context: &ComputationContext, step: usize) -> Self {
-        let divisor = ConstraintDivisor::from_point_assertion(step, context);
-        AssertionConstraintGroup::new(context, divisor)
-    }
-
-    /// Returns a new assertion group which can hold cyclic assertions for the specified
-    /// first_step and stride.
-    pub fn for_cyclic_assertions(
-        context: &ComputationContext,
-        first_step: usize,
-        stride: usize,
-    ) -> Self {
-        let divisor = ConstraintDivisor::from_cyclic_assertion(first_step, stride, context);
-        Self::new(context, divisor)
-    }
-
-    // CONSTRAINT ADDERS
-    // --------------------------------------------------------------------------------------------
-    pub fn add_point_assertion(
-        &mut self,
-        assertion: PointAssertion,
-        coeff_prng: &mut RandomElementGenerator,
-    ) {
-        self.constraints.push(AssertionConstraint {
-            register: assertion.register,
-            poly: vec![assertion.value],
-            offset: BaseElement::ZERO,
-            cc: coeff_prng.draw_pair(),
-        });
-    }
-
-    pub fn add_cyclic_assertion(
-        &mut self,
-        assertion: CyclicAssertion,
-        inv_g: BaseElement,
-        inv_twiddles: &[BaseElement],
-        coeff_prng: &mut RandomElementGenerator,
-    ) {
-        // build a polynomial which evaluates to constraint values at asserted steps; for
-        // single-value assertions we use the value as constant coefficient of degree 0
-        // polynomial; but if there is more than value, we need to interpolate them into
-        // a polynomial using inverse FFT
-        let mut offset = BaseElement::ONE;
-        let mut poly = assertion.values;
-        if poly.len() > 1 {
-            fft::interpolate_poly(&mut poly, &inv_twiddles, true);
-            if assertion.first_step != 0 {
-                // if the assertions don't fall on the steps which are powers of two, we can't
-                // use FFT to interpolate the values into a polynomial. This would make such
-                // assertions quite impractical. To get around this, we still use FFT to build
-                // the polynomial, but then we evaluate it as f(x * offset) instead of f(x)
-                offset = inv_g.exp((assertion.first_step as u64).into());
-            }
-        }
-
-        self.constraints.push(AssertionConstraint {
-            register: assertion.register,
-            poly,
-            offset,
-            cc: coeff_prng.draw_pair(),
-        });
-    }
-
     // PUBLIC ACCESSORS
     // --------------------------------------------------------------------------------------------
 
@@ -219,6 +126,21 @@ impl AssertionConstraintGroup {
     /// Returns a degree adjustment factor for all constraints in this assertion group.
     pub fn degree_adjustment(&self) -> u32 {
         self.degree_adjustment
+    }
+
+    // Returns degree of the largest constraint polynomial in this assertion group.
+    pub fn max_poly_degree(&self) -> usize {
+        let mut poly_size = 0;
+        for constraint in self.constraints.iter() {
+            if constraint.poly().len() > poly_size {
+                poly_size = constraint.poly().len();
+            }
+        }
+        poly_size - 1
+    }
+
+    pub fn add_constraint(&mut self, constraint: AssertionConstraint) {
+        self.constraints.push(constraint);
     }
 }
 
@@ -242,7 +164,11 @@ impl AssertionConstraint {
     }
 
     pub fn x_offset(&self) -> BaseElement {
-        self.offset
+        self.x_offset
+    }
+
+    pub fn step_offset(&self) -> usize {
+        self.step_offset
     }
 
     /// Evaluates this constraint at the specified point `x` by computing trace_value - P(x).
@@ -260,7 +186,7 @@ impl AssertionConstraint {
             //    working in the base field, this has not effect; but if we are working in an
             //    extension field, coefficients of the polynomial are mapped from the base
             //    field into the extension field.
-            let x = x * E::from(self.offset);
+            let x = x * E::from(self.x_offset);
             self.poly
                 .iter()
                 .rev()
