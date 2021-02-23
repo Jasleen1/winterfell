@@ -132,6 +132,12 @@ impl PublicKey {
     }
 }
 
+impl Default for PublicKey {
+    fn default() -> Self {
+        PublicKey([BaseElement::ZERO; 2])
+    }
+}
+
 // HELPER FUNCTIONS
 // ================================================================================================
 

@@ -23,23 +23,23 @@ use assertions::build_assertions;
 const STATE_WIDTH: usize = 22;
 const SIG_CYCLE_LENGTH: usize = 128 * CYCLE_LENGTH; // 1024 steps
 
-// LAMPORT SIGNATURE EXAMPLE
+// LAMPORT MULTI-MESSAGE, MULTI-KEY, SIGNATURE EXAMPLE
 // ================================================================================================
 pub fn get_example() -> Box<dyn Example> {
-    Box::new(LamportExample {
+    Box::new(LamportMultisigExample {
         options: None,
         signatures: Vec::new(),
         messages: Vec::new(),
     })
 }
 
-pub struct LamportExample {
+pub struct LamportMultisigExample {
     options: Option<ProofOptions>,
     signatures: Vec<Signature>,
     messages: Vec<[BaseElement; 2]>,
 }
 
-impl Example for LamportExample {
+impl Example for LamportMultisigExample {
     fn prepare(
         &mut self,
         mut num_signatures: usize,

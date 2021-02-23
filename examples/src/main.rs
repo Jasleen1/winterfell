@@ -27,6 +27,7 @@ fn main() {
         "merkle" => merkle::get_example(),
         "lamport" => lamport::single::get_example(),
         "lamport_multi" => lamport::multisig::get_example(),
+        "lamport_threshold" => lamport::threshold::get_example(),
         _ => panic!("example name '{}' is not valid", example),
     };
 
