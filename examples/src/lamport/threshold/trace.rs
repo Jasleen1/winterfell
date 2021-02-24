@@ -1,7 +1,9 @@
-use std::collections::HashMap;
-
-use super::{rescue, Signature, TreeNode, HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS, SIG_CYCLE_LENGTH, STATE_WIDTH, AggPublicKey};
+use super::{
+    rescue, AggPublicKey, Signature, TreeNode, HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS,
+    SIG_CYCLE_LENGTH, STATE_WIDTH,
+};
 use prover::math::field::{BaseElement, FieldElement};
+use std::collections::HashMap;
 
 // CONSTANTS
 // ================================================================================================
@@ -34,32 +36,38 @@ pub fn generate_trace(
         .map(|_| vec![BaseElement::ZERO; trace_length])
         .collect::<Vec<Vec<BaseElement>>>();
 
-    // transform a list of signatures into a hashmap
+    // transform a list of signatures into a hashmap; this way we can look up signature
+    // by index of the corresponding public key
     let mut signature_map = HashMap::new();
     for (i, sig) in signatures {
         signature_map.insert(i, sig);
     }
 
-    // create a dummy signature
+    // create a dummy signature; this will be used in place of signatures for keys
+    // which did not sign the message
     let zero_sig = Signature {
         ones: vec![[BaseElement::ZERO; 2]; 254],
         zeros: vec![[BaseElement::ZERO; 2]; 254],
     };
 
+    // iterate over all leaves of the aggregated public key; and if a signature exists for the
+    // corresponding individual public key, use it go generate signature verification trace;
+    // otherwise, use zero signature; for every non-zero signature, signature count is incremented
     let mut sig_count = 0;
     for i in 0..num_cycles {
-        let key_index = sig_index_to_key_index(i, num_cycles);
-        let key_path = pub_key.get_path(key_index);
-        println!("path: {:?}", key_path);
         match signature_map.get(&i) {
             Some(sig) => {
-                let key = pub_key.get_key(key_index);
-                append_sig_verification(&mut trace, i, &message, &sig, false, key_index, &key.to_elements(), &key_path, sig_count);
+                let sig_flag = BaseElement::from(1u64);
+                append_sig_verification(
+                    &mut trace, i, &message, &sig, sig_flag, pub_key, sig_count,
+                );
                 sig_count += 1;
-            },
+            }
             None => {
-                let key = pub_key.get_key(key_index);
-                append_sig_verification(&mut trace, i, &message, &zero_sig, true, key_index, &key.to_elements(), &key_path, sig_count);
+                let sig_flag = BaseElement::from(0u64);
+                append_sig_verification(
+                    &mut trace, i, &message, &zero_sig, sig_flag, pub_key, sig_count,
+                );
             }
         }
     }
@@ -72,16 +80,22 @@ fn append_sig_verification(
     index: usize,
     msg: &[BaseElement; 2],
     sig: &Signature,
-    is_zero_sig: bool,
-    key_index: usize,
-    pub_key: &[BaseElement; 2],
-    key_path: &[TreeNode],
+    sig_flag: BaseElement,
+    pub_key: &AggPublicKey,
     sig_count: usize,
 ) {
     let m0 = msg[0].as_u128();
     let m1 = msg[1].as_u128();
-    let sig_flag = BaseElement::from(if is_zero_sig { 0u64 } else { 1u64 });
     let key_schedule = build_key_schedule(m0, m1, sig);
+
+    // we verify that the individual public key exists in the aggregated public key after
+    // we've verified the signature; thus, the key index is offset by 1. That is, when
+    // we verify signature for pub key 1, we verify Merkle path for pub key 0; the last
+    // verification wraps around, but we don't care since the last signature is always a
+    // zero signature which does not affect the count.
+    let key_index = sig_index_to_key_index(index, pub_key.num_leaves());
+    let key_path = pub_key.get_leaf_path(key_index);
+    let pub_key = pub_key.get_key(key_index).unwrap_or_default().to_elements();
 
     // initialize first state of signature verification
     let mut state: [BaseElement; STATE_WIDTH] = [
@@ -116,12 +130,12 @@ fn append_sig_verification(
         pub_key[1],
         BaseElement::ZERO,
         BaseElement::ZERO,
-        BaseElement::ZERO, // capacity
-        BaseElement::ZERO, // capacity
+        BaseElement::ZERO,                         // capacity
+        BaseElement::ZERO,                         // capacity
         BaseElement::new((key_index & 1) as u128), // index bits
-        BaseElement::ZERO, // index accumulator
+        BaseElement::ZERO,                         // index accumulator
         // signature counter
-        sig_flag, // signature flag
+        sig_flag,                            // signature flag
         BaseElement::new(sig_count as u128), // signature count
     ];
 
@@ -141,22 +155,26 @@ fn append_sig_verification(
         let cycle_num = (step % SIG_CYCLE_LENGTH) / HASH_CYCLE_LENGTH;
         let cycle_step = (step % SIG_CYCLE_LENGTH) % HASH_CYCLE_LENGTH;
 
-        // break the state into logical parts
+        // break the state into logical parts; we don't need to do anything with sig_count part
+        // because values for these registers are set in the initial state and don't change
+        // during the cycle
         let (mut msg_acc_state, rest) = state.split_at_mut(4);
         let (mut sec_key_1_hash, rest) = rest.split_at_mut(6);
         let (mut sec_key_2_hash, rest) = rest.split_at_mut(6);
         let (mut pub_key_hash, rest) = rest.split_at_mut(6);
         let (mut merkle_path_hash, rest) = rest.split_at_mut(6);
-        let (mut merkle_path_idx, sig_count) = rest.split_at_mut(2);
+        let (mut merkle_path_idx, _sig_count) = rest.split_at_mut(2);
 
         if cycle_step < NUM_HASH_ROUNDS {
-            // for the first 7 steps in each cycle apply Rescue round function to
+            // for the first 7 steps in each hash cycle apply Rescue round function to
             // registers where keys are hashed; all other registers retain their values
             rescue::apply_round(&mut sec_key_1_hash, cycle_step);
             rescue::apply_round(&mut sec_key_2_hash, cycle_step);
             rescue::apply_round(&mut pub_key_hash, cycle_step);
             rescue::apply_round(&mut merkle_path_hash, cycle_step);
         } else {
+            // for the 8th step of very cycle do the following:
+
             let m0_bit = msg_acc_state[0];
             let m1_bit = msg_acc_state[1];
             let mp_bit = merkle_path_idx[0];
@@ -180,15 +198,16 @@ fn append_sig_verification(
             apply_message_acc(&mut msg_acc_state, m0, m1, cycle_num, power_of_two);
 
             // update merkle path index accumulator with the next index bit
-            update_merkle_path_hash(&mut merkle_path_hash, mp_bit, cycle_num, key_path);
-            update_merkle_path_index(&mut merkle_path_idx, key_index as u128, cycle_num, power_of_two);
+            update_merkle_path_index(
+                &mut merkle_path_idx,
+                key_index as u128,
+                cycle_num,
+                power_of_two,
+            );
+            // prepare Merkle path hashing registers for hashing of the next node
+            update_merkle_path_hash(&mut merkle_path_hash, mp_bit, cycle_num, &key_path);
 
             power_of_two = power_of_two * TWO;
-        }
-
-        // on the last step of the entire cycle, add sig_flag into sig_count
-        if step == last_step - 1 {
-            sig_count[1] = sig_count[1] + sig_count[0];
         }
 
         // copy state into the trace
@@ -249,7 +268,12 @@ fn update_pub_key_hash(
     }
 }
 
-fn update_merkle_path_hash(state: &mut [BaseElement], index_bit: BaseElement, cycle_num: usize, key_path: &[TreeNode]) {
+fn update_merkle_path_hash(
+    state: &mut [BaseElement],
+    index_bit: BaseElement,
+    cycle_num: usize,
+    key_path: &[TreeNode],
+) {
     let h1 = state[0];
     let h2 = state[1];
     let cycle_num = (cycle_num + 1) % key_path.len();
@@ -258,8 +282,7 @@ fn update_merkle_path_hash(state: &mut [BaseElement], index_bit: BaseElement, cy
         state[1] = key_path[cycle_num].1;
         state[2] = h1;
         state[3] = h2;
-    }
-    else {
+    } else {
         state[0] = h1;
         state[1] = h2;
         state[2] = key_path[cycle_num].0;
@@ -276,7 +299,8 @@ fn update_merkle_path_index(
     power_of_two: BaseElement,
 ) {
     let index_bit = state[0];
-
+    // the cycle is offset by +1 because the first node in the Merkle path is redundant and we
+    // get it by hashing the public key
     state[0] = BaseElement::from((index >> (cycle_num + 1)) & 1);
     state[1] = state[1] + power_of_two * index_bit;
 }
@@ -322,8 +346,7 @@ fn build_key_schedule(m0: u128, m1: u128, sig: &Signature) -> KeySchedule {
 fn sig_index_to_key_index(sig_index: usize, num_cycles: usize) -> usize {
     if sig_index == 0 {
         num_cycles - 1
-    }
-    else {
+    } else {
         sig_index - 1
     }
 }

@@ -137,7 +137,12 @@ pub fn transpose(values: Vec<Vec<BaseElement>>) -> Vec<Vec<BaseElement>> {
 }
 
 /// Prints out an execution trace.
-pub fn print_trace(trace: &[Vec<BaseElement>], multiples_of: usize, offset: usize, range: Range<usize>) {
+pub fn print_trace(
+    trace: &[Vec<BaseElement>],
+    multiples_of: usize,
+    offset: usize,
+    range: Range<usize>,
+) {
     let trace_width = trace.len();
     let trace_length = trace[0].len();
 
@@ -152,7 +157,10 @@ pub fn print_trace(trace: &[Vec<BaseElement>], multiples_of: usize, offset: usiz
         println!(
             "{}\t{:?}",
             i,
-            state[range.clone()].iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+            state[range.clone()]
+                .iter()
+                .map(|v| v.as_u128())
+                .collect::<Vec<u128>>()
         );
     }
 }

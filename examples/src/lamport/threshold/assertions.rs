@@ -1,6 +1,6 @@
 use crate::utils::bytes_to_node;
 
-use super::{SIG_CYCLE_LENGTH, HASH_CYCLE_LENGTH, STATE_WIDTH, signature::AggPublicKey};
+use super::{signature::AggPublicKey, HASH_CYCLE_LENGTH, SIG_CYCLE_LENGTH, STATE_WIDTH};
 use math::field::{BaseElement, FieldElement};
 use prover::Assertions;
 
@@ -19,10 +19,7 @@ pub fn build_assertions(
     let trace_length = SIG_CYCLE_LENGTH * num_cycles;
     let mut assertions = Assertions::new(STATE_WIDTH, trace_length).unwrap();
 
-    // TODO: find a better name and explain
-    let merkle_root_offset = (num_cycles.trailing_zeros() + 1) as usize * HASH_CYCLE_LENGTH;
-
-    // set assertions against the first step of every cycle: 0, 1024, 2048 etc.
+    // ----- assertions against the first step of every cycle: 0, 1024, 2048 etc. -----------------
 
     // message aggregators should be set to zeros
     assertions.add_cyclic(2, 0, num_cycles, BaseElement::ZERO).unwrap();
@@ -43,17 +40,30 @@ pub fn build_assertions(
     assertions.add_cyclic(19, 0, num_cycles, BaseElement::ZERO).unwrap();
     assertions.add_cyclic(20, 0, num_cycles, BaseElement::ZERO).unwrap();
     assertions.add_cyclic(21, 0, num_cycles, BaseElement::ZERO).unwrap();
-    // key index register should be incremented on every cycle; 
+    // for merkle path verification, last 4 registers should be set to zeros
+    assertions.add_cyclic(24, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic(25, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic(26, 0, num_cycles, BaseElement::ZERO).unwrap();
+    assertions.add_cyclic(27, 0, num_cycles, BaseElement::ZERO).unwrap();
+    // merkle path index accumulator should be initialized to zero
+    assertions.add_cyclic(29, 0, num_cycles, BaseElement::ZERO).unwrap();
+
+    // ----- assertions against the step in every cycle when the Merkle path computation ends -----
+    // these steps depend on the depth of the public key Merkle tree; for example, if the Merkle 
+    // tree has 4 elements, then the steps are: 24, 1048, 2072, 3096
+    let merkle_root_offset = (num_cycles.trailing_zeros() + 1) as usize * HASH_CYCLE_LENGTH;
+
+    // distinct key indexes should be used; the sequence starts at the last index of the tree
+    // (to pad the first cycle) and then wraps around and proceeds with index 0, 1, 2 etc.
     let index_list = get_index_list(num_cycles);
     assertions.add_list(29, merkle_root_offset, index_list).unwrap();
 
-    // merkle path verifications should terminate with the root public key;
-    // the step on which we check the root depends on the depth of the public key Merkle tree
+    // merkle path verifications should terminate with the root public key
     let pub_key_root = bytes_to_node( pub_key.root());
     assertions.add_cyclic(22, merkle_root_offset, num_cycles, pub_key_root.0).unwrap();
     assertions.add_cyclic(23, merkle_root_offset, num_cycles, pub_key_root.1).unwrap();
 
-    // set assertions against the last step of every cycle: 1023, 2047, 3071 etc.
+    // ----- assertions against the last step of every cycle: 1023, 2047, 3071 etc. ----------------
 
     let last_cycle_step = SIG_CYCLE_LENGTH - 1;
     // last bits of message bit registers should be set to zeros; this is because we truncate
@@ -64,13 +74,17 @@ pub fn build_assertions(
     assertions.add_cyclic(2, last_cycle_step, num_cycles, message[0]).unwrap();
     assertions.add_cyclic(3, last_cycle_step, num_cycles, message[1]).unwrap();
 
-    // assertions for the entire execution trace
-    // these assert that signature counter starts at zero and terminates with the expected count
-    // of signatures
+    // ----- assertions for the entire execution trace --------------------------------------------
+    // signature counter starts at zero and terminates with the expected count of signatures
     let last_step = trace_length - 1;
     assertions.add_single(31, 0, BaseElement::ZERO).unwrap();
     assertions.add_single(31, last_step, BaseElement::from(num_signatures as u64)).unwrap();
     
+    // the first public key for merkle path verification should be a zero key (it is only used
+    // for padding)
+    assertions.add_single(22, 0, BaseElement::ZERO).unwrap();
+    assertions.add_single(23, 0, BaseElement::ZERO).unwrap();
+
     assertions
 }
 

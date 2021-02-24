@@ -48,8 +48,8 @@ impl Listener {
 
         Ok(Listener {
             listener,
-            limit_connections,
             store,
+            limit_connections,
         })
     }
 

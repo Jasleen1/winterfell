@@ -1,10 +1,13 @@
 use super::{
-    message_to_elements, rescue, Example, PrivateKey, PublicKey, Signature, CYCLE_LENGTH as HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS,
+    message_to_elements, rescue, Example, PrivateKey, PublicKey, Signature,
+    CYCLE_LENGTH as HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
-use crate::utils::{TreeNode, bytes_to_node};
+use crate::utils::TreeNode;
 use log::debug;
 use prover::{
-    crypto::hash::blake3, math::field::{BaseElement, FieldElement}, Assertions, ProofOptions, Prover, StarkProof,
+    crypto::hash::blake3,
+    math::field::{BaseElement, FieldElement},
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::{Verifier, VerifierError};
@@ -20,8 +23,6 @@ use trace::generate_trace;
 
 mod evaluator;
 use evaluator::LamportThresholdEvaluator;
-
-use crate::utils::print_trace;
 
 // CONSTANTS
 // ================================================================================================
@@ -49,15 +50,13 @@ pub struct LamportThresholdExample {
 }
 
 impl Example for LamportThresholdExample {
-
     fn prepare(
         &mut self,
         mut num_signers: usize,
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Assertions
-    {
+    ) -> Assertions {
         self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
 
         // set default value of num_signers to 3
@@ -66,18 +65,14 @@ impl Example for LamportThresholdExample {
         }
 
         // generate private/public key pairs for the specified number of signatures
-        let mut private_keys = Vec::with_capacity(num_signers);
-        let mut public_keys = Vec::with_capacity(num_signers);
         let now = Instant::now();
-        for i in 0..num_signers {
-            private_keys.push(PrivateKey::from_seed([i as u8; 32]));
-            public_keys.push(private_keys[i].pub_key());
-        }
+        let private_keys = build_keys(num_signers);
         debug!(
             "Generated {} private-public key pairs in {} ms",
             num_signers,
             now.elapsed().as_millis()
         );
+        let public_keys = private_keys.iter().map(|k| k.pub_key()).collect();
 
         // sign the message with the subset of previously generated keys
         let message = "test message";
@@ -119,17 +114,14 @@ impl Example for LamportThresholdExample {
             now.elapsed().as_millis()
         );
 
-        let root_key = bytes_to_node(self.pub_key.root());
-        println!("root: {}, {}", root_key.0, root_key.1);
-        print_trace(&trace, 8, 0, 22..30);
-
         // generate the proof
         let prover = Prover::<LamportThresholdEvaluator>::new(self.options.clone().unwrap());
         prover.prove(trace, assertions).unwrap()
     }
 
     fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
-        unimplemented!()
+        let verifier = Verifier::<LamportThresholdEvaluator>::new();
+        verifier.verify(proof, assertions)
     }
 }
 
@@ -149,6 +141,15 @@ fn build_proof_options(
     }
     let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
     Some(options)
+}
+
+fn build_keys(num_keys: usize) -> Vec<PrivateKey> {
+    let mut result = Vec::with_capacity(num_keys);
+    for i in 0..num_keys {
+        result.push(PrivateKey::from_seed([i as u8; 32]));
+    }
+    result.sort_by_key(|k| k.pub_key());
+    result
 }
 
 fn pick_random_indexes(num_keys: usize) -> Vec<usize> {

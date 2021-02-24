@@ -74,6 +74,20 @@ impl TransitionEvaluator for LamportThresholdEvaluator {
             ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
             ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
             ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            // merkle path verification
+            ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            ConstraintDegree::with_cycles(5, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]),
+            // merkle path index
+            ConstraintDegree::with_cycles(2, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN]), // index bit is binary
+            ConstraintDegree::with_cycles(1, vec![HASH_CYCLE_LEN, SIG_CYCLE_LEN, SIG_CYCLE_LEN]), // index accumulator
+            // signature count
+            ConstraintDegree::with_cycles(2, vec![SIG_CYCLE_LEN]), // sig flag is binary
+            ConstraintDegree::with_cycles(1, vec![SIG_CYCLE_LEN]), // sig counter
+            ConstraintDegree::with_cycles(2, vec![SIG_CYCLE_LEN]),
         ];
 
         LamportThresholdEvaluator {
@@ -182,8 +196,8 @@ fn evaluate_constraints<E: FieldElement + From<BaseElement>>(
 ) {
     // when hash_flag = 1 (which happens on all steps except steps which are one less than a
     // multiple of 8 - e.g. all steps except for 7, 15, 23 etc.), and we are not on the last step
-    // of a signature cycle make sure the contents of the first 4 registers are copied over, and
-    // for other registers, Rescue constraints are applied separately for hashing secret and
+    // of a signature cycle make sure the contents of registers 0 - 3 and 28, 29 are copied over,
+    // and for other registers, Rescue constraints are applied separately for hashing secret and
     // public keys
     let flag = not(sig_cycle_end_flag) * hash_flag;
     result.agg_constraint(0, flag, are_equal(current[0], next[0]));
@@ -193,6 +207,10 @@ fn evaluate_constraints<E: FieldElement + From<BaseElement>>(
     rescue::enforce_round(&mut result[4..10],  &current[4..10],  &next[4..10],  &ark, flag);
     rescue::enforce_round(&mut result[10..16], &current[10..16], &next[10..16], &ark, flag);
     rescue::enforce_round(&mut result[16..22], &current[16..22], &next[16..22], &ark, flag);
+    rescue::enforce_round(&mut result[22..28], &current[22..28], &next[22..28], &ark, flag);
+    result.agg_constraint(28, flag, are_equal(current[28], next[28]));
+    result.agg_constraint(29, flag, are_equal(current[29], next[29]));
+    
 
     // when hash_flag = 0 (which happens on steps which are one less than a multiple of 8 - e.g. 7,
     // 15, 23 etc.), and we are not on the last step of a signature cycle:
@@ -232,6 +250,41 @@ fn evaluate_constraints<E: FieldElement + From<BaseElement>>(
     let m1_bit = current[1];
     result.agg_constraint(16, flag * m1_bit, are_equal(current[18] + current[10], next[18]));
     result.agg_constraint(17, flag * m1_bit, are_equal(current[19] + current[11], next[19]));
+
+    // when merkle path bit = 1, next values for registers 22 and 23 should come from
+    // registers 24 and 25; but when the bit = 0, values should be copied over from 
+    // registers 22 and 23; registers 26 and 27 should be reset to zeros.
+    let mp_bit = current[28];
+    result.agg_constraint(22, flag * not(mp_bit), are_equal(current[22], next[22]));
+    result.agg_constraint(23, flag * not(mp_bit), are_equal(current[23], next[23]));
+    result.agg_constraint(24, flag * mp_bit, are_equal(current[22], next[24]));
+    result.agg_constraint(25, flag * mp_bit, are_equal(current[23], next[25]));
+    result.agg_constraint(26, flag, is_zero(next[26]));
+    result.agg_constraint(27, flag, is_zero(next[27]));
+
+    // make sure merkle path index bit is binary
+    result.agg_constraint(28, flag, is_binary(current[28]));
+    // make sure merkle path index aggregator is incremented correctly
+    let next_index_agg = current[29] + current[28] * power_of_two;
+    result.agg_constraint(29, flag, are_equal(next_index_agg, next[29]));
+
+    // sig flag should be binary and shouldn't change during the signature cycle
+    let sig_flag = current[30];
+    result.agg_constraint(30, not(sig_cycle_end_flag), are_equal(sig_flag, next[30]));
+    result.agg_constraint(30, sig_cycle_end_flag, is_binary(sig_flag));
+
+    // on all steps but the last step of the signature cycle, sig count should be copied
+    // over to the next step; on the last step of the signature cycle the next value of 
+    // sig count should be set to the previous value, plus the current value of sig flag
+    result.agg_constraint(31, not(sig_cycle_end_flag), are_equal(current[31], next[31]));
+    result.agg_constraint(31, sig_cycle_end_flag, are_equal(current[31] + sig_flag, next[31]));
+
+    // when sig_count=1, public key computed during signature verification (registers 16 and 17)
+    // should be copied to the beginning of Merkle path computation for the aggregated public key
+    // (registers 22 and 23); this constraint should be enforced only on the last step of signature
+    // verification cycle
+    result.agg_constraint(32, sig_cycle_end_flag * sig_flag, are_equal(current[16], next[22]));
+    result.agg_constraint(32, sig_cycle_end_flag * sig_flag, are_equal(current[17], next[23]));
 }
 
 /// Builds and evaluates polynomials for constants which span the entire signature cycle (1024 steps);
