@@ -1,7 +1,5 @@
-use common::{
-    errors::VerifierError, proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext,
-    DefaultAssertionEvaluator, FieldExtension, TransitionEvaluator,
-};
+pub use common::{errors::VerifierError, proof::StarkProof, Assertions};
+use common::{ComputationContext, FieldExtension, TransitionEvaluator};
 use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 
@@ -11,31 +9,28 @@ use channel::VerifierChannel;
 mod verification;
 use verification::perform_verification;
 
+mod constraints;
+use constraints::{compose_constraints, evaluate_constraints};
+
 // VERIFIER
 // ================================================================================================
 
-pub struct Verifier<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAssertionEvaluator> {
+pub struct Verifier<T: TransitionEvaluator> {
     _marker1: PhantomData<T>,
-    _marker2: PhantomData<A>,
 }
 
 #[allow(clippy::new_without_default)]
-impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
+impl<T: TransitionEvaluator> Verifier<T> {
     /// Creates a new verifier for a computation defined by generic parameters T and A.
-    pub fn new() -> Verifier<T, A> {
+    pub fn new() -> Verifier<T> {
         Verifier {
             _marker1: PhantomData,
-            _marker2: PhantomData,
         }
     }
 
     /// Verifies the STARK `proof` attesting the assertions are valid in the context of
     /// the computation described by the verifier.
-    pub fn verify(
-        &self,
-        proof: StarkProof,
-        assertions: Vec<Assertion>,
-    ) -> Result<bool, VerifierError> {
+    pub fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         // build the computation context from the proof. The context contains basic parameters
         // such as trace length, domain sizes, etc. It also defines whether extension field
         // should be used during verification.
@@ -48,11 +43,11 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Verifier<T, A> {
         match context.field_extension() {
             FieldExtension::None => {
                 let channel = VerifierChannel::new(context, proof)?;
-                perform_verification::<T, A, BaseElement>(&channel, assertions)
+                perform_verification::<T, BaseElement>(&channel, assertions)
             }
             FieldExtension::Quadratic => {
                 let channel = VerifierChannel::new(context, proof)?;
-                perform_verification::<T, A, QuadExtension<BaseElement>>(&channel, assertions)
+                perform_verification::<T, QuadExtension<BaseElement>>(&channel, assertions)
             }
         }
     }

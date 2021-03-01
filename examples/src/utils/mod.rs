@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use common::utils::filled_vector;
 use prover::math::{
     fft,
@@ -135,13 +137,18 @@ pub fn transpose(values: Vec<Vec<BaseElement>>) -> Vec<Vec<BaseElement>> {
 }
 
 /// Prints out an execution trace.
-pub fn print_trace(trace: &[Vec<BaseElement>], multiples_of: usize) {
+pub fn print_trace(
+    trace: &[Vec<BaseElement>],
+    multiples_of: usize,
+    offset: usize,
+    range: Range<usize>,
+) {
     let trace_width = trace.len();
     let trace_length = trace[0].len();
 
     let mut state = vec![BaseElement::ZERO; trace_width];
     for i in 0..trace_length {
-        if i % multiples_of != 0 {
+        if (i.wrapping_sub(offset)) % multiples_of != 0 {
             continue;
         }
         for j in 0..trace_width {
@@ -150,7 +157,23 @@ pub fn print_trace(trace: &[Vec<BaseElement>], multiples_of: usize) {
         println!(
             "{}\t{:?}",
             i,
-            state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+            state[range.clone()]
+                .iter()
+                .map(|v| v.as_u128())
+                .collect::<Vec<u128>>()
         );
     }
+}
+
+pub fn print_trace_step(trace: &[Vec<BaseElement>], step: usize) {
+    let trace_width = trace.len();
+    let mut state = vec![BaseElement::ZERO; trace_width];
+    for i in 0..trace_width {
+        state[i] = trace[i][step];
+    }
+    println!(
+        "{}\t{:?}",
+        step,
+        state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+    );
 }

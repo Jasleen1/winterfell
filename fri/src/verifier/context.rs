@@ -21,8 +21,8 @@ impl VerifierContext {
             max_degree,
             domain_size,
             domain_root,
-            num_partitions,
             options,
+            num_partitions,
         }
     }
 

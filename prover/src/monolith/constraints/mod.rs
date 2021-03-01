@@ -3,8 +3,8 @@ use super::{
     utils,
 };
 use common::{
-    errors::ProverError, utils::uninit_vector, AssertionEvaluator, ComputationContext,
-    ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator,
+    errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintDivisor,
+    ConstraintEvaluator, TransitionEvaluator,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
@@ -13,6 +13,9 @@ use math::{
     polynom,
 };
 
+mod assertions;
+use assertions::{evaluate_assertions, prepare_assertion_constraints};
+
 #[cfg(test)]
 mod tests;
 
@@ -20,12 +23,8 @@ mod tests;
 // ================================================================================================
 
 /// Evaluates constraints defined by the constraint evaluator against the extended execution trace.
-pub fn evaluate_constraints<
-    T: TransitionEvaluator,
-    A: AssertionEvaluator,
-    E: FieldElement + FromVec<BaseElement>,
->(
-    evaluator: &mut ConstraintEvaluator<T, A>,
+pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<BaseElement>>(
+    evaluator: &mut ConstraintEvaluator<T>,
     extended_trace: &TraceTable,
     lde_domain: &LdeDomain,
 ) -> Result<ConstraintEvaluationTable<E>, ProverError> {
@@ -33,10 +32,15 @@ pub fn evaluate_constraints<
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
     let ce_domain_size = evaluator.ce_domain_size();
 
+    // perform pre-processing of assertion constraints, extract divisors from them, and combine
+    // divisors into a single vector of all constraint divisors (assertion constraint divisors)
+    // should be appended at the end
+    let mut divisors = evaluator.constraint_divisors().to_vec();
+    let assertion_constraints = prepare_assertion_constraints(evaluator, &mut divisors);
+
     // allocate space for constraint evaluations; there should be as many columns in the
     // table as there are divisors
-    let mut evaluation_table: Vec<Vec<E>> = evaluator
-        .constraint_divisors()
+    let mut evaluation_table: Vec<Vec<E>> = divisors
         .iter()
         .map(|_| uninit_vector(ce_domain_size))
         .collect();
@@ -63,9 +67,19 @@ pub fn evaluate_constraints<
         extended_trace.copy_row(next_lde_step, &mut next);
 
         // pass the current and next rows of the trace table through the constraint evaluator
-        // and record the result in the evaluation table
-        let evaluation_row =
+        let mut evaluation_row =
             evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
+
+        // evaluate assertion constraints
+        evaluate_assertions(
+            &assertion_constraints,
+            &current,
+            lde_domain[lde_step],
+            i,
+            &mut evaluation_row,
+        );
+
+        // record the result in the evaluation table
         for (j, &evaluation) in evaluation_row.iter().enumerate() {
             evaluation_table[j][i] = E::from(evaluation);
         }
@@ -75,10 +89,7 @@ pub fn evaluate_constraints<
     evaluator.validate_transition_degrees();
 
     // build and return constraint evaluation table
-    Ok(ConstraintEvaluationTable::new(
-        evaluation_table,
-        evaluator.constraint_divisors().to_vec(),
-    ))
+    Ok(ConstraintEvaluationTable::new(evaluation_table, divisors))
 }
 
 /// Interpolates all constraint evaluations into polynomials, divides them by their respective
@@ -176,21 +187,24 @@ pub fn query_constraints(
 
 // HELPER FUNCTIONS
 // ================================================================================================
-fn divide_poly<E: FieldElement + FromVec<BaseElement>>(
-    poly: &mut [E],
-    divisor: &ConstraintDivisor,
-) {
+fn divide_poly<E: FieldElement + From<BaseElement>>(poly: &mut [E], divisor: &ConstraintDivisor) {
     let numerator = divisor.numerator();
     assert!(
         numerator.len() == 1,
         "complex divisors are not yet supported"
     );
-    let numerator = numerator[0];
+    assert!(
+        divisor.exclude().len() <= 1,
+        "multiple exclusion points are not yet supported"
+    );
 
+    let numerator = numerator[0];
     let numerator_degree = numerator.0;
-    if numerator_degree == 1 {
-        polynom::syn_div_in_place(poly, E::from(numerator.1));
+
+    if divisor.exclude().is_empty() {
+        polynom::syn_div_in_place(poly, numerator_degree, E::from(numerator.1));
     } else {
-        polynom::syn_div_expanded_in_place(poly, numerator_degree, &E::from_vec(divisor.exclude()));
+        let exception = E::from(divisor.exclude()[0]);
+        polynom::syn_div_in_place_with_exception(poly, numerator_degree, exception);
     }
 }

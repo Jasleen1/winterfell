@@ -141,13 +141,49 @@ impl ComputationContext {
     // UTILITY FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
+    /// Returns g^step, where g is the generator of trace domain.
     pub fn get_trace_x_at(&self, step: usize) -> BaseElement {
         debug_assert!(
             step < self.trace_length,
             "step must be in the trace domain [0, {})",
             self.trace_length
         );
-        BaseElement::exp(self.generators.trace_domain, step as u128)
+        self.generators.trace_domain.exp((step as u64).into())
+    }
+
+    /// Returns a sequence: g^first_step, g^(first_step + stride), g^(first_step + 2 * stride)...
+    /// where g is the generator of trace domain. The number of elements in the sequence is
+    /// defined as trace_length / stride.
+    pub fn get_trace_x_at_steps(&self, first_step: usize, stride: usize) -> Vec<BaseElement> {
+        debug_assert!(
+            stride.is_power_of_two(),
+            "stride must be a power of two but was {}",
+            stride
+        );
+        debug_assert!(
+            first_step < stride,
+            "first step ({}) cannot be greater than stride ({})",
+            first_step,
+            stride
+        );
+        debug_assert!(
+            stride < self.trace_length,
+            "stride ({}) must be smaller than trace length ({})",
+            stride,
+            self.trace_length
+        );
+
+        // compute g^first_step and g^stride
+        let start = self.generators.trace_domain.exp((first_step as u64).into());
+        let step = self.generators.trace_domain.exp((stride as u64).into());
+
+        let mut result = vec![BaseElement::ZERO; self.trace_length / stride];
+        result[0] = start;
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * step;
+        }
+
+        result
     }
 }
 

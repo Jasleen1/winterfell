@@ -1,7 +1,6 @@
 use common::{
-    errors::ProverError, proof::StarkProof, utils::log2, Assertion, AssertionEvaluator,
-    ComputationContext, ConstraintEvaluator, DefaultAssertionEvaluator, FieldExtension,
-    ProofOptions, PublicCoin, TransitionEvaluator,
+    errors::ProverError, proof::StarkProof, utils::log2, Assertions, ComputationContext,
+    ConstraintEvaluator, FieldExtension, ProofOptions, PublicCoin, TransitionEvaluator,
 };
 use log::debug;
 use math::field::BaseElement;
@@ -41,20 +40,18 @@ const FIELD_EXTENSION: FieldExtension = FieldExtension::Quadratic;
 // PROVER
 // ================================================================================================
 
-pub struct Prover<T: TransitionEvaluator, A: AssertionEvaluator = DefaultAssertionEvaluator> {
+pub struct Prover<T: TransitionEvaluator> {
     options: ProofOptions,
     _marker1: PhantomData<T>,
-    _marker2: PhantomData<A>,
 }
 
-impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
+impl<T: TransitionEvaluator> Prover<T> {
     /// Creates a new prover for the specified `options`. Generic parameters T and A
     /// define specifics of the computation for this prover.
-    pub fn new(options: ProofOptions) -> Prover<T, A> {
+    pub fn new(options: ProofOptions) -> Prover<T> {
         Prover {
             options,
             _marker1: PhantomData,
-            _marker2: PhantomData,
         }
     }
 
@@ -63,7 +60,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
     pub fn prove(
         &self,
         trace: Vec<Vec<BaseElement>>,
-        assertions: Vec<Assertion>,
+        assertions: Assertions,
     ) -> Result<StarkProof, ProverError> {
         let trace = TraceTable::new(trace);
         validate_assertions(&trace, &assertions);
@@ -123,7 +120,7 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
         // build constraint evaluator; the channel is passed in for the evaluator to draw random
         // values from; these values are used by the evaluator to compute a random linear
         // combination of constraint evaluations
-        let mut evaluator = ConstraintEvaluator::<T, A>::new(&channel, &context, assertions)?;
+        let mut evaluator = ConstraintEvaluator::<T>::new(&channel, &context, assertions)?;
 
         // apply constraint evaluator to the extended trace table to generate a
         // constraint evaluation table
@@ -272,17 +269,20 @@ impl<T: TransitionEvaluator, A: AssertionEvaluator> Prover<T, A> {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn validate_assertions(trace: &TraceTable, assertions: &[Assertion]) {
+fn validate_assertions(trace: &TraceTable, assertions: &Assertions) {
     // TODO: eventually, this should return errors instead of panicking
     assert!(
         !assertions.is_empty(),
         "at least one assertion must be provided"
     );
-    for assertion in assertions {
+
+    assertions.for_each(|register, step, value| {
         assert!(
-            trace.get(assertion.register(), assertion.step()) == assertion.value(),
-            "trace does not satisfy assertion {}",
-            assertion
+            value == trace.get(register, step),
+            "trace does not satisfy assertion trace({}, {}) == {}",
+            register,
+            step,
+            value
         );
-    }
+    });
 }

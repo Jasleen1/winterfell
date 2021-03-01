@@ -6,7 +6,7 @@ use common::errors::VerifierError;
 use evaluator::Fib8Evaluator;
 use prover::{
     math::field::{BaseElement, FieldElement},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use verifier::Verifier;
 
@@ -20,6 +20,8 @@ mod tests;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
+const TRACE_WIDTH: usize = 8;
+
 pub fn get_example() -> Box<dyn Example> {
     Box::new(Fib8Example {
         options: None,
@@ -39,7 +41,7 @@ impl Example for Fib8Example {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Vec<Assertion> {
+    ) -> Assertions {
         if sequence_length == 0 {
             sequence_length = 1_048_576
         }
@@ -58,14 +60,14 @@ impl Example for Fib8Example {
 
         // assert that the trace starts with 7th and 8th terms of Fibonacci sequence (the first
         // 6 terms are not recorded in the trace), and ends with the expected result
-        vec![
-            Assertion::new(0, 0, BaseElement::new(13)),
-            Assertion::new(1, 0, BaseElement::new(21)),
-            Assertion::new(1, trace_length - 1, result),
-        ]
+        let mut assertions = Assertions::new(TRACE_WIDTH, trace_length).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(13)).unwrap();
+        assertions.add_single(1, 0, BaseElement::new(21)).unwrap();
+        assertions.add_single(1, trace_length - 1, result).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         debug!(
             "Generating proof for computing Fibonacci sequence (8 terms per step) up to {}th term\n\
             ---------------------",
@@ -89,7 +91,7 @@ impl Example for Fib8Example {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<Fib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }

@@ -1,6 +1,6 @@
 use common::errors::VerifierError;
 use log::debug;
-use prover::{math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof};
+use prover::{math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof};
 use std::time::Instant;
 use verifier::Verifier;
 
@@ -36,7 +36,7 @@ impl Example for MulFib8Example {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
-    ) -> Vec<Assertion> {
+    ) -> Assertions {
         if sequence_length == 0 {
             sequence_length = 1_048_576
         }
@@ -53,14 +53,14 @@ impl Example for MulFib8Example {
             now.elapsed().as_millis()
         );
 
-        vec![
-            Assertion::new(0, 0, BaseElement::new(1)),
-            Assertion::new(1, 0, BaseElement::new(2)),
-            Assertion::new(6, trace_length - 1, result),
-        ]
+        let mut assertions = Assertions::new(NUM_REGISTERS, trace_length).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(1)).unwrap();
+        assertions.add_single(1, 0, BaseElement::new(2)).unwrap();
+        assertions.add_single(6, trace_length - 1, result).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         let sequence_length = self.sequence_length;
         debug!(
             "Generating proof for computing multiplicative Fibonacci sequence (8 terms per step) up to {}th term\n\
@@ -85,7 +85,7 @@ impl Example for MulFib8Example {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
         let verifier = Verifier::<MulFib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }

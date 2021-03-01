@@ -1,6 +1,6 @@
 use super::Prover;
 use crate::tests::{build_fib_trace, FibEvaluator};
-use common::{Assertion, ProofOptions};
+use common::{Assertions, ProofOptions};
 use crypto::hash::blake3;
 use math::field::BaseElement;
 
@@ -10,11 +10,10 @@ fn generate_proof() {
     let options = ProofOptions::new(20, 4, 0, blake3);
     let trace = build_fib_trace(trace_length * 2);
     let result = trace[1][trace_length - 1];
-    let assertions = vec![
-        Assertion::new(0, 0, BaseElement::from(1u8)),
-        Assertion::new(1, 0, BaseElement::from(1u8)),
-        Assertion::new(1, trace_length - 1, result),
-    ];
+    let mut assertions = Assertions::new(trace.len(), trace_length).unwrap();
+    assertions.add_single(0, 0, BaseElement::from(1u8)).unwrap();
+    assertions.add_single(1, 0, BaseElement::from(1u8)).unwrap();
+    assertions.add_single(1, trace_length - 1, result).unwrap();
 
     let prover = Prover::<FibEvaluator>::new(options);
     let _proof = prover.prove(trace, assertions);
