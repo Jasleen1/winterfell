@@ -3,7 +3,6 @@ use crypto::{hash, merkle, utils::uninit_vector};
 use rand::{rngs::ThreadRng, thread_rng, RngCore};
 
 pub fn merkle_tree_construction(c: &mut Criterion) {
-    
     let mut merkle_group = c.benchmark_group("merkle tree construction");
 
     static BATCH_SIZES: [usize; 3] = [65536, 131072, 262144];
@@ -23,23 +22,9 @@ pub fn merkle_tree_construction(c: &mut Criterion) {
         merkle_group.bench_with_input(BenchmarkId::new("sequential", size), &data, |b, i| {
             b.iter(|| merkle::build_merkle_nodes(&i, crate::hash::blake3))
         });
-        /*
-        let mut config = kompact::prelude::KompactConfig::default();
-        config.threads(15);
-        let system = config.build().expect("system");
-        let manager = system.create(move || merkle::concurrent_merkle::Manager::new(15));
-        system.start(&manager);
-        let manager_ref = manager.actor_ref().hold().expect("live");
-
-        
         merkle_group.bench_with_input(BenchmarkId::new("concurrent", size), &data, |b, i| {
-            b.iter(|| {
-                let work = merkle::concurrent_merkle::Work::with(&i, crate::hash::sha3);
-                manager_ref.ask(kompact::prelude::Ask::of(work)).wait();
-            })
+            b.iter(|| merkle::concurrent::build_merkle_nodes(&i, crate::hash::blake3))
         });
-        system.shutdown().expect("shutdown");
-        */
     }
 }
 

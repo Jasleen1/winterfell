@@ -162,7 +162,7 @@ impl Actor for Manager {
     fn receive_network(&mut self, msg: NetMessage) -> Handled {
         let sender = msg.sender;
         match_deser!(msg.data; {
-            checkin: WorkerCheckIn [WorkerCheckIn] => self.handle_worker_check_in(sender),
+            _checkin: WorkerCheckIn [WorkerCheckIn] => self.handle_worker_check_in(sender),
             response: WorkerResponse [WorkerResponse] => self.handle_worker_response(sender, response),
         });
 

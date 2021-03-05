@@ -8,6 +8,8 @@ mod proofs;
 use fasthash::xx::Hash64;
 pub use proofs::BatchMerkleProof;
 
+pub mod concurrent;
+
 #[cfg(test)]
 mod tests;
 
