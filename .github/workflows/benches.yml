@@ -19,8 +19,6 @@ jobs:
         run: |
           echo "action triggerd by https://github.com/novifinancial/winterfell/pull/${{ env.PULL_ID }} "
       - uses: actions/checkout@master
-        with:
-            submodules: recursive
       - name: Install rust
         uses: actions-rs/toolchain@v1
         with:
@@ -39,7 +37,6 @@ jobs:
         with:
           fetch-depth: 50 # this is to make sure we obtain the target base commit
           path: winterfell
-          submodules: recursive
       - uses: dorny/paths-filter@v2
         id: filter
         with:
