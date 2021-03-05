@@ -313,9 +313,8 @@ mod construction_test {
 
             let sequential = merkle::build_merkle_nodes(&data, crate::hash::sha3);
 
-            let concurrent = merkle::concurrent_merkle::build_merkle_nodes(7, &data, crate::hash::sha3);
-
-            assert_eq!(concurrent, sequential);
+            //let concurrent = merkle::concurrent_merkle::build_merkle_nodes(7, &data, crate::hash::sha3);
+            //assert_eq!(concurrent, sequential);
         }
     }
 }
