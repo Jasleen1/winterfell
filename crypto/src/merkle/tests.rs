@@ -302,24 +302,6 @@ proptest! {
     }
 }
 
-mod construction_test {
-    use crate::merkle;
-    use proptest::collection::vec;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn test_constructions_equal(ref data in vec(any::<[u8; 32]>(), 256..257).no_shrink()) {
-
-            let sequential = merkle::build_merkle_nodes(&data, crate::hash::sha3);
-
-            let concurrent = merkle::concurrent_merkle::build_merkle_nodes(7, &data, crate::hash::sha3);
-
-            assert_eq!(concurrent, sequential);
-        }
-    }
-}
-
 // HELPER FUNCTIONS
 // --------------------------------------------------------------------------------------------
 fn hash_2x1(v1: &[u8; 32], v2: &[u8; 32]) -> [u8; 32] {

@@ -8,10 +8,11 @@ mod proofs;
 use fasthash::xx::Hash64;
 pub use proofs::BatchMerkleProof;
 
+#[cfg(feature = "concurrent")]
+pub mod concurrent;
+
 #[cfg(test)]
 mod tests;
-
-pub mod concurrent_merkle;
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -32,7 +33,12 @@ impl MerkleTree {
         );
         assert!(leaves.len() >= 2, "a tree must contain at least 2 leaves");
 
+        // depending on the features, build the tree either using a single thread or many threads
+        #[cfg(feature = "concurrent")]
+        let nodes = concurrent::build_merkle_nodes(&leaves, hash);
+        #[cfg(not(feature = "concurrent"))]
         let nodes = build_merkle_nodes(&leaves, hash);
+
         MerkleTree {
             values: leaves,
             nodes,

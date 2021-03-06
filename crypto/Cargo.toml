@@ -17,6 +17,10 @@ harness = false
 [[bench]]
 name = "merkle"
 harness = false
+required-features = ["concurrent"]
+
+[features]
+concurrent = ["rayon"]
 
 [dependencies]
 digest = "0.9"
@@ -25,14 +29,10 @@ sha3 = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 math = { path = "../math" }
 fasthash = "0.4"
-kompact = { version = "0.10",  default-features = false, features = ["serde_support", "ser_id_64"]}
-bytes = "1.0"
+rayon = { version = "1.5", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"
-proptest = "0.10"
+proptest = "1.0"
 sha2 = "0.9"
 rand = "0.8"
-
-[features]
-default = ["kompact/silent_logging"]
