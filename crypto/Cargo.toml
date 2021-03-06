@@ -17,6 +17,10 @@ harness = false
 [[bench]]
 name = "merkle"
 harness = false
+required-features = ["concurrent"]
+
+[features]
+concurrent = ["rayon"]
 
 [dependencies]
 digest = "0.9"
@@ -25,7 +29,7 @@ sha3 = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 math = { path = "../math" }
 fasthash = "0.4"
-rayon = "1.5"
+rayon = { version = "1.5", optional = true }
 
 [dev-dependencies]
 criterion = "0.3"

@@ -2,6 +2,9 @@ use crate::{utils, HashFunction};
 use rayon::prelude::*;
 use std::slice;
 
+/// Builds a all internal nodes of the Merkle using all available threads and stores the
+/// results in a single vector such that root of the tree is at position 1, nodes immediately
+/// under the root is at positions 2 and 3 etc.
 pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 32]> {
     // create un-initialized array to hold all intermediate nodes
     let n = leaves.len() / 2;
@@ -19,7 +22,7 @@ pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 3
     // calculate all other tree nodes, we can't use regular iterators  here because
     // access patterns are rather complicated - so, we use regular threads instead
 
-    // make sure number of threads is always a power of 2
+    // number of sub-trees must always be a power of 2
     let num_subtrees = rayon::current_num_threads().next_power_of_two();
     let batch_size = n / num_subtrees;
 
@@ -51,6 +54,9 @@ pub fn build_merkle_nodes(leaves: &[[u8; 32]], hash: HashFunction) -> Vec<[u8; 3
 
     nodes
 }
+
+// TESTS
+// ================================================================================================
 
 #[cfg(test)]
 mod tests {
