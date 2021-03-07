@@ -8,14 +8,11 @@ mod tests;
 /// the `polynom::eval` function.
 pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
     debug_assert!(p.len() == 4, "Polynomial must have 4 terms");
-    let mut y = p[0] + p[1] * x;
-
-    let x2 = x * x;
-    y = y + p[2] * x2;
-
-    let x3 = x2 * x;
-    y = y + p[3] * x3;
-
+    // Horner's evaluation
+    let mut y = p[3] * x;
+    y = (y + p[2]) * x;
+    y = (y + p[1]) * x;
+    y = y + p[0];
     y
 }
 
