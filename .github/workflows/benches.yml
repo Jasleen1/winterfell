@@ -53,7 +53,6 @@ jobs:
         run: |
           set -x
           git checkout ${{ github.event.pull_request.base.sha }}
-          git submodule update --recursive
           cargo bench -- --save-baseline master
           git checkout -
           cargo bench -- --save-baseline pr
