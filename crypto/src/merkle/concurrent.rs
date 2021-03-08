@@ -2,6 +2,14 @@ use crate::{utils, HashFunction};
 use rayon::prelude::*;
 use std::slice;
 
+// CONSTANTS
+// ================================================================================================
+
+pub const MIN_CONCURRENT_LEAVES: usize = 1024;
+
+// PUBLIC FUNCTIONS
+// ================================================================================================
+
 /// Builds a all internal nodes of the Merkle using all available threads and stores the
 /// results in a single vector such that root of the tree is at position 1, nodes immediately
 /// under the root is at positions 2 and 3 etc.

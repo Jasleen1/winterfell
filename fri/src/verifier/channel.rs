@@ -1,4 +1,4 @@
-use crate::{folding::quartic, utils, FriOptions, FriProof, PublicCoin, VerifierError};
+use crate::{folding::quartic, FriOptions, FriProof, PublicCoin, VerifierError};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::field::FieldElement;
 use std::marker::PhantomData;
@@ -44,7 +44,7 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
 
         // build remainder Merkle tree
         let remainder_values = quartic::transpose(&remainder, 1);
-        let hashed_values = utils::hash_values(&remainder_values, self.hash_fn());
+        let hashed_values = quartic::hash_values(&remainder_values, self.hash_fn());
         let remainder_tree = MerkleTree::new(hashed_values, self.hash_fn());
 
         // make sure the root of the tree matches the committed root of the last layer

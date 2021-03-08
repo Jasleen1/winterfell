@@ -1,10 +1,19 @@
 use crate::utils::uninit_vector;
+use crypto::HashFunction;
 use math::field::{BaseElement, FieldElement};
 
+#[cfg(feature = "concurrent")]
 pub mod concurrent;
 
 #[cfg(test)]
 mod tests;
+
+// CONSTANTS
+// ================================================================================================
+pub const FOLDING_FACTOR: usize = 4;
+
+// PUBLIC FUNCTIONS
+// ================================================================================================
 
 /// Evaluates degree 3 polynomial `p` at coordinate `x`. This function is about 30% faster than
 /// the `polynom::eval` function.
@@ -21,16 +30,10 @@ pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
 /// Evaluates a batch of degree 3 polynomials at the provided X coordinate.
 pub fn evaluate_batch<E: FieldElement>(polys: &[[E; 4]], x: E) -> Vec<E> {
     let n = polys.len();
-
-    let mut result: Vec<E> = Vec::with_capacity(n);
-    unsafe {
-        result.set_len(n);
-    }
-
+    let mut result: Vec<E> = uninit_vector(n);
     for i in 0..n {
         result[i] = eval(&polys[i], x);
     }
-
     result
 }
 
@@ -52,6 +55,7 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
     result
 }
 
+/// Transposes the source vector into a matrix of quartic elements.
 pub fn transpose<E: FieldElement>(source: &[E], stride: usize) -> Vec<[E; 4]> {
     assert!(
         source.len() % (4 * stride) == 0,
@@ -78,6 +82,21 @@ pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
     let len = v.len() / 4;
     let cap = v.capacity() / 4;
     unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+}
+
+/// Computes hashes for all quartic elements using the specified hash function.
+pub fn hash_values<E: FieldElement>(values: &[[E; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
+    let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
+    // TODO: ideally, this should be done using something like update() method of a hasher
+    let mut buf = vec![0u8; 4 * E::ELEMENT_BYTES];
+    for i in 0..values.len() {
+        buf[..E::ELEMENT_BYTES].copy_from_slice(&values[i][0].to_bytes());
+        buf[E::ELEMENT_BYTES..E::ELEMENT_BYTES * 2].copy_from_slice(&values[i][1].to_bytes());
+        buf[E::ELEMENT_BYTES * 2..E::ELEMENT_BYTES * 3].copy_from_slice(&values[i][2].to_bytes());
+        buf[E::ELEMENT_BYTES * 3..E::ELEMENT_BYTES * 4].copy_from_slice(&values[i][3].to_bytes());
+        hash(&buf, &mut result[i]);
+    }
+    result
 }
 
 // HELPER FUNCTION

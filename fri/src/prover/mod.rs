@@ -1,11 +1,8 @@
-mod sequential;
-pub use sequential::FriProver;
+mod monolith;
+pub use monolith::FriProver;
 
 mod channel;
 pub use channel::{DefaultProverChannel, ProverChannel};
-
-mod concurrent;
-pub use concurrent::FriProver as ConcurrentProver;
 
 #[cfg(test)]
 mod distributed;

@@ -108,7 +108,7 @@ impl<C: ProverChannel> FriProver<C> {
             .ask(|promise| ProverRequest::RetrieveRemainder(Ask::new(promise, ())))
             .wait();
         let remainder_folded = quartic::transpose(&remainder, 1);
-        let remainder_hashes = utils::hash_values(&remainder_folded, hash_fn);
+        let remainder_hashes = quartic::hash_values(&remainder_folded, hash_fn);
         let remainder_tree = MerkleTree::new(remainder_hashes, hash_fn);
         channel.commit_fri_layer(*remainder_tree.root());
 

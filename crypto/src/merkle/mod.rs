@@ -16,6 +16,7 @@ mod tests;
 
 // TYPES AND INTERFACES
 // ================================================================================================
+
 #[derive(Debug)]
 pub struct MerkleTree {
     nodes: Vec<[u8; 32]>,
@@ -24,37 +25,30 @@ pub struct MerkleTree {
 
 // MERKLE TREE IMPLEMENTATION
 // ================================================================================================
+
 impl MerkleTree {
     /// Returns new merkle tree built from the provide leaves using the provided hash function.
-    /// The tree is built using a single processor thread.
+    /// When `concurrent` feature is enabled, the tree is built using as many threads as are
+    /// available in Rayon's global thread pool (usually as many threads as logical cores).
+    /// Otherwise, the tree is built using a single thread.
     pub fn new(leaves: Vec<[u8; 32]>, hash: HashFunction) -> MerkleTree {
         assert!(
             leaves.len().is_power_of_two(),
             "number of leaves must be a power of 2"
         );
         assert!(leaves.len() >= 2, "a tree must contain at least 2 leaves");
-        MerkleTree {
-            nodes: build_merkle_nodes(&leaves, hash),
-            leaves,
-        }
-    }
 
-    /// Returns new merkle tree built from the provide leaves using the provided hash function.
-    /// The tree is built using as many threads as available in Rayon's global thread pool
-    /// (usually as many threads as logical cores).
-    ///
-    /// This is supported on crate feature `concurrent` only.
-    #[cfg(feature = "concurrent")]
-    pub fn new_concurrent(leaves: Vec<[u8; 32]>, hash: HashFunction) -> MerkleTree {
-        assert!(
-            leaves.len().is_power_of_two(),
-            "number of leaves must be a power of 2"
-        );
-        assert!(leaves.len() >= 2, "a tree must contain at least 2 leaves");
-        MerkleTree {
-            nodes: concurrent::build_merkle_nodes(&leaves, hash),
-            leaves,
-        }
+        #[cfg(not(feature = "concurrent"))]
+        let nodes = build_merkle_nodes(&leaves, hash);
+
+        #[cfg(feature = "concurrent")]
+        let nodes = if leaves.len() <= concurrent::MIN_CONCURRENT_LEAVES {
+            build_merkle_nodes(&leaves, hash)
+        } else {
+            concurrent::build_merkle_nodes(&leaves, hash)
+        };
+
+        MerkleTree { nodes, leaves }
     }
 
     /// Returns the root of the tree.

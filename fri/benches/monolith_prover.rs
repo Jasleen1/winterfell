@@ -22,7 +22,7 @@ pub fn build_layers(c: &mut Criterion) {
         let evaluations = build_evaluations(g, domain_size);
 
         fri_group.bench_with_input(
-            BenchmarkId::new("build_layers (sequential)", domain_size),
+            BenchmarkId::new("build_layers", domain_size),
             &evaluations,
             |b, e| {
                 let mut prover = FriProver::new(options.clone());

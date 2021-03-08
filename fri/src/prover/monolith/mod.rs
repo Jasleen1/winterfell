@@ -1,7 +1,13 @@
-use crate::{folding::quartic::concurrent as quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
+use crate::{utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
 use crypto::MerkleTree;
 use math::field::{BaseElement, FieldElement};
 use std::marker::PhantomData;
+
+#[cfg(not(feature = "concurrent"))]
+use crate::folding::quartic;
+
+#[cfg(feature = "concurrent")]
+use crate::folding::quartic::concurrent as quartic;
 
 #[cfg(test)]
 mod tests;
@@ -65,7 +71,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
             // rows of this matrix; we do this so that we could de-commit to 4 values with a sing
             // Merkle authentication path.
             let transposed_evaluations = quartic::transpose(&evaluations, 1);
-            let hashed_evaluations = utils::hash_values(&transposed_evaluations, hash_fn);
+            let hashed_evaluations = quartic::hash_values(&transposed_evaluations, hash_fn);
             let evaluation_tree = MerkleTree::new(hashed_evaluations, hash_fn);
             channel.commit_fri_layer(*evaluation_tree.root());
 
