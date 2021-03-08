@@ -1,6 +1,8 @@
 use crate::utils::uninit_vector;
 use math::field::{BaseElement, FieldElement};
 
+pub mod concurrent;
+
 #[cfg(test)]
 mod tests;
 
@@ -45,7 +47,47 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
         xs.len() == ys.len(),
         "number of X coordinates must be equal to number of Y coordinates"
     );
+    let mut result: Vec<[E; 4]> = uninit_vector(xs.len());
+    interpolate_batch_into(xs, ys, &mut result);
+    result
+}
 
+pub fn transpose<E: FieldElement>(source: &[E], stride: usize) -> Vec<[E; 4]> {
+    assert!(
+        source.len() % (4 * stride) == 0,
+        "vector length must be divisible by {}",
+        4 * stride
+    );
+    let row_count = source.len() / (4 * stride);
+
+    let mut result = to_quartic_vec(uninit_vector(row_count * 4));
+    for (i, element) in result.iter_mut().enumerate() {
+        transpose_element(element, &source, i, stride, row_count);
+    }
+    result
+}
+
+/// Re-interprets a vector of field elements as a vector of quartic elements.
+pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
+    assert!(
+        vector.len() % 4 == 0,
+        "vector length must be divisible by 4"
+    );
+    let mut v = std::mem::ManuallyDrop::new(vector);
+    let p = v.as_mut_ptr();
+    let len = v.len() / 4;
+    let cap = v.capacity() / 4;
+    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+}
+
+// HELPER FUNCTION
+// ================================================================================================
+
+fn interpolate_batch_into<E: FieldElement + From<BaseElement>>(
+    xs: &[[BaseElement; 4]],
+    ys: &[[E; 4]],
+    result: &mut [[E; 4]],
+) {
     let n = xs.len();
     let mut equations: Vec<[E; 4]> = Vec::with_capacity(n * 4);
     let mut inverses: Vec<E> = Vec::with_capacity(n * 4);
@@ -88,11 +130,6 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
 
     let inverses = E::inv_many(&inverses);
 
-    let mut result: Vec<[E; 4]> = Vec::with_capacity(n);
-    unsafe {
-        result.set_len(n);
-    }
-
     for (i, j) in (0..n).zip((0..equations.len()).step_by(4)) {
         let ys = ys[i];
 
@@ -124,40 +161,19 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
         result[i][2] = result[i][2] + inv_y * equations[j + 3][2];
         result[i][3] = result[i][3] + inv_y * equations[j + 3][3];
     }
-
-    result
 }
 
-pub fn transpose<E: FieldElement>(vector: &[E], stride: usize) -> Vec<[E; 4]> {
-    assert!(
-        vector.len() % (4 * stride) == 0,
-        "vector length must be divisible by {}",
-        4 * stride
-    );
-    let row_count = vector.len() / (4 * stride);
-
-    let mut result = to_quartic_vec(uninit_vector(row_count * 4));
-    for i in 0..row_count {
-        result[i] = [
-            vector[i * stride],
-            vector[(i + row_count) * stride],
-            vector[(i + 2 * row_count) * stride],
-            vector[(i + 3 * row_count) * stride],
-        ];
-    }
-
-    result
-}
-
-/// Re-interprets a vector of integers as a vector of quartic elements.
-pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
-    assert!(
-        vector.len() % 4 == 0,
-        "vector length must be divisible by 4"
-    );
-    let mut v = std::mem::ManuallyDrop::new(vector);
-    let p = v.as_mut_ptr();
-    let len = v.len() / 4;
-    let cap = v.capacity() / 4;
-    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+fn transpose_element<E: FieldElement>(
+    target: &mut [E; 4],
+    source: &[E],
+    i: usize,
+    stride: usize,
+    row_count: usize,
+) {
+    *target = [
+        source[i * stride],
+        source[(i + row_count) * stride],
+        source[(i + 2 * row_count) * stride],
+        source[(i + 3 * row_count) * stride],
+    ];
 }

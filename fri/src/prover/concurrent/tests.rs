@@ -1,3 +1,4 @@
+/*
 use crate::{
     folding::quartic, utils, DefaultProverChannel, FriOptions, FriProof, FriProofLayer, PublicCoin,
 };
@@ -223,3 +224,4 @@ fn get_augmented_positions(positions: &[usize], column_length: usize) -> Vec<usi
     }
     result
 }
+*/

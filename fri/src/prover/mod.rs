@@ -4,8 +4,8 @@ pub use sequential::FriProver;
 mod channel;
 pub use channel::{DefaultProverChannel, ProverChannel};
 
-#[cfg(test)]
 mod concurrent;
+pub use concurrent::FriProver as ConcurrentProver;
 
 #[cfg(test)]
 mod distributed;

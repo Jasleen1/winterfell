@@ -7,9 +7,16 @@ edition = "2018"
 bench = false
 
 [[bench]]
-name = "prover"
+name = "prover_sequential"
 harness = false
 
+[[bench]]
+name = "prover_concurrent"
+harness = false
+
+[[bench]]
+name = "quartic"
+harness = false
 
 [dependencies]
 math = { path = "../math" }
@@ -20,6 +27,7 @@ kompact = { version = "0.10",  default-features = false, features = ["ser_id_64"
 log = "0.4"
 fasthash = "0.4"
 thiserror = "1.0"
+rayon = { version = "1.5" }
 
 [dev-dependencies]
 env_logger = "0.8"

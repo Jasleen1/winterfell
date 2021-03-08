@@ -1,204 +1,188 @@
-use crate::{folding::quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
-use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
+use crate::{folding::quartic::concurrent as quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
+use crypto::MerkleTree;
 use math::field::{BaseElement, FieldElement};
 use std::marker::PhantomData;
 
-mod worker;
-use worker::{QueryResult, Worker, WorkerConfig};
-
+#[cfg(test)]
 mod tests;
 
-// CONSTANTS
-// ================================================================================================
 const FOLDING_FACTOR: usize = crate::options::FOLDING_FACTOR;
 
 // TYPES AND INTERFACES
 // ================================================================================================
 
-pub struct Prover<E: FieldElement + From<BaseElement>, C: ProverChannel> {
-    workers: Vec<Worker<E>>,
-    hash_fn: HashFunction,
-    domain_size: usize,
-    num_layers: usize,
-    layer_trees: Vec<MerkleTree>,
+pub struct FriProver<E: FieldElement + From<BaseElement>, C: ProverChannel> {
+    options: FriOptions,
+    layers: Vec<FriLayer<E>>,
     _marker: PhantomData<C>,
 }
 
-// FRI PROVER IMPLEMENTATION
+struct FriLayer<E: FieldElement + From<BaseElement>> {
+    tree: MerkleTree,
+    evaluations: Vec<[E; FOLDING_FACTOR]>,
+}
+
+// PROVER IMPLEMENTATION
 // ================================================================================================
 
-impl<E: FieldElement + From<BaseElement>, C: ProverChannel> Prover<E, C> {
-    /// Returns a new FRI prover for the specified context and evaluations. In the actual
-    /// distributed implementation evaluations will probably be provided via references to
-    /// distributed data structure.
-    /// TODO: this is not a concurrent implementation - it needs to be converted into one
-    pub fn new(options: &FriOptions, evaluations: &[E]) -> Self {
-        let hash_fn = options.hash_fn();
-        let domain_size = evaluations.len();
-
-        // break up evaluations into partitions to be sent to individual workers; we set the
-        // number of partitions to be equal to the length of FRI base layer (the remainder)
-        let num_layers = options.num_fri_layers(domain_size);
-        let num_partitions = options.fri_remainder_length(domain_size);
-        let partitions = partition(&evaluations, num_partitions);
-
-        // create workers and assign partitions to them; in the real distributed context,
-        // partitions will be the output of distributed FFT computation and will already be
-        // in memory of individual workers.
-        let mut workers = Vec::new();
-        for (i, partition) in partitions.into_iter().enumerate() {
-            let config = WorkerConfig {
-                num_partitions,
-                index: i,
-                domain_size,
-                hash_fn,
-            };
-            workers.push(Worker::new(config, &partition))
-        }
-
-        Prover {
-            workers,
-            domain_size,
-            num_layers,
-            hash_fn,
-            layer_trees: Vec::new(),
+impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
+    pub fn new(options: FriOptions) -> Self {
+        FriProver {
+            options,
+            layers: Vec::new(),
             _marker: PhantomData,
         }
     }
 
-    /// Returns number of partitions into which the original evaluations were broken into.
-    pub fn num_partitions(&self) -> usize {
-        self.workers.len()
-    }
-
     /// Executes commit phase of FRI protocol which recursively applies a degree-respecting projection
-    /// to evaluations of some function F over a larger domain. At each layer of recursion the
+    /// to evaluations of some function F over a larger domain. The degree of the function implied
+    /// but evaluations is reduced by FOLDING_FACTOR at every step until the remaining evaluations
+    /// can fit into a vector of at most max_remainder_length. At each layer of recursion the
     /// current evaluations are committed to using a Merkle tree, and the root of this tree is used
     /// to derive randomness for the subsequent application of degree-respecting projection.
-    pub fn build_layers(&mut self, channel: &mut C) {
-        for layer_depth in 0..self.num_layers {
-            // commit to the current layer across all workers; we do this by first having each
-            // worker commit to their current layers, and then building a Merkle tree from
-            // worker commitments. This has very low communication overhead since each work
-            // sends just the root of their internal Merkle tree back to the prover.
-            let worker_commitments = self.workers.iter_mut().map(|w| w.commit()).collect();
-            let layer_tree = MerkleTree::new(worker_commitments, self.hash_fn);
-            channel.commit_fri_layer(*layer_tree.root());
-            self.layer_trees.push(layer_tree);
+    pub fn build_layers(
+        &mut self,
+        channel: &mut C,
+        mut evaluations: Vec<E>,
+        domain: &[BaseElement],
+    ) {
+        assert!(
+            evaluations.len() == domain.len(),
+            "number of evaluations must match the domain size"
+        );
+        assert!(
+            self.layers.is_empty(),
+            "a prior proof generation request has not been completed yet"
+        );
 
-            // draw random coefficient from the channel and use it to perform degree-preserving
-            // projections in each worker.
-            let alpha = channel.draw_fri_alpha::<E>(layer_depth);
-            self.workers.iter_mut().for_each(|w| w.apply_drp(alpha));
+        let hash_fn = self.options.hash_fn();
+
+        // reduce the degree by 4 at each iteration until the remaining polynomial is small enough;
+        // + 1 is for the remainder
+        for depth in 0..self.options.num_fri_layers(domain.len()) + 1 {
+            // commit to the evaluations at the current layer; we do this by first transposing the
+            // evaluations into a matrix of 4 columns, and then building a Merkle tree from the
+            // rows of this matrix; we do this so that we could de-commit to 4 values with a sing
+            // Merkle authentication path.
+            let transposed_evaluations = quartic::transpose(&evaluations, 1);
+            let hashed_evaluations = utils::hash_values(&transposed_evaluations, hash_fn);
+            let evaluation_tree = MerkleTree::new(hashed_evaluations, hash_fn);
+            channel.commit_fri_layer(*evaluation_tree.root());
+
+            // draw a pseudo-random coefficient from the channel, and use it in degree-respecting
+            // projection to reduce the degree of evaluations by 4
+            let alpha = channel.draw_fri_alpha::<E>(depth as usize);
+            evaluations = apply_drp(&transposed_evaluations, domain, depth, alpha);
+
+            self.layers.push(FriLayer {
+                tree: evaluation_tree,
+                evaluations: transposed_evaluations,
+            });
         }
 
-        // commit to the remainder
-        let remainder = self
-            .workers
-            .iter()
-            .map(|w| w.remainder())
-            .collect::<Vec<_>>();
-        let remainder = quartic::transpose(&remainder, 1);
-        let remainder_hashes = utils::hash_values(&remainder, self.hash_fn);
-        let remainder_tree = MerkleTree::new(remainder_hashes, self.hash_fn);
-        channel.commit_fri_layer(*remainder_tree.root());
+        // make sure remainder length does not exceed max allowed value
+        let last_layer = &self.layers[self.layers.len() - 1];
+        let remainder_length = last_layer.evaluations.len() * FOLDING_FACTOR;
+        debug_assert!(
+            remainder_length <= self.options.max_remainder_length(),
+            "last FRI layer cannot exceed {} elements, but was {} elements",
+            self.options.max_remainder_length(),
+            remainder_length
+        );
     }
 
     /// Executes query phase of FRI protocol. For each of the provided `positions`, corresponding
     /// evaluations from each of the layers are recorded into the proof together with Merkle
     /// authentication paths from the root of layer commitment trees.
-    pub fn build_proof(&self, positions: &[usize]) -> FriProof {
-        let mut queries = (0..self.num_layers).map(|_| Vec::new()).collect::<Vec<_>>();
-        let mut remainder = Vec::new();
+    pub fn build_proof(&mut self, positions: &[usize]) -> FriProof {
+        assert!(
+            !self.layers.is_empty(),
+            "FRI layers have not been built yet"
+        );
+        let mut positions = positions.to_vec();
+        let mut domain_size = self.layers[0].evaluations.len() * FOLDING_FACTOR;
 
-        // iterate over all workers to collect query and remainder info from them
-        for (worker_idx, worker) in self.workers.iter().enumerate() {
-            // query the worker; if positions are applicable to this worker then a set
-            // of query results will be returned; otherwise and we get an empty vector back
-            let worker_results = worker.query(positions);
-            for (layer_depth, layer_results) in worker_results.into_iter().enumerate() {
-                // queries from each worker contain only starting segments of Merkle
-                // authentication paths against virtual Merkle tree of all evaluations -
-                // so, we need to complete them with the segment held by the prover.
-                let path_end = self.layer_trees[layer_depth].prove(worker_idx);
-                for mut query in layer_results.into_iter() {
-                    // empty path from the worker indicates that we reached the last layer
-                    // where there was only a single leaf; in this case, we use the entire
-                    // path from the prover.
-                    if query.path.is_empty() {
-                        query.path = path_end.clone();
-                    } else {
-                        // if we are not at the last layer, we need to skip the first node of
-                        // the prover's path because it is implied by the path sent by the worker
-                        query.path.extend_from_slice(&path_end[1..]);
-                    }
-                    // we also translate query index local to the worker into index applicable to
-                    // the entire virtual tree
-                    query.index = self.to_global_index(worker_idx, layer_depth, query.index);
-                    queries[layer_depth].push(query);
-                }
+        // for all trees, except the last one, record tree root, authentication paths
+        // to row evaluations, and values for row evaluations
+        let mut layers = Vec::with_capacity(self.layers.len());
+        for i in 0..self.layers.len() - 1 {
+            positions =
+                utils::fold_positions(&positions, domain_size, self.options.folding_factor());
+
+            let proof = self.layers[i].tree.prove_batch(&positions);
+
+            let mut queried_values: Vec<[E; FOLDING_FACTOR]> = Vec::with_capacity(positions.len());
+            for &position in positions.iter() {
+                queried_values.push(self.layers[i].evaluations[position]);
             }
-            remainder.push(worker.remainder());
+
+            layers.push(FriProofLayer {
+                values: queried_values
+                    .into_iter()
+                    .map(|v| E::write_into_vec(&v))
+                    .collect(),
+                paths: proof.nodes,
+                depth: proof.depth,
+            });
+            domain_size /= FOLDING_FACTOR;
         }
 
-        // build FRI layers from the queries
-        let layers = queries
-            .into_iter()
-            .map(|mut q| build_fri_layer(&mut q))
-            .collect();
+        // use the remaining polynomial values directly as proof
+        // TODO: write remainder to the proof in transposed form?
+        let last_values = &self.layers[self.layers.len() - 1].evaluations;
+        let n = last_values.len();
+        let mut remainder = vec![E::ZERO; n * FOLDING_FACTOR];
+        for i in 0..last_values.len() {
+            remainder[i] = last_values[i][0];
+            remainder[i + n] = last_values[i][1];
+            remainder[i + n * 2] = last_values[i][2];
+            remainder[i + n * 3] = last_values[i][3];
+        }
+
+        // clear layers so that another proof can be generated
+        self.reset();
 
         FriProof {
             layers,
             rem_values: E::write_into_vec(&remainder),
-            partitioned: true,
+            partitioned: false,
         }
     }
 
-    // HELPER METHODS
-    // --------------------------------------------------------------------------------------------
+    /// Returns number of FRI layers computed during the last execution of build_layers() method
+    pub fn num_layers(&self) -> usize {
+        self.layers.len()
+    }
 
-    fn to_global_index(&self, worker_idx: usize, layer_depth: usize, local_idx: usize) -> usize {
-        let num_evaluations =
-            self.domain_size / usize::pow(FOLDING_FACTOR, (layer_depth + 1) as u32);
-        let local_bits = num_evaluations.trailing_zeros() - self.workers.len().trailing_zeros();
-        (worker_idx << local_bits) | local_idx
+    /// Clears a vector of internally stored layers.
+    pub fn reset(&mut self) {
+        self.layers.clear();
     }
 }
 
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn partition<E: FieldElement>(evaluations: &[E], num_partitions: usize) -> Vec<Vec<E>> {
-    let mut result = Vec::new();
-    for _ in 0..num_partitions {
-        result.push(Vec::new());
-    }
+/// Applies degree-respecting projection to the `evaluations` reducing the degree of evaluations
+/// by FOLDING_FACTOR. This is equivalent to the following:
+/// - Let `evaluations` contain the evaluations of polynomial f(x) of degree k
+/// - Group coefficients of f so that f(x) = a(x) + x * b(x) + x^2 * c(x) + x^3 * d(x)
+/// - Compute random linear combination of a, b, c, d as:
+///   f'(x) = a + alpha * b + alpha^2 * c + alpha^3 * d, where alpha is a random coefficient
+/// - evaluate f'(x) on a domain which consists of x^4 from the original domain (and thus is
+///   1/4 the size)
+/// note: that to compute an x in the new domain, we need 4 values from the old domain:
+/// x^{1/4}, x^{2/4}, x^{3/4}, x
+fn apply_drp<E: FieldElement + From<BaseElement>>(
+    evaluations: &[[E; FOLDING_FACTOR]],
+    domain: &[BaseElement],
+    depth: usize,
+    alpha: E,
+) -> Vec<E> {
+    let domain_stride = usize::pow(FOLDING_FACTOR, depth as u32);
+    let xs = quartic::transpose(domain, domain_stride);
 
-    for i in 0..evaluations.len() {
-        result[i % num_partitions].push(evaluations[i]);
-    }
+    let polys = quartic::interpolate_batch(&xs, &evaluations);
 
-    result
-}
-
-fn build_fri_layer<E: FieldElement>(queries: &mut [QueryResult<E>]) -> FriProofLayer {
-    queries.sort_by_key(|q| q.index);
-
-    let mut indexes = Vec::new();
-    let mut paths = Vec::new();
-    let mut values = Vec::new();
-
-    for query in queries.iter() {
-        indexes.push(query.index);
-        paths.push(query.path.clone());
-        values.push(E::write_into_vec(&query.value));
-    }
-
-    let batch_proof = BatchMerkleProof::from_paths(&paths, &indexes);
-
-    FriProofLayer {
-        values,
-        paths: batch_proof.nodes,
-        depth: batch_proof.depth,
-    }
+    quartic::evaluate_batch(&polys, alpha)
 }
