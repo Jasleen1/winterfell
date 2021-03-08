@@ -19,29 +19,41 @@ mod tests;
 #[derive(Debug)]
 pub struct MerkleTree {
     nodes: Vec<[u8; 32]>,
-    values: Vec<[u8; 32]>,
+    leaves: Vec<[u8; 32]>,
 }
 
 // MERKLE TREE IMPLEMENTATION
 // ================================================================================================
 impl MerkleTree {
-    /// Creates a new merkle tree from the provide leaves and using the provided hash function.
+    /// Returns new merkle tree built from the provide leaves using the provided hash function.
+    /// The tree is built using a single processor thread.
     pub fn new(leaves: Vec<[u8; 32]>, hash: HashFunction) -> MerkleTree {
         assert!(
             leaves.len().is_power_of_two(),
             "number of leaves must be a power of 2"
         );
         assert!(leaves.len() >= 2, "a tree must contain at least 2 leaves");
-
-        // depending on the features, build the tree either using a single thread or many threads
-        #[cfg(feature = "concurrent")]
-        let nodes = concurrent::build_merkle_nodes(&leaves, hash);
-        #[cfg(not(feature = "concurrent"))]
-        let nodes = build_merkle_nodes(&leaves, hash);
-
         MerkleTree {
-            values: leaves,
-            nodes,
+            nodes: build_merkle_nodes(&leaves, hash),
+            leaves,
+        }
+    }
+
+    /// Returns new merkle tree built from the provide leaves using the provided hash function.
+    /// The tree is built using as many threads as available in Rayon's global thread pool
+    /// (usually as many threads as logical cores).
+    ///
+    /// This is supported on crate feature `concurrent` only.
+    #[cfg(feature = "concurrent")]
+    pub fn new_concurrent(leaves: Vec<[u8; 32]>, hash: HashFunction) {
+        assert!(
+            leaves.len().is_power_of_two(),
+            "number of leaves must be a power of 2"
+        );
+        assert!(leaves.len() >= 2, "a tree must contain at least 2 leaves");
+        MerkleTree {
+            nodes: concurrent::build_merkle_nodes(&leaves, hash),
+            leaves,
         }
     }
 
@@ -52,19 +64,19 @@ impl MerkleTree {
 
     /// Returns depth of the tree.
     pub fn depth(&self) -> usize {
-        self.values.len().trailing_zeros() as usize
+        self.leaves.len().trailing_zeros() as usize
     }
 
     /// Returns leaf nodes of the tree.
     pub fn leaves(&self) -> &[[u8; 32]] {
-        &self.values
+        &self.leaves
     }
 
     /// Computes merkle path the given leaf index.
     pub fn prove(&self, index: usize) -> Vec<[u8; 32]> {
-        assert!(index < self.values.len(), "invalid index {}", index);
+        assert!(index < self.leaves.len(), "invalid index {}", index);
 
-        let mut proof = vec![self.values[index], self.values[index ^ 1]];
+        let mut proof = vec![self.leaves[index], self.leaves[index ^ 1]];
 
         let mut index = (index + self.nodes.len()) >> 1;
         while index > 1 {
@@ -77,7 +89,7 @@ impl MerkleTree {
 
     /// Computes merkle paths for the provided indexes and compresses the paths into a single proof.
     pub fn prove_batch(&self, indexes: &[usize]) -> BatchMerkleProof {
-        let n = self.values.len();
+        let n = self.leaves.len();
 
         let index_map = map_indexes(indexes, n);
         let indexes = normalize_indexes(indexes);
@@ -89,7 +101,7 @@ impl MerkleTree {
         for index in indexes {
             let missing: Vec<[u8; 32]> = (index..index + 2)
                 .flat_map(|i| {
-                    let v = self.values[i];
+                    let v = self.leaves[i];
                     if let Some(idx) = index_map.get(&i) {
                         values[*idx] = v;
                         None
@@ -104,7 +116,7 @@ impl MerkleTree {
         }
 
         // add required internal nodes to the proof, skipping redundancies
-        let depth = self.values.len().trailing_zeros() as u8;
+        let depth = self.leaves.len().trailing_zeros() as u8;
         for _ in 1..depth {
             let indexes = next_indexes.clone();
             next_indexes.truncate(0);
