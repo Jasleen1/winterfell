@@ -23,5 +23,5 @@ pub trait Example {
         grinding_factor: u32,
     ) -> Assertions;
     fn prove(&self, assertions: Assertions) -> StarkProof;
-    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError>;
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<(), VerifierError>;
 }

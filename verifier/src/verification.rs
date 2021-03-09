@@ -10,13 +10,14 @@ use math::field::{BaseElement, FieldElement, FromVec};
 // VERIFICATION PROCEDURE
 // ================================================================================================
 
-pub fn perform_verification<
-    T: TransitionEvaluator,
-    E: FieldElement + From<BaseElement> + FromVec<BaseElement>,
->(
+pub fn perform_verification<T, E>(
     channel: &VerifierChannel<E>,
     assertions: Assertions,
-) -> Result<bool, VerifierError> {
+) -> Result<(), VerifierError>
+where
+    T: TransitionEvaluator,
+    E: FieldElement + From<BaseElement> + FromVec<BaseElement>,
+{
     let context = channel.context();
 
     // 1 ----- Compute constraint evaluations at OOD point z ----------------------------------
@@ -91,7 +92,7 @@ pub fn perform_verification<
         context.options().to_fri_options(),
     );
     fri::verify(&fri_context, channel, &evaluations, &query_positions)
-        .map_err(VerifierError::VerificationFailed)
+        .map_err(VerifierError::FriVerificationFailed)
 }
 
 // TRACE COMPOSITION

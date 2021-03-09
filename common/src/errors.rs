@@ -34,7 +34,7 @@ pub enum VerifierError {
     /// An error produced in evaluation
     Eval(EvaluatorError),
     /// Verification of low-degree proof failed: {0}
-    VerificationFailed(String),
+    FriVerificationFailed(fri::VerifierError),
     /// Trace query did not match the commitment
     TraceQueryDoesNotMatchCommitment,
     /// Trace query deserialization failed

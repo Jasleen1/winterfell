@@ -121,7 +121,7 @@ impl Example for LamportMultisigExample {
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<(), VerifierError> {
         let verifier = Verifier::<LamportPlusEvaluator>::new();
         verifier.verify(proof, assertions)
     }
