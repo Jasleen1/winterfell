@@ -162,7 +162,7 @@ impl Assertion {
         let mut x_offset = BaseElement::ONE;
         let mut poly = self.values;
         if poly.len() > 1 {
-            fft::interpolate_poly(&mut poly, &inv_twiddles, true);
+            fft::interpolate_poly(&mut poly, &inv_twiddles);
             if self.first_step != 0 {
                 // if the assertions don't fall on the steps which are powers of two, we can't
                 // use FFT to interpolate the values into a polynomial. This would make such

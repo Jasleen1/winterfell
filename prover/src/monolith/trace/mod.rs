@@ -45,14 +45,14 @@ pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, P
     // extend all registers
     for poly in polys.iter_mut() {
         // interpolate register trace into a polynomial
-        fft::interpolate_poly(poly, &trace_twiddles, true);
+        fft::interpolate_poly(poly, &trace_twiddles);
 
         // allocate space to hold extended evaluations and copy the polynomial into it
         let mut register = vec![BaseElement::ZERO; lde_domain.size()];
         register[..poly.len()].copy_from_slice(&poly);
 
         // evaluate the polynomial over extended domain
-        fft::evaluate_poly(&mut register, &lde_domain.twiddles(), true);
+        fft::evaluate_poly(&mut register, &lde_domain.twiddles());
         trace.push(register);
     }
 

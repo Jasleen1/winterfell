@@ -13,29 +13,21 @@ const MAX_LOOP: usize = 256;
 
 /// Evaluates polynomial `p` using FFT algorithm; the evaluation is done in-place, meaning
 /// `p` is updated with results of the evaluation.
-///
-/// If `unpermute` parameter is set to false, the evaluations will be left in permuted state.
-pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E], unpermute: bool) {
+pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E]) {
     debug_assert!(p.len() == twiddles.len() * 2, "Invalid number of twiddles");
     fft_in_place(p, &twiddles, 1, 1, 0);
-    if unpermute {
-        permute(p);
-    }
+    permute(p);
 }
 
 /// Uses FFT algorithm to interpolate a polynomial from provided values `v`; the interpolation
 /// is done in-place, meaning `v` is updated with polynomial coefficients.
-///
-/// If `unpermute` parameter is set to false, the evaluations will be left in permuted state.
-pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E], unpermute: bool) {
+pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E]) {
     fft_in_place(v, &inv_twiddles, 1, 1, 0);
     let inv_length = E::inv((v.len() as u64).into());
     for e in v.iter_mut() {
         *e = *e * inv_length;
     }
-    if unpermute {
-        permute(v);
-    }
+    permute(v);
 }
 
 // CORE FFT ALGORITHM
@@ -43,7 +35,7 @@ pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E], unperm
 
 /// In-place recursive FFT with permuted output.
 /// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
-pub fn fft_in_place<E: FieldElement>(
+fn fft_in_place<E: FieldElement>(
     values: &mut [E],
     twiddles: &[E],
     count: usize,
@@ -83,16 +75,14 @@ pub fn fft_in_place<E: FieldElement>(
 
 pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
     assert!(size.is_power_of_two());
-    let size_u32 = size as u32;
-    assert!(E::exp(root, size_u32.into()) == E::ONE);
+    assert!(E::exp(root, (size as u32).into()) == E::ONE);
     let mut twiddles = E::get_power_series(root, size / 2);
     permute(&mut twiddles);
     twiddles
 }
 
 pub fn get_inv_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    let size_m1_u32 = (size - 1) as u32;
-    let inv_root = E::exp(root, size_m1_u32.into());
+    let inv_root = E::exp(root, (size as u32 - 1).into());
     get_twiddles(inv_root, size)
 }
 

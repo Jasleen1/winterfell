@@ -112,7 +112,7 @@ impl AssertionConstraintGroup {
                 // evaluate the polynomial over the entire constraint evaluation domain
                 let mut values = vec![BaseElement::ZERO; twiddles.len() * 2];
                 values[..constraint.poly().len()].copy_from_slice(constraint.poly());
-                fft::evaluate_poly(&mut values, twiddles, true);
+                fft::evaluate_poly(&mut values, twiddles);
 
                 result.large_poly_constraints.push(LargePolyConstraint {
                     register: constraint.register(),

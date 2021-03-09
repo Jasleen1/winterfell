@@ -51,6 +51,6 @@ fn build_evaluations(g: BaseElement, domain_size: usize) -> Vec<BaseElement> {
     let mut p = BaseElement::prng_vector([1; 32], domain_size / BLOWUP_FACTOR);
     p.resize(domain_size, BaseElement::ZERO);
     let twiddles = fft::get_twiddles(g, domain_size);
-    fft::evaluate_poly(&mut p, &twiddles, true);
+    fft::evaluate_poly(&mut p, &twiddles);
     p
 }

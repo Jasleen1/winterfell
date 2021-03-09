@@ -108,7 +108,7 @@ pub fn build_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
     // iterate over all columns of the constraint evaluation table
     for (mut evaluations, divisor) in evaluations.into_iter() {
         // interpolate each column into a polynomial
-        fft::interpolate_poly(&mut evaluations, &E::from_vec(&inv_twiddles), true);
+        fft::interpolate_poly(&mut evaluations, &E::from_vec(&inv_twiddles));
         // divide the polynomial by its divisor
         divide_poly(&mut evaluations, &divisor);
         // make sure that the post-division degree of the polynomial matches
@@ -137,7 +137,7 @@ pub fn extend_constraint_evaluations<E: FieldElement + FromVec<BaseElement>>(
     evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
 
     // then use FFT to evaluate the polynomial over LDE domain
-    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()), true);
+    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()));
     evaluations
 }
 
