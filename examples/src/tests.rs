@@ -16,8 +16,7 @@ pub fn test_basic_proof_verification(
     let grinding_factor = this_grinding_factor.unwrap_or(0);
     let assertions = e.prepare(size, blowup_factor, num_queries, grinding_factor);
     let proof = e.prove(assertions.clone());
-    let verified = e.verify(proof, assertions);
-    assert_eq!(true, verified.unwrap());
+    assert!(e.verify(proof, assertions).is_ok());
 }
 
 pub fn test_basic_proof_verification_fail(

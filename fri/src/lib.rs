@@ -2,7 +2,9 @@ mod prover;
 pub use prover::{DefaultProverChannel, FriProver, ProverChannel};
 
 mod verifier;
-pub use verifier::{verify, DefaultVerifierChannel, VerifierChannel, VerifierContext};
+pub use verifier::{
+    verify, DefaultVerifierChannel, VerifierChannel, VerifierContext, VerifierError,
+};
 
 mod options;
 pub use options::FriOptions;

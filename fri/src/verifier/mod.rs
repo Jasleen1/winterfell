@@ -11,17 +11,20 @@ pub use context::VerifierContext;
 mod channel;
 pub use channel::{DefaultVerifierChannel, VerifierChannel};
 
+mod errors;
+pub use errors::VerifierError;
+
 // VERIFICATION PROCEDURE
 // ================================================================================================
 
-/// Returns OK(true) if values in the `evaluations` slice represent evaluations of a polynomial
+/// Returns OK(()) if values in the `evaluations` slice represent evaluations of a polynomial
 /// with degree <= context.max_degree() against x coordinates specified by the `positions` slice.
 pub fn verify<E, C>(
     context: &VerifierContext,
     channel: &C,
     evaluations: &[E],
     positions: &[usize],
-) -> Result<bool, String>
+) -> Result<(), VerifierError>
 where
     E: FieldElement + From<BaseElement>,
     C: VerifierChannel<E>,
@@ -70,10 +73,7 @@ where
             context.folding_factor(),
         );
         if evaluations != query_values {
-            return Err(format!(
-                "evaluations did not match query values at depth {}",
-                depth
-            ));
+            return Err(VerifierError::LayerValuesNotConsistent(depth));
         }
 
         // build a set of x for each row polynomial
@@ -112,9 +112,7 @@ where
     let remainder = channel.read_remainder()?;
     for (&position, evaluation) in positions.iter().zip(evaluations) {
         if remainder[position] != evaluation {
-            return Err(String::from(
-                "remainder values are inconsistent with values of the last column",
-            ));
+            return Err(VerifierError::RemainderValuesNotConsistent);
         }
     }
 
@@ -134,11 +132,9 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
     max_degree_plus_1: usize,
     domain_root: BaseElement,
     blowup_factor: usize,
-) -> Result<bool, String> {
+) -> Result<(), VerifierError> {
     if max_degree_plus_1 > remainder.len() {
-        return Err(String::from(
-            "remainder degree is greater than number of remainder values",
-        ));
+        return Err(VerifierError::RemainderDegreeNotValid);
     }
 
     // exclude points which should be skipped during evaluation
@@ -162,14 +158,12 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
     // check that polynomial evaluates correctly for all other points in the remainder
     for &p in positions.iter().skip(max_degree_plus_1) {
         if polynom::eval(&poly, E::from(domain[p])) != remainder[p] {
-            return Err(format!(
-                "remainder is not a valid degree {} polynomial",
-                max_degree_plus_1 - 1
+            return Err(VerifierError::RemainderDegreeMismatch(
+                max_degree_plus_1 - 1,
             ));
         }
     }
-
-    Ok(true)
+    Ok(())
 }
 
 // HELPER FUNCTIONS

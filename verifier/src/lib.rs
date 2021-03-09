@@ -30,7 +30,7 @@ impl<T: TransitionEvaluator> Verifier<T> {
 
     /// Verifies the STARK `proof` attesting the assertions are valid in the context of
     /// the computation described by the verifier.
-    pub fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<bool, VerifierError> {
+    pub fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<(), VerifierError> {
         // build the computation context from the proof. The context contains basic parameters
         // such as trace length, domain sizes, etc. It also defines whether extension field
         // should be used during verification.

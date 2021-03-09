@@ -1,6 +1,6 @@
 use crate::{
     verifier, DefaultProverChannel, DefaultVerifierChannel, FriOptions, FriProof, VerifierChannel,
-    VerifierContext,
+    VerifierContext, VerifierError,
 };
 use math::{
     fft,
@@ -44,7 +44,7 @@ pub fn verify_proof(
     max_degree: usize,
     positions: &[usize],
     options: &FriOptions,
-) -> Result<bool, String> {
+) -> Result<(), VerifierError> {
     let channel = DefaultVerifierChannel::new(proof, commitments, options);
     let context = VerifierContext::new(
         evaluations.len(),
