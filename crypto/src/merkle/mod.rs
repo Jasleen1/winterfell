@@ -45,7 +45,7 @@ impl MerkleTree {
     ///
     /// This is supported on crate feature `concurrent` only.
     #[cfg(feature = "concurrent")]
-    pub fn new_concurrent(leaves: Vec<[u8; 32]>, hash: HashFunction) {
+    pub fn new_concurrent(leaves: Vec<[u8; 32]>, hash: HashFunction) -> MerkleTree {
         assert!(
             leaves.len().is_power_of_two(),
             "number of leaves must be a power of 2"

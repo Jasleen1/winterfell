@@ -10,43 +10,92 @@ mod tests;
 // ================================================================================================
 const USIZE_BITS: usize = 0_usize.count_zeros() as usize;
 const MAX_LOOP: usize = 256;
+pub const MIN_CONCURRENT_SIZE: usize = 1024;
 
 // POLYNOMIAL EVALUATION AND INTERPOLATION
 // ================================================================================================
 
 /// Evaluates polynomial `p` using FFT algorithm; the evaluation is done in-place, meaning
 /// `p` is updated with results of the evaluation.
+///
+/// When `concurrent` feature is enabled, the evaluation uses as many threads as are
+/// available in Rayon's global thread pool (usually as many threads as logical cores).
+/// Otherwise, the evaluation is done in a single thread
 pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E]) {
-    debug_assert!(p.len() == twiddles.len() * 2, "Invalid number of twiddles");
+    debug_assert!(
+        p.len().is_power_of_two(),
+        "number of coefficients must be a power of 2"
+    );
+    debug_assert_eq!(p.len(), twiddles.len() * 2, "invalid number of twiddles");
 
-    #[cfg(feature = "concurrent")]
-    concurrent::split_radix_fft(p, twiddles);
-
-    #[cfg(not(feature = "concurrent"))]
-    fft_in_place(p, twiddles, 1, 1, 0);
-
-    permute(p);
+    // when `concurrent` feature is enabled, run the concurrent version of evaluate_poly; unless
+    // the polynomial is small, then don't bother with the concurrent version
+    if cfg!(feature = "concurrent") && p.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        concurrent::evaluate_poly(p, twiddles);
+    } else {
+        fft_in_place(p, twiddles, 1, 1, 0);
+        permute_values(p);
+    }
 }
 
 /// Uses FFT algorithm to interpolate a polynomial from provided values `v`; the interpolation
 /// is done in-place, meaning `v` is updated with polynomial coefficients.
+///
+/// When `concurrent` feature is enabled, the interpolation uses as many threads as are
+/// available in Rayon's global thread pool (usually as many threads as logical cores).
+/// Otherwise, the interpolation is done in a single thread
 pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E]) {
-    fft_in_place(v, &inv_twiddles, 1, 1, 0);
-    let inv_length = E::inv((v.len() as u64).into());
-    for e in v.iter_mut() {
-        *e = *e * inv_length;
+    debug_assert!(
+        v.len().is_power_of_two(),
+        "number of values must be a power of 2"
+    );
+    debug_assert_eq!(
+        v.len(),
+        inv_twiddles.len() * 2,
+        "invalid number of twiddles"
+    );
+
+    // when `concurrent` feature is enabled, run the concurrent version of interpolate_poly;
+    // unless the number of evaluations is small, then don't bother with the concurrent version
+    if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        concurrent::interpolate_poly(v, inv_twiddles);
+    } else {
+        fft_in_place(v, &inv_twiddles, 1, 1, 0);
+        let inv_length = E::inv((v.len() as u64).into());
+        for e in v.iter_mut() {
+            *e = *e * inv_length;
+        }
+        permute_values(v);
     }
-    permute(v);
 }
 
 // TWIDDLES
 // ================================================================================================
 
 pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    assert!(size.is_power_of_two());
-    assert!(E::exp(root, (size as u32).into()) == E::ONE);
-    let mut twiddles = E::get_power_series(root, size / 2);
-    permute(&mut twiddles);
+    debug_assert!(size.is_power_of_two(), "domain size must be a power of 2");
+    debug_assert_eq!(
+        E::ONE,
+        E::exp(root, (size as u32).into()),
+        "invalid root of unity"
+    );
+    let mut twiddles;
+    if cfg!(feature = "concurrent") && size >= MIN_CONCURRENT_SIZE {
+        // this makes compiler happy, but otherwise is pointless
+        #[cfg(not(feature = "concurrent"))]
+        {
+            twiddles = Vec::new();
+        }
+        #[cfg(feature = "concurrent")]
+        {
+            twiddles = concurrent::get_twiddles(root, size);
+        }
+    } else {
+        twiddles = E::get_power_series(root, size / 2);
+        permute_values(&mut twiddles);
+    }
     twiddles
 }
 
@@ -56,12 +105,11 @@ pub fn get_inv_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
 }
 
 pub fn permute<E: FieldElement>(v: &mut [E]) {
-    let n = v.len();
-    for i in 0..n {
-        let j = permute_index(n, i);
-        if j > i {
-            v.swap(i, j);
-        }
+    if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        concurrent::permute_values(v);
+    } else {
+        permute_values(v);
     }
 }
 
@@ -110,6 +158,17 @@ fn fft_in_place<E: FieldElement>(
 
 // HELPER FUNCTIONS
 // ================================================================================================
+
+fn permute_values<T>(values: &mut [T]) {
+    let n = values.len();
+    for i in 0..n {
+        let j = permute_index(n, i);
+        if j > i {
+            values.swap(i, j);
+        }
+    }
+}
+
 fn permute_index(size: usize, index: usize) -> usize {
     debug_assert!(index < size);
     if size == 1 {
