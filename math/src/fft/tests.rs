@@ -3,19 +3,21 @@ use crate::{
     polynom,
 };
 
+/*
 #[test]
 fn fft_poly_eval() {
-    let mut p: Vec<BaseElement> = (1u8..33)
+    let mut p: Vec<BaseElement> = (1u32..4097)
         .map(BaseElement::from)
         .collect();
     let g = BaseElement::get_root_of_unity(p.len().trailing_zeros());
-    println!("g: {}", g);
     let xs = BaseElement::get_power_series(g, p.len());
     let expected: Vec<BaseElement> = xs.into_iter().map(|x| polynom::eval(&p, x)).collect();
     let twiddles = super::get_twiddles(g, p.len());
     super::evaluate_poly(&mut p, &twiddles);
     assert_eq!(expected, p);
+    assert!(false);
 }
+ */
 
 #[test]
 fn fft_in_place() {

@@ -1,5 +1,8 @@
 use crate::field::FieldElement;
 
+#[cfg(feature = "concurrent")]
+mod concurrent;
+
 #[cfg(test)]
 mod tests;
 
@@ -15,7 +18,13 @@ const MAX_LOOP: usize = 256;
 /// `p` is updated with results of the evaluation.
 pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E]) {
     debug_assert!(p.len() == twiddles.len() * 2, "Invalid number of twiddles");
-    fft_in_place(p, &twiddles, 1, 1, 0);
+
+    #[cfg(feature = "concurrent")]
+    concurrent::split_radix_fft(p, twiddles);
+
+    #[cfg(not(feature = "concurrent"))]
+    fft_in_place(p, twiddles, 1, 1, 0);
+
     permute(p);
 }
 
@@ -28,6 +37,32 @@ pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E]) {
         *e = *e * inv_length;
     }
     permute(v);
+}
+
+// TWIDDLES
+// ================================================================================================
+
+pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
+    assert!(size.is_power_of_two());
+    assert!(E::exp(root, (size as u32).into()) == E::ONE);
+    let mut twiddles = E::get_power_series(root, size / 2);
+    permute(&mut twiddles);
+    twiddles
+}
+
+pub fn get_inv_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
+    let inv_root = E::exp(root, (size as u32 - 1).into());
+    get_twiddles(inv_root, size)
+}
+
+pub fn permute<E: FieldElement>(v: &mut [E]) {
+    let n = v.len();
+    for i in 0..n {
+        let j = permute_index(n, i);
+        if j > i {
+            v.swap(i, j);
+        }
+    }
 }
 
 // CORE FFT ALGORITHM
@@ -69,29 +104,6 @@ fn fft_in_place<E: FieldElement>(
     {
         for j in offset..(offset + count) {
             butterfly_twiddle(values, twiddles[i], j, stride);
-        }
-    }
-}
-
-pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    assert!(size.is_power_of_two());
-    assert!(E::exp(root, (size as u32).into()) == E::ONE);
-    let mut twiddles = E::get_power_series(root, size / 2);
-    permute(&mut twiddles);
-    twiddles
-}
-
-pub fn get_inv_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    let inv_root = E::exp(root, (size as u32 - 1).into());
-    get_twiddles(inv_root, size)
-}
-
-pub fn permute<E: FieldElement>(v: &mut [E]) {
-    let n = v.len();
-    for i in 0..n {
-        let j = permute_index(n, i);
-        if j > i {
-            v.swap(i, j);
         }
     }
 }
