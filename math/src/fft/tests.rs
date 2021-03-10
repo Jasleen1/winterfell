@@ -4,6 +4,35 @@ use crate::{
 };
 
 #[test]
+fn fft_evaluate_poly() {
+    let n = super::MIN_CONCURRENT_SIZE * 2;
+    let mut p = build_random_element_vec(n);
+
+    let xs = build_domain(n);
+    let expected: Vec<BaseElement> = xs.into_iter().map(|x| polynom::eval(&p, x)).collect();
+
+    let twiddles = build_twiddles(n);
+    super::evaluate_poly(&mut p, &twiddles);
+    assert_eq!(expected, p);
+}
+
+#[test]
+fn fft_interpolate_poly() {
+    let n = super::MIN_CONCURRENT_SIZE * 2;
+    let expected: Vec<BaseElement> = build_random_element_vec(n);
+
+    let xs = build_domain(n);
+    let mut ys: Vec<BaseElement> = xs
+        .into_iter()
+        .map(|x| polynom::eval(&expected, x))
+        .collect();
+
+    let inv_twiddles = build_inv_twiddles(n);
+    super::interpolate_poly(&mut ys, &inv_twiddles);
+    assert_eq!(expected, ys);
+}
+
+#[test]
 fn fft_in_place() {
     // degree 3
     let mut p: [BaseElement; 4] = [
@@ -60,6 +89,18 @@ fn fft_in_place() {
     assert_eq!(expected, p);
 }
 
+#[test]
+fn fft_get_twiddles() {
+    let n = super::MIN_CONCURRENT_SIZE * 2;
+    let g = BaseElement::get_root_of_unity(n.trailing_zeros());
+
+    let mut expected = BaseElement::get_power_series(g, n / 2);
+    super::permute_values(&mut expected);
+
+    let twiddles = super::get_twiddles(g, n);
+    assert_eq!(expected, twiddles);
+}
+
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_seed() -> [u8; 32] {
@@ -67,4 +108,23 @@ fn build_seed() -> [u8; 32] {
     let seed = BaseElement::rand().to_bytes();
     result[..16].copy_from_slice(&seed);
     result
+}
+
+fn build_random_element_vec(size: usize) -> Vec<BaseElement> {
+    BaseElement::prng_vector(build_seed(), size)
+}
+
+fn build_domain(size: usize) -> Vec<BaseElement> {
+    let g = BaseElement::get_root_of_unity(size.trailing_zeros());
+    BaseElement::get_power_series(g, size)
+}
+
+fn build_twiddles(size: usize) -> Vec<BaseElement> {
+    let g = BaseElement::get_root_of_unity(size.trailing_zeros());
+    super::get_twiddles(g, size)
+}
+
+fn build_inv_twiddles(size: usize) -> Vec<BaseElement> {
+    let g = BaseElement::get_root_of_unity(size.trailing_zeros());
+    super::get_inv_twiddles(g, size)
 }

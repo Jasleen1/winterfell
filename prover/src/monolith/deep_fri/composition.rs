@@ -127,7 +127,7 @@ pub fn evaluate_composition_poly<E: FieldElement + FromVec<BaseElement>>(
     lde_domain: &LdeDomain,
 ) -> Vec<E> {
     let mut evaluations = poly.into_vec();
-    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()), true);
+    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()));
     evaluations
 }
 

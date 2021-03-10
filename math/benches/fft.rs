@@ -19,7 +19,17 @@ fn fft_poly(c: &mut Criterion) {
         let mut p = BaseElement::prng_vector(get_seed(), size);
 
         group.bench_function(BenchmarkId::new("evaluate", size), |bench| {
-            bench.iter(|| fft::evaluate_poly(&mut p, &twiddles, true));
+            bench.iter(|| fft::evaluate_poly(&mut p, &twiddles));
+        });
+    }
+
+    for &size in SIZES.iter() {
+        let root = BaseElement::get_root_of_unity(size.trailing_zeros());
+        let inv_twiddles = fft::get_inv_twiddles(root, size);
+        let mut p = BaseElement::prng_vector(get_seed(), size);
+
+        group.bench_function(BenchmarkId::new("interpolate", size), |bench| {
+            bench.iter(|| fft::interpolate_poly(&mut p, &inv_twiddles));
         });
     }
 

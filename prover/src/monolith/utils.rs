@@ -37,6 +37,6 @@ pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> u
         evaluations.len().trailing_zeros(),
     ));
     let inv_twiddles = fft::get_inv_twiddles(root, evaluations.len());
-    fft::interpolate_poly(&mut poly, &inv_twiddles, true);
+    fft::interpolate_poly(&mut poly, &inv_twiddles);
     polynom::degree_of(&poly)
 }

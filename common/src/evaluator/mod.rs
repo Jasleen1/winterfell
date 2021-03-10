@@ -217,7 +217,7 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         );
         for evaluations in self.t_evaluation_table.iter() {
             let mut poly = evaluations.clone();
-            fft::interpolate_poly(&mut poly, &inv_twiddles, true);
+            fft::interpolate_poly(&mut poly, &inv_twiddles);
             let degree = polynom::degree_of(&poly);
             actual_degrees.push(degree);
 

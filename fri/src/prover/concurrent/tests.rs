@@ -182,7 +182,7 @@ fn build_evaluations(trace_length: usize, ce_blowup: usize, lde_blowup: usize) -
     let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
     let twiddles = fft::get_twiddles(g, domain_size);
 
-    fft::evaluate_poly(&mut p, &twiddles, true);
+    fft::evaluate_poly(&mut p, &twiddles);
     p
 }
 

@@ -78,14 +78,14 @@ pub fn extend_cyclic_values(
 
     let mut extended_values = filled_vector(cycle_length, domain_size, BaseElement::ZERO);
     extended_values.copy_from_slice(values);
-    fft::interpolate_poly(&mut extended_values, &inv_twiddles, true);
+    fft::interpolate_poly(&mut extended_values, &inv_twiddles);
 
     let poly = extended_values.clone();
 
     unsafe {
         extended_values.set_len(extended_values.capacity());
     }
-    fft::evaluate_poly(&mut extended_values, &ev_twiddles, true);
+    fft::evaluate_poly(&mut extended_values, &ev_twiddles);
 
     (poly, extended_values)
 }
