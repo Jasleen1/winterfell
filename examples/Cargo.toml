@@ -11,6 +11,10 @@ name = "winterfell"
 path = "src/main.rs"
 bench = false
 
+[features]
+concurrent = ["prover/concurrent"]
+extension_field = ["prover/extension_field"]
+
 [dependencies]
 hex = "0.4"
 log = "0.4"
@@ -33,6 +37,3 @@ harness = false
 [[bench]]
 name = "rescue"
 harness = false
-
-[features]
-extension_field = ["prover/extension_field"]
