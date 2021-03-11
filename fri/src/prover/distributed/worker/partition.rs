@@ -1,5 +1,5 @@
 use super::super::QueryResult;
-use crate::{folding::quartic, utils::hash_values};
+use crate::folding::quartic;
 use crypto::{HashFunction, MerkleTree};
 use math::field::{BaseElement, FieldElement, StarkField};
 use std::{collections::HashSet, sync::Arc};
@@ -83,7 +83,7 @@ impl Partition {
 
     pub fn commit_layer(&mut self, hash_fn: HashFunction) -> [u8; 32] {
         let evaluations = &self.evaluations[self.current_layer()];
-        let hashed_evaluations = hash_values(&evaluations, hash_fn);
+        let hashed_evaluations = quartic::hash_values(&evaluations, hash_fn);
         if hashed_evaluations.len() == 1 {
             hashed_evaluations[0]
         } else {

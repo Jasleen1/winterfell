@@ -7,9 +7,16 @@ edition = "2018"
 bench = false
 
 [[bench]]
-name = "prover"
+name = "monolith_prover"
 harness = false
 
+[[bench]]
+name = "quartic"
+required-features = ["concurrent"]
+harness = false
+
+[features]
+concurrent = ["rayon", "crypto/concurrent"]
 
 [dependencies]
 math = { path = "../math" }
@@ -20,6 +27,7 @@ kompact = { version = "0.10",  default-features = false, features = ["ser_id_64"
 log = "0.4"
 fasthash = "0.4"
 thiserror = "1.0"
+rayon = { version = "1.5", optional = true }
 
 [dev-dependencies]
 env_logger = "0.8"
