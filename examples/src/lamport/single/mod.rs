@@ -1,7 +1,7 @@
 use super::{
     message_to_elements, rescue, Example, PrivateKey, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
-use common::errors::VerifierError;
+use common::{errors::VerifierError, FieldExtension};
 use log::debug;
 use prover::{
     crypto::hash::blake3,
@@ -48,8 +48,10 @@ impl Example for LamportExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
+        field_extension: FieldExtension,
     ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        self.options =
+            build_proof_options(blowup_factor, num_queries, grinding_factor, field_extension);
 
         // generate private/public key pair from a seed
         let now = Instant::now();
@@ -166,6 +168,7 @@ fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,
     grinding_factor: u32,
+    field_extension: FieldExtension,
 ) -> Option<ProofOptions> {
     if blowup_factor == 0 {
         blowup_factor = 64;
@@ -173,6 +176,12 @@ fn build_proof_options(
     if num_queries == 0 {
         num_queries = 28;
     }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
+    let options = ProofOptions::new(
+        num_queries,
+        blowup_factor,
+        grinding_factor,
+        blake3,
+        field_extension,
+    );
     Some(options)
 }

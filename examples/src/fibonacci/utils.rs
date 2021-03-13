@@ -1,4 +1,4 @@
-use common::ProofOptions;
+use common::{FieldExtension, ProofOptions};
 use prover::{
     crypto::hash::blake3,
     math::field::{BaseElement, FieldElement},
@@ -32,6 +32,7 @@ pub fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,
     grinding_factor: u32,
+    field_extension: FieldExtension,
 ) -> Option<ProofOptions> {
     if blowup_factor == 0 {
         blowup_factor = 16;
@@ -45,5 +46,6 @@ pub fn build_proof_options(
         blowup_factor,
         grinding_factor,
         blake3,
+        field_extension,
     ))
 }

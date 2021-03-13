@@ -1,6 +1,7 @@
 use super::{
     message_to_elements, rescue, Example, PrivateKey, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
+use common::FieldExtension;
 use log::debug;
 use prover::{
     crypto::hash::blake3, math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof,
@@ -46,8 +47,10 @@ impl Example for LamportMultisigExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
+        field_extension: FieldExtension,
     ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        self.options =
+            build_proof_options(blowup_factor, num_queries, grinding_factor, field_extension);
 
         // set default value of num_signatures to 1
         if num_signatures == 0 {
@@ -134,6 +137,7 @@ fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,
     grinding_factor: u32,
+    field_extension: FieldExtension,
 ) -> Option<ProofOptions> {
     if blowup_factor == 0 {
         blowup_factor = 64;
@@ -141,6 +145,12 @@ fn build_proof_options(
     if num_queries == 0 {
         num_queries = 28;
     }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
+    let options = ProofOptions::new(
+        num_queries,
+        blowup_factor,
+        grinding_factor,
+        blake3,
+        field_extension,
+    );
     Some(options)
 }

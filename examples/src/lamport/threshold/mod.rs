@@ -3,6 +3,7 @@ use super::{
     CYCLE_LENGTH as HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
 use crate::utils::TreeNode;
+use common::FieldExtension;
 use log::debug;
 use prover::{
     crypto::hash::blake3,
@@ -56,8 +57,10 @@ impl Example for LamportThresholdExample {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
+        field_extension: FieldExtension,
     ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        self.options =
+            build_proof_options(blowup_factor, num_queries, grinding_factor, field_extension);
 
         // set default value of num_signers to 3
         if num_signers == 0 {
@@ -132,6 +135,7 @@ fn build_proof_options(
     mut blowup_factor: usize,
     mut num_queries: usize,
     grinding_factor: u32,
+    field_extension: FieldExtension,
 ) -> Option<ProofOptions> {
     if blowup_factor == 0 {
         blowup_factor = 64;
@@ -139,7 +143,13 @@ fn build_proof_options(
     if num_queries == 0 {
         num_queries = 28;
     }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
+    let options = ProofOptions::new(
+        num_queries,
+        blowup_factor,
+        grinding_factor,
+        blake3,
+        field_extension,
+    );
     Some(options)
 }
 

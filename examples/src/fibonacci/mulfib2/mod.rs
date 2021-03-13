@@ -1,4 +1,4 @@
-use common::errors::VerifierError;
+use common::{errors::VerifierError, FieldExtension};
 use log::debug;
 use prover::{math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof};
 use std::time::Instant;
@@ -38,13 +38,15 @@ impl Example for MulFib2Example {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
+        field_extension: FieldExtension,
     ) -> Assertions {
         self.sequence_length = if sequence_length == 0 {
             1_048_576
         } else {
             sequence_length
         };
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        self.options =
+            build_proof_options(blowup_factor, num_queries, grinding_factor, field_extension);
         let trace_length = sequence_length / 2;
 
         // compute Fibonacci sequence

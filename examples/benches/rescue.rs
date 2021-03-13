@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use common::FieldExtension;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 use winterfell::rescue;
@@ -13,7 +14,7 @@ fn rescue(c: &mut Criterion) {
 
     let mut resc = rescue::get_example();
     for &size in SIZES.iter() {
-        let assertions = resc.prepare(size, 32, 32, 0);
+        let assertions = resc.prepare(size, 32, 32, 0, FieldExtension::None);
         group.bench_with_input(
             BenchmarkId::from_parameter(size),
             &assertions,

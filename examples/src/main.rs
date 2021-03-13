@@ -1,3 +1,4 @@
+use common::FieldExtension;
 use log::debug;
 use std::time::Instant;
 use std::{env, io::Write};
@@ -33,7 +34,13 @@ fn main() {
 
     debug!("============================================================");
     // prepare the example
-    let assertions = example.prepare(n, blowup_factor, num_queries, grinding_factor);
+    let assertions = example.prepare(
+        n,
+        blowup_factor,
+        num_queries,
+        grinding_factor,
+        FieldExtension::None,
+    );
 
     // generate proof
     let now = Instant::now();

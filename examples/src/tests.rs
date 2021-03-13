@@ -1,4 +1,4 @@
-use common::Assertions;
+use common::{Assertions, FieldExtension};
 use math::field::{BaseElement, FieldElement};
 
 use crate::Example;
@@ -14,7 +14,13 @@ pub fn test_basic_proof_verification(
     let blowup_factor = this_blowup_factor.unwrap_or(8);
     let num_queries = this_num_queries.unwrap_or(32);
     let grinding_factor = this_grinding_factor.unwrap_or(0);
-    let assertions = e.prepare(size, blowup_factor, num_queries, grinding_factor);
+    let assertions = e.prepare(
+        size,
+        blowup_factor,
+        num_queries,
+        grinding_factor,
+        FieldExtension::None,
+    );
     let proof = e.prove(assertions.clone());
     assert!(e.verify(proof, assertions).is_ok());
 }
@@ -30,7 +36,13 @@ pub fn test_basic_proof_verification_fail(
     let blowup_factor = this_blowup_factor.unwrap_or(8);
     let num_queries = this_num_queries.unwrap_or(32);
     let grinding_factor = this_grinding_factor.unwrap_or(0);
-    let assertions = e.prepare(size, blowup_factor, num_queries, grinding_factor);
+    let assertions = e.prepare(
+        size,
+        blowup_factor,
+        num_queries,
+        grinding_factor,
+        FieldExtension::None,
+    );
     let proof = e.prove(assertions.clone());
     let assertions = temper_with_assertions(assertions);
     let verified = e.verify(proof, assertions);

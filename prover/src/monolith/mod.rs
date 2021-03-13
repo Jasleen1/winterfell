@@ -21,13 +21,6 @@ use generation::generate_proof;
 #[cfg(test)]
 mod tests;
 
-// CONSTANTS
-// ================================================================================================
-#[cfg(not(feature = "extension_field"))]
-const FIELD_EXTENSION: FieldExtension = FieldExtension::None;
-#[cfg(feature = "extension_field")]
-const FIELD_EXTENSION: FieldExtension = FieldExtension::Quadratic;
-
 // PROVER
 // ================================================================================================
 
@@ -62,11 +55,10 @@ impl<T: TransitionEvaluator> Prover<T> {
             trace.num_registers(),
             trace.num_states(),
             T::get_ce_blowup_factor(),
-            FIELD_EXTENSION,
             self.options.clone(),
         );
 
-        match context.field_extension() {
+        match self.options.field_extension() {
             FieldExtension::None => generate_proof::<T, BaseElement>(trace, assertions, context),
             FieldExtension::Quadratic => {
                 generate_proof::<T, QuadExtension<BaseElement>>(trace, assertions, context)

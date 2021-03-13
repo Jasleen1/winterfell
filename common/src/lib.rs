@@ -3,10 +3,10 @@ pub mod proof;
 pub mod utils;
 
 mod context;
-pub use context::{ComputationContext, FieldExtension};
+pub use context::ComputationContext;
 
 mod options;
-pub use options::ProofOptions;
+pub use options::{FieldExtension, ProofOptions};
 
 mod evaluator;
 pub use evaluator::{

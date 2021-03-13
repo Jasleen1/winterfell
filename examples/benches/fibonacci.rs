@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use common::FieldExtension;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 use winterfell::fibonacci;
@@ -13,7 +14,7 @@ fn fibonacci(c: &mut Criterion) {
 
     let mut fib = fibonacci::fib2::get_example();
     for &size in SIZES.iter() {
-        let assertions = fib.prepare(size, 8, 32, 0);
+        let assertions = fib.prepare(size, 8, 32, 0, FieldExtension::None);
         group.bench_with_input(
             BenchmarkId::from_parameter(size),
             &assertions,

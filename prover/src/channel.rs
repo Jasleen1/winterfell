@@ -87,7 +87,6 @@ impl ProverChannel {
                 lde_domain_depth: trace_paths.depth,
                 ce_blowup_factor: self.context.ce_blowup_factor() as u8,
                 field_modulus_bytes: BaseElement::MODULUS.to_be_bytes().to_vec(),
-                field_extension_factor: self.context.field_extension() as u8,
                 options: self.context().options().clone(),
             },
             commitments: Commitments {

@@ -135,12 +135,7 @@ pub fn evaluate_composition_poly<E: FieldElement + FromVec<BaseElement>>(
 // ================================================================================================
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
-fn acc_poly<E: FieldElement + From<BaseElement>>(
-    accumulator: &mut Vec<E>,
-    poly: &[E],
-    value: E,
-    k: E,
-) {
+fn acc_poly<E: FieldElement>(accumulator: &mut Vec<E>, poly: &[E], value: E, k: E) {
     utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = value * k;
     accumulator[0] = accumulator[0] - adjusted_tz;

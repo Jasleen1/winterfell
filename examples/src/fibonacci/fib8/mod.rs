@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use log::debug;
 
-use common::errors::VerifierError;
+use common::{errors::VerifierError, FieldExtension};
 use evaluator::Fib8Evaluator;
 use prover::{
     math::field::{BaseElement, FieldElement},
@@ -41,12 +41,14 @@ impl Example for Fib8Example {
         blowup_factor: usize,
         num_queries: usize,
         grinding_factor: u32,
+        field_extension: FieldExtension,
     ) -> Assertions {
         if sequence_length == 0 {
             sequence_length = 1_048_576
         }
         self.sequence_length = sequence_length;
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+        self.options =
+            build_proof_options(blowup_factor, num_queries, grinding_factor, field_extension);
         let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
