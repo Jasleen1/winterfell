@@ -30,7 +30,7 @@ pub struct ExampleOptions {
     #[structopt(subcommand)]
     pub example: ExampleType,
 
-    /// Number of queries included in a proof
+    /// Number of queries to include in a proof
     #[structopt(short = "q", long = "queries")]
     num_queries: Option<usize>,
 
