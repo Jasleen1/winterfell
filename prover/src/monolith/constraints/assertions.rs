@@ -28,8 +28,7 @@ pub fn prepare_assertion_constraints<T: TransitionEvaluator>(
         // if the group contains large polynomial constraints, and we haven't built twiddles yet
         // build them
         if group.max_poly_degree() >= SMALL_POLY_DEGREE && twiddles.is_empty() {
-            twiddles =
-                fft::get_twiddles(evaluator.ce_domain_generator(), evaluator.ce_domain_size());
+            twiddles = fft::get_twiddles(evaluator.ce_domain_size());
         }
         groups.push(AssertionConstraintGroup::new(
             group,

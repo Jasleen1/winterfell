@@ -122,12 +122,12 @@ pub fn compose_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
 }
 
 /// Evaluates DEEP composition polynomial over LDE domain.
-pub fn evaluate_composition_poly<E: FieldElement + FromVec<BaseElement>>(
+pub fn evaluate_composition_poly<E: FieldElement + From<BaseElement>>(
     poly: CompositionPoly<E>,
     lde_domain: &LdeDomain,
 ) -> Vec<E> {
     let mut evaluations = poly.into_vec();
-    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()));
+    fft::evaluate_poly(&mut evaluations, lde_domain.twiddles());
     evaluations
 }
 

@@ -1,5 +1,4 @@
 use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
-use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
@@ -57,16 +56,6 @@ impl FieldElement for BaseElement {
 
     fn inv(self) -> Self {
         BaseElement(inv(self.0))
-    }
-
-    /// This implementation is about 5% faster than the one in the trait.
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = utils::uninit_vector(n);
-        result[0] = BaseElement::ONE;
-        for i in 1..result.len() {
-            result[i] = result[i - 1] * b;
-        }
-        result
     }
 
     fn rand() -> Self {

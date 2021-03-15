@@ -1,4 +1,4 @@
-use crate::field::FieldElement;
+use crate::field::{FieldElement, StarkField};
 
 #[cfg(feature = "concurrent")]
 mod concurrent;
@@ -20,8 +20,12 @@ pub const MIN_CONCURRENT_SIZE: usize = 1024;
 ///
 /// When `concurrent` feature is enabled, the evaluation uses as many threads as are
 /// available in Rayon's global thread pool (usually as many threads as logical cores).
-/// Otherwise, the evaluation is done in a single thread
-pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E]) {
+/// Otherwise, the evaluation is done in a single thread.
+pub fn evaluate_poly<B, E>(p: &mut [E], twiddles: &[B])
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
     debug_assert!(
         p.len().is_power_of_two(),
         "number of coefficients must be a power of 2"
@@ -44,8 +48,12 @@ pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E]) {
 ///
 /// When `concurrent` feature is enabled, the interpolation uses as many threads as are
 /// available in Rayon's global thread pool (usually as many threads as logical cores).
-/// Otherwise, the interpolation is done in a single thread
-pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E]) {
+/// Otherwise, the interpolation is done in a single thread.
+pub fn interpolate_poly<B, E>(v: &mut [E], inv_twiddles: &[B])
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
     debug_assert!(
         v.len().is_power_of_two(),
         "number of values must be a power of 2"
@@ -74,43 +82,39 @@ pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E]) {
 // TWIDDLES
 // ================================================================================================
 
-pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    debug_assert!(size.is_power_of_two(), "domain size must be a power of 2");
-    debug_assert_eq!(
-        E::ONE,
-        E::exp(root, (size as u32).into()),
-        "invalid root of unity"
+/// Returns a set of twiddles for the specified domain size. These twiddles can then be used for
+/// FFT-based polynomial evaluation.
+///
+/// When `concurrent` feature is enabled, twiddles are generated using as many threads as are
+/// available in Rayon's global thread pool (usually as many threads as logical cores).
+/// Otherwise, the generation is done in a single thread.
+pub fn get_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
+    debug_assert!(
+        domain_size.is_power_of_two(),
+        "domain size must be a power of 2"
     );
-    let mut twiddles;
-    if cfg!(feature = "concurrent") && size >= MIN_CONCURRENT_SIZE {
-        // this makes compiler happy, but otherwise is pointless
-        #[cfg(not(feature = "concurrent"))]
-        {
-            twiddles = Vec::new();
-        }
-        #[cfg(feature = "concurrent")]
-        {
-            twiddles = concurrent::get_twiddles(root, size);
-        }
-    } else {
-        twiddles = E::get_power_series(root, size / 2);
-        permute_values(&mut twiddles);
-    }
+    let root = B::get_root_of_unity(domain_size.trailing_zeros());
+    let mut twiddles = B::get_power_series(root, domain_size / 2);
+    permute(&mut twiddles);
     twiddles
 }
 
-pub fn get_inv_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    let inv_root = E::exp(root, (size as u32 - 1).into());
-    get_twiddles(inv_root, size)
-}
-
-pub fn permute<E: FieldElement>(v: &mut [E]) {
-    if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
-        #[cfg(feature = "concurrent")]
-        concurrent::permute_values(v);
-    } else {
-        permute_values(v);
-    }
+/// Returns a set of inverse twiddles for the specified domain size. These twiddles can then be
+/// used for FFT-based polynomial interpolation.
+///
+/// When `concurrent` feature is enabled, twiddles are generated using as many threads as are
+/// available in Rayon's global thread pool (usually as many threads as logical cores).
+/// Otherwise, the generation is done in a single thread.
+pub fn get_inv_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
+    debug_assert!(
+        domain_size.is_power_of_two(),
+        "domain size must be a power of 2"
+    );
+    let root = B::get_root_of_unity(domain_size.trailing_zeros());
+    let inv_root = B::exp(root, (domain_size as u32 - 1).into());
+    let mut inv_twiddles = B::get_power_series(inv_root, domain_size / 2);
+    permute(&mut inv_twiddles);
+    inv_twiddles
 }
 
 // CORE FFT ALGORITHM
@@ -118,13 +122,11 @@ pub fn permute<E: FieldElement>(v: &mut [E]) {
 
 /// In-place recursive FFT with permuted output.
 /// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
-fn fft_in_place<E: FieldElement>(
-    values: &mut [E],
-    twiddles: &[E],
-    count: usize,
-    stride: usize,
-    offset: usize,
-) {
+fn fft_in_place<B, E>(values: &mut [E], twiddles: &[B], count: usize, stride: usize, offset: usize)
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
     let size = values.len() / stride;
     debug_assert!(size.is_power_of_two());
     debug_assert!(offset < stride);
@@ -159,6 +161,15 @@ fn fft_in_place<E: FieldElement>(
 // HELPER FUNCTIONS
 // ================================================================================================
 
+fn permute<E: FieldElement>(v: &mut [E]) {
+    if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        concurrent::permute_values(v);
+    } else {
+        permute_values(v);
+    }
+}
+
 fn permute_values<T>(values: &mut [T]) {
     let n = values.len();
     for i in 0..n {
@@ -189,11 +200,15 @@ fn butterfly<E: FieldElement>(values: &mut [E], offset: usize, stride: usize) {
 }
 
 #[inline(always)]
-fn butterfly_twiddle<E: FieldElement>(values: &mut [E], twiddle: E, offset: usize, stride: usize) {
+fn butterfly_twiddle<B, E>(values: &mut [E], twiddle: B, offset: usize, stride: usize)
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
     let i = offset;
     let j = offset + stride;
     let temp = values[i];
-    values[j] = values[j] * twiddle;
+    values[j] = values[j] * E::from(twiddle);
     values[i] = temp + values[j];
     values[j] = temp - values[j];
 }

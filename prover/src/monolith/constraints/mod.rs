@@ -9,7 +9,7 @@ use common::{
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{BaseElement, FieldElement, FromVec},
+    field::{BaseElement, FieldElement},
     polynom,
 };
 
@@ -23,7 +23,7 @@ mod tests;
 // ================================================================================================
 
 /// Evaluates constraints defined by the constraint evaluator against the extended execution trace.
-pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<BaseElement>>(
+pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseElement>>(
     evaluator: &mut ConstraintEvaluator<T>,
     extended_trace: &TraceTable,
     lde_domain: &LdeDomain,
@@ -94,13 +94,13 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + FromVec<Ba
 
 /// Interpolates all constraint evaluations into polynomials, divides them by their respective
 /// divisors, and combines the results into a single polynomial
-pub fn build_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
+pub fn build_constraint_poly<E: FieldElement + From<BaseElement>>(
     evaluations: ConstraintEvaluationTable<E>,
     context: &ComputationContext,
 ) -> Result<ConstraintPoly<E>, ProverError> {
     let ce_domain_size = context.ce_domain_size();
     let constraint_poly_degree = context.composition_degree();
-    let inv_twiddles = fft::get_inv_twiddles(context.generators().ce_domain, ce_domain_size);
+    let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(ce_domain_size);
 
     // allocate memory for the combined polynomial
     let mut combined_poly = vec![E::ZERO; ce_domain_size];
@@ -108,7 +108,7 @@ pub fn build_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
     // iterate over all columns of the constraint evaluation table
     for (mut evaluations, divisor) in evaluations.into_iter() {
         // interpolate each column into a polynomial
-        fft::interpolate_poly(&mut evaluations, &E::from_vec(&inv_twiddles));
+        fft::interpolate_poly(&mut evaluations, &inv_twiddles);
         // divide the polynomial by its divisor
         divide_poly(&mut evaluations, &divisor);
         // make sure that the post-division degree of the polynomial matches
@@ -126,7 +126,7 @@ pub fn build_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
 }
 
 /// Evaluates constraint polynomial over LDE domain and returns the result
-pub fn extend_constraint_evaluations<E: FieldElement + FromVec<BaseElement>>(
+pub fn extend_constraint_evaluations<E: FieldElement + From<BaseElement>>(
     constraint_poly: &ConstraintPoly<E>,
     lde_domain: &LdeDomain,
 ) -> Vec<E> {
@@ -137,7 +137,7 @@ pub fn extend_constraint_evaluations<E: FieldElement + FromVec<BaseElement>>(
     evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
 
     // then use FFT to evaluate the polynomial over LDE domain
-    fft::evaluate_poly(&mut evaluations, &E::from_vec(lde_domain.twiddles()));
+    fft::evaluate_poly(&mut evaluations, lde_domain.twiddles());
     evaluations
 }
 

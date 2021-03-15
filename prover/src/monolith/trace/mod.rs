@@ -1,9 +1,9 @@
 use super::types::{LdeDomain, PolyTable, TraceTable};
-use common::{utils::uninit_vector, ComputationContext};
+use common::utils::uninit_vector;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
     fft,
-    field::{AsBytes, BaseElement, FieldElement, StarkField},
+    field::{AsBytes, BaseElement, FieldElement},
 };
 
 #[cfg(test)]
@@ -11,19 +11,6 @@ mod tests;
 
 // PROCEDURES
 // ================================================================================================
-
-/// Builds and return evaluation domain for STARK proof.
-pub fn build_lde_domain(context: &ComputationContext) -> LdeDomain {
-    let domain =
-        BaseElement::get_power_series(context.generators().lde_domain, context.lde_domain_size());
-
-    // it is more efficient to build by taking half of the domain and permuting it, rather than
-    // building twiddles from scratch using fft::get_twiddles()
-    let mut twiddles = domain[..(domain.len() / 2)].to_vec();
-    fft::permute(&mut twiddles);
-
-    LdeDomain::new(domain, twiddles)
-}
 
 /// Extends all registers of the trace table to the length of the evaluation domain;
 /// The extension is done by first interpolating a register into a polynomial and then
@@ -36,8 +23,7 @@ pub fn extend_trace(trace: TraceTable, lde_domain: &LdeDomain) -> (TraceTable, P
     );
 
     // build trace twiddles for FFT interpolation over trace domain
-    let trace_root = BaseElement::get_root_of_unity(trace_length.trailing_zeros());
-    let trace_twiddles = fft::get_inv_twiddles(trace_root, trace_length);
+    let trace_twiddles = fft::get_inv_twiddles::<BaseElement>(trace_length);
 
     let mut polys = trace.into_vec();
     let mut trace = Vec::new();

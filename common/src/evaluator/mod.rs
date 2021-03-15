@@ -211,10 +211,7 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         // determine max transition constraint degree
         let mut actual_degrees = Vec::with_capacity(expected_degrees.len());
         let mut max_degree = 0;
-        let inv_twiddles = fft::get_inv_twiddles(
-            self.context.generators().ce_domain,
-            self.context.ce_domain_size(),
-        );
+        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.context.ce_domain_size());
         for evaluations in self.t_evaluation_table.iter() {
             let mut poly = evaluations.clone();
             fft::interpolate_poly(&mut poly, &inv_twiddles);

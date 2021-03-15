@@ -1,6 +1,6 @@
 use math::{
     fft,
-    field::{BaseElement, FieldElement, StarkField},
+    field::{BaseElement, FieldElement},
     polynom,
 };
 
@@ -33,10 +33,7 @@ pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> u
         "number of evaluations must be a power of 2"
     );
     let mut poly = evaluations.to_vec();
-    let root = E::from(BaseElement::get_root_of_unity(
-        evaluations.len().trailing_zeros(),
-    ));
-    let inv_twiddles = fft::get_inv_twiddles(root, evaluations.len());
+    let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(evaluations.len());
     fft::interpolate_poly(&mut poly, &inv_twiddles);
     polynom::degree_of(&poly)
 }

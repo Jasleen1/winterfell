@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use math::{
     fft,
-    field::{BaseElement, StarkField},
+    field::{BaseElement, QuadExtension, StarkField},
 };
 use rand::Rng;
 use std::time::Duration;
@@ -14,8 +14,7 @@ fn fft_poly(c: &mut Criterion) {
     group.measurement_time(Duration::from_secs(10));
 
     for &size in SIZES.iter() {
-        let root = BaseElement::get_root_of_unity(size.trailing_zeros());
-        let twiddles = fft::get_twiddles(root, size);
+        let twiddles = fft::get_twiddles::<BaseElement>(size);
         let mut p = BaseElement::prng_vector(get_seed(), size);
 
         group.bench_function(BenchmarkId::new("evaluate", size), |bench| {
@@ -24,8 +23,22 @@ fn fft_poly(c: &mut Criterion) {
     }
 
     for &size in SIZES.iter() {
-        let root = BaseElement::get_root_of_unity(size.trailing_zeros());
-        let inv_twiddles = fft::get_inv_twiddles(root, size);
+        let twiddles = fft::get_twiddles::<BaseElement>(size);
+        let mut p = BaseElement::prng_vector(get_seed(), size)
+            .into_iter()
+            .map(QuadExtension::from)
+            .collect::<Vec<_>>();
+
+        group.bench_function(
+            BenchmarkId::new("evaluate (extension field)", size),
+            |bench| {
+                bench.iter(|| fft::evaluate_poly(&mut p, &twiddles));
+            },
+        );
+    }
+
+    for &size in SIZES.iter() {
+        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(size);
         let mut p = BaseElement::prng_vector(get_seed(), size);
 
         group.bench_function(BenchmarkId::new("interpolate", size), |bench| {
@@ -40,9 +53,8 @@ fn get_twiddles(c: &mut Criterion) {
     let mut group = c.benchmark_group("fft_get_twiddles");
     group.sample_size(10);
     for &size in SIZES.iter() {
-        let root = BaseElement::get_root_of_unity(size.trailing_zeros());
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |bench, &size| {
-            bench.iter(|| fft::get_twiddles(root, size));
+            bench.iter(|| fft::get_twiddles::<BaseElement>(size));
         });
     }
     group.finish();

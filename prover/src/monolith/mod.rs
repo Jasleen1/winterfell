@@ -7,7 +7,7 @@ use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 
 mod types;
-use types::{CompositionPoly, ConstraintEvaluationTable, TraceTable};
+use types::{CompositionPoly, ConstraintEvaluationTable, LdeDomain, TraceTable};
 
 mod constraints;
 mod deep_fri;

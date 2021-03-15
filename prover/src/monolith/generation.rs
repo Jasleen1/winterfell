@@ -12,8 +12,8 @@ use super::{
         extend_constraint_evaluations, query_constraints,
     },
     deep_fri::{compose_constraint_poly, compose_trace_polys, evaluate_composition_poly},
-    trace::{build_lde_domain, build_trace_tree, extend_trace, query_trace},
-    utils, CompositionPoly, ConstraintEvaluationTable, ProverChannel, TraceTable,
+    trace::{build_trace_tree, extend_trace, query_trace},
+    utils, CompositionPoly, ConstraintEvaluationTable, LdeDomain, ProverChannel, TraceTable,
 };
 
 // PROOF GENERATION PROCEDURE
@@ -37,7 +37,7 @@ where
 
     // build LDE domain; this is used later for polynomial evaluations
     let now = Instant::now();
-    let lde_domain = build_lde_domain(&context);
+    let lde_domain = LdeDomain::new(context.lde_domain_size());
     debug!(
         "Built LDE domain of 2^{} elements in {} ms",
         log2(lde_domain.size()),

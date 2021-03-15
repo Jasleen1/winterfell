@@ -3,7 +3,7 @@ use crate::{ComputationContext, ConstraintDivisor};
 use crypto::RandomElementGenerator;
 use math::{
     fft,
-    field::{BaseElement, FieldElement, StarkField},
+    field::{BaseElement, FieldElement},
 };
 
 // TYPES AND INTERFACES
@@ -62,7 +62,7 @@ pub fn build_assertion_constraints(
             // if an assertion consists of two values or more, we'll need to interpolate
             // an assertion polynomial from these values; for that, we'll need twiddles
             if assertion.num_values > 1 {
-                inv_twiddles = build_inv_twiddles(assertion.num_values);
+                inv_twiddles = fft::get_inv_twiddles(assertion.num_values);
             }
             groups.push(AssertionConstraintGroup::new(
                 context,
@@ -195,11 +195,4 @@ impl AssertionConstraint {
         // subtract assertion value from trace value; when assertion is valid, this should be 0
         trace_value - assertion_value
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-fn build_inv_twiddles(num_assertion_values: usize) -> Vec<BaseElement> {
-    let g = BaseElement::get_root_of_unity(num_assertion_values.trailing_zeros());
-    fft::get_inv_twiddles(g, num_assertion_values)
 }

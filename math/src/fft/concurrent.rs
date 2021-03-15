@@ -1,15 +1,15 @@
-use crate::{field::FieldElement, utils::uninit_vector};
+use crate::field::{FieldElement, StarkField};
 use rayon::prelude::*;
 
 // CONCURRENT VERSIONS OF FFT FUNCTIONS
 // ================================================================================================
 
-pub fn evaluate_poly<E: FieldElement>(p: &mut [E], twiddles: &[E]) {
+pub fn evaluate_poly<B: StarkField, E: FieldElement + From<B>>(p: &mut [E], twiddles: &[B]) {
     split_radix_fft(p, twiddles);
     permute_values(p);
 }
 
-pub fn interpolate_poly<E: FieldElement>(v: &mut [E], inv_twiddles: &[E]) {
+pub fn interpolate_poly<B: StarkField, E: FieldElement + From<B>>(v: &mut [E], inv_twiddles: &[B]) {
     split_radix_fft(v, inv_twiddles);
     let inv_length = E::inv((v.len() as u64).into());
     v.par_iter_mut().for_each(|e| {
@@ -41,37 +41,16 @@ pub fn permute_values<E: FieldElement>(v: &mut [E]) {
     });
 }
 
-pub fn get_twiddles<E: FieldElement>(root: E, size: usize) -> Vec<E> {
-    let mut twiddles = uninit_vector(size / 2);
-
-    let num_batches = rayon::current_num_threads().next_power_of_two();
-    let batch_size = twiddles.len() / num_batches;
-
-    twiddles
-        .par_chunks_mut(batch_size)
-        .enumerate()
-        .for_each(|(i, batch)| {
-            let batch_start = i * batch_size;
-            batch[0] = root.exp((batch_start as u32).into());
-            for j in 1..batch.len() {
-                batch[j] = batch[j - 1] * root;
-            }
-        });
-
-    permute_values(&mut twiddles);
-    twiddles
-}
-
 // SPLIT-RADIX FFT
 // ================================================================================================
 
 /// In-place recursive FFT with permuted output.
 /// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
-pub fn split_radix_fft<F: FieldElement>(values: &mut [F], twiddles: &[F]) {
+pub fn split_radix_fft<B: StarkField, E: FieldElement + From<B>>(values: &mut [E], twiddles: &[B]) {
     // generator of the domain should be in the middle of twiddles
     let n = values.len();
-    let g = twiddles[twiddles.len() / 2];
-    debug_assert_eq!(g.exp((n as u32).into()), F::ONE);
+    let g = E::from(twiddles[twiddles.len() / 2]);
+    debug_assert_eq!(g.exp((n as u32).into()), E::ONE);
 
     let inner_len = 1_usize << (n.trailing_zeros() / 2);
     let outer_len = n / inner_len;
