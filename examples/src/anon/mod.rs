@@ -1,12 +1,12 @@
 use super::Example;
-use crate::utils::{bytes_to_node, node_to_bytes, rescue, TreeNode};
+use crate::{
+    utils::{bytes_to_node, node_to_bytes, rescue, TreeNode},
+    ExampleOptions,
+};
 use common::errors::VerifierError;
 use log::debug;
 use prover::{
-    crypto::{
-        hash::{blake3, rescue_s},
-        MerkleTree,
-    },
+    crypto::{hash::rescue_s, MerkleTree},
     math::field::{BaseElement, FieldElement, StarkField},
     Assertions, ProofOptions, Prover, StarkProof,
 };
@@ -29,9 +29,9 @@ const TRACE_TABLE_WIDTH: usize = 9;
 
 // ANONYMOUS TOKEN EXAMPLE
 // ================================================================================================
-pub fn get_example() -> Box<dyn Example> {
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
     Box::new(AnonTokenExample {
-        options: None,
+        options: options.to_proof_options(28, 32),
         service_uuid: BaseElement::rand(),
         token_seed: BaseElement::rand(),
         token_index: 0,
@@ -40,26 +40,22 @@ pub fn get_example() -> Box<dyn Example> {
 }
 
 pub struct AnonTokenExample {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     service_uuid: BaseElement,
     token_seed: BaseElement,
     token_index: usize,
     path: Vec<TreeNode>,
 }
 
-impl Example for AnonTokenExample {
-    fn prepare(
-        &mut self,
-        mut tree_depth: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
-        if tree_depth == 0 {
-            tree_depth = 7;
-        }
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
 
+impl Example for AnonTokenExample {
+    fn prepare(&mut self, tree_depth: usize) -> Assertions {
+        assert!(
+            (tree_depth + 1).is_power_of_two(),
+            "tree depth must be one less than a power of 2"
+        );
         // print out sample values of token seed and service uuid
         debug!(
             "Set token_seed to {:x} and service_uuid to {:x}",
@@ -139,7 +135,7 @@ impl Example for AnonTokenExample {
         );
 
         // generate the proof
-        let prover = Prover::<AnonTokenEvaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<AnonTokenEvaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
@@ -151,22 +147,6 @@ impl Example for AnonTokenExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-#[allow(clippy::unnecessary_wraps)]
-fn build_proof_options(
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-    grinding_factor: u32,
-) -> Option<ProofOptions> {
-    if blowup_factor == 0 {
-        blowup_factor = 32;
-    }
-    if num_queries == 0 {
-        num_queries = 28;
-    }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-    Some(options)
-}
-
 fn build_merkle_tree(depth: usize, issued_token: TreeNode, index: usize) -> MerkleTree {
     let num_leaves = usize::pow(2, depth as u32);
     let leaf_elements = BaseElement::prng_vector([1; 32], num_leaves * 2);

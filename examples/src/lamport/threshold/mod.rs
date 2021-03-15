@@ -2,10 +2,9 @@ use super::{
     message_to_elements, rescue, Example, PrivateKey, PublicKey, Signature,
     CYCLE_LENGTH as HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
-use crate::utils::TreeNode;
+use crate::{utils::TreeNode, ExampleOptions};
 use log::debug;
 use prover::{
-    crypto::hash::blake3,
     math::field::{BaseElement, FieldElement},
     Assertions, ProofOptions, Prover, StarkProof,
 };
@@ -33,9 +32,9 @@ const SIG_CYCLE_LENGTH: usize = 128 * HASH_CYCLE_LENGTH; // 1024 steps
 // LAMPORT THRESHOLD SIGNATURE EXAMPLE
 // ================================================================================================
 
-pub fn get_example() -> Box<dyn Example> {
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
     Box::new(LamportThresholdExample {
-        options: None,
+        options: options.to_proof_options(28, 64),
         pub_key: AggPublicKey::new(vec![PublicKey::default(); 4]),
         signatures: Vec::new(),
         message: [BaseElement::ZERO; 2],
@@ -43,27 +42,21 @@ pub fn get_example() -> Box<dyn Example> {
 }
 
 pub struct LamportThresholdExample {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     pub_key: AggPublicKey,
     signatures: Vec<(usize, Signature)>,
     message: [BaseElement; 2],
 }
 
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
+
 impl Example for LamportThresholdExample {
-    fn prepare(
-        &mut self,
-        mut num_signers: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
-
-        // set default value of num_signers to 3
-        if num_signers == 0 {
-            num_signers = 3;
-        }
-
+    fn prepare(&mut self, num_signers: usize) -> Assertions {
+        assert!(
+            (num_signers + 1).is_power_of_two(),
+            "number of signers must be one less than a power of 2"
+        );
         // generate private/public key pairs for the specified number of signatures
         let now = Instant::now();
         let private_keys = build_keys(num_signers);
@@ -115,7 +108,7 @@ impl Example for LamportThresholdExample {
         );
 
         // generate the proof
-        let prover = Prover::<LamportThresholdEvaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<LamportThresholdEvaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
@@ -127,22 +120,6 @@ impl Example for LamportThresholdExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-#[allow(clippy::unnecessary_wraps)]
-fn build_proof_options(
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-    grinding_factor: u32,
-) -> Option<ProofOptions> {
-    if blowup_factor == 0 {
-        blowup_factor = 64;
-    }
-    if num_queries == 0 {
-        num_queries = 28;
-    }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-    Some(options)
-}
-
 fn build_keys(num_keys: usize) -> Vec<PrivateKey> {
     let mut result = Vec::with_capacity(num_keys);
     for i in 0..num_keys {

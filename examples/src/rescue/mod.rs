@@ -1,15 +1,12 @@
-use common::errors::VerifierError;
+use crate::{utils::rescue, Example, ExampleOptions};
 use log::debug;
 use prover::{
-    crypto::hash::{blake3, rescue_s},
+    crypto::hash::rescue_s,
     math::field::{BaseElement, FieldElement},
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
-use verifier::Verifier;
-
-use super::Example;
-use crate::utils::rescue;
+use verifier::{Verifier, VerifierError};
 
 mod trace;
 use trace::generate_trace;
@@ -29,34 +26,36 @@ const STATE_WIDTH: usize = 4;
 
 // RESCUE HASH CHAIN EXAMPLE
 // ================================================================================================
-pub fn get_example() -> Box<dyn Example> {
-    Box::new(RescueExample {
-        options: None,
-        chain_length: 0,
-        seed: [BaseElement::from(42u8), BaseElement::from(43u8)],
-    })
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
+    Box::new(RescueExample::new(options.to_proof_options(28, 32)))
 }
 
 pub struct RescueExample {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     chain_length: usize,
     seed: [BaseElement; 2],
 }
 
+impl RescueExample {
+    pub fn new(options: ProofOptions) -> RescueExample {
+        RescueExample {
+            options,
+            chain_length: 0,
+            seed: [BaseElement::from(42u8), BaseElement::from(43u8)],
+        }
+    }
+}
+
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
+
 impl Example for RescueExample {
-    fn prepare(
-        &mut self,
-        chain_length: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
-        self.chain_length = if chain_length == 0 {
-            1024
-        } else {
-            chain_length
-        };
+    fn prepare(&mut self, chain_length: usize) -> Assertions {
+        assert!(
+            chain_length.is_power_of_two(),
+            "chain length must a power of 2"
+        );
+        self.chain_length = chain_length;
 
         // compute the sequence of hashes using external implementation of Rescue hash
         let now = Instant::now();
@@ -96,7 +95,7 @@ impl Example for RescueExample {
         );
 
         // generate the proof
-        let prover = Prover::<RescueEvaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<RescueEvaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
@@ -108,22 +107,6 @@ impl Example for RescueExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-#[allow(clippy::unnecessary_wraps)]
-fn build_proof_options(
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-    grinding_factor: u32,
-) -> Option<ProofOptions> {
-    if blowup_factor == 0 {
-        blowup_factor = 32;
-    }
-    if num_queries == 0 {
-        num_queries = 28;
-    }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-    Some(options)
-}
-
 fn compute_hash_chain(seed: [BaseElement; 2], length: usize) -> [u8; 32] {
     let mut values: Vec<u8> = BaseElement::write_into_vec(&seed);
     let mut result = [0; 32];

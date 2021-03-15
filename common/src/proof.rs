@@ -1,4 +1,4 @@
-use crate::ProofOptions;
+use crate::{FieldExtension, ProofOptions};
 use crypto::BatchMerkleProof;
 use fri::FriProof;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,6 @@ pub struct Context {
     pub lde_domain_depth: u8,
     pub ce_blowup_factor: u8,
     pub field_modulus_bytes: Vec<u8>,
-    pub field_extension_factor: u8,
     pub options: ProofOptions,
 }
 
@@ -92,8 +91,12 @@ impl StarkProof {
             - 1;
 
         // field_modulus_bits * field_extension_factor - log2(extended trace length)
-        let max_fri_security = field_modulus_bits * self.context.field_extension_factor as u32
-            - self.context.lde_domain_depth as u32;
+        let field_extension_factor = match options.field_extension() {
+            FieldExtension::None => 1,
+            FieldExtension::Quadratic => 2,
+        };
+        let max_fri_security =
+            field_modulus_bits * field_extension_factor - self.context.lde_domain_depth as u32;
 
         std::cmp::min(std::cmp::min(result, max_fri_security), cr_security)
     }

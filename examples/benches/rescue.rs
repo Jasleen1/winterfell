@@ -1,8 +1,8 @@
-use std::time::Duration;
-
+use common::{FieldExtension, ProofOptions};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-
-use winterfell::rescue;
+use prover::crypto::hash;
+use std::time::Duration;
+use winterfell::{rescue, Example};
 
 const SIZES: [usize; 2] = [256, 512];
 
@@ -11,9 +11,10 @@ fn rescue(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(25));
 
-    let mut resc = rescue::get_example();
+    let options = ProofOptions::new(32, 32, 0, hash::blake3, FieldExtension::None);
+    let mut resc = rescue::RescueExample::new(options);
     for &size in SIZES.iter() {
-        let assertions = resc.prepare(size, 32, 32, 0);
+        let assertions = resc.prepare(size);
         group.bench_with_input(
             BenchmarkId::from_parameter(size),
             &assertions,

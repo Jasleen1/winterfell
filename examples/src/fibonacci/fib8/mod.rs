@@ -1,19 +1,15 @@
-use std::time::Instant;
-
+use super::utils::compute_fib_term;
+use crate::{Example, ExampleOptions};
 use log::debug;
-
-use common::errors::VerifierError;
-use evaluator::Fib8Evaluator;
 use prover::{
     math::field::{BaseElement, FieldElement},
     Assertions, ProofOptions, Prover, StarkProof,
 };
-use verifier::Verifier;
-
-use super::utils::{build_proof_options, compute_fib_term};
-use crate::Example;
+use std::time::Instant;
+use verifier::{Verifier, VerifierError};
 
 mod evaluator;
+use evaluator::Fib8Evaluator;
 
 #[cfg(test)]
 mod tests;
@@ -22,31 +18,34 @@ mod tests;
 // ================================================================================================
 const TRACE_WIDTH: usize = 8;
 
-pub fn get_example() -> Box<dyn Example> {
-    Box::new(Fib8Example {
-        options: None,
-        sequence_length: 0,
-    })
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
+    Box::new(Fib8Example::new(options.to_proof_options(28, 16)))
 }
 
 pub struct Fib8Example {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     sequence_length: usize,
 }
 
-impl Example for Fib8Example {
-    fn prepare(
-        &mut self,
-        mut sequence_length: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Assertions {
-        if sequence_length == 0 {
-            sequence_length = 1_048_576
+impl Fib8Example {
+    pub fn new(options: ProofOptions) -> Fib8Example {
+        Fib8Example {
+            options,
+            sequence_length: 0,
         }
+    }
+}
+
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
+
+impl Example for Fib8Example {
+    fn prepare(&mut self, sequence_length: usize) -> Assertions {
+        assert!(
+            sequence_length.is_power_of_two(),
+            "sequence length must be a power of 2"
+        );
         self.sequence_length = sequence_length;
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
@@ -87,7 +86,7 @@ impl Example for Fib8Example {
         );
 
         // generate the proof
-        let prover = Prover::<Fib8Evaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<Fib8Evaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 

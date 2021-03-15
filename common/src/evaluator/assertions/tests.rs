@@ -531,12 +531,6 @@ fn build_assertion_constraints_point_and_cyclic_assertions() {
 fn build_context(trace_length: usize) -> ComputationContext {
     let ce_blowup_factor = 4;
     let lde_blowup_factor = 16;
-    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
-    ComputationContext::new(
-        2,
-        trace_length,
-        ce_blowup_factor,
-        FieldExtension::None,
-        options,
-    )
+    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3, FieldExtension::None);
+    ComputationContext::new(2, trace_length, ce_blowup_factor, options)
 }

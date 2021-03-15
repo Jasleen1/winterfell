@@ -1,7 +1,7 @@
 use super::{utils::infer_degree, ConstraintEvaluationTable};
 use crate::{
     channel::ProverChannel,
-    monolith::{build_trace_tree, extend_trace},
+    monolith::trace::{build_lde_domain, build_trace_tree, extend_trace},
     tests::{build_fib_trace, build_proof_context, FibEvaluator},
 };
 use common::{errors::*, Assertions, ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator};
@@ -210,7 +210,7 @@ fn build_constraint_evaluations<T: TransitionEvaluator, E: FieldElement + FromVe
     // build proof context
     let context = build_proof_context(trace_length, ce_blowup_factor, lde_blowup_factor);
 
-    let lde_domain = super::super::build_lde_domain(&context);
+    let lde_domain = build_lde_domain(&context);
     let (extended_trace, _) = extend_trace(trace, &lde_domain);
 
     // commit to the trace

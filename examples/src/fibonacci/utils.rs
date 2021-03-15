@@ -1,8 +1,4 @@
-use common::ProofOptions;
-use prover::{
-    crypto::hash::blake3,
-    math::field::{BaseElement, FieldElement},
-};
+use prover::math::field::{BaseElement, FieldElement};
 
 pub fn compute_fib_term(n: usize) -> BaseElement {
     let mut t0 = BaseElement::ONE;
@@ -28,22 +24,14 @@ pub fn compute_mulfib_term(n: usize) -> BaseElement {
     t1
 }
 
-pub fn build_proof_options(
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-    grinding_factor: u32,
-) -> Option<ProofOptions> {
-    if blowup_factor == 0 {
-        blowup_factor = 16;
-    }
-    if num_queries == 0 {
-        num_queries = 28;
-    }
-
-    Some(ProofOptions::new(
-        num_queries,
-        blowup_factor,
-        grinding_factor,
-        blake3,
-    ))
+#[cfg(test)]
+pub fn build_proof_options(use_extension_field: bool) -> common::ProofOptions {
+    use common::{FieldExtension, ProofOptions};
+    use prover::crypto::hash;
+    let extension = if use_extension_field {
+        FieldExtension::Quadratic
+    } else {
+        FieldExtension::None
+    };
+    ProofOptions::new(28, 16, 0, hash::blake3, extension)
 }

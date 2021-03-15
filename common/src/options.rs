@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 // TYPES AND INTERFACES
 // ================================================================================================
 
+#[repr(u8)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub enum FieldExtension {
+    None = 1,
+    Quadratic = 2,
+}
+
 // TODO: validate field values on de-serialization
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ProofOptions {
@@ -13,6 +20,7 @@ pub struct ProofOptions {
     grinding_factor: u8,
     #[serde(with = "hash_fn_serialization")]
     hash_fn: HashFunction,
+    field_extension: FieldExtension,
 }
 
 // PROOF OPTIONS IMPLEMENTATION
@@ -29,6 +37,7 @@ impl ProofOptions {
         blowup_factor: usize,
         grinding_factor: u32,
         hash_fn: HashFunction,
+        field_extension: FieldExtension,
     ) -> ProofOptions {
         assert!(num_queries > 0, "num_queries must be greater than 0");
         assert!(num_queries <= 128, "num_queries cannot be greater than 128");
@@ -53,6 +62,7 @@ impl ProofOptions {
             blowup_factor: blowup_factor.trailing_zeros() as u8,
             grinding_factor: grinding_factor as u8,
             hash_fn,
+            field_extension,
         }
     }
 
@@ -87,6 +97,13 @@ impl ProofOptions {
     /// Currently, supported hash functions are blake3 and sha3.
     pub fn hash_fn(&self) -> HashFunction {
         self.hash_fn
+    }
+
+    /// Returns a value indicating whether an extension field should be used for the composition
+    /// polynomial. Using a field extension increases maximum security level of a proof, but
+    /// also has non-negligible impact on prover performance.
+    pub fn field_extension(&self) -> FieldExtension {
+        self.field_extension
     }
 
     pub fn to_fri_options(&self) -> FriOptions {

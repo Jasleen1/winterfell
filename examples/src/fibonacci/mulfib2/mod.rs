@@ -1,11 +1,9 @@
-use common::errors::VerifierError;
+use super::utils::compute_mulfib_term;
+use crate::{Example, ExampleOptions};
 use log::debug;
 use prover::{math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof};
 use std::time::Instant;
-use verifier::Verifier;
-
-use super::utils::{build_proof_options, compute_mulfib_term};
-use crate::Example;
+use verifier::{Verifier, VerifierError};
 
 mod evaluator;
 use evaluator::MulFib2Evaluator;
@@ -17,34 +15,36 @@ mod tests;
 // ================================================================================================
 const TRACE_WIDTH: usize = 2;
 
-pub fn get_example() -> Box<dyn Example> {
-    Box::new(MulFib2Example {
-        options: None,
-        sequence_length: 0,
-    })
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
+    Box::new(MulFib2Example::new(options.to_proof_options(28, 16)))
 }
 
 const NUM_REGISTERS: usize = 2;
 
 pub struct MulFib2Example {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     sequence_length: usize,
 }
 
+impl MulFib2Example {
+    pub fn new(options: ProofOptions) -> MulFib2Example {
+        MulFib2Example {
+            options,
+            sequence_length: 0,
+        }
+    }
+}
+
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
+
 impl Example for MulFib2Example {
-    fn prepare(
-        &mut self,
-        sequence_length: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Assertions {
-        self.sequence_length = if sequence_length == 0 {
-            1_048_576
-        } else {
-            sequence_length
-        };
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+    fn prepare(&mut self, sequence_length: usize) -> Assertions {
+        assert!(
+            sequence_length.is_power_of_two(),
+            "sequence length must be a power of 2"
+        );
+        self.sequence_length = sequence_length;
         let trace_length = sequence_length / 2;
 
         // compute Fibonacci sequence
@@ -84,7 +84,7 @@ impl Example for MulFib2Example {
         );
 
         // generate the proof
-        let prover = Prover::<MulFib2Evaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<MulFib2Evaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 

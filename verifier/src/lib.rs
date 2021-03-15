@@ -40,7 +40,7 @@ impl<T: TransitionEvaluator> Verifier<T> {
         // context; the channel is used to simulate interaction between the prover and the
         // verifier; the verifier can read the values written by the prover into the channel,
         // and also draws random values which the prover uses during proof construction
-        match context.field_extension() {
+        match context.options().field_extension() {
             FieldExtension::None => {
                 let channel = VerifierChannel::new(context, proof)?;
                 perform_verification::<T, BaseElement>(&channel, assertions)
@@ -60,18 +60,12 @@ fn build_context(proof: &StarkProof) -> Result<ComputationContext, VerifierError
     let options = proof.context.options.clone();
     let trace_length =
         usize::pow(2, proof.context.lde_domain_depth as u32) / options.blowup_factor();
-    let field_extension = match proof.context.field_extension_factor {
-        1 => FieldExtension::None,
-        2 => FieldExtension::Quadratic,
-        _ => return Err(VerifierError::ComputationContextDeserializationFailed),
-    };
     // TODO: read modulus from the proof and check it against field modulus of base elements
 
     Ok(ComputationContext::new(
         proof.context.trace_width as usize,
         trace_length,
         proof.context.ce_blowup_factor as usize,
-        field_extension,
         options,
     ))
 }

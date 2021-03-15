@@ -1,10 +1,9 @@
 use super::{
     message_to_elements, rescue, Example, PrivateKey, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
+use crate::ExampleOptions;
 use log::debug;
-use prover::{
-    crypto::hash::blake3, math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof,
-};
+use prover::{math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof};
 use std::time::Instant;
 use verifier::{Verifier, VerifierError};
 
@@ -25,35 +24,29 @@ const SIG_CYCLE_LENGTH: usize = 128 * CYCLE_LENGTH; // 1024 steps
 
 // LAMPORT MULTI-MESSAGE, MULTI-KEY, SIGNATURE EXAMPLE
 // ================================================================================================
-pub fn get_example() -> Box<dyn Example> {
-    Box::new(LamportMultisigExample {
-        options: None,
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
+    Box::new(LamportAggregateExample {
+        options: options.to_proof_options(28, 64),
         signatures: Vec::new(),
         messages: Vec::new(),
     })
 }
 
-pub struct LamportMultisigExample {
-    options: Option<ProofOptions>,
+pub struct LamportAggregateExample {
+    options: ProofOptions,
     signatures: Vec<Signature>,
     messages: Vec<[BaseElement; 2]>,
 }
 
-impl Example for LamportMultisigExample {
-    fn prepare(
-        &mut self,
-        mut num_signatures: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Assertions {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
 
-        // set default value of num_signatures to 1
-        if num_signatures == 0 {
-            num_signatures = 1;
-        }
-
+impl Example for LamportAggregateExample {
+    fn prepare(&mut self, num_signatures: usize) -> Assertions {
+        assert!(
+            num_signatures.is_power_of_two(),
+            "number of signatures must be a power of 2"
+        );
         // generate private/public key pairs for the specified number of signatures
         let mut private_keys = Vec::with_capacity(num_signatures);
         let mut public_keys = Vec::with_capacity(num_signatures);
@@ -117,7 +110,7 @@ impl Example for LamportMultisigExample {
         );
 
         // generate the proof
-        let prover = Prover::<LamportPlusEvaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<LamportPlusEvaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
@@ -125,22 +118,4 @@ impl Example for LamportMultisigExample {
         let verifier = Verifier::<LamportPlusEvaluator>::new();
         verifier.verify(proof, assertions)
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-#[allow(clippy::unnecessary_wraps)]
-fn build_proof_options(
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-    grinding_factor: u32,
-) -> Option<ProofOptions> {
-    if blowup_factor == 0 {
-        blowup_factor = 64;
-    }
-    if num_queries == 0 {
-        num_queries = 28;
-    }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-    Some(options)
 }

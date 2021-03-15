@@ -1,8 +1,8 @@
 use log::debug;
+use std::io::Write;
 use std::time::Instant;
-use std::{env, io::Write};
-
-use winterfell::{anon, fibonacci, lamport, merkle, rescue};
+use structopt::StructOpt;
+use winterfell::{anon, fibonacci, lamport, merkle, rescue, ExampleOptions, ExampleType};
 
 // EXAMPLE RUNNER
 // ================================================================================================
@@ -14,26 +14,59 @@ fn main() {
         .filter_level(log::LevelFilter::Debug)
         .init();
 
-    // determine the example to run based on command-line arguments
-    let args: Vec<String> = env::args().collect();
-    let (example, n, blowup_factor, num_queries, grinding_factor) = parse_args(args);
-    let mut example = match example.as_str() {
-        "fib" => fibonacci::fib2::get_example(),
-        "fib8" => fibonacci::fib8::get_example(),
-        "mulfib" => fibonacci::mulfib2::get_example(),
-        "mulfib8" => fibonacci::mulfib8::get_example(),
-        "anon" => anon::get_example(),
-        "rescue" => rescue::get_example(),
-        "merkle" => merkle::get_example(),
-        "lamport" => lamport::single::get_example(),
-        "lamport_multi" => lamport::multisig::get_example(),
-        "lamport_threshold" => lamport::threshold::get_example(),
-        _ => panic!("example name '{}' is not valid", example),
-    };
+    // read command-line args
+    let options = ExampleOptions::from_args();
 
     debug!("============================================================");
-    // prepare the example
-    let assertions = example.prepare(n, blowup_factor, num_queries, grinding_factor);
+
+    // instantiate and prepare the example
+    let (example, assertions) = match options.example {
+        ExampleType::Fib { sequence_length } => {
+            let mut e = fibonacci::fib2::get_example(options);
+            let a = e.prepare(sequence_length);
+            (e, a)
+        }
+        ExampleType::Fib8 { sequence_length } => {
+            let mut e = fibonacci::fib8::get_example(options);
+            let a = e.prepare(sequence_length);
+            (e, a)
+        }
+        ExampleType::Mulfib { sequence_length } => {
+            let mut e = fibonacci::mulfib2::get_example(options);
+            let a = e.prepare(sequence_length);
+            (e, a)
+        }
+        ExampleType::Mulfib8 { sequence_length } => {
+            let mut e = fibonacci::mulfib8::get_example(options);
+            let a = e.prepare(sequence_length);
+            (e, a)
+        }
+        ExampleType::Rescue { chain_length } => {
+            let mut e = rescue::get_example(options);
+            let a = e.prepare(chain_length);
+            (e, a)
+        }
+        ExampleType::Merkle { tree_depth } => {
+            let mut e = merkle::get_example(options);
+            let a = e.prepare(tree_depth);
+            (e, a)
+        }
+        ExampleType::Anon { tree_depth } => {
+            let mut e = anon::get_example(options);
+            let a = e.prepare(tree_depth);
+            (e, a)
+        }
+        ExampleType::LamportA { num_signatures } => {
+            let mut e = lamport::aggregate::get_example(options);
+            let a = e.prepare(num_signatures);
+            (e, a)
+        }
+        ExampleType::LamportT { num_signers } => {
+            let mut e = lamport::threshold::get_example(options);
+            let a = e.prepare(num_signers);
+            (e, a)
+        }
+    };
 
     // generate proof
     let now = Instant::now();
@@ -54,39 +87,4 @@ fn main() {
         Err(msg) => debug!("Failed to verify proof: {}", msg),
     }
     debug!("============================================================");
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-fn parse_args(args: Vec<String>) -> (String, usize, usize, usize, u32) {
-    if args.len() < 2 {
-        ("fib".to_string(), 0, 0, 0, 16)
-    } else if args.len() < 3 {
-        (args[1].to_string(), 0, 0, 0, 16)
-    } else if args.len() < 4 {
-        let n = args[2].parse().unwrap();
-        (args[1].to_string(), n, 0, 0, 16)
-    } else if args.len() < 5 {
-        let n = args[2].parse().unwrap();
-        let blowup_factor = args[3].parse().unwrap();
-        (args[1].to_string(), n, blowup_factor, 0, 16)
-    } else if args.len() < 6 {
-        let n = args[2].parse().unwrap();
-        let blowup_factor = args[3].parse().unwrap();
-        let num_queries = args[4].parse().unwrap();
-        (args[1].to_string(), n, blowup_factor, num_queries, 16)
-    } else {
-        let n = args[2].parse().unwrap();
-        let blowup_factor = args[3].parse().unwrap();
-        let num_queries = args[4].parse().unwrap();
-        let grinding_factor = args[5].parse().unwrap();
-        (
-            args[1].to_string(),
-            n,
-            blowup_factor,
-            num_queries,
-            grinding_factor,
-        )
-    }
 }

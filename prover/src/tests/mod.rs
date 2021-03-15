@@ -27,14 +27,8 @@ pub fn build_proof_context(
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
 ) -> ComputationContext {
-    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
-    ComputationContext::new(
-        2,
-        trace_length,
-        ce_blowup_factor,
-        FieldExtension::None,
-        options,
-    )
+    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3, FieldExtension::None);
+    ComputationContext::new(2, trace_length, ce_blowup_factor, options)
 }
 
 // FIBONACCI TRANSITION EVALUATOR

@@ -8,7 +8,6 @@ bench = false
 
 [features]
 concurrent = ["crypto/concurrent", "math/concurrent", "fri/concurrent"]
-extension_field = []
 
 [dependencies]
 math = { path = "../math" }
