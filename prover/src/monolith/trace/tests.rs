@@ -32,7 +32,7 @@ fn extend_trace_table() {
     let trace_length = 8;
     let context = build_proof_context(trace_length, 2, 4);
     let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
-    let lde_domain = super::build_lde_domain(&context);
+    let lde_domain = super::LdeDomain::new(context.lde_domain_size());
     let (trace, trace_polys) = super::extend_trace(trace, &lde_domain);
 
     assert_eq!(2, trace.num_registers());
@@ -74,7 +74,7 @@ fn commit_trace_table() {
     let trace_length = 8;
     let context = build_proof_context(trace_length, 2, 4);
     let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
-    let lde_domain = super::build_lde_domain(&context);
+    let lde_domain = super::LdeDomain::new(context.lde_domain_size());
     let (trace, _) = super::extend_trace(trace, &lde_domain);
 
     // commit to the trace

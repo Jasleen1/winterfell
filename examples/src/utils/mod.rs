@@ -3,7 +3,7 @@ use std::ops::Range;
 use common::utils::filled_vector;
 use prover::math::{
     fft,
-    field::{BaseElement, FieldElement, StarkField},
+    field::{BaseElement, FieldElement},
 };
 
 pub mod rescue;
@@ -58,12 +58,8 @@ pub fn build_cyclic_domain(
     cycle_length: usize,
     blowup_factor: usize,
 ) -> (Vec<BaseElement>, Vec<BaseElement>) {
-    let root = BaseElement::get_root_of_unity(cycle_length.trailing_zeros());
-    let inv_twiddles = fft::get_inv_twiddles(root, cycle_length);
-
-    let domain_size = cycle_length * blowup_factor;
-    let domain_root = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-    let ev_twiddles = fft::get_twiddles(domain_root, domain_size);
+    let inv_twiddles = fft::get_inv_twiddles(cycle_length);
+    let ev_twiddles = fft::get_twiddles(cycle_length * blowup_factor);
 
     (inv_twiddles, ev_twiddles)
 }

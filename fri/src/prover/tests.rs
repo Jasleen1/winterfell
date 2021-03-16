@@ -30,8 +30,7 @@ pub fn build_evaluations(
     let domain_size = trace_length * lde_blowup;
     p.resize(domain_size, BaseElement::ZERO);
 
-    let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-    let twiddles = fft::get_twiddles(g, domain_size);
+    let twiddles = fft::get_twiddles::<BaseElement>(domain_size);
 
     fft::evaluate_poly(&mut p, &twiddles);
     p

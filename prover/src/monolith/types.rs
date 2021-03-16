@@ -1,6 +1,7 @@
 use common::{ComputationContext, ConstraintDivisor};
 use math::{
-    field::{BaseElement, FieldElement, FromVec},
+    fft,
+    field::{BaseElement, FieldElement, FromVec, StarkField},
     polynom,
 };
 use std::{iter, vec};
@@ -63,15 +64,14 @@ impl TraceTable {
 pub struct LdeDomain(Vec<BaseElement>, Vec<BaseElement>);
 
 impl LdeDomain {
-    pub fn new(values: Vec<BaseElement>, twiddles: Vec<BaseElement>) -> Self {
+    pub fn new(domain_size: usize) -> Self {
         assert!(
-            values.len().is_power_of_two(),
+            domain_size.is_power_of_two(),
             "Size of LDE domain must be a power of 2"
         );
-        assert!(
-            twiddles.len() * 2 == values.len(),
-            "Twiddles must be half the size of the domain"
-        );
+        let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
+        let values = BaseElement::get_power_series(g, domain_size);
+        let twiddles = fft::get_twiddles(domain_size);
         LdeDomain(values, twiddles)
     }
 

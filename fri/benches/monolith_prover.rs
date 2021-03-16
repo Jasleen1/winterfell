@@ -19,7 +19,7 @@ pub fn build_layers(c: &mut Criterion) {
     for &domain_size in &BATCH_SIZES {
         let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
         let domain = BaseElement::get_power_series(g, domain_size);
-        let evaluations = build_evaluations(g, domain_size);
+        let evaluations = build_evaluations(domain_size);
 
         fri_group.bench_with_input(
             BenchmarkId::new("build_layers", domain_size),
@@ -47,10 +47,10 @@ criterion_main!(fri_prover_group);
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn build_evaluations(g: BaseElement, domain_size: usize) -> Vec<BaseElement> {
+fn build_evaluations(domain_size: usize) -> Vec<BaseElement> {
     let mut p = BaseElement::prng_vector([1; 32], domain_size / BLOWUP_FACTOR);
     p.resize(domain_size, BaseElement::ZERO);
-    let twiddles = fft::get_twiddles(g, domain_size);
+    let twiddles = fft::get_twiddles::<BaseElement>(domain_size);
     fft::evaluate_poly(&mut p, &twiddles);
     p
 }
