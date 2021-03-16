@@ -17,8 +17,6 @@ mod deep_fri;
 mod trace;
 pub use trace::{ExecutionTrace, ExecutionTraceFragment};
 
-mod utils;
-
 mod generation;
 use generation::generate_proof;
 

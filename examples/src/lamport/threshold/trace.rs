@@ -3,7 +3,7 @@ use super::{
     SIG_CYCLE_LENGTH, STATE_WIDTH,
 };
 use prover::{
-    math::field::{BaseElement, FieldElement},
+    math::field::{BaseElement, FieldElement, StarkField},
     ExecutionTrace,
 };
 use std::collections::HashMap;
@@ -87,8 +87,8 @@ fn append_sig_verification(
     pub_key: &AggPublicKey,
     sig_count: usize,
 ) {
-    let m0 = msg[0].as_u128();
-    let m1 = msg[1].as_u128();
+    let m0 = msg[0].as_int();
+    let m1 = msg[1].as_int();
     let key_schedule = build_key_schedule(m0, m1, sig);
 
     // we verify that the individual public key exists in the aggregated public key after

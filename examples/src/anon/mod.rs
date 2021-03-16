@@ -59,8 +59,8 @@ impl Example for AnonTokenExample {
         // print out sample values of token seed and service uuid
         debug!(
             "Set token_seed to {:x} and service_uuid to {:x}",
-            self.token_seed.as_u128(),
-            self.service_uuid.as_u128()
+            self.token_seed.as_int(),
+            self.service_uuid.as_int()
         );
 
         // compute issued token and service subtoken
@@ -78,7 +78,7 @@ impl Example for AnonTokenExample {
         // build Merkle tree of the specified depth with issued_token located at token_index
         let now = Instant::now();
         self.token_index =
-            (BaseElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
+            (BaseElement::rand().as_int() % u128::pow(2, tree_depth as u32)) as usize;
         let tree = build_merkle_tree(tree_depth, issued_token, self.token_index);
         debug!(
             "Inserted issued_token into Merkle tree of depth {} at index {} in {} ms",

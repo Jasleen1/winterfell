@@ -210,6 +210,25 @@ pub fn get_inv_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
     inv_twiddles
 }
 
+// DEGREE INFERENCE
+// ================================================================================================
+
+/// Determines degree of a polynomial implied by the provided evaluations.
+pub fn infer_degree<B, E>(evaluations: &[E], domain_offset: B) -> usize
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
+    assert!(
+        evaluations.len().is_power_of_two(),
+        "number of evaluations must be a power of 2"
+    );
+    let mut poly = evaluations.to_vec();
+    let inv_twiddles = get_inv_twiddles::<B>(evaluations.len());
+    interpolate_poly_with_offset(&mut poly, &inv_twiddles, domain_offset);
+    super::polynom::degree_of(&poly)
+}
+
 // HELPER FUNCTIONS
 // ================================================================================================
 

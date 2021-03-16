@@ -1,4 +1,5 @@
 use super::{rescue, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS, SIG_CYCLE_LENGTH, STATE_WIDTH};
+use math::field::StarkField;
 use prover::{
     math::field::{BaseElement, FieldElement},
     ExecutionTrace,
@@ -222,8 +223,8 @@ fn update_pub_key_hash(
 // ================================================================================================
 
 fn build_sig_info(msg: &[BaseElement; 2], sig: &Signature) -> SignatureInfo {
-    let m0 = msg[0].as_u128();
-    let m1 = msg[1].as_u128();
+    let m0 = msg[0].as_int();
+    let m1 = msg[1].as_int();
     let key_schedule = build_key_schedule(m0, m1, sig);
     SignatureInfo {
         m0,

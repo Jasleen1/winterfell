@@ -1,11 +1,9 @@
-use crate::monolith::domain::StarkDomain;
-
-use super::{utils, ConstraintPoly};
+use super::{ConstraintPoly, StarkDomain};
 use common::{errors::ProverError, utils::uninit_vector, ConstraintDivisor};
 use math::{
     fft,
     field::{BaseElement, FieldElement},
-    polynom,
+    polynom, utils,
 };
 
 #[cfg(feature = "concurrent")]

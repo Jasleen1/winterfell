@@ -43,6 +43,8 @@ pub trait FieldElement:
         + From<u64>
         + Copy;
 
+    type Base: StarkField;
+
     /// Number of bytes needed to encode an element
     const ELEMENT_BYTES: usize;
 
@@ -51,6 +53,9 @@ pub trait FieldElement:
 
     /// The multiplicative identity.
     const ONE: Self;
+
+    // ALGEBRA
+    // --------------------------------------------------------------------------------------------
 
     /// Exponentiates this element by `power` parameter.
     fn exp(self, power: Self::PositiveInteger) -> Self {
@@ -144,7 +149,7 @@ pub trait FieldElement:
             }
         }
 
-        last = Self::inv(last);
+        last = last.inv();
 
         for i in (0..values.len()).rev() {
             if values[i] == Self::ZERO {
@@ -157,6 +162,12 @@ pub trait FieldElement:
         result
     }
 
+    /// Returns a conjugate of this field element.
+    fn conjugate(&self) -> Self;
+
+    // RANDOMNESS
+    // --------------------------------------------------------------------------------------------
+
     /// Returns a cryptographically-secure random element drawn uniformly from
     /// the entire field.
     fn rand() -> Self;
@@ -165,6 +176,9 @@ pub trait FieldElement:
     /// otherwise returns None. This function is primarily intended for sampling
     /// random field elements from a hash function output.
     fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
+
+    // SERIALIZATION / DESERIALIZATION
+    // --------------------------------------------------------------------------------------------
 
     /// Returns the byte representation of the element in little-endian byte order.
     fn to_bytes(&self) -> Vec<u8>;
@@ -239,6 +253,13 @@ pub trait FieldElement:
         Self::read_into(bytes, &mut result)?;
         Ok(result)
     }
+
+    // INITIALIZATION
+    // --------------------------------------------------------------------------------------------
+
+    fn zeroed_vector(n: usize) -> Vec<Self> {
+        vec![Self::ZERO; n]
+    }
 }
 
 // HELPER FUNCTIONS
@@ -290,7 +311,8 @@ pub trait StarkField: FieldElement + AsBytes {
     /// field based on the provided seed.
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
 
-    fn from_int(value: Self::PositiveInteger) -> Self;
+    // Returns an integer representation of the field element.
+    fn as_int(&self) -> Self::PositiveInteger;
 }
 
 pub trait FromVec<E: FieldElement>: From<E> {

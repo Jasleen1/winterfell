@@ -61,7 +61,7 @@ impl Example for MerkleExample {
             (tree_depth + 1).is_power_of_two(),
             "tree depth must be one less than a power of 2"
         );
-        self.index = (BaseElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
+        self.index = (BaseElement::rand().as_int() % u128::pow(2, tree_depth as u32)) as usize;
 
         // build Merkle tree of the specified depth
         let now = Instant::now();

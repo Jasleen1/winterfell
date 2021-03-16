@@ -1,5 +1,4 @@
-use super::{AssertionConstraintGroup, ConstraintEvaluationTable};
-use crate::monolith::{domain::StarkDomain, trace::TraceTable};
+use super::{AssertionConstraintGroup, ConstraintEvaluationTable, StarkDomain, TraceTable};
 use common::{
     errors::EvaluatorError, Assertions, ComputationContext, ConstraintDivisor, EvaluationFrame,
     PublicCoin, TransitionEvaluator,

@@ -1,7 +1,6 @@
-use std::marker::PhantomData;
-
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::field::FieldElement;
+use std::marker::PhantomData;
 
 // CONSTRAINT COMMITMENT
 // ================================================================================================

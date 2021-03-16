@@ -1,13 +1,15 @@
 use common::{
     errors::VerifierError,
     proof::{Commitments, OodEvaluationFrame, StarkProof},
-    utils::{log2, uninit_vector},
     ComputationContext, EvaluationFrame, ProofOptions, PublicCoin,
 };
 use core::convert::TryFrom;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use fri::{self, VerifierChannel as FriVerifierChannel};
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    utils::log2,
+};
 use std::convert::TryInto;
 use std::marker::PhantomData;
 
@@ -199,10 +201,9 @@ fn build_trace_proof(
     lde_domain_size: usize,
     hash_fn: HashFunction,
 ) -> BatchMerkleProof {
-    let mut hashed_states = uninit_vector::<[u8; 32]>(trace_states.len());
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..trace_states.len() {
-        hash_fn(&trace_states[i], &mut hashed_states[i]);
+    let mut hashed_states = vec![[0u8; 32]; trace_states.len()];
+    for (trace_state, state_hash) in trace_states.iter().zip(hashed_states.iter_mut()) {
+        hash_fn(trace_state, state_hash);
     }
 
     BatchMerkleProof {

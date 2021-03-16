@@ -1,9 +1,9 @@
-use super::{constraints::ConstraintPoly, types::PolyTable, utils, StarkDomain};
+use super::{constraints::ConstraintPoly, types::PolyTable, StarkDomain};
 use common::{CompositionCoefficients, ComputationContext, EvaluationFrame};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
-    polynom,
+    polynom, utils,
 };
 
 // COMPOSITION POLYNOMIAL
@@ -112,13 +112,13 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         // where k_1 and k_2 are pseudo-random coefficients.
 
         // this is equivalent to T(x) * k_1
-        mul_acc(
+        utils::mul_acc(
             &mut self.coefficients[..trace_length],
             &trace_poly,
             self.cc.trace_degree.0,
         );
         // this is equivalent to T(x) * x^incremental_degree * k_2
-        mul_acc(
+        utils::mul_acc(
             &mut self.coefficients[incremental_degree..(incremental_degree + trace_length)],
             &trace_poly,
             self.cc.trace_degree.1,
@@ -151,7 +151,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         polynom::syn_div_in_place(&mut constraint_poly, 1, self.z);
 
         // add C(x) * K into the result
-        mul_acc(
+        utils::mul_acc(
             &mut self.coefficients[..constraint_poly.len()],
             &constraint_poly,
             self.cc.constraints,
@@ -176,18 +176,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
 fn acc_poly<E: FieldElement>(accumulator: &mut Vec<E>, poly: &[E], value: E, k: E) {
-    mul_acc(accumulator, poly, k);
+    utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = value * k;
     accumulator[0] = accumulator[0] - adjusted_tz;
-}
-
-/// Computes a[i] + b[i] * c for all i and saves result into a.
-pub fn mul_acc<E: FieldElement>(a: &mut [E], b: &[E], c: E) {
-    assert!(
-        a.len() == b.len(),
-        "number of values must be the same for both slices"
-    );
-    for i in 0..a.len() {
-        a[i] = a[i] + b[i] * c;
-    }
 }

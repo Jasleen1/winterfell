@@ -1,7 +1,6 @@
-use math::field::StarkField;
 use prover::math::{
     fft,
-    field::{BaseElement, FieldElement},
+    field::{BaseElement, FieldElement, StarkField},
 };
 use std::ops::Range;
 
@@ -147,7 +146,7 @@ pub fn print_trace(
             i,
             state[range.clone()]
                 .iter()
-                .map(|v| v.as_u128())
+                .map(|v| v.as_int())
                 .collect::<Vec<u128>>()
         );
     }
@@ -162,6 +161,6 @@ pub fn print_trace_step(trace: &[Vec<BaseElement>], step: usize) {
     println!(
         "{}\t{:?}",
         step,
-        state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+        state.iter().map(|v| v.as_int()).collect::<Vec<u128>>()
     );
 }

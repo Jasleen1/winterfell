@@ -67,7 +67,7 @@ impl PrivateKey {
 
         let mut n = 0;
         let elements = message_to_elements(message);
-        for element_bits in elements.iter().map(|e| e.as_u128()) {
+        for element_bits in elements.iter().map(|e| e.as_int()) {
             // make sure the most significant bit is 0
             assert_eq!(element_bits & (1 << 127), 0);
             for i in 0..127 {
@@ -95,7 +95,7 @@ impl PublicKey {
         let mut n_ones = 0;
         let mut pub_keys = Vec::with_capacity(MESSAGE_BITS);
         let elements = message_to_elements(message);
-        for element_bits in elements.iter().map(|e| e.as_u128()) {
+        for element_bits in elements.iter().map(|e| e.as_int()) {
             // make sure the least significant bit is 0
             assert_eq!(element_bits & (1 << 127), 0);
             for i in 0..127 {
@@ -141,9 +141,9 @@ impl Default for PublicKey {
 impl Ord for PublicKey {
     fn cmp(&self, other: &Self) -> Ordering {
         if self.0[0] == other.0[0] {
-            self.0[1].as_u128().cmp(&other.0[1].as_u128())
+            self.0[1].as_int().cmp(&other.0[1].as_int())
         } else {
-            self.0[0].as_u128().cmp(&other.0[0].as_u128())
+            self.0[0].as_int().cmp(&other.0[0].as_int())
         }
     }
 }
