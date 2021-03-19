@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use math::{
     fft,
     field::{BaseElement, QuadExtension, StarkField},
@@ -15,34 +15,43 @@ fn fft_poly(c: &mut Criterion) {
 
     for &size in SIZES.iter() {
         let twiddles = fft::get_twiddles::<BaseElement>(size);
-        let mut p = BaseElement::prng_vector(get_seed(), size);
-
+        let p = BaseElement::prng_vector(get_seed(), size);
         group.bench_function(BenchmarkId::new("evaluate", size), |bench| {
-            bench.iter(|| fft::evaluate_poly(&mut p, &twiddles));
+            bench.iter_batched_ref(
+                || p.clone(),
+                |mut p| fft::evaluate_poly(&mut p, &twiddles),
+                BatchSize::LargeInput,
+            );
         });
     }
 
     for &size in SIZES.iter() {
         let twiddles = fft::get_twiddles::<BaseElement>(size);
-        let mut p = BaseElement::prng_vector(get_seed(), size)
+        let p = BaseElement::prng_vector(get_seed(), size)
             .into_iter()
             .map(QuadExtension::from)
             .collect::<Vec<_>>();
-
         group.bench_function(
             BenchmarkId::new("evaluate (extension field)", size),
             |bench| {
-                bench.iter(|| fft::evaluate_poly(&mut p, &twiddles));
+                bench.iter_batched_ref(
+                    || p.clone(),
+                    |mut p| fft::evaluate_poly(&mut p, &twiddles),
+                    BatchSize::LargeInput,
+                );
             },
         );
     }
 
     for &size in SIZES.iter() {
         let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(size);
-        let mut p = BaseElement::prng_vector(get_seed(), size);
-
+        let p = BaseElement::prng_vector(get_seed(), size);
         group.bench_function(BenchmarkId::new("interpolate", size), |bench| {
-            bench.iter(|| fft::interpolate_poly(&mut p, &inv_twiddles));
+            bench.iter_batched_ref(
+                || p.clone(),
+                |mut p| fft::interpolate_poly(&mut p, &inv_twiddles),
+                BatchSize::LargeInput,
+            );
         });
     }
 
