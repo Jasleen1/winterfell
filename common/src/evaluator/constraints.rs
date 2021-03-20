@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use crate::{Assertion, ComputationContext};
 use math::field::{BaseElement, FieldElement};
 
@@ -139,6 +140,21 @@ impl ConstraintDivisor {
         }
 
         numerator / denominator
+    }
+}
+
+impl Display for ConstraintDivisor {
+    fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
+        for (degree, offset) in self.numerator.iter() {
+            write!(f, "(x^{} - {})", degree, offset)?;
+        }
+        if !self.exclude.is_empty() {
+            write!(f, " / ")?;
+            for x in self.exclude.iter() {
+                write!(f, "(x - {})", x)?;
+            }
+        }
+        Ok(())
     }
 }
 
