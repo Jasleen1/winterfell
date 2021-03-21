@@ -1,5 +1,7 @@
 use crate::field::{FieldElement, StarkField};
 
+mod serial;
+
 #[cfg(feature = "concurrent")]
 mod concurrent;
 
@@ -9,10 +11,9 @@ mod tests;
 // CONSTANTS
 // ================================================================================================
 const USIZE_BITS: usize = 0_usize.count_zeros() as usize;
-const MAX_LOOP: usize = 256;
 pub const MIN_CONCURRENT_SIZE: usize = 1024;
 
-// POLYNOMIAL EVALUATION AND INTERPOLATION
+// POLYNOMIAL EVALUATION
 // ================================================================================================
 
 /// Evaluates polynomial `p` using FFT algorithm; the evaluation is done in-place, meaning
@@ -26,56 +27,148 @@ where
     B: StarkField,
     E: FieldElement + From<B>,
 {
-    debug_assert!(
+    assert!(
         p.len().is_power_of_two(),
         "number of coefficients must be a power of 2"
     );
-    debug_assert_eq!(p.len(), twiddles.len() * 2, "invalid number of twiddles");
+    assert_eq!(
+        p.len(),
+        twiddles.len() * 2,
+        "invalid number of twiddles: expected {} but received {}",
+        p.len() / 2,
+        twiddles.len()
+    );
 
-    // when `concurrent` feature is enabled, run the concurrent version of evaluate_poly; unless
+    // when `concurrent` feature is enabled, run the concurrent version of the function; unless
     // the polynomial is small, then don't bother with the concurrent version
     if cfg!(feature = "concurrent") && p.len() >= MIN_CONCURRENT_SIZE {
         #[cfg(feature = "concurrent")]
         concurrent::evaluate_poly(p, twiddles);
     } else {
-        fft_in_place(p, twiddles, 1, 1, 0);
-        permute_values(p);
+        serial::evaluate_poly(p, twiddles);
     }
 }
 
-/// Uses FFT algorithm to interpolate a polynomial from provided values `v`; the interpolation
-/// is done in-place, meaning `v` is updated with polynomial coefficients.
+/// Evaluates polynomial `p` using FFT algorithm and returns the result. The polynomial is
+/// evaluated over domain specified by `twiddles`, expanded by the `blowup_factor`, and shifted
+/// by the `domain_offset`.
+///
+/// When `concurrent` feature is enabled, the evaluation uses as many threads as are
+/// available in Rayon's global thread pool (usually as many threads as logical cores).
+/// Otherwise, the evaluation is done in a single thread.
+pub fn evaluate_poly_with_offset<B, E>(
+    p: &[E],
+    twiddles: &[B],
+    domain_offset: B,
+    blowup_factor: usize,
+) -> Vec<E>
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
+    assert!(
+        p.len().is_power_of_two(),
+        "number of coefficients must be a power of 2"
+    );
+    assert!(
+        blowup_factor.is_power_of_two(),
+        "blowup factor must be a power of 2"
+    );
+    assert_eq!(
+        p.len(),
+        twiddles.len() * 2,
+        "invalid number of twiddles: expected {} but received {}",
+        p.len() / 2,
+        twiddles.len()
+    );
+
+    // assign a dummy value here to make the compiler happy
+    #[allow(unused_assignments)]
+    let mut result = Vec::new();
+
+    // when `concurrent` feature is enabled, run the concurrent version of the function; unless
+    // the polynomial is small, then don't bother with the concurrent version
+    if cfg!(feature = "concurrent") && p.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        {
+            result =
+                concurrent::evaluate_poly_with_offset(p, twiddles, domain_offset, blowup_factor);
+        }
+    } else {
+        result = serial::evaluate_poly_with_offset(p, twiddles, domain_offset, blowup_factor);
+    }
+
+    result
+}
+
+// POLYNOMIAL INTERPOLATION
+// ================================================================================================
+
+/// Uses FFT algorithm to interpolate a polynomial from provided `values`; the interpolation
+/// is done in-place, meaning `values` are updated with polynomial coefficients.
 ///
 /// When `concurrent` feature is enabled, the interpolation uses as many threads as are
 /// available in Rayon's global thread pool (usually as many threads as logical cores).
 /// Otherwise, the interpolation is done in a single thread.
-pub fn interpolate_poly<B, E>(v: &mut [E], inv_twiddles: &[B])
+pub fn interpolate_poly<B, E>(values: &mut [E], inv_twiddles: &[B])
 where
     B: StarkField,
     E: FieldElement + From<B>,
 {
     debug_assert!(
-        v.len().is_power_of_two(),
-        "number of values must be a power of 2"
+        values.len().is_power_of_two(),
+        "number of values must be a power of 2, but was {}",
+        values.len()
     );
-    debug_assert_eq!(
-        v.len(),
+    assert_eq!(
+        values.len(),
         inv_twiddles.len() * 2,
-        "invalid number of twiddles"
+        "invalid number of twiddles: expected {} but received {}",
+        values.len() / 2,
+        inv_twiddles.len()
     );
 
     // when `concurrent` feature is enabled, run the concurrent version of interpolate_poly;
     // unless the number of evaluations is small, then don't bother with the concurrent version
-    if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
+    if cfg!(feature = "concurrent") && values.len() >= MIN_CONCURRENT_SIZE {
         #[cfg(feature = "concurrent")]
-        concurrent::interpolate_poly(v, inv_twiddles);
+        concurrent::interpolate_poly(values, inv_twiddles);
     } else {
-        fft_in_place(v, &inv_twiddles, 1, 1, 0);
-        let inv_length = E::inv((v.len() as u64).into());
-        for e in v.iter_mut() {
-            *e = *e * inv_length;
-        }
-        permute_values(v);
+        serial::interpolate_poly(values, inv_twiddles);
+    }
+}
+
+/// Uses FFT algorithm to interpolate a polynomial from provided `values` over the domain defined
+/// by `inv_twiddles` and offset by `domain_offset` factor.
+///
+/// When `concurrent` feature is enabled, interpolation is done using as many threads as are
+/// available in Rayon's global thread pool (usually as many threads as logical cores).
+/// Otherwise, the interpolation is done in a single thread.
+pub fn interpolate_poly_with_offset<B, E>(values: &mut [E], inv_twiddles: &[B], domain_offset: B)
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
+    debug_assert!(
+        values.len().is_power_of_two(),
+        "number of values must be a power of 2, but was {}",
+        values.len()
+    );
+    assert_eq!(
+        values.len(),
+        inv_twiddles.len() * 2,
+        "invalid number of twiddles: expected {} but received {}",
+        values.len() / 2,
+        inv_twiddles.len()
+    );
+
+    // when `concurrent` feature is enabled, run the concurrent version of the function; unless
+    // the polynomial is small, then don't bother with the concurrent version
+    if cfg!(feature = "concurrent") && values.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        concurrent::interpolate_poly_with_offset(values, inv_twiddles, domain_offset);
+    } else {
+        serial::interpolate_poly_with_offset(values, inv_twiddles, domain_offset);
     }
 }
 
@@ -87,7 +180,7 @@ where
 ///
 /// When `concurrent` feature is enabled, twiddles are generated using as many threads as are
 /// available in Rayon's global thread pool (usually as many threads as logical cores).
-/// Otherwise, the generation is done in a single thread.
+/// Otherwise, the twiddles are generated in a single thread.
 pub fn get_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
     debug_assert!(
         domain_size.is_power_of_two(),
@@ -104,7 +197,7 @@ pub fn get_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
 ///
 /// When `concurrent` feature is enabled, twiddles are generated using as many threads as are
 /// available in Rayon's global thread pool (usually as many threads as logical cores).
-/// Otherwise, the generation is done in a single thread.
+/// Otherwise, the twiddles are generated in a single thread.
 pub fn get_inv_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
     debug_assert!(
         domain_size.is_power_of_two(),
@@ -117,66 +210,15 @@ pub fn get_inv_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
     inv_twiddles
 }
 
-// CORE FFT ALGORITHM
-// ================================================================================================
-
-/// In-place recursive FFT with permuted output.
-/// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
-fn fft_in_place<B, E>(values: &mut [E], twiddles: &[B], count: usize, stride: usize, offset: usize)
-where
-    B: StarkField,
-    E: FieldElement + From<B>,
-{
-    let size = values.len() / stride;
-    debug_assert!(size.is_power_of_two());
-    debug_assert!(offset < stride);
-    debug_assert_eq!(values.len() % size, 0);
-
-    // Keep recursing until size is 2
-    if size > 2 {
-        if stride == count && count < MAX_LOOP {
-            fft_in_place(values, twiddles, 2 * count, 2 * stride, offset);
-        } else {
-            fft_in_place(values, twiddles, count, 2 * stride, offset);
-            fft_in_place(values, twiddles, count, 2 * stride, offset + stride);
-        }
-    }
-
-    for offset in offset..(offset + count) {
-        butterfly(values, offset, stride);
-    }
-
-    let last_offset = offset + size * stride;
-    for (i, offset) in (offset..last_offset)
-        .step_by(2 * stride)
-        .enumerate()
-        .skip(1)
-    {
-        for j in offset..(offset + count) {
-            butterfly_twiddle(values, twiddles[i], j, stride);
-        }
-    }
-}
-
 // HELPER FUNCTIONS
 // ================================================================================================
 
 fn permute<E: FieldElement>(v: &mut [E]) {
     if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
         #[cfg(feature = "concurrent")]
-        concurrent::permute_values(v);
+        concurrent::permute(v);
     } else {
-        permute_values(v);
-    }
-}
-
-fn permute_values<T>(values: &mut [T]) {
-    let n = values.len();
-    for i in 0..n {
-        let j = permute_index(n, i);
-        if j > i {
-            values.swap(i, j);
-        }
+        serial::permute(v);
     }
 }
 
@@ -188,27 +230,4 @@ fn permute_index(size: usize, index: usize) -> usize {
     debug_assert!(size.is_power_of_two());
     let bits = size.trailing_zeros() as usize;
     index.reverse_bits() >> (USIZE_BITS - bits)
-}
-
-#[inline(always)]
-fn butterfly<E: FieldElement>(values: &mut [E], offset: usize, stride: usize) {
-    let i = offset;
-    let j = offset + stride;
-    let temp = values[i];
-    values[i] = temp + values[j];
-    values[j] = temp - values[j];
-}
-
-#[inline(always)]
-fn butterfly_twiddle<B, E>(values: &mut [E], twiddle: B, offset: usize, stride: usize)
-where
-    B: StarkField,
-    E: FieldElement + From<B>,
-{
-    let i = offset;
-    let j = offset + stride;
-    let temp = values[i];
-    values[j] = values[j] * E::from(twiddle);
-    values[i] = temp + values[j];
-    values[j] = temp - values[j];
 }

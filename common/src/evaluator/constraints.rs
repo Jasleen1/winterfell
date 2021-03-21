@@ -1,6 +1,6 @@
-use std::fmt::{Display, Formatter};
 use crate::{Assertion, ComputationContext};
 use math::field::{BaseElement, FieldElement};
+use std::fmt::{Display, Formatter};
 
 // CONSTRAINT DEGREE
 // ================================================================================================

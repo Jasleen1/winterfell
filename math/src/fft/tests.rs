@@ -3,13 +3,16 @@ use crate::{
     polynom,
 };
 
+// POLYNOMIAL EVALUATION
+// ================================================================================================
+
 #[test]
 fn fft_evaluate_poly() {
     let n = super::MIN_CONCURRENT_SIZE * 2;
     let mut p = build_random_element_vec(n);
 
-    let xs = build_domain(n);
-    let expected: Vec<BaseElement> = xs.into_iter().map(|x| polynom::eval(&p, x)).collect();
+    let domain = build_domain(n);
+    let expected = polynom::eval_many(&p, &domain);
 
     let twiddles = super::get_twiddles::<BaseElement>(n);
     super::evaluate_poly(&mut p, &twiddles);
@@ -17,15 +20,33 @@ fn fft_evaluate_poly() {
 }
 
 #[test]
+fn fft_evaluate_poly_with_offset() {
+    let offset = BaseElement::GENERATOR;
+    let blowup_factor = 2;
+    let m = super::MIN_CONCURRENT_SIZE * 2;
+    let n = m * blowup_factor;
+
+    let p = BaseElement::prng_vector([1; 32], m);
+
+    let domain = build_domain(n);
+    let shifted_domain = domain.iter().map(|&x| x * offset).collect::<Vec<_>>();
+    let expected = polynom::eval_many(&p, &shifted_domain);
+
+    let twiddles = super::get_twiddles::<BaseElement>(m);
+    let actual = super::evaluate_poly_with_offset(&p, &twiddles, offset, blowup_factor);
+    assert_eq!(expected, actual);
+}
+
+// POLYNOMIAL INTERPOLATION
+// ================================================================================================
+
+#[test]
 fn fft_interpolate_poly() {
     let n = super::MIN_CONCURRENT_SIZE * 2;
     let expected: Vec<BaseElement> = build_random_element_vec(n);
 
-    let xs = build_domain(n);
-    let mut ys: Vec<BaseElement> = xs
-        .into_iter()
-        .map(|x| polynom::eval(&expected, x))
-        .collect();
+    let domain = build_domain(n);
+    let mut ys = polynom::eval_many(&expected, &domain);
 
     let inv_twiddles = super::get_inv_twiddles::<BaseElement>(n);
     super::interpolate_poly(&mut ys, &inv_twiddles);
@@ -33,58 +54,62 @@ fn fft_interpolate_poly() {
 }
 
 #[test]
+fn fft_interpolate_poly_with_offset() {
+    let offset = BaseElement::GENERATOR;
+    let n = super::MIN_CONCURRENT_SIZE * 2;
+    let expected: Vec<BaseElement> = build_random_element_vec(n);
+
+    let domain = build_domain(n);
+    let shifted_domain = domain.iter().map(|&x| x * offset).collect::<Vec<_>>();
+    let mut ys = polynom::eval_many(&expected, &shifted_domain);
+
+    let inv_twiddles = super::get_inv_twiddles::<BaseElement>(n);
+    super::interpolate_poly_with_offset(&mut ys, &inv_twiddles, offset);
+    assert_eq!(expected, ys);
+}
+
+// CORE ALGORITHMS
+// ================================================================================================
+
+#[test]
 fn fft_in_place() {
     // degree 3
-    let mut p: [BaseElement; 4] = [
-        BaseElement::from(1u8),
-        BaseElement::from(2u8),
-        BaseElement::from(3u8),
-        BaseElement::from(4u8),
-    ];
-    let g = BaseElement::get_root_of_unity(2);
-    let xs = BaseElement::get_power_series(g, 4);
-    let expected: Vec<BaseElement> = xs.into_iter().map(|x| polynom::eval(&p, x)).collect();
-    let twiddles = super::get_twiddles::<BaseElement>(4);
-    super::fft_in_place(&mut p, &twiddles, 1, 1, 0);
+    let n = 4;
+    let mut p = build_random_element_vec(n);
+    let domain = build_domain(n);
+    let expected = polynom::eval_many(&p, &domain);
+    let twiddles = super::get_twiddles::<BaseElement>(n);
+    super::serial::fft_in_place(&mut p, &twiddles, 1, 1, 0);
     super::permute(&mut p);
     assert_eq!(expected, p);
 
     // degree 7
-    let mut p: Vec<BaseElement> = vec![1u8, 2, 3, 4, 5, 6, 7, 8]
-        .into_iter()
-        .map(BaseElement::from)
-        .collect();
-    let g = BaseElement::get_root_of_unity(3);
-    let twiddles = super::get_twiddles::<BaseElement>(8);
-    let xs = BaseElement::get_power_series(g, 8);
-    let expected: Vec<BaseElement> = xs.into_iter().map(|x| polynom::eval(&p, x)).collect();
-    super::fft_in_place(&mut p, &twiddles, 1, 1, 0);
+    let n = 8;
+    let mut p = build_random_element_vec(n);
+    let domain = build_domain(n);
+    let twiddles = super::get_twiddles::<BaseElement>(n);
+    let expected = polynom::eval_many(&p, &domain);
+    super::serial::fft_in_place(&mut p, &twiddles, 1, 1, 0);
     super::permute(&mut p);
     assert_eq!(expected, p);
 
     // degree 15
-    let mut p: Vec<BaseElement> = vec![1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
-        .into_iter()
-        .map(BaseElement::from)
-        .collect();
-    let g = BaseElement::get_root_of_unity(4);
+    let n = 16;
+    let mut p = build_random_element_vec(n);
+    let domain = build_domain(n);
     let twiddles = super::get_twiddles::<BaseElement>(16);
-    let xs = BaseElement::get_power_series(g, 16);
-    let expected: Vec<BaseElement> = xs.into_iter().map(|x| polynom::eval(&p, x)).collect();
-    super::fft_in_place(&mut p, &twiddles, 1, 1, 0);
+    let expected = polynom::eval_many(&p, &domain);
+    super::serial::fft_in_place(&mut p, &twiddles, 1, 1, 0);
     super::permute(&mut p);
     assert_eq!(expected, p);
 
     // degree 1023
-    let mut p = BaseElement::prng_vector(build_seed(), 1024);
-    let g = BaseElement::get_root_of_unity(10);
-    let roots = BaseElement::get_power_series(g, 1024);
-    let expected = roots
-        .iter()
-        .map(|x| polynom::eval(&p, *x))
-        .collect::<Vec<BaseElement>>();
-    let twiddles = super::get_twiddles::<BaseElement>(1024);
-    super::fft_in_place(&mut p, &twiddles, 1, 1, 0);
+    let n = 1024;
+    let mut p = build_random_element_vec(n);
+    let domain = build_domain(n);
+    let expected = polynom::eval_many(&p, &domain);
+    let twiddles = super::get_twiddles::<BaseElement>(n);
+    super::serial::fft_in_place(&mut p, &twiddles, 1, 1, 0);
     super::permute(&mut p);
     assert_eq!(expected, p);
 }
@@ -95,7 +120,7 @@ fn fft_get_twiddles() {
     let g = BaseElement::get_root_of_unity(n.trailing_zeros());
 
     let mut expected = BaseElement::get_power_series(g, n / 2);
-    super::permute_values(&mut expected);
+    super::permute(&mut expected);
 
     let twiddles = super::get_twiddles::<BaseElement>(n);
     assert_eq!(expected, twiddles);
