@@ -1,10 +1,6 @@
-use super::{
-    types::{CompositionPoly, ConstraintPoly, LdeDomain, PolyTable},
-    utils,
-};
+use super::{types::PolyTable, utils, CompositionPoly, ConstraintPoly};
 use common::{CompositionCoefficients, EvaluationFrame};
 use math::{
-    fft,
     field::{BaseElement, FieldElement, FromVec, StarkField},
     polynom,
 };
@@ -119,16 +115,6 @@ pub fn compose_constraint_poly<E: FieldElement + FromVec<BaseElement>>(
         &constraint_poly,
         cc.constraints,
     );
-}
-
-/// Evaluates DEEP composition polynomial over LDE domain.
-pub fn evaluate_composition_poly<E: FieldElement + From<BaseElement>>(
-    poly: CompositionPoly<E>,
-    lde_domain: &LdeDomain,
-) -> Vec<E> {
-    let mut evaluations = poly.into_vec();
-    fft::evaluate_poly(&mut evaluations, lde_domain.twiddles());
-    evaluations
 }
 
 // HELPER FUNCTIONS

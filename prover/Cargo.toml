@@ -7,11 +7,12 @@ edition = "2018"
 bench = false
 
 [features]
-concurrent = ["crypto/concurrent", "math/concurrent", "fri/concurrent"]
+concurrent = ["crypto/concurrent", "math/concurrent", "fri/concurrent", "rayon"]
 
 [dependencies]
 math = { path = "../math" }
 crypto = { path = "../crypto" }
 common = { path = "../common" }
 fri = { path = '../fri' }
+rayon = { version = "1.5", optional = true }
 log = "0.4"

@@ -1,4 +1,7 @@
-use crate::tests::{build_fib_trace, build_proof_context};
+use crate::{
+    monolith::ComputationDomain,
+    tests::{build_fib_trace, build_proof_context},
+};
 use crypto::{hash::blake3, MerkleTree};
 use math::{
     field::{AsBytes, BaseElement, FieldElement, StarkField},
@@ -31,9 +34,9 @@ fn extend_trace_table() {
     // build and extend trace table
     let trace_length = 8;
     let context = build_proof_context(trace_length, 2, 4);
-    let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
-    let lde_domain = super::LdeDomain::new(context.lde_domain_size());
-    let (trace, trace_polys) = super::extend_trace(trace, &lde_domain);
+    let mut trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
+    let domain = ComputationDomain::new(&context);
+    let trace_polys = trace.extend(&domain);
 
     assert_eq!(2, trace.num_registers());
     assert_eq!(32, trace.num_states());
@@ -60,11 +63,11 @@ fn extend_trace_table() {
     // make sure register values are consistent with trace polynomials
     assert_eq!(
         trace_polys.get_poly(0),
-        polynom::interpolate(&lde_domain.values(), trace.get_register(0), true)
+        polynom::interpolate(&domain.lde_values(), trace.get_register(0), true)
     );
     assert_eq!(
         trace_polys.get_poly(1),
-        polynom::interpolate(&lde_domain.values(), trace.get_register(1), true)
+        polynom::interpolate(&domain.lde_values(), trace.get_register(1), true)
     );
 }
 
@@ -73,12 +76,12 @@ fn commit_trace_table() {
     // build and extend trace table
     let trace_length = 8;
     let context = build_proof_context(trace_length, 2, 4);
-    let trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
-    let lde_domain = super::LdeDomain::new(context.lde_domain_size());
-    let (trace, _) = super::extend_trace(trace, &lde_domain);
+    let mut trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
+    let domain = ComputationDomain::new(&context);
+    let _ = trace.extend(&domain);
 
     // commit to the trace
-    let trace_tree = super::build_trace_tree(&trace, blake3);
+    let trace_tree = trace.build_commitment(blake3);
 
     // build Merkle tree from trace rows
     let mut hashed_states = Vec::new();

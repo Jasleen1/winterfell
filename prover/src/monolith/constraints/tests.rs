@@ -1,7 +1,6 @@
-use super::{utils::infer_degree, ConstraintEvaluationTable, LdeDomain};
+use super::{utils::infer_degree, ComputationDomain, ConstraintEvaluationTable};
 use crate::{
     channel::ProverChannel,
-    monolith::trace::{build_trace_tree, extend_trace},
     tests::{build_fib_trace, build_proof_context, FibEvaluator},
 };
 use common::{errors::*, Assertions, ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator};
@@ -201,7 +200,7 @@ fn test_build_constraint_poly() {
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_constraint_evaluations<T: TransitionEvaluator, E: FieldElement + FromVec<BaseElement>>(
-    trace: super::TraceTable,
+    mut trace: super::TraceTable,
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
     assertions: Assertions,
@@ -210,19 +209,20 @@ fn build_constraint_evaluations<T: TransitionEvaluator, E: FieldElement + FromVe
     // build proof context
     let context = build_proof_context(trace_length, ce_blowup_factor, lde_blowup_factor);
 
-    let lde_domain = LdeDomain::new(context.lde_domain_size());
-    let (extended_trace, _) = extend_trace(trace, &lde_domain);
+    let domain = ComputationDomain::new(&context);
+    let _ = trace.extend(&domain);
+    let extended_trace = trace;
 
     // commit to the trace
     let mut channel = ProverChannel::new(&context);
-    let trace_tree = build_trace_tree(&extended_trace, blake3);
+    let trace_tree = extended_trace.build_commitment(blake3);
     channel.commit_trace(*trace_tree.root());
 
     // build constraint evaluator
     let mut evaluator = ConstraintEvaluator::<T>::new(&channel, &context, assertions)?;
 
     // evaluate constraints
-    super::evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)
+    super::evaluate_constraints(&mut evaluator, &extended_trace, &domain)
 }
 
 fn build_fib_assertions(trace: &super::TraceTable, make_invalid: bool) -> Assertions {

@@ -6,12 +6,16 @@ use common::{
 use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 
+mod domain;
+use domain::ComputationDomain;
+
 mod types;
-use types::{CompositionPoly, ConstraintEvaluationTable, LdeDomain, TraceTable};
 
 mod constraints;
 mod deep_fri;
+
 mod trace;
+use trace::TraceTable;
 
 mod utils;
 
