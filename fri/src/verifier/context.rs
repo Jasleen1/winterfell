@@ -38,6 +38,10 @@ impl VerifierContext {
         self.domain_root
     }
 
+    pub fn domain_offset(&self) -> BaseElement {
+        self.options.domain_offset()
+    }
+
     pub fn num_partitions(&self) -> usize {
         self.num_partitions
     }

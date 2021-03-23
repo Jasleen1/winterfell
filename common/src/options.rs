@@ -1,5 +1,6 @@
 use crypto::HashFunction;
 use fri::FriOptions;
+use math::field::{BaseElement, FieldElement};
 use serde::{Deserialize, Serialize};
 
 // TYPES AND INTERFACES
@@ -106,8 +107,15 @@ impl ProofOptions {
         self.field_extension
     }
 
+    /// Returns the offset by which the low-degree extension domain is shifted in relation to the
+    /// trace domain. Currently, this is hard-coded to the generator of the underlying base field.
+    pub fn domain_offset(&self) -> BaseElement {
+        BaseElement::ONE // TODO: set to BaseElement::GENERATOR
+    }
+
+    /// Returns options for FRI protocol instantiated with parameters from this proof options.
     pub fn to_fri_options(&self) -> FriOptions {
-        FriOptions::new(self.blowup_factor(), self.hash_fn)
+        FriOptions::new(self.blowup_factor(), self.domain_offset(), self.hash_fn)
     }
 }
 

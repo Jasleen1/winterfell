@@ -8,13 +8,14 @@ use std::time::Duration;
 
 static BATCH_SIZES: [usize; 3] = [65536, 131072, 262144];
 static BLOWUP_FACTOR: usize = 8;
+static DOMAIN_OFFSET: BaseElement = BaseElement::GENERATOR;
 
 pub fn build_layers(c: &mut Criterion) {
     let mut fri_group = c.benchmark_group("FRI prover");
     fri_group.sample_size(10);
     fri_group.measurement_time(Duration::from_secs(10));
 
-    let options = FriOptions::new(BLOWUP_FACTOR, crypto::hash::blake3);
+    let options = FriOptions::new(BLOWUP_FACTOR, DOMAIN_OFFSET, crypto::hash::blake3);
 
     for &domain_size in &BATCH_SIZES {
         let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());

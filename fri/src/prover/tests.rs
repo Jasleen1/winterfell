@@ -14,10 +14,14 @@ pub fn build_prover_channel(trace_length: usize, options: &FriOptions) -> Defaul
     DefaultProverChannel::new(options.clone(), trace_length * options.blowup_factor(), 32)
 }
 
-pub fn build_lde_domain(trace_length: usize, lde_blowup: usize) -> Vec<BaseElement> {
+pub fn build_lde_domain(
+    trace_length: usize,
+    lde_blowup: usize,
+    offset: BaseElement,
+) -> Vec<BaseElement> {
     let domain_size = trace_length * lde_blowup;
     let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-    BaseElement::get_power_series(g, domain_size)
+    BaseElement::get_power_series_with_offset(g, offset, domain_size)
 }
 
 pub fn build_evaluations(

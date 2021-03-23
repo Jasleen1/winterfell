@@ -129,7 +129,7 @@ impl ComputationContext {
     }
 
     pub fn domain_offset(&self) -> BaseElement {
-        BaseElement::ONE // TODO: switch to BaseElement::GENERATOR;
+        self.options.domain_offset()
     }
 
     // UTILITY FUNCTIONS

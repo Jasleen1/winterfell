@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{FriOptions, PublicCoin};
 use kompact::prelude::*;
+use math::field::{BaseElement, FieldElement};
 use std::{net::SocketAddr, time::Duration};
 
 // CONSTANTS
@@ -21,8 +22,9 @@ fn distributed_fri_prove_verify() {
     let trace_length = 512; // TODO: set to larger value - e.g. 4096
     let ce_blowup = 2;
     let lde_blowup = 8;
+    let domain_offset = BaseElement::ONE; // TODO: make work with non-unary offset
 
-    let options = FriOptions::new(lde_blowup, crypto::hash::blake3);
+    let options = FriOptions::new(lde_blowup, domain_offset, crypto::hash::blake3);
     let mut channel = build_prover_channel(trace_length, &options);
     let evaluations = build_evaluations(trace_length, lde_blowup, ce_blowup);
 
