@@ -1,4 +1,4 @@
-use super::{utils, ComputationDomain, TraceTable};
+use super::{utils, StarkDomain, TraceTable};
 use common::{
     errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintDivisor,
     ConstraintEvaluator, TransitionEvaluator,
@@ -26,7 +26,7 @@ mod tests;
 pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseElement>>(
     evaluator: &mut ConstraintEvaluator<T>,
     extended_trace: &TraceTable,
-    domain: &ComputationDomain,
+    domain: &StarkDomain,
 ) -> Result<ConstraintEvaluationTable<E>, ProverError> {
     // constraints are evaluated over a constraint evaluation domain. this is an optimization
     // because constraint evaluation domain can be many times smaller than the full LDE domain.

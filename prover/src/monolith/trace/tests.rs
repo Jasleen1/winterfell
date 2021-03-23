@@ -1,5 +1,5 @@
 use crate::{
-    monolith::ComputationDomain,
+    monolith::StarkDomain,
     tests::{build_fib_trace, build_proof_context},
 };
 use crypto::{hash::blake3, MerkleTree};
@@ -35,7 +35,7 @@ fn extend_trace_table() {
     let trace_length = 8;
     let context = build_proof_context(trace_length, 2, 4);
     let mut trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
-    let domain = ComputationDomain::new(&context);
+    let domain = StarkDomain::new(&context);
     let trace_polys = trace.extend(&domain);
 
     assert_eq!(2, trace.num_registers());
@@ -77,7 +77,7 @@ fn commit_trace_table() {
     let trace_length = 8;
     let context = build_proof_context(trace_length, 2, 4);
     let mut trace = super::TraceTable::new(build_fib_trace(trace_length * 2));
-    let domain = ComputationDomain::new(&context);
+    let domain = StarkDomain::new(&context);
     let _ = trace.extend(&domain);
 
     // commit to the trace

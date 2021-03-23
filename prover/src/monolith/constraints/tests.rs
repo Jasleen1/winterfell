@@ -1,4 +1,4 @@
-use super::{utils::infer_degree, ComputationDomain, ConstraintEvaluationTable};
+use super::{utils::infer_degree, ConstraintEvaluationTable, StarkDomain};
 use crate::{
     channel::ProverChannel,
     tests::{build_fib_trace, build_proof_context, FibEvaluator},
@@ -209,7 +209,7 @@ fn build_constraint_evaluations<T: TransitionEvaluator, E: FieldElement + FromVe
     // build proof context
     let context = build_proof_context(trace_length, ce_blowup_factor, lde_blowup_factor);
 
-    let domain = ComputationDomain::new(&context);
+    let domain = StarkDomain::new(&context);
     let _ = trace.extend(&domain);
     let extended_trace = trace;
 

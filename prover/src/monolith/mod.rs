@@ -7,7 +7,7 @@ use math::field::{BaseElement, QuadExtension};
 use std::marker::PhantomData;
 
 mod domain;
-use domain::ComputationDomain;
+use domain::StarkDomain;
 
 mod types;
 

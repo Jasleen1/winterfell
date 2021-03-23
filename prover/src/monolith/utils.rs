@@ -15,17 +15,6 @@ pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
     }
 }
 
-/// Computes a[i] + b[i] * c for all i and saves result into a.
-pub fn mul_acc<E: FieldElement>(a: &mut [E], b: &[E], c: E) {
-    assert!(
-        a.len() == b.len(),
-        "number of values must be the same for both slices"
-    );
-    for i in 0..a.len() {
-        a[i] = a[i] + b[i] * c;
-    }
-}
-
 /// Determines degree of a polynomial implied by the provided evaluations
 pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> usize {
     assert!(

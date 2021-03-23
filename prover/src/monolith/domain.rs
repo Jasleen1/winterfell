@@ -7,7 +7,7 @@ use math::{
 // TYPES AND INTERFACES
 // ================================================================================================
 
-pub struct ComputationDomain {
+pub struct StarkDomain {
     /// Contains all values in the low-degree extension domain. Length of this vector is the same
     /// as the size of LDE domain.
     lde_domain: Vec<BaseElement>,
@@ -21,16 +21,16 @@ pub struct ComputationDomain {
     ce_twiddles: Vec<BaseElement>,
 }
 
-// COMPUTATION DOMAIN IMPLEMENTATION
+// STARK DOMAIN IMPLEMENTATION
 // ================================================================================================
 
-impl ComputationDomain {
-    /// Returns a new computation domain initialized with the provided `context`.
+impl StarkDomain {
+    /// Returns a new STARK domain initialized with the provided `context`.
     pub fn new(context: &ComputationContext) -> Self {
         let lde_domain = build_lde_domain(context.lde_domain_size(), context.domain_offset());
         let trace_twiddles = fft::get_twiddles(context.trace_length());
         let ce_twiddles = fft::get_twiddles(context.ce_domain_size());
-        ComputationDomain {
+        StarkDomain {
             lde_domain,
             trace_twiddles,
             ce_twiddles,

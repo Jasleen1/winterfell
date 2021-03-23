@@ -1,4 +1,4 @@
-use super::ComputationDomain;
+use super::StarkDomain;
 use common::ConstraintDivisor;
 use math::{
     fft,
@@ -100,7 +100,7 @@ impl<E: FieldElement + From<BaseElement>> ConstraintPoly<E> {
     }
 
     /// Evaluates constraint polynomial over the specified LDE domain and returns the result.
-    pub fn evaluate(&self, domain: &ComputationDomain) -> Vec<E> {
+    pub fn evaluate(&self, domain: &StarkDomain) -> Vec<E> {
         assert_eq!(
             self.len(),
             domain.ce_domain_size(),

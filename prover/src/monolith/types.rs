@@ -1,5 +1,5 @@
 use math::{
-    field::{BaseElement, FieldElement, FromVec},
+    field::{BaseElement, FieldElement},
     polynom,
 };
 
@@ -33,10 +33,12 @@ impl PolyTable {
     }
 
     /// Evaluates all polynomials the the specified point `x`.
-    pub fn evaluate_at<E: FieldElement + FromVec<BaseElement>>(&self, x: E) -> Vec<E> {
+    pub fn evaluate_at<E: FieldElement + From<BaseElement>>(&self, x: E) -> Vec<E> {
         let mut result = Vec::with_capacity(self.num_polys());
         for poly in self.0.iter() {
-            result.push(polynom::eval(&E::from_vec(&poly), x));
+            // TODO: find a better ay to do this (ideally, with zero-copy)
+            let poly = poly.iter().map(|&c| E::from(c)).collect::<Vec<_>>();
+            result.push(polynom::eval(&poly, x));
         }
         result
     }

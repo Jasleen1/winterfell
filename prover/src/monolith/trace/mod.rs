@@ -1,4 +1,4 @@
-use super::{types::PolyTable, ComputationDomain};
+use super::{types::PolyTable, StarkDomain};
 use common::utils::uninit_vector;
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::{
@@ -88,7 +88,7 @@ impl TraceTable {
     /// Extends all registers of the trace table to the length of the LDE domain; The extension
     /// is done by first interpolating a register into a polynomial and then evaluating the
     /// polynomial over the LDE domain.
-    pub fn extend(&mut self, domain: &ComputationDomain) -> PolyTable {
+    pub fn extend(&mut self, domain: &StarkDomain) -> PolyTable {
         assert_eq!(
             self.num_states(),
             domain.trace_length(),
@@ -127,12 +127,32 @@ impl TraceTable {
         // allocate vector to store row hashes
         let mut hashed_states = uninit_vector::<[u8; 32]>(self.num_states());
 
-        // iterate though table rows, hashing each row
-        let mut trace_state = vec![BaseElement::ZERO; self.num_registers()];
-        #[allow(clippy::needless_range_loop)]
-        for i in 0..self.num_states() {
-            self.copy_row(i, &mut trace_state);
-            hash(trace_state.as_slice().as_bytes(), &mut hashed_states[i]);
+        // iterate though table rows, hashing each row; the hashing is done by first copying
+        // the state into trace_state buffer to avoid unneeded allocations, and then by applying
+        // the hash function to the buffer.
+        #[cfg(feature = "concurrent")]
+        {
+            let batch_size = hashed_states.len() / rayon::current_num_threads().next_power_of_two();
+            hashed_states
+                .par_chunks_mut(batch_size)
+                .enumerate()
+                .for_each(|(batch_idx, hashed_states_batch)| {
+                    let offset = batch_idx * batch_size;
+                    let mut trace_state = vec![BaseElement::ZERO; self.num_registers()];
+                    for (i, row_hash) in hashed_states_batch.iter_mut().enumerate() {
+                        self.copy_row(i + offset, &mut trace_state);
+                        hash(trace_state.as_slice().as_bytes(), row_hash);
+                    }
+                });
+        }
+
+        #[cfg(not(feature = "concurrent"))]
+        {
+            let mut trace_state = vec![BaseElement::ZERO; self.num_registers()];
+            for (i, row_hash) in hashed_states.iter_mut().enumerate() {
+                self.copy_row(i, &mut trace_state);
+                hash(trace_state.as_slice().as_bytes(), row_hash);
+            }
         }
 
         // build Merkle tree out of hashed rows
@@ -151,7 +171,7 @@ impl TraceTable {
         assert_eq!(
             self.num_states(),
             commitment.leaves().len(),
-            "inconsistent commitment"
+            "inconsistent trace table commitment"
         );
 
         // allocate memory for queried trace states
@@ -177,7 +197,7 @@ impl TraceTable {
 #[inline(always)]
 fn extend_register(
     trace: &mut [BaseElement],
-    domain: &ComputationDomain,
+    domain: &StarkDomain,
     inv_twiddles: &[BaseElement],
 ) -> Vec<BaseElement> {
     let domain_offset = domain.offset();
