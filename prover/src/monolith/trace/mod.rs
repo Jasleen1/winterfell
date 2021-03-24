@@ -204,9 +204,10 @@ fn extend_register(
     let twiddles = domain.trace_twiddles();
     let blowup_factor = domain.trace_to_lde_blowup();
 
-    // interpolate register trace into a polynomial
-    fft::interpolate_poly_with_offset(trace, inv_twiddles, domain_offset);
+    // interpolate register trace into a polynomial; we do this over the un-shifted trace_domain
+    fft::interpolate_poly(trace, inv_twiddles);
 
-    // evaluate the polynomial over extended domain
+    // evaluate the polynomial over extended domain; the domain may be shifted by the
+    // domain_offset
     fft::evaluate_poly_with_offset(trace, twiddles, domain_offset, blowup_factor)
 }

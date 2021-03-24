@@ -66,18 +66,13 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
         extended_trace.copy_row(lde_step, &mut current);
         extended_trace.copy_row(next_lde_step, &mut next);
 
+        let x = lde_domain[lde_step];
+
         // pass the current and next rows of the trace table through the constraint evaluator
-        let mut evaluation_row =
-            evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
+        let mut evaluation_row = evaluator.evaluate_at_step(&current, &next, x, i)?;
 
         // evaluate assertion constraints
-        evaluate_assertions(
-            &assertion_constraints,
-            &current,
-            lde_domain[lde_step],
-            i,
-            &mut evaluation_row,
-        );
+        evaluate_assertions(&assertion_constraints, &current, x, i, &mut evaluation_row);
 
         // record the result in the evaluation table
         for (j, &evaluation) in evaluation_row.iter().enumerate() {
