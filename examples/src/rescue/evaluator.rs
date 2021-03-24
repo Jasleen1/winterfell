@@ -52,19 +52,31 @@ impl TransitionEvaluator for RescueEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
-        let (inv_twiddles, ev_twiddles) =
-            build_cyclic_domain(CYCLE_LENGTH, context.ce_blowup_factor());
+        let (inv_twiddles, ev_twiddles) = build_cyclic_domain(CYCLE_LENGTH);
+        let trace_length = context.trace_length();
+        let blowup_factor = context.ce_blowup_factor();
 
         // extend the mask constants to match constraint evaluation domain
-        let (mask_poly, mask_constants) =
-            extend_cyclic_values(&CYCLE_MASK, &inv_twiddles, &ev_twiddles);
+        let (mask_poly, mask_constants) = extend_cyclic_values(
+            &CYCLE_MASK,
+            &inv_twiddles,
+            &ev_twiddles,
+            blowup_factor,
+            trace_length,
+        );
 
         // extend Rescue round constants to match constraint evaluation domain
         let mut ark_polys = Vec::new();
         let mut ark_evaluations = Vec::new();
 
         for constant in rescue::get_round_constants().into_iter() {
-            let (poly, evaluations) = extend_cyclic_values(&constant, &inv_twiddles, &ev_twiddles);
+            let (poly, evaluations) = extend_cyclic_values(
+                &constant,
+                &inv_twiddles,
+                &ev_twiddles,
+                blowup_factor,
+                trace_length,
+            );
             ark_polys.push(poly);
             ark_evaluations.push(evaluations);
         }
@@ -82,7 +94,7 @@ impl TransitionEvaluator for RescueEvaluator {
             mask_constants,
             ark_constants,
             ark_polys,
-            trace_length: context.trace_length(),
+            trace_length,
         }
     }
 
@@ -122,7 +134,7 @@ impl TransitionEvaluator for RescueEvaluator {
     ) {
         // map x to the corresponding coordinate in constant cycles
         let num_cycles = (self.trace_length / CYCLE_LENGTH) as u32;
-        let x = E::exp(x, num_cycles.into());
+        let x = x.exp(num_cycles.into());
 
         // determine round constants at the specified x coordinate; we do this by
         // evaluating polynomials for round constants the augmented x coordinate

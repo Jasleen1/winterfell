@@ -1,4 +1,5 @@
 use crypto::HashFunction;
+use math::field::BaseElement;
 
 // CONSTANTS
 // ================================================================================================
@@ -12,6 +13,7 @@ pub const FOLDING_FACTOR: usize = 4;
 
 #[derive(Clone)]
 pub struct FriOptions {
+    domain_offset: BaseElement,
     folding_factor: usize,
     max_remainder_length: usize,
     blowup_factor: usize,
@@ -19,13 +21,18 @@ pub struct FriOptions {
 }
 
 impl FriOptions {
-    pub fn new(blowup_factor: usize, hash_fn: HashFunction) -> Self {
+    pub fn new(blowup_factor: usize, domain_offset: BaseElement, hash_fn: HashFunction) -> Self {
         FriOptions {
+            domain_offset,
             folding_factor: FOLDING_FACTOR,
             max_remainder_length: MAX_REMAINDER_LENGTH,
             blowup_factor,
             hash_fn,
         }
+    }
+
+    pub fn domain_offset(&self) -> BaseElement {
+        self.domain_offset
     }
 
     pub fn folding_factor(&self) -> usize {

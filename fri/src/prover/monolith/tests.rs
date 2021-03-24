@@ -1,3 +1,5 @@
+use math::field::{BaseElement, StarkField};
+
 use super::{
     super::tests::{build_evaluations, build_lde_domain, build_prover_channel, verify_proof},
     FriProver,
@@ -9,11 +11,12 @@ fn sequential_fri_prove_verify() {
     let trace_length = 4096;
     let ce_blowup = 2;
     let lde_blowup = 8;
+    let offset = BaseElement::GENERATOR;
 
-    let options = FriOptions::new(lde_blowup, crypto::hash::blake3);
+    let options = FriOptions::new(lde_blowup, offset, crypto::hash::blake3);
     let mut channel = build_prover_channel(trace_length, &options);
     let evaluations = build_evaluations(trace_length, lde_blowup, ce_blowup);
-    let lde_domain = build_lde_domain(trace_length, lde_blowup);
+    let lde_domain = build_lde_domain(trace_length, lde_blowup, offset);
 
     // instantiate the prover and generate the proof
     let mut prover = FriProver::new(options.clone());
@@ -32,5 +35,5 @@ fn sequential_fri_prove_verify() {
         &positions,
         &options,
     );
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "{:}", result.err().unwrap());
 }

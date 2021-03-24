@@ -56,6 +56,13 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
             evaluations.len() == domain.len(),
             "number of evaluations must match the domain size"
         );
+        assert_eq!(
+            domain[0],
+            self.options.domain_offset(),
+            "inconsistent domain offset; expected {}, but was: {}",
+            self.options.domain_offset(),
+            domain[0]
+        );
         assert!(
             self.layers.is_empty(),
             "a prior proof generation request has not been completed yet"

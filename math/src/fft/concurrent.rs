@@ -1,24 +1,103 @@
-use crate::field::{FieldElement, StarkField};
+use crate::{
+    field::{FieldElement, StarkField},
+    utils::uninit_vector,
+};
 use rayon::prelude::*;
 
-// CONCURRENT VERSIONS OF FFT FUNCTIONS
+// POLYNOMIAL EVALUATION
 // ================================================================================================
 
-pub fn evaluate_poly<B: StarkField, E: FieldElement + From<B>>(p: &mut [E], twiddles: &[B]) {
+/// Evaluates polynomial `p` using FFT algorithm; the evaluation is done in-place, meaning
+/// `p` is updated with results of the evaluation.
+pub fn evaluate_poly<B, E>(p: &mut [E], twiddles: &[B])
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
     split_radix_fft(p, twiddles);
-    permute_values(p);
+    permute(p);
 }
 
-pub fn interpolate_poly<B: StarkField, E: FieldElement + From<B>>(v: &mut [E], inv_twiddles: &[B]) {
+/// Evaluates polynomial `p` using FFT algorithm and returns the result. The polynomial is
+/// evaluated over domain specified by `twiddles`, expanded by the `blowup_factor`, and shifted
+/// by the `domain_offset`.
+pub fn evaluate_poly_with_offset<B, E>(
+    p: &[E],
+    twiddles: &[B],
+    domain_offset: B,
+    blowup_factor: usize,
+) -> Vec<E>
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
+    let domain_size = p.len() * blowup_factor;
+    let g = B::get_root_of_unity(domain_size.trailing_zeros());
+    let mut result = uninit_vector(domain_size);
+
+    result
+        .as_mut_slice()
+        .par_chunks_mut(p.len())
+        .enumerate()
+        .for_each(|(i, chunk)| {
+            let idx = super::permute_index(blowup_factor, i) as u64;
+            let offset = E::from(g.exp(idx.into()) * domain_offset);
+            clone_and_shift(p, chunk, offset);
+            split_radix_fft(chunk, twiddles);
+        });
+
+    permute(&mut result);
+    result
+}
+
+// POLYNOMIAL INTERPOLATION
+// ================================================================================================
+
+/// Uses FFT algorithm to interpolate a polynomial from provided `values`; the interpolation
+/// is done in-place, meaning `values` are updated with polynomial coefficients.
+pub fn interpolate_poly<B, E>(v: &mut [E], inv_twiddles: &[B])
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
     split_radix_fft(v, inv_twiddles);
     let inv_length = E::inv((v.len() as u64).into());
     v.par_iter_mut().for_each(|e| {
         *e = *e * inv_length;
     });
-    permute_values(v);
+    permute(v);
 }
 
-pub fn permute_values<E: FieldElement>(v: &mut [E]) {
+/// Uses FFT algorithm to interpolate a polynomial from provided `values` over the domain defined
+/// by `inv_twiddles` and offset by `domain_offset` factor.
+pub fn interpolate_poly_with_offset<B, E>(values: &mut [E], inv_twiddles: &[B], domain_offset: B)
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
+    split_radix_fft(values, inv_twiddles);
+    permute(values);
+
+    let domain_offset = E::inv(domain_offset.into());
+    let inv_len = E::inv((values.len() as u64).into());
+    let batch_size = values.len() / rayon::current_num_threads().next_power_of_two();
+
+    values
+        .par_chunks_mut(batch_size)
+        .enumerate()
+        .for_each(|(i, batch)| {
+            let mut offset = domain_offset.exp(((i * batch_size) as u64).into()) * inv_len;
+            for coeff in batch.iter_mut() {
+                *coeff = *coeff * offset;
+                offset = offset * domain_offset;
+            }
+        });
+}
+
+// PERMUTATIONS
+// ================================================================================================
+
+pub fn permute<E: FieldElement>(v: &mut [E]) {
     let n = v.len();
     let num_batches = rayon::current_num_threads().next_power_of_two();
     let batch_size = n / num_batches;
@@ -46,7 +125,10 @@ pub fn permute_values<E: FieldElement>(v: &mut [E]) {
 
 /// In-place recursive FFT with permuted output.
 /// Adapted from: https://github.com/0xProject/OpenZKP/tree/master/algebra/primefield/src/fft
-pub fn split_radix_fft<B: StarkField, E: FieldElement + From<B>>(values: &mut [E], twiddles: &[B]) {
+pub(super) fn split_radix_fft<B: StarkField, E: FieldElement + From<B>>(
+    values: &mut [E],
+    twiddles: &[B],
+) {
     // generator of the domain should be in the middle of twiddles
     let n = values.len();
     let g = E::from(twiddles[twiddles.len() / 2]);
@@ -64,7 +146,7 @@ pub fn split_radix_fft<B: StarkField, E: FieldElement + From<B>>(values: &mut [E
     // apply inner FFTs
     values
         .par_chunks_mut(outer_len)
-        .for_each(|row| super::fft_in_place(row, &twiddles, stretch, stretch, 0));
+        .for_each(|row| super::serial::fft_in_place(row, &twiddles, stretch, stretch, 0));
 
     // transpose inner x inner x stretch square matrix
     transpose_square_stretch(values, inner_len, stretch);
@@ -83,7 +165,7 @@ pub fn split_radix_fft<B: StarkField, E: FieldElement + From<B>>(values: &mut [E
                     outer_twiddle = outer_twiddle * inner_twiddle;
                 }
             }
-            super::fft_in_place(row, &twiddles, 1, 1, 0)
+            super::serial::fft_in_place(row, &twiddles, 1, 1, 0)
         });
 }
 
@@ -132,4 +214,22 @@ fn transpose_square_2<T>(matrix: &mut [T], size: usize) {
             matrix.swap(i + 1, j + 1);
         }
     }
+}
+
+// HELPER FUNCTIONS
+// ================================================================================================
+
+fn clone_and_shift<E: FieldElement>(source: &[E], destination: &mut [E], offset: E) {
+    let batch_size = source.len() / rayon::current_num_threads().next_power_of_two();
+    source
+        .par_chunks(batch_size)
+        .zip(destination.par_chunks_mut(batch_size))
+        .enumerate()
+        .for_each(|(i, (source, destination))| {
+            let mut factor = offset.exp(((i * batch_size) as u64).into());
+            for (s, d) in source.iter().zip(destination.iter_mut()) {
+                *d = *s * factor;
+                factor = factor * offset;
+            }
+        });
 }

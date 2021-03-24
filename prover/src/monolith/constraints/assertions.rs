@@ -3,6 +3,7 @@ use math::{
     fft,
     field::{BaseElement, FieldElement},
 };
+use std::collections::HashMap;
 
 // CONSTANTS
 // ================================================================================================
@@ -22,18 +23,15 @@ pub fn prepare_assertion_constraints<T: TransitionEvaluator>(
     evaluator: &ConstraintEvaluator<T>,
     divisors: &mut Vec<ConstraintDivisor>,
 ) -> Vec<AssertionConstraintGroup> {
-    let mut twiddles = Vec::new();
     let mut groups = Vec::with_capacity(evaluator.assertion_constraints().len());
+    let mut twiddle_map = HashMap::new();
     for group in evaluator.assertion_constraints() {
-        // if the group contains large polynomial constraints, and we haven't built twiddles yet
-        // build them
-        if group.max_poly_degree() >= SMALL_POLY_DEGREE && twiddles.is_empty() {
-            twiddles = fft::get_twiddles(evaluator.ce_domain_size());
-        }
         groups.push(AssertionConstraintGroup::new(
             group,
-            &twiddles,
+            evaluator.ce_domain_size(),
             evaluator.ce_blowup_factor(),
+            evaluator.domain_offset(),
+            &mut twiddle_map,
         ));
         divisors.push(group.divisor().clone());
     }
@@ -83,8 +81,10 @@ impl AssertionConstraintGroup {
     /// evaluating large polynomial constraints (if any).
     pub fn new(
         group: &common::AssertionConstraintGroup,
-        twiddles: &[BaseElement],
+        ce_domain_size: usize,
         ce_blowup_factor: usize,
+        domain_offset: BaseElement,
+        twiddle_map: &mut HashMap<usize, Vec<BaseElement>>,
     ) -> AssertionConstraintGroup {
         let mut result = AssertionConstraintGroup {
             degree_adjustment: group.degree_adjustment(),
@@ -108,10 +108,19 @@ impl AssertionConstraintGroup {
                     coefficients: *constraint.cc(),
                 });
             } else {
-                // evaluate the polynomial over the entire constraint evaluation domain
-                let mut values = vec![BaseElement::ZERO; twiddles.len() * 2];
-                values[..constraint.poly().len()].copy_from_slice(constraint.poly());
-                fft::evaluate_poly(&mut values, twiddles);
+                // evaluate the polynomial over the entire constraint evaluation domain; first
+                // get twiddles for the evaluation; if twiddles haven't been built yet, build them
+                let poly_length = constraint.poly().len();
+                let twiddles = twiddle_map
+                    .entry(poly_length)
+                    .or_insert_with(|| fft::get_twiddles(poly_length));
+
+                let values = fft::evaluate_poly_with_offset(
+                    constraint.poly(),
+                    &twiddles,
+                    domain_offset,
+                    ce_domain_size / poly_length,
+                );
 
                 result.large_poly_constraints.push(LargePolyConstraint {
                     register: constraint.register(),

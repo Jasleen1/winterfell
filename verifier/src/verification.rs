@@ -39,9 +39,10 @@ where
 
     // compute LDE domain coordinates for all query positions
     let g_lde = context.generators().lde_domain;
+    let domain_offset = context.domain_offset();
     let x_coordinates: Vec<BaseElement> = query_positions
         .iter()
-        .map(|&p| BaseElement::exp(g_lde, p as u128))
+        .map(|&p| g_lde.exp((p as u64).into()) * domain_offset)
         .collect();
 
     // read trace states and constraint evaluations at the queried positions; this also
@@ -134,7 +135,7 @@ fn compose_registers<E: FieldElement + From<BaseElement>>(
         }
 
         // raise the degree to match composition degree
-        let xp = E::exp(x, incremental_degree.into());
+        let xp = x.exp(incremental_degree.into());
         composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
 
         result.push(composition);

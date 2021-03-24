@@ -8,19 +8,19 @@ use std::time::Instant;
 
 use super::{
     constraints::{
-        build_constraint_poly, build_constraint_tree, evaluate_constraints,
-        extend_constraint_evaluations, query_constraints,
+        build_constraint_poly, build_constraint_tree, evaluate_constraints, query_constraints,
+        ConstraintEvaluationTable,
     },
-    deep_fri::{compose_constraint_poly, compose_trace_polys, evaluate_composition_poly},
-    trace::{build_trace_tree, extend_trace, query_trace},
-    utils, CompositionPoly, ConstraintEvaluationTable, LdeDomain, ProverChannel, TraceTable,
+    deep_fri::CompositionPoly,
+    trace::TraceTable,
+    utils, ProverChannel, StarkDomain,
 };
 
 // PROOF GENERATION PROCEDURE
 // ================================================================================================
 
 pub fn generate_proof<T, E>(
-    trace: TraceTable,
+    mut trace: TraceTable,
     assertions: Assertions,
     context: ComputationContext,
 ) -> Result<StarkProof, ProverError>
@@ -35,19 +35,20 @@ where
 
     // 1 ----- extend execution trace -------------------------------------------------------------
 
-    // build LDE domain; this is used later for polynomial evaluations
+    // build computation domain; this is used later for polynomial evaluations
     let now = Instant::now();
-    let lde_domain = LdeDomain::new(context.lde_domain_size());
+    let domain = StarkDomain::new(&context);
     debug!(
-        "Built LDE domain of 2^{} elements in {} ms",
-        log2(lde_domain.size()),
+        "Built domain of 2^{} elements in {} ms",
+        log2(domain.lde_domain_size()),
         now.elapsed().as_millis()
     );
 
     // extend the execution trace; this interpolates each register of the trace into a polynomial,
     // and then evaluates the polynomial over the LDE domain; each of the trace polynomials has
     // degree = trace_length - 1
-    let (extended_trace, trace_polys) = extend_trace(trace, &lde_domain);
+    let trace_polys = trace.extend(&domain);
+    let extended_trace = trace;
     debug!(
         "Extended execution trace of {} registers from 2^{} to 2^{} steps ({}x blowup) in {} ms",
         extended_trace.num_registers(),
@@ -59,7 +60,7 @@ where
 
     // 2 ----- commit to the extended execution trace -----------------------------------------
     let now = Instant::now();
-    let trace_tree = build_trace_tree(&extended_trace, context.options().hash_fn());
+    let trace_tree = extended_trace.build_commitment(context.options().hash_fn());
     channel.commit_trace(*trace_tree.root());
     debug!(
         "Committed to extended execution trace by building a Merkle tree of depth {} in {} ms",
@@ -78,7 +79,7 @@ where
     // apply constraint evaluator to the extended trace table to generate a
     // constraint evaluation table
     let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
-        evaluate_constraints(&mut evaluator, &extended_trace, &lde_domain)?;
+        evaluate_constraints(&mut evaluator, &extended_trace, &domain)?;
     debug!(
         "Evaluated constraints over domain of 2^{} elements in {} ms",
         log2(constraint_evaluations.domain_size()),
@@ -98,8 +99,7 @@ where
 
     // then, evaluate constraint polynomial over the LDE domain
     let now = Instant::now();
-    let combined_constraint_evaluations =
-        extend_constraint_evaluations(&constraint_poly, &lde_domain);
+    let combined_constraint_evaluations = constraint_poly.evaluate(&domain);
     debug!(
         "Evaluated constraint polynomial over LDE domain (2^{} elements) in {} ms",
         log2(combined_constraint_evaluations.len()),
@@ -120,8 +120,8 @@ where
     // 5 ----- build DEEP composition polynomial ----------------------------------------------
     let now = Instant::now();
 
-    // draw an out-of-domain point z from the base field. If the extension_field feature flag is
-    // enabled, then a random point from the extension field is sampled.
+    // draw an out-of-domain point z. Depending on the type of E, the point is drawn either
+    // from the base field or from an extension field defined by E.
     //
     // The purpose of sampling from the extension field here (instead of the base field) is to
     // increase security. Soundness is limited by the size of the field that the random point
@@ -129,19 +129,18 @@ where
     // from an extension field, rather than increasing the size of the field overall.
     let z = channel.draw_deep_point::<E>();
 
-    // allocate memory for the composition polynomial; this will allocate enough memory to
-    // hold composition polynomial evaluations over the LDE domain (done in the next step)
-    let mut composition_poly = CompositionPoly::new(&context);
-
     // draw random coefficients to use during polynomial composition
     let coefficients = channel.draw_composition_coefficients();
 
+    // initialize composition polynomial
+    let mut composition_poly = CompositionPoly::new(&context, z, coefficients);
+
     // combine all trace polynomials together and merge them into the composition polynomial;
     // ood_frame are trace states at two out-of-domain points, and will go into the proof
-    let ood_frame = compose_trace_polys(&mut composition_poly, trace_polys, z, &coefficients);
+    let ood_frame = composition_poly.add_trace_polys(trace_polys);
 
     // merge constraint polynomial into the composition polynomial
-    compose_constraint_poly(&mut composition_poly, constraint_poly, z, &coefficients);
+    composition_poly.add_constraint_poly(constraint_poly);
 
     debug!(
         "Built DEEP composition polynomial of degree {} in {} ms",
@@ -151,7 +150,7 @@ where
 
     // 6 ----- evaluate DEEP composition polynomial over LDE domain ---------------------------
     let now = Instant::now();
-    let composed_evaluations = evaluate_composition_poly(composition_poly, &lde_domain);
+    let composed_evaluations = composition_poly.evaluate(&domain);
     debug_assert_eq!(
         context.deep_composition_degree(),
         utils::infer_degree(&composed_evaluations)
@@ -165,7 +164,7 @@ where
     // 7 ----- compute FRI layers for the composition polynomial ------------------------------
     let now = Instant::now();
     let mut fri_prover = fri::FriProver::new(context.options().to_fri_options());
-    fri_prover.build_layers(&mut channel, composed_evaluations, &lde_domain.values());
+    fri_prover.build_layers(&mut channel, composed_evaluations, &domain.lde_values());
     debug!(
         "Computed {} FRI layers from composition polynomial evaluations in {} ms",
         fri_prover.num_layers(),
@@ -194,7 +193,7 @@ where
 
     // query the execution trace at the selected position; for each query, we need the
     // state of the trace at that position + Merkle authentication path
-    let (trace_paths, trace_states) = query_trace(extended_trace, trace_tree, &query_positions);
+    let (trace_paths, trace_states) = extended_trace.query(trace_tree, &query_positions);
 
     // query the constraint evaluations at the selected positions; for each query, we need just
     // a Merkle authentication path. this is because constraint evaluations for each step are

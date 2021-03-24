@@ -1,7 +1,4 @@
-use super::{
-    types::{ConstraintEvaluationTable, ConstraintPoly, LdeDomain, TraceTable},
-    utils,
-};
+use super::{utils, StarkDomain, TraceTable};
 use common::{
     errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintDivisor,
     ConstraintEvaluator, TransitionEvaluator,
@@ -16,6 +13,9 @@ use math::{
 mod assertions;
 use assertions::{evaluate_assertions, prepare_assertion_constraints};
 
+mod types;
+pub use types::{ConstraintEvaluationTable, ConstraintPoly};
+
 #[cfg(test)]
 mod tests;
 
@@ -26,7 +26,7 @@ mod tests;
 pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseElement>>(
     evaluator: &mut ConstraintEvaluator<T>,
     extended_trace: &TraceTable,
-    lde_domain: &LdeDomain,
+    domain: &StarkDomain,
 ) -> Result<ConstraintEvaluationTable<E>, ProverError> {
     // constraints are evaluated over a constraint evaluation domain. this is an optimization
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
@@ -54,7 +54,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
     // of the data. stride specifies how many rows we can skip over.
     let stride = evaluator.lde_domain_size() / ce_domain_size;
     let blowup_factor = evaluator.lde_blowup_factor();
-    let lde_domain = lde_domain.values();
+    let lde_domain = domain.lde_values();
     for i in 0..ce_domain_size {
         // translate steps in the constraint evaluation domain to steps in LDE domain;
         // at the last step, next state wraps around and we actually read the first step again
@@ -66,18 +66,13 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
         extended_trace.copy_row(lde_step, &mut current);
         extended_trace.copy_row(next_lde_step, &mut next);
 
+        let x = lde_domain[lde_step];
+
         // pass the current and next rows of the trace table through the constraint evaluator
-        let mut evaluation_row =
-            evaluator.evaluate_at_step(&current, &next, lde_domain[lde_step], i)?;
+        let mut evaluation_row = evaluator.evaluate_at_step(&current, &next, x, i)?;
 
         // evaluate assertion constraints
-        evaluate_assertions(
-            &assertion_constraints,
-            &current,
-            lde_domain[lde_step],
-            i,
-            &mut evaluation_row,
-        );
+        evaluate_assertions(&assertion_constraints, &current, x, i, &mut evaluation_row);
 
         // record the result in the evaluation table
         for (j, &evaluation) in evaluation_row.iter().enumerate() {
@@ -108,12 +103,13 @@ pub fn build_constraint_poly<E: FieldElement + From<BaseElement>>(
     // iterate over all columns of the constraint evaluation table
     for (mut evaluations, divisor) in evaluations.into_iter() {
         // interpolate each column into a polynomial
-        fft::interpolate_poly(&mut evaluations, &inv_twiddles);
+        fft::interpolate_poly_with_offset(&mut evaluations, &inv_twiddles, context.domain_offset());
         // divide the polynomial by its divisor
         divide_poly(&mut evaluations, &divisor);
         // make sure that the post-division degree of the polynomial matches
         // the expected degree, and add it to the combined polynomial
-        if cfg!(debug_assertions) && constraint_poly_degree != polynom::degree_of(&evaluations) {
+        #[cfg(debug_assertions)]
+        if constraint_poly_degree != polynom::degree_of(&evaluations) {
             return Err(ProverError::MismatchedConstraintPolynomialDegree(
                 constraint_poly_degree,
                 polynom::degree_of(&evaluations),
@@ -123,22 +119,6 @@ pub fn build_constraint_poly<E: FieldElement + From<BaseElement>>(
     }
 
     Ok(ConstraintPoly::new(combined_poly, constraint_poly_degree))
-}
-
-/// Evaluates constraint polynomial over LDE domain and returns the result
-pub fn extend_constraint_evaluations<E: FieldElement + From<BaseElement>>(
-    constraint_poly: &ConstraintPoly<E>,
-    lde_domain: &LdeDomain,
-) -> Vec<E> {
-    // first, allocate space for the evaluations and copy polynomial coefficients
-    // into the lower part of the vector; the remaining values in the vector must
-    // be initialized to 0s
-    let mut evaluations = vec![E::ZERO; lde_domain.size()];
-    evaluations[..constraint_poly.len()].copy_from_slice(&constraint_poly.coefficients());
-
-    // then use FFT to evaluate the polynomial over LDE domain
-    fft::evaluate_poly(&mut evaluations, lde_domain.twiddles());
-    evaluations
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf

@@ -93,16 +93,20 @@ impl ComputationContext {
     // CONSTRAINT INFO
     // --------------------------------------------------------------------------------------------
 
-    pub fn lde_domain_size(&self) -> usize {
-        compute_lde_domain_size(self.trace_length, self.options.blowup_factor())
+    pub fn lde_blowup_factor(&self) -> usize {
+        self.options.blowup_factor()
     }
 
-    pub fn ce_domain_size(&self) -> usize {
-        compute_ce_domain_size(self.trace_length, self.ce_blowup_factor)
+    pub fn lde_domain_size(&self) -> usize {
+        compute_lde_domain_size(self.trace_length, self.lde_blowup_factor())
     }
 
     pub fn ce_blowup_factor(&self) -> usize {
         self.ce_blowup_factor
+    }
+
+    pub fn ce_domain_size(&self) -> usize {
+        compute_ce_domain_size(self.trace_length, self.ce_blowup_factor)
     }
 
     pub fn composition_degree(&self) -> usize {
@@ -122,6 +126,10 @@ impl ComputationContext {
 
     pub fn generators(&self) -> &Generators {
         &self.generators
+    }
+
+    pub fn domain_offset(&self) -> BaseElement {
+        self.options.domain_offset()
     }
 
     // UTILITY FUNCTIONS

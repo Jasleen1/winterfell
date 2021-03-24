@@ -101,20 +101,7 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         // merge transition constraint evaluations into a single value, and save this value
         // into the first slot of the evaluation buffer. we can do this here because all
         // transition constraints have the same divisor.
-        // also: if the constraints should evaluate to all zeros at this step (which should
-        // happen on steps which are multiples of ce_blowup_factor), make sure they do
-        evaluations[0] = if self.should_evaluate_to_zero_at(step) {
-            let step = step / self.ce_blowup_factor();
-            for &evaluation in t_evaluations.iter() {
-                if evaluation != BaseElement::ZERO {
-                    return Err(ProverError::UnsatisfiedTransitionConstraintError(step));
-                }
-            }
-            // if all transition constraint evaluations are zeros, the combination is also zero
-            BaseElement::ZERO
-        } else {
-            self.transition.merge_evaluations(&t_evaluations, x)
-        };
+        evaluations[0] = self.transition.merge_evaluations(&t_evaluations, x);
 
         Ok(evaluations)
     }
@@ -145,6 +132,11 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     /// Returns length of un-extended execution trace.
     pub fn trace_length(&self) -> usize {
         self.context.trace_length()
+    }
+
+    /// Returns evaluation domain offset.
+    pub fn domain_offset(&self) -> BaseElement {
+        self.context.domain_offset()
     }
 
     /// Returns size of the constraint evaluation domain.
@@ -180,15 +172,6 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     // Returns a list of assertion constraints for this evaluator.
     pub fn assertion_constraints(&self) -> &[AssertionConstraintGroup] {
         &self.assertions
-    }
-
-    // HELPER METHODS
-    // --------------------------------------------------------------------------------------------
-
-    #[inline(always)]
-    fn should_evaluate_to_zero_at(&self, step: usize) -> bool {
-        (step & (self.ce_blowup_factor() - 1) == 0) // same as: step % ce_blowup_factor == 0
-        && (step != self.ce_domain_size() - self.ce_blowup_factor())
     }
 
     // DEBUG HELPERS
