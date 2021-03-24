@@ -1,10 +1,9 @@
-use std::ops::Range;
-
-use common::utils::filled_vector;
+use math::field::StarkField;
 use prover::math::{
     fft,
     field::{BaseElement, FieldElement},
 };
+use std::ops::Range;
 
 pub mod rescue;
 
@@ -54,13 +53,9 @@ impl<E: FieldElement> EvaluationResult<E> for Vec<E> {
 // ================================================================================================
 
 /// Builds extension domain for cyclic registers.
-pub fn build_cyclic_domain(
-    cycle_length: usize,
-    blowup_factor: usize,
-) -> (Vec<BaseElement>, Vec<BaseElement>) {
+pub fn build_cyclic_domain(cycle_length: usize) -> (Vec<BaseElement>, Vec<BaseElement>) {
     let inv_twiddles = fft::get_inv_twiddles(cycle_length);
-    let ev_twiddles = fft::get_twiddles(cycle_length * blowup_factor);
-
+    let ev_twiddles = fft::get_twiddles(cycle_length);
     (inv_twiddles, ev_twiddles)
 }
 
@@ -68,20 +63,17 @@ pub fn extend_cyclic_values(
     values: &[BaseElement],
     inv_twiddles: &[BaseElement],
     ev_twiddles: &[BaseElement],
+    blowup_factor: usize,
+    trace_length: usize,
 ) -> (Vec<BaseElement>, Vec<BaseElement>) {
-    let domain_size = ev_twiddles.len() * 2;
-    let cycle_length = values.len();
+    let num_cycles = (trace_length / values.len()) as u64;
 
-    let mut extended_values = filled_vector(cycle_length, domain_size, BaseElement::ZERO);
-    extended_values.copy_from_slice(values);
-    fft::interpolate_poly(&mut extended_values, &inv_twiddles);
+    let mut poly = values.to_vec();
+    fft::interpolate_poly(&mut poly, &inv_twiddles);
 
-    let poly = extended_values.clone();
-
-    unsafe {
-        extended_values.set_len(extended_values.capacity());
-    }
-    fft::evaluate_poly(&mut extended_values, &ev_twiddles);
+    let offset = BaseElement::GENERATOR.exp(num_cycles.into());
+    let extended_values =
+        fft::evaluate_poly_with_offset(&poly, &ev_twiddles, offset, blowup_factor);
 
     (poly, extended_values)
 }

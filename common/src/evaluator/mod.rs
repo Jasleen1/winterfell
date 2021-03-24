@@ -134,6 +134,11 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         self.context.trace_length()
     }
 
+    /// Returns evaluation domain offset.
+    pub fn domain_offset(&self) -> BaseElement {
+        self.context.domain_offset()
+    }
+
     /// Returns size of the constraint evaluation domain.
     pub fn ce_domain_size(&self) -> usize {
         self.context.ce_domain_size()

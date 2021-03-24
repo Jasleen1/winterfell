@@ -30,14 +30,21 @@ impl TransitionEvaluator for MerkleEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
-        let (inv_twiddles, ev_twiddles) =
-            build_cyclic_domain(CYCLE_LENGTH, context.ce_blowup_factor());
+        let (inv_twiddles, ev_twiddles) = build_cyclic_domain(CYCLE_LENGTH);
+        let trace_length = context.trace_length();
+        let blowup_factor = context.ce_blowup_factor();
 
         // extend mask constants to match constraint evaluation domain
         let mut mask_polys = Vec::new();
         let mut mask_evaluations = Vec::new();
         for mask in CYCLE_MASKS.iter() {
-            let (poly, evaluations) = extend_cyclic_values(mask, &inv_twiddles, &ev_twiddles);
+            let (poly, evaluations) = extend_cyclic_values(
+                mask,
+                &inv_twiddles,
+                &ev_twiddles,
+                blowup_factor,
+                trace_length,
+            );
             mask_polys.push(poly);
             mask_evaluations.push(evaluations);
         }
@@ -48,7 +55,13 @@ impl TransitionEvaluator for MerkleEvaluator {
         let mut ark_evaluations = Vec::new();
 
         for constant in rescue::get_round_constants().into_iter() {
-            let (poly, evaluations) = extend_cyclic_values(&constant, &inv_twiddles, &ev_twiddles);
+            let (poly, evaluations) = extend_cyclic_values(
+                &constant,
+                &inv_twiddles,
+                &ev_twiddles,
+                blowup_factor,
+                trace_length,
+            );
             ark_polys.push(poly);
             ark_evaluations.push(evaluations);
         }
@@ -70,7 +83,7 @@ impl TransitionEvaluator for MerkleEvaluator {
             mask_constants,
             ark_constants,
             ark_polys,
-            trace_length: context.trace_length(),
+            trace_length,
         }
     }
 

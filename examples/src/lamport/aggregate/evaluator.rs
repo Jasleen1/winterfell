@@ -39,13 +39,14 @@ impl TransitionEvaluator for LamportPlusEvaluator {
         // TODO: split this into prover vs. verifier flows because the verifier needs only
         // the polynomial, but the prover needs the evaluations.
         let (sig_cycle_polys, sig_cycle_constants) =
-            build_sig_cycle_constants(context.ce_blowup_factor());
+            build_sig_cycle_constants(context.ce_blowup_factor(), context.trace_length());
 
         // build and evaluate polynomials for constants which span hash cycle (8 steps);
         // these constants include:
         // * cycle mask which is 7 ones followed by 1 zero
         // * 12 Rescue round constants
-        let (hash_polys, hash_constants) = build_hash_cycle_constants(context.ce_blowup_factor());
+        let (hash_polys, hash_constants) =
+            build_hash_cycle_constants(context.ce_blowup_factor(), context.trace_length());
 
         // define degrees for all transition constraints
         let degrees = vec![
@@ -240,14 +241,21 @@ fn evaluate_constraints<E: FieldElement + From<BaseElement>>(
 /// * powers of two which get incremented every hash cycle
 fn build_sig_cycle_constants(
     blowup_factor: usize,
+    trace_length: usize,
 ) -> (Vec<Vec<BaseElement>>, Vec<Vec<BaseElement>>) {
     // build twiddles to use for interpolating and evaluating polynomials
-    let (inv_twiddles, ev_twiddles) = build_cyclic_domain(SIG_CYCLE_LEN, blowup_factor);
+    let (inv_twiddles, ev_twiddles) = build_cyclic_domain(SIG_CYCLE_LEN);
 
     // build, interpolate, and then evaluate cycle mask
     let mut mask = vec![BaseElement::ZERO; SIG_CYCLE_LEN];
     mask[SIG_CYCLE_LEN - 1] = BaseElement::ONE;
-    let (mask_poly, mask_constants) = extend_cyclic_values(&mask, &inv_twiddles, &ev_twiddles);
+    let (mask_poly, mask_constants) = extend_cyclic_values(
+        &mask,
+        &inv_twiddles,
+        &ev_twiddles,
+        blowup_factor,
+        trace_length,
+    );
 
     // build powers of two constants
     let mut powers_of_two = vec![BaseElement::ZERO; SIG_CYCLE_LEN];
@@ -263,8 +271,13 @@ fn build_sig_cycle_constants(
     }
 
     // interpolate and evaluate powers of two
-    let (po2_poly, po2_constants) =
-        extend_cyclic_values(&powers_of_two, &inv_twiddles, &ev_twiddles);
+    let (po2_poly, po2_constants) = extend_cyclic_values(
+        &powers_of_two,
+        &inv_twiddles,
+        &ev_twiddles,
+        blowup_factor,
+        trace_length,
+    );
     let polys = vec![mask_poly, po2_poly];
 
     // transpose evaluations so that values accessed at every step are next to each other
@@ -277,8 +290,9 @@ fn build_sig_cycle_constants(
 /// * 12 Rescue round constants
 fn build_hash_cycle_constants(
     blowup_factor: usize,
+    trace_length: usize,
 ) -> (Vec<Vec<BaseElement>>, Vec<Vec<BaseElement>>) {
-    let (inv_twiddles, ev_twiddles) = build_cyclic_domain(HASH_CYCLE_LEN, blowup_factor);
+    let (inv_twiddles, ev_twiddles) = build_cyclic_domain(HASH_CYCLE_LEN);
 
     // create a single vector containing values of hash cycle mask and Rescue round constants
     let mut base_constants = vec![HASH_CYCLE_MASK.to_vec()];
@@ -288,7 +302,13 @@ fn build_hash_cycle_constants(
     let mut result_polys = Vec::new();
     let mut result_evaluations = Vec::new();
     for constant in base_constants.into_iter() {
-        let (poly, evaluations) = extend_cyclic_values(&constant, &inv_twiddles, &ev_twiddles);
+        let (poly, evaluations) = extend_cyclic_values(
+            &constant,
+            &inv_twiddles,
+            &ev_twiddles,
+            blowup_factor,
+            trace_length,
+        );
         result_polys.push(poly);
         result_evaluations.push(evaluations);
     }
