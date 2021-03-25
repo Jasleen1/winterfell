@@ -1,5 +1,5 @@
 use super::{utils, ConstraintPoly};
-use common::{errors::ProverError, ComputationContext, ConstraintDivisor};
+use common::{errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintDivisor};
 use math::{
     fft,
     field::{BaseElement, FieldElement},
@@ -19,20 +19,24 @@ pub struct ConstraintEvaluationTable<E: FieldElement + From<BaseElement>> {
 }
 
 impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
-    pub fn new(
-        evaluations: Vec<Vec<E>>,
-        divisors: Vec<ConstraintDivisor>,
-        context: &ComputationContext,
-    ) -> Self {
+    // CONSTRUCTOR
+    // --------------------------------------------------------------------------------------------
+    /// Returns a new constraint evaluation table with number of columns equal to the number of
+    /// specified divisors, and number of rows equal to the size of constraint evaluation domain.
+    pub fn new(context: &ComputationContext, divisors: Vec<ConstraintDivisor>) -> Self {
+        let num_columns = divisors.len();
+        let num_rows = context.ce_domain_size();
         // TODO: verify lengths
         ConstraintEvaluationTable {
-            evaluations,
+            evaluations: (0..num_columns).map(|_| uninit_vector(num_rows)).collect(),
             divisors,
             domain_offset: context.domain_offset(),
             composition_degree: context.composition_degree(),
         }
     }
 
+    // PUBLIC ACCESSORS
+    // --------------------------------------------------------------------------------------------
     pub fn domain_size(&self) -> usize {
         self.evaluations[0].len()
     }
@@ -40,6 +44,36 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
     #[allow(dead_code)]
     pub fn divisors(&self) -> &[ConstraintDivisor] {
         &self.divisors
+    }
+
+    // DATA MUTATORS
+    // --------------------------------------------------------------------------------------------
+
+    pub fn update_row(&mut self, row_idx: usize, row_data: &[BaseElement]) {
+        for (column, &value) in self.evaluations.iter_mut().zip(row_data) {
+            column[row_idx] = E::from(value);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn chunks(&mut self, chunk_size: usize) -> Vec<TableChunk<E>> {
+        let num_chunks = self.domain_size() / chunk_size;
+
+        let mut chunk_data = (0..num_chunks).map(|_| Vec::new()).collect::<Vec<_>>();
+        self.evaluations.iter_mut().for_each(|column| {
+            for (i, chunk) in column.chunks_mut(chunk_size).enumerate() {
+                chunk_data[i].push(chunk);
+            }
+        });
+
+        chunk_data
+            .into_iter()
+            .enumerate()
+            .map(|(i, data)| TableChunk {
+                offset: i * chunk_size,
+                data,
+            })
+            .collect()
     }
 
     // CONSTRAINT COMPOSITION
@@ -85,6 +119,28 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
         }
 
         Ok(ConstraintPoly::new(combined_poly, constraint_poly_degree))
+    }
+}
+
+// TABLE CHUNK
+// ================================================================================================
+
+#[allow(dead_code)]
+pub struct TableChunk<'a, E: FieldElement + From<BaseElement>> {
+    offset: usize,
+    data: Vec<&'a mut [E]>,
+}
+
+#[allow(dead_code)]
+impl<'a, E: FieldElement + From<BaseElement>> TableChunk<'a, E> {
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    pub fn update_row(&mut self, row_idx: usize, row_data: &[BaseElement]) {
+        for (column, &value) in self.data.iter_mut().zip(row_data) {
+            column[row_idx] = E::from(value);
+        }
     }
 }
 

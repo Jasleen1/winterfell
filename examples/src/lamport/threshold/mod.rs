@@ -99,10 +99,10 @@ impl Example for LamportThresholdExample {
 
         let now = Instant::now();
         let trace = generate_trace(&self.pub_key, self.message, &self.signatures);
-        let trace_length = trace[0].len();
+        let trace_length = trace.len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
-            trace.len(),
+            trace.width(),
             trace_length.trailing_zeros(),
             now.elapsed().as_millis()
         );

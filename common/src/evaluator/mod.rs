@@ -51,11 +51,8 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         let divisors = vec![ConstraintDivisor::from_transition(context)];
 
         // build assertion constraints
-        let assertions = assertions::build_assertion_constraints(
-            context,
-            assertions,
-            coin.get_assertion_coefficient_prng(),
-        );
+        let assertions =
+            assertions.into_constraints(context, coin.get_assertion_coefficient_prng());
 
         Ok(ConstraintEvaluator {
             // in debug mode, we keep track of all evaluated transition constraints so that
@@ -172,6 +169,10 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     // Returns a list of assertion constraints for this evaluator.
     pub fn assertion_constraints(&self) -> &[AssertionConstraintGroup] {
         &self.assertions
+    }
+
+    pub fn context(&self) -> &ComputationContext {
+        &self.context
     }
 
     // DEBUG HELPERS

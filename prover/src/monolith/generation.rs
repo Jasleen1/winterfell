@@ -11,7 +11,7 @@ use super::{
         build_constraint_tree, evaluate_constraints, query_constraints, ConstraintEvaluationTable,
     },
     deep_fri::CompositionPoly,
-    trace::TraceTable,
+    trace::ExecutionTrace,
     utils, ProverChannel, StarkDomain,
 };
 
@@ -19,7 +19,7 @@ use super::{
 // ================================================================================================
 
 pub fn generate_proof<T, E>(
-    mut trace: TraceTable,
+    trace: ExecutionTrace,
     assertions: Assertions,
     context: ComputationContext,
 ) -> Result<StarkProof, ProverError>
@@ -46,13 +46,12 @@ where
     // extend the execution trace; this interpolates each register of the trace into a polynomial,
     // and then evaluates the polynomial over the LDE domain; each of the trace polynomials has
     // degree = trace_length - 1
-    let trace_polys = trace.extend(&domain);
-    let extended_trace = trace;
+    let (extended_trace, trace_polys) = trace.extend(&domain);
     debug!(
         "Extended execution trace of {} registers from 2^{} to 2^{} steps ({}x blowup) in {} ms",
-        extended_trace.num_registers(),
+        extended_trace.width(),
         log2(trace_polys.poly_size()),
-        log2(extended_trace.num_states()),
+        log2(extended_trace.len()),
         context.options().blowup_factor(),
         now.elapsed().as_millis()
     );

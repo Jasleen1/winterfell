@@ -15,6 +15,7 @@ mod constraints;
 mod deep_fri;
 
 mod trace;
+pub use trace::ExecutionTrace;
 use trace::TraceTable;
 
 mod utils;
@@ -47,17 +48,17 @@ impl<T: TransitionEvaluator> Prover<T> {
     /// it is valid in the context of the computation described by this prover.
     pub fn prove(
         &self,
-        trace: Vec<Vec<BaseElement>>,
+        trace: ExecutionTrace,
         assertions: Assertions,
     ) -> Result<StarkProof, ProverError> {
-        let trace = TraceTable::new(trace);
-        validate_assertions(&trace, &assertions);
+        // make sure the assertions are valid
+        trace.validate_assertions(&assertions);
 
         // create context to hold basic parameters for the computation; the context is also
         // used as a single source for such parameters as domain sizes, constraint degrees etc.
         let context = ComputationContext::new(
-            trace.num_registers(),
-            trace.num_states(),
+            trace.width(),
+            trace.len(),
             T::get_ce_blowup_factor(),
             self.options.clone(),
         );
@@ -69,25 +70,4 @@ impl<T: TransitionEvaluator> Prover<T> {
             }
         }
     }
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-
-fn validate_assertions(trace: &TraceTable, assertions: &Assertions) {
-    // TODO: eventually, this should return errors instead of panicking
-    assert!(
-        !assertions.is_empty(),
-        "at least one assertion must be provided"
-    );
-
-    assertions.for_each(|register, step, value| {
-        assert!(
-            value == trace.get(register, step),
-            "trace does not satisfy assertion trace({}, {}) == {}",
-            register,
-            step,
-            value
-        );
-    });
 }

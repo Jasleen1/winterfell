@@ -1,8 +1,14 @@
-use crate::errors::AssertionError;
-use math::field::BaseElement;
+use std::vec;
+
+use crate::{errors::AssertionError, ComputationContext, ConstraintDivisor};
+use crypto::RandomElementGenerator;
+use math::{
+    fft,
+    field::{BaseElement, FieldElement},
+};
 
 mod constraints;
-pub use constraints::{build_assertion_constraints, AssertionConstraint, AssertionConstraintGroup};
+pub use constraints::{AssertionConstraint, AssertionConstraintGroup};
 
 mod assertion;
 pub use assertion::Assertion;
@@ -186,11 +192,74 @@ impl Assertions {
         self.add(assertion)
     }
 
-    // OTHER METHODS
+    // CONSTRAINTS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a vector of assertions from this collection.
-    pub fn into_vec(self) -> Vec<Assertion> {
-        self.assertions
+    /// Converts this assertion collection into assertion constraints grouped by common divisor.
+    pub fn into_constraints(
+        self,
+        context: &ComputationContext,
+        mut coeff_prng: RandomElementGenerator,
+    ) -> Vec<AssertionConstraintGroup> {
+        // group assertions by step - i.e.: assertions for the first step are grouped together,
+        // assertions for the last step are grouped together etc.
+        let mut groups: Vec<AssertionConstraintGroup> = Vec::new();
+
+        // compute inverse of the trace domain generator; this will be used for offset
+        // computations when creating a new constraint
+        let inv_g = context.generators().trace_domain.inv();
+
+        // set up variables to track values from the previous iteration of the loop
+        let mut stride = usize::MAX;
+        let mut first_step = usize::MAX;
+        let mut inv_twiddles = Vec::new();
+
+        // iterate over all assertions, which are sorted first by stride and then by first_step
+        // in ascending order
+        for assertion in self.assertions {
+            if assertion.stride != stride {
+                // when strides change, we need to build new inv_twiddles and also
+                // start a new assertion group
+                stride = assertion.stride;
+                first_step = assertion.first_step;
+
+                // if an assertion consists of two values or more, we'll need to interpolate
+                // an assertion polynomial from these values; for that, we'll need twiddles
+                if assertion.num_values > 1 {
+                    inv_twiddles = fft::get_inv_twiddles(assertion.num_values);
+                }
+                groups.push(AssertionConstraintGroup::new(
+                    context,
+                    ConstraintDivisor::from_assertion(&assertion, &context),
+                ));
+            } else if assertion.first_step != first_step {
+                // if only the first_step changed, we can use inv_twiddles from the previous
+                // iteration, but we do need to start a new assertion group
+                first_step = assertion.first_step;
+                groups.push(AssertionConstraintGroup::new(
+                    context,
+                    ConstraintDivisor::from_assertion(&assertion, &context),
+                ));
+            }
+
+            // add a new assertion constraint to the current group (last group in the list)
+            let constraint = assertion.into_constraint(inv_g, &inv_twiddles, &mut coeff_prng);
+            groups.last_mut().unwrap().add_constraint(constraint);
+        }
+
+        // make sure groups are sorted by adjustment degree
+        groups.sort_by_key(|c| c.degree_adjustment);
+
+        groups
+    }
+}
+
+impl IntoIterator for Assertions {
+    type Item = Assertion;
+    type IntoIter = vec::IntoIter<Assertion>;
+
+    /// Converts this collection into an iterator over all assertions.
+    fn into_iter(self) -> Self::IntoIter {
+        self.assertions.into_iter()
     }
 }

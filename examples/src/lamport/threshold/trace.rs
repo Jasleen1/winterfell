@@ -2,7 +2,10 @@ use super::{
     rescue, AggPublicKey, Signature, TreeNode, HASH_CYCLE_LENGTH, NUM_HASH_ROUNDS,
     SIG_CYCLE_LENGTH, STATE_WIDTH,
 };
-use prover::math::field::{BaseElement, FieldElement};
+use prover::{
+    math::field::{BaseElement, FieldElement},
+    ExecutionTrace,
+};
 use std::collections::HashMap;
 
 // CONSTANTS
@@ -28,7 +31,7 @@ pub fn generate_trace(
     pub_key: &AggPublicKey,
     message: [BaseElement; 2],
     signatures: &[(usize, Signature)],
-) -> Vec<Vec<BaseElement>> {
+) -> ExecutionTrace {
     // allocate memory to hold the trace table
     let num_cycles = pub_key.num_keys().next_power_of_two();
     let trace_length = SIG_CYCLE_LENGTH * num_cycles;
@@ -72,7 +75,7 @@ pub fn generate_trace(
         }
     }
 
-    trace
+    ExecutionTrace::init(trace)
 }
 
 fn append_sig_verification(

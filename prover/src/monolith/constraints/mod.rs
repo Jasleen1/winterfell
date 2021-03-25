@@ -1,8 +1,5 @@
 use super::{utils, StarkDomain, TraceTable};
-use common::{
-    errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintEvaluator,
-    TransitionEvaluator,
-};
+use common::{errors::ProverError, ComputationContext, ConstraintEvaluator, TransitionEvaluator};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::field::{BaseElement, FieldElement};
 
@@ -41,21 +38,19 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
 
     // allocate space for constraint evaluations; there should be as many columns in the
     // table as there are divisors
-    let mut evaluation_table: Vec<Vec<E>> = divisors
-        .iter()
-        .map(|_| uninit_vector(ce_domain_size))
-        .collect();
-
-    // allocate buffers to hold current and next rows of the trace table
-    let mut current = vec![BaseElement::ZERO; extended_trace.num_registers()];
-    let mut next = vec![BaseElement::ZERO; extended_trace.num_registers()];
+    let mut evaluation_table = ConstraintEvaluationTable::<E>::new(context, divisors);
 
     // we already have all the data we need in the extended trace table, but since we are
     // doing evaluations over a much smaller domain, we only need to read a small subset
-    // of the data. stride specifies how many rows we can skip over.
+    // of the data. Stride specifies how many rows we can skip over.
     let stride = evaluator.lde_domain_size() / ce_domain_size;
     let blowup_factor = evaluator.lde_blowup_factor();
     let lde_domain = domain.lde_values();
+
+    // allocate buffers to hold current and next rows of the trace table
+    let mut current = vec![BaseElement::ZERO; extended_trace.width()];
+    let mut next = vec![BaseElement::ZERO; extended_trace.width()];
+
     for i in 0..ce_domain_size {
         // translate steps in the constraint evaluation domain to steps in LDE domain;
         // at the last step, next state wraps around and we actually read the first step again
@@ -76,20 +71,14 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
         evaluate_assertions(&assertion_constraints, &current, x, i, &mut evaluation_row);
 
         // record the result in the evaluation table
-        for (j, &evaluation) in evaluation_row.iter().enumerate() {
-            evaluation_table[j][i] = E::from(evaluation);
-        }
+        evaluation_table.update_row(i, &evaluation_row);
     }
 
     #[cfg(debug_assertions)]
     evaluator.validate_transition_degrees();
 
     // build and return constraint evaluation table
-    Ok(ConstraintEvaluationTable::new(
-        evaluation_table,
-        divisors,
-        context,
-    ))
+    Ok(evaluation_table)
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
