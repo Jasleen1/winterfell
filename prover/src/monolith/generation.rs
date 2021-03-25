@@ -8,8 +8,7 @@ use std::time::Instant;
 
 use super::{
     constraints::{
-        build_constraint_poly, build_constraint_tree, evaluate_constraints, query_constraints,
-        ConstraintEvaluationTable,
+        build_constraint_tree, evaluate_constraints, query_constraints, ConstraintEvaluationTable,
     },
     deep_fri::CompositionPoly,
     trace::TraceTable,
@@ -79,7 +78,7 @@ where
     // apply constraint evaluator to the extended trace table to generate a
     // constraint evaluation table
     let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
-        evaluate_constraints(&mut evaluator, &extended_trace, &domain)?;
+        evaluate_constraints(&mut evaluator, &extended_trace, &domain, &context)?;
     debug!(
         "Evaluated constraints over domain of 2^{} elements in {} ms",
         log2(constraint_evaluations.domain_size()),
@@ -90,7 +89,7 @@ where
 
     // first, build a single constraint polynomial from all constraint evaluations
     let now = Instant::now();
-    let constraint_poly = build_constraint_poly(constraint_evaluations, &context)?;
+    let constraint_poly = constraint_evaluations.into_poly()?;
     debug!(
         "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
         constraint_poly.degree(),

@@ -1,23 +1,23 @@
 use super::{utils, StarkDomain, TraceTable};
 use common::{
-    errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintDivisor,
-    ConstraintEvaluator, TransitionEvaluator,
+    errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintEvaluator,
+    TransitionEvaluator,
 };
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{
-    fft,
-    field::{BaseElement, FieldElement},
-    polynom,
-};
+use math::field::{BaseElement, FieldElement};
 
 mod assertions;
 use assertions::{evaluate_assertions, prepare_assertion_constraints};
 
-mod types;
-pub use types::{ConstraintEvaluationTable, ConstraintPoly};
+mod constraint_poly;
+pub use constraint_poly::ConstraintPoly;
 
-#[cfg(test)]
-mod tests;
+mod evaluation_table;
+pub use evaluation_table::ConstraintEvaluationTable;
+
+// TODO: re-enable
+//#[cfg(test)]
+//mod tests;
 
 // PROCEDURES
 // ================================================================================================
@@ -27,6 +27,7 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
     evaluator: &mut ConstraintEvaluator<T>,
     extended_trace: &TraceTable,
     domain: &StarkDomain,
+    context: &ComputationContext,
 ) -> Result<ConstraintEvaluationTable<E>, ProverError> {
     // constraints are evaluated over a constraint evaluation domain. this is an optimization
     // because constraint evaluation domain can be many times smaller than the full LDE domain.
@@ -84,41 +85,11 @@ pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseE
     evaluator.validate_transition_degrees();
 
     // build and return constraint evaluation table
-    Ok(ConstraintEvaluationTable::new(evaluation_table, divisors))
-}
-
-/// Interpolates all constraint evaluations into polynomials, divides them by their respective
-/// divisors, and combines the results into a single polynomial
-pub fn build_constraint_poly<E: FieldElement + From<BaseElement>>(
-    evaluations: ConstraintEvaluationTable<E>,
-    context: &ComputationContext,
-) -> Result<ConstraintPoly<E>, ProverError> {
-    let ce_domain_size = context.ce_domain_size();
-    let constraint_poly_degree = context.composition_degree();
-    let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(ce_domain_size);
-
-    // allocate memory for the combined polynomial
-    let mut combined_poly = vec![E::ZERO; ce_domain_size];
-
-    // iterate over all columns of the constraint evaluation table
-    for (mut evaluations, divisor) in evaluations.into_iter() {
-        // interpolate each column into a polynomial
-        fft::interpolate_poly_with_offset(&mut evaluations, &inv_twiddles, context.domain_offset());
-        // divide the polynomial by its divisor
-        divide_poly(&mut evaluations, &divisor);
-        // make sure that the post-division degree of the polynomial matches
-        // the expected degree, and add it to the combined polynomial
-        #[cfg(debug_assertions)]
-        if constraint_poly_degree != polynom::degree_of(&evaluations) {
-            return Err(ProverError::MismatchedConstraintPolynomialDegree(
-                constraint_poly_degree,
-                polynom::degree_of(&evaluations),
-            ));
-        }
-        utils::add_in_place(&mut combined_poly, &evaluations);
-    }
-
-    Ok(ConstraintPoly::new(combined_poly, constraint_poly_degree))
+    Ok(ConstraintEvaluationTable::new(
+        evaluation_table,
+        divisors,
+        context,
+    ))
 }
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
@@ -163,28 +134,4 @@ pub fn query_constraints(
 
     // build Merkle authentication paths to the leaves specified by constraint positions
     constraint_tree.prove_batch(&constraint_positions)
-}
-
-// HELPER FUNCTIONS
-// ================================================================================================
-fn divide_poly<E: FieldElement + From<BaseElement>>(poly: &mut [E], divisor: &ConstraintDivisor) {
-    let numerator = divisor.numerator();
-    assert!(
-        numerator.len() == 1,
-        "complex divisors are not yet supported"
-    );
-    assert!(
-        divisor.exclude().len() <= 1,
-        "multiple exclusion points are not yet supported"
-    );
-
-    let numerator = numerator[0];
-    let numerator_degree = numerator.0;
-
-    if divisor.exclude().is_empty() {
-        polynom::syn_div_in_place(poly, numerator_degree, E::from(numerator.1));
-    } else {
-        let exception = E::from(divisor.exclude()[0]);
-        polynom::syn_div_in_place_with_exception(poly, numerator_degree, exception);
-    }
 }
