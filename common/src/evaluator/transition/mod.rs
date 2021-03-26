@@ -7,7 +7,7 @@ use std::collections::HashMap;
 // TRANSITION EVALUATOR TRAIT
 // ================================================================================================
 
-pub trait TransitionEvaluator {
+pub trait TransitionEvaluator: Send + Sync {
     fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self;
 
     // ABSTRACT METHODS

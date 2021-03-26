@@ -1,12 +1,15 @@
 use super::{rescue, TreeNode, CYCLE_LENGTH, NUM_HASH_ROUNDS};
-use prover::math::field::{BaseElement, FieldElement};
+use prover::{
+    math::field::{BaseElement, FieldElement},
+    ExecutionTrace,
+};
 
 pub fn generate_trace(
     token_seed: BaseElement,
     token_index: usize,
     service_uuid: BaseElement,
     merkle_path: &[TreeNode],
-) -> Vec<Vec<BaseElement>> {
+) -> ExecutionTrace {
     // allocate memory to hold the trace table
     let trace_length = merkle_path.len() * CYCLE_LENGTH;
     let mut trace = vec![
@@ -111,5 +114,5 @@ pub fn generate_trace(
     // of the index bit constraint is stable.
     trace[0][1] = FieldElement::ONE;
 
-    trace
+    ExecutionTrace::init(trace)
 }

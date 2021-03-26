@@ -1,8 +1,11 @@
-use prover::math::field::{BaseElement, FieldElement};
+use prover::{
+    math::field::{BaseElement, FieldElement},
+    ExecutionTrace,
+};
 
 use super::{rescue, CYCLE_LENGTH, NUM_HASH_ROUNDS};
 
-pub fn generate_trace(seed: [BaseElement; 2], iterations: usize) -> Vec<Vec<BaseElement>> {
+pub fn generate_trace(seed: [BaseElement; 2], iterations: usize) -> ExecutionTrace {
     // allocate memory to hold the trace table
     let trace_length = iterations * CYCLE_LENGTH;
     let mut trace = vec![
@@ -39,5 +42,5 @@ pub fn generate_trace(seed: [BaseElement; 2], iterations: usize) -> Vec<Vec<Base
         }
     }
 
-    trace
+    ExecutionTrace::init(trace)
 }

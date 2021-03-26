@@ -20,7 +20,7 @@ pub fn test_basic_proof_verification_fail(mut e: Box<dyn Example>, size: usize) 
 // ================================================================================================
 fn temper_with_assertions(assertions: Assertions) -> Assertions {
     let mut result = Assertions::new(assertions.trace_width(), assertions.trace_length()).unwrap();
-    for (i, assertion) in assertions.into_vec().into_iter().enumerate() {
+    for (i, assertion) in assertions.into_iter().enumerate() {
         if i == 0 {
             let value = assertion.values()[0] + BaseElement::ONE;
             result

@@ -1,18 +1,15 @@
 use common::{
     errors::ProverError, proof::StarkProof, utils::log2, Assertions, ComputationContext,
-    ConstraintEvaluator, PublicCoin, TransitionEvaluator,
+    PublicCoin, TransitionEvaluator,
 };
 use log::debug;
 use math::field::{BaseElement, FieldElement, FromVec};
 use std::time::Instant;
 
 use super::{
-    constraints::{
-        build_constraint_poly, build_constraint_tree, evaluate_constraints, query_constraints,
-        ConstraintEvaluationTable,
-    },
+    constraints::{ConstraintCommitment, ConstraintEvaluator},
     deep_fri::CompositionPoly,
-    trace::TraceTable,
+    trace::ExecutionTrace,
     utils, ProverChannel, StarkDomain,
 };
 
@@ -20,7 +17,7 @@ use super::{
 // ================================================================================================
 
 pub fn generate_proof<T, E>(
-    mut trace: TraceTable,
+    trace: ExecutionTrace,
     assertions: Assertions,
     context: ComputationContext,
 ) -> Result<StarkProof, ProverError>
@@ -47,14 +44,13 @@ where
     // extend the execution trace; this interpolates each register of the trace into a polynomial,
     // and then evaluates the polynomial over the LDE domain; each of the trace polynomials has
     // degree = trace_length - 1
-    let trace_polys = trace.extend(&domain);
-    let extended_trace = trace;
+    let (extended_trace, trace_polys) = trace.extend(&domain);
     debug!(
         "Extended execution trace of {} registers from 2^{} to 2^{} steps ({}x blowup) in {} ms",
-        extended_trace.num_registers(),
+        extended_trace.width(),
         log2(trace_polys.poly_size()),
-        log2(extended_trace.num_states()),
-        context.options().blowup_factor(),
+        log2(extended_trace.len()),
+        extended_trace.blowup(),
         now.elapsed().as_millis()
     );
 
@@ -74,15 +70,14 @@ where
     // build constraint evaluator; the channel is passed in for the evaluator to draw random
     // values from; these values are used by the evaluator to compute a random linear
     // combination of constraint evaluations
-    let mut evaluator = ConstraintEvaluator::<T>::new(&channel, &context, assertions)?;
+    let evaluator = ConstraintEvaluator::<T>::new(&channel, &context, assertions)?;
 
     // apply constraint evaluator to the extended trace table to generate a
     // constraint evaluation table
-    let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
-        evaluate_constraints(&mut evaluator, &extended_trace, &domain)?;
+    let constraint_evaluations = evaluator.evaluate(&extended_trace, &domain);
     debug!(
         "Evaluated constraints over domain of 2^{} elements in {} ms",
-        log2(constraint_evaluations.domain_size()),
+        log2(constraint_evaluations.num_rows()),
         now.elapsed().as_millis()
     );
 
@@ -90,7 +85,7 @@ where
 
     // first, build a single constraint polynomial from all constraint evaluations
     let now = Instant::now();
-    let constraint_poly = build_constraint_poly(constraint_evaluations, &context)?;
+    let constraint_poly = constraint_evaluations.into_poly()?;
     debug!(
         "Converted constraint evaluations into a single polynomial of degree {} in {} ms",
         constraint_poly.degree(),
@@ -108,12 +103,12 @@ where
 
     // finally, commit to constraint polynomial evaluations
     let now = Instant::now();
-    let constraint_tree =
-        build_constraint_tree(combined_constraint_evaluations, context.options().hash_fn());
-    channel.commit_constraints(*constraint_tree.root());
+    let constraint_commitment =
+        ConstraintCommitment::new(combined_constraint_evaluations, context.options().hash_fn());
+    channel.commit_constraints(constraint_commitment.root());
     debug!(
         "Committed to constraint evaluations by building a Merkle tree of depth {} in {} ms",
-        constraint_tree.depth(),
+        constraint_commitment.tree_depth(),
         now.elapsed().as_millis()
     );
 
@@ -195,10 +190,10 @@ where
     // state of the trace at that position + Merkle authentication path
     let (trace_paths, trace_states) = extended_trace.query(trace_tree, &query_positions);
 
-    // query the constraint evaluations at the selected positions; for each query, we need just
+    // query the constraint commitment at the selected positions; for each query, we need just
     // a Merkle authentication path. this is because constraint evaluations for each step are
     // merged into a single value and Merkle authentication paths contain these values already
-    let constraint_paths = query_constraints(constraint_tree, &query_positions);
+    let constraint_paths = constraint_commitment.query(&query_positions);
 
     // build the proof object
     let proof = channel.build_proof(

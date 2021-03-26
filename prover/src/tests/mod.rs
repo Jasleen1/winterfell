@@ -1,3 +1,4 @@
+use crate::ExecutionTrace;
 use common::{
     ComputationContext, ConstraintDegree, FieldExtension, ProofOptions, TransitionConstraintGroup,
     TransitionEvaluator,
@@ -8,7 +9,7 @@ use math::field::{BaseElement, FieldElement, FromVec};
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
+pub fn build_fib_trace(length: usize) -> ExecutionTrace {
     assert!(length.is_power_of_two(), "length must be a power of 2");
 
     let mut reg1 = vec![BaseElement::ONE];
@@ -19,7 +20,7 @@ pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
         reg2.push(reg1[i] + BaseElement::from(2u8) * reg2[i]);
     }
 
-    vec![reg1, reg2]
+    ExecutionTrace::init(vec![reg1, reg2])
 }
 
 pub fn build_proof_context(

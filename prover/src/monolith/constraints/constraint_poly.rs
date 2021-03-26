@@ -1,51 +1,9 @@
 use super::StarkDomain;
-use common::ConstraintDivisor;
 use math::{
     fft,
     field::{BaseElement, FieldElement},
     polynom,
 };
-use std::{iter, vec};
-
-// CONSTRAINT EVALUATION TABLE
-// ================================================================================================
-pub struct ConstraintEvaluationTable<E: FieldElement> {
-    evaluations: Vec<Vec<E>>,
-    divisors: Vec<ConstraintDivisor>,
-}
-
-impl<E: FieldElement> ConstraintEvaluationTable<E> {
-    pub fn new(evaluations: Vec<Vec<E>>, divisors: Vec<ConstraintDivisor>) -> Self {
-        // TODO: verify lengths
-        ConstraintEvaluationTable {
-            evaluations,
-            divisors,
-        }
-    }
-
-    pub fn domain_size(&self) -> usize {
-        self.evaluations[0].len()
-    }
-
-    #[allow(dead_code)]
-    pub fn divisors(&self) -> &[ConstraintDivisor] {
-        &self.divisors
-    }
-
-    #[cfg(test)]
-    pub fn into_vec(self) -> Vec<Vec<E>> {
-        self.evaluations
-    }
-}
-
-impl<E: FieldElement> IntoIterator for ConstraintEvaluationTable<E> {
-    type Item = (Vec<E>, ConstraintDivisor);
-    type IntoIter = iter::Zip<vec::IntoIter<Vec<E>>, vec::IntoIter<ConstraintDivisor>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.evaluations.into_iter().zip(self.divisors.into_iter())
-    }
-}
 
 // CONSTRAINT POLYNOMIAL
 // ================================================================================================
@@ -99,6 +57,8 @@ impl<E: FieldElement + From<BaseElement>> ConstraintPoly<E> {
         polynom::eval(&self.coefficients, x)
     }
 
+    // LOW-DEGREE EXTENSION
+    // --------------------------------------------------------------------------------------------
     /// Evaluates constraint polynomial over the specified LDE domain and returns the result.
     pub fn evaluate(&self, domain: &StarkDomain) -> Vec<E> {
         assert_eq!(

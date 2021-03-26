@@ -1,5 +1,5 @@
 mod monolith;
-pub use monolith::Prover;
+pub use monolith::{ExecutionTrace, Prover};
 
 mod distributed;
 

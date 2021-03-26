@@ -1,5 +1,8 @@
 use super::{rescue, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS, SIG_CYCLE_LENGTH, STATE_WIDTH};
-use prover::math::field::{BaseElement, FieldElement};
+use prover::{
+    math::field::{BaseElement, FieldElement},
+    ExecutionTrace,
+};
 
 // CONSTANTS
 // ================================================================================================
@@ -20,10 +23,7 @@ struct KeySchedule {
 // TRACE GENERATOR
 // ================================================================================================
 
-pub fn generate_trace(
-    messages: &[[BaseElement; 2]],
-    signatures: &[Signature],
-) -> Vec<Vec<BaseElement>> {
+pub fn generate_trace(messages: &[[BaseElement; 2]], signatures: &[Signature]) -> ExecutionTrace {
     // allocate memory to hold the trace table
     let trace_length = SIG_CYCLE_LENGTH * messages.len();
     let mut trace = (0..STATE_WIDTH)
@@ -35,7 +35,7 @@ pub fn generate_trace(
         append_sig_verification(&mut trace, steps, &messages[i], &signatures[i]);
     }
 
-    trace
+    ExecutionTrace::init(trace)
 }
 
 pub fn append_sig_verification(

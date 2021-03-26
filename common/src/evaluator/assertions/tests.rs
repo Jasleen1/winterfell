@@ -278,7 +278,7 @@ fn build_assertion_constraints_one_cyclic_assertion() {
     assertions.add_list(0, 0, values.clone()).unwrap();
 
     // build assertion constraint groups
-    let groups = super::build_assertion_constraints(&context, assertions, coeff_prng);
+    let groups = assertions.into_constraints(&context, coeff_prng);
 
     // make sure only one group and one constraint were created
     assert_eq!(1, groups.len(), "one assertion group should be created");
@@ -330,7 +330,7 @@ fn build_assertion_constraints_many_cyclic_assertions() {
     assertions.add_list(1, 0, values.clone()).unwrap(); // steps: 0, 4, 8, 12
 
     // build assertion constraint groups
-    let groups = super::build_assertion_constraints(&context, assertions, coeff_prng);
+    let groups = assertions.into_constraints(&context, coeff_prng);
 
     // make sure the constraints were grouped correctly
     assert_eq!(4, groups.len(), "one assertion group should be created");
@@ -442,7 +442,7 @@ fn build_assertion_constraints_point_and_cyclic_assertions() {
     assertions.add_list(1, 0, values.clone()).unwrap();
 
     // build assertion constraint groups
-    let groups = super::build_assertion_constraints(&context, assertions, coeff_prng);
+    let groups = assertions.into_constraints(&context, coeff_prng);
 
     // make sure the assertions were grouped correctly
     assert_eq!(4, groups.len());

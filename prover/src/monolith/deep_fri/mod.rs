@@ -160,7 +160,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 
     // LOW-DEGREE EXTENSION
     // --------------------------------------------------------------------------------------------
-    /// Evaluates DEEP composition polynomial over LDE domain.
+    /// Evaluates DEEP composition polynomial over the specified LDE domain and returns the result.
     pub fn evaluate(self, domain: &StarkDomain) -> Vec<E> {
         fft::evaluate_poly_with_offset(
             &self.coefficients,

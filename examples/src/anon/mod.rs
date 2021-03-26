@@ -126,10 +126,10 @@ impl Example for AnonTokenExample {
             self.service_uuid,
             &self.path,
         );
-        let trace_length = trace[0].len();
+        let trace_length = trace.len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
-            trace.len(),
+            trace.width(),
             trace_length.trailing_zeros(),
             now.elapsed().as_millis()
         );

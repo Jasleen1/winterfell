@@ -4,7 +4,14 @@ use math::{
     polynom,
 };
 
+#[cfg(feature = "concurrent")]
+use rayon::prelude::*;
+
+// ADD IN PLACE
+// ================================================================================================
+
 /// Computes a[i] + b[i] for all i and stores the results in a.
+#[cfg(not(feature = "concurrent"))]
 pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
     assert!(
         a.len() == b.len(),
@@ -14,6 +21,21 @@ pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
         a[i] = a[i] + b[i];
     }
 }
+
+/// Computes a[i] + b[i] for all i and stores the results in a.
+#[cfg(feature = "concurrent")]
+pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
+    assert!(
+        a.len() == b.len(),
+        "number of values must be the same for both operands"
+    );
+    a.par_iter_mut()
+        .zip(b.par_iter())
+        .for_each(|(a, b)| *a = *a + *b);
+}
+
+// INFER DEGREE
+// ================================================================================================
 
 /// Determines degree of a polynomial implied by the provided evaluations
 pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> usize {

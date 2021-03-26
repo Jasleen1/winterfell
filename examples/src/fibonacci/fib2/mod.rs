@@ -3,7 +3,7 @@ use crate::{Example, ExampleOptions};
 use log::debug;
 use prover::{
     math::field::{BaseElement, FieldElement},
-    Assertions, ProofOptions, Prover, StarkProof,
+    Assertions, ExecutionTrace, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::{Verifier, VerifierError};
@@ -77,8 +77,8 @@ impl Example for FibExample {
         let now = Instant::now();
         let trace = build_fib_trace(self.sequence_length);
 
-        let trace_width = trace.len();
-        let trace_length = trace[0].len();
+        let trace_width = trace.width();
+        let trace_length = trace.len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace_width,
@@ -99,7 +99,7 @@ impl Example for FibExample {
 
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
-fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
+fn build_fib_trace(length: usize) -> ExecutionTrace {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -113,5 +113,5 @@ fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
         reg1.push(reg1[i] + reg0[i + 1]);
     }
 
-    vec![reg0, reg1]
+    ExecutionTrace::init(vec![reg0, reg1])
 }

@@ -19,6 +19,9 @@ pub struct StarkDomain {
     /// Twiddles which can be used to evaluate polynomials in the constraint evaluation domain.
     /// Length of this vector is half the length of constraint evaluation domain size.
     ce_twiddles: Vec<BaseElement>,
+
+    // this is used a lot during constraint evaluation; cache it here to avoid recomputation
+    ce_to_lde_blowup: usize,
 }
 
 // STARK DOMAIN IMPLEMENTATION
@@ -34,6 +37,7 @@ impl StarkDomain {
             lde_domain,
             trace_twiddles,
             ce_twiddles,
+            ce_to_lde_blowup: context.lde_domain_size() / context.ce_domain_size(),
         }
     }
 
@@ -76,7 +80,12 @@ impl StarkDomain {
 
     /// Returns blowup factor from constraint evaluation to LDE domain.
     pub fn ce_to_lde_blowup(&self) -> usize {
-        self.lde_domain_size() / self.ce_domain_size()
+        self.ce_to_lde_blowup
+    }
+
+    pub fn ce_step_to_lde_info(&self, ce_step: usize) -> (usize, BaseElement) {
+        let lde_step = ce_step * self.ce_to_lde_blowup;
+        (lde_step, self.lde_domain[lde_step])
     }
 
     // LOW-DEGREE EXTENSION DOMAIN
