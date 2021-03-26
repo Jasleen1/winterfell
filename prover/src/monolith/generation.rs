@@ -1,15 +1,13 @@
 use common::{
     errors::ProverError, proof::StarkProof, utils::log2, Assertions, ComputationContext,
-    ConstraintEvaluator, PublicCoin, TransitionEvaluator,
+    PublicCoin, TransitionEvaluator,
 };
 use log::debug;
 use math::field::{BaseElement, FieldElement, FromVec};
 use std::time::Instant;
 
 use super::{
-    constraints::{
-        build_constraint_tree, evaluate_constraints, query_constraints, ConstraintEvaluationTable,
-    },
+    constraints::{build_constraint_tree, ConstraintEvaluator, query_constraints},
     deep_fri::CompositionPoly,
     trace::ExecutionTrace,
     utils, ProverChannel, StarkDomain,
@@ -72,12 +70,11 @@ where
     // build constraint evaluator; the channel is passed in for the evaluator to draw random
     // values from; these values are used by the evaluator to compute a random linear
     // combination of constraint evaluations
-    let mut evaluator = ConstraintEvaluator::<T>::new(&channel, &context, assertions)?;
+    let evaluator = ConstraintEvaluator::<T>::new(&channel, &context, assertions)?;
 
     // apply constraint evaluator to the extended trace table to generate a
     // constraint evaluation table
-    let constraint_evaluations: ConstraintEvaluationTable<BaseElement> =
-        evaluate_constraints(&mut evaluator, &extended_trace, &domain, &context)?;
+    let constraint_evaluations = evaluator.evaluate(&extended_trace, &domain);
     debug!(
         "Evaluated constraints over domain of 2^{} elements in {} ms",
         log2(constraint_evaluations.domain_size()),

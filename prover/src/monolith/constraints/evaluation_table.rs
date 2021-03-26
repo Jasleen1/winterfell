@@ -16,6 +16,11 @@ pub struct ConstraintEvaluationTable<E: FieldElement + From<BaseElement>> {
     divisors: Vec<ConstraintDivisor>,
     composition_degree: usize,
     domain_offset: BaseElement,
+
+    #[cfg(debug_assertions)]
+    t_evaluations: Vec<Vec<BaseElement>>,
+    #[cfg(debug_assertions)]
+    t_expected_degrees: Vec<usize>,
 }
 
 impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
@@ -23,10 +28,10 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
     // --------------------------------------------------------------------------------------------
     /// Returns a new constraint evaluation table with number of columns equal to the number of
     /// specified divisors, and number of rows equal to the size of constraint evaluation domain.
+    #[cfg(not(debug_assertions))]
     pub fn new(context: &ComputationContext, divisors: Vec<ConstraintDivisor>) -> Self {
         let num_columns = divisors.len();
         let num_rows = context.ce_domain_size();
-        // TODO: verify lengths
         ConstraintEvaluationTable {
             evaluations: (0..num_columns).map(|_| uninit_vector(num_rows)).collect(),
             divisors,
@@ -35,10 +40,38 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
         }
     }
 
+    /// Same as above constructor but in debug mode, we also want to keep track of all evaluated
+    /// transition constraints so that we can verify that their stated degrees match their actual
+    /// degrees
+    #[cfg(debug_assertions)]
+    pub fn new(
+        context: &ComputationContext,
+        divisors: Vec<ConstraintDivisor>,
+        t_degrees: Vec<usize>,
+    ) -> Self {
+        let num_columns = divisors.len();
+        let num_rows = context.ce_domain_size();
+        let num_t_columns = t_degrees.len();
+        ConstraintEvaluationTable {
+            evaluations: (0..num_columns).map(|_| uninit_vector(num_rows)).collect(),
+            divisors,
+            domain_offset: context.domain_offset(),
+            composition_degree: context.composition_degree(),
+            t_evaluations: (0..num_t_columns)
+                .map(|_| uninit_vector(num_rows))
+                .collect(),
+            t_expected_degrees: t_degrees,
+        }
+    }
+
     // PUBLIC ACCESSORS
     // --------------------------------------------------------------------------------------------
     pub fn domain_size(&self) -> usize {
         self.evaluations[0].len()
+    }
+
+    pub fn num_columns(&self) -> usize {
+        self.evaluations.len()
     }
 
     #[allow(dead_code)]
@@ -119,6 +152,52 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
         }
 
         Ok(ConstraintPoly::new(combined_poly, constraint_poly_degree))
+    }
+
+    // DEBUG HELPERS
+    // --------------------------------------------------------------------------------------------
+
+    #[cfg(debug_assertions)]
+    pub fn update_transition_evaluations(&mut self, row_idx: usize, row_data: &[BaseElement]) {
+        for (column, &value) in self.t_evaluations.iter_mut().zip(row_data) {
+            column[row_idx] = value;
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn validate_transition_degrees(&mut self, trace_length: usize) {
+        // collect actual degrees for all transition constraints by interpolating saved
+        // constraint evaluations into polynomials and checking their degree; also
+        // determine max transition constraint degree
+        let mut actual_degrees = Vec::with_capacity(self.t_expected_degrees.len());
+        let mut max_degree = 0;
+        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.domain_size());
+        for evaluations in self.t_evaluations.iter() {
+            let mut poly = evaluations.clone();
+            fft::interpolate_poly(&mut poly, &inv_twiddles);
+            let degree = polynom::degree_of(&poly);
+            actual_degrees.push(degree);
+
+            max_degree = std::cmp::max(max_degree, degree);
+        }
+
+        // make sure expected and actual degrees are equal
+        if self.t_expected_degrees != actual_degrees {
+            panic!(
+                "transition constraint degrees didn't match\nexpected: {:>3?}\nactual:   {:>3?}",
+                self.t_expected_degrees, actual_degrees
+            );
+        }
+
+        // make sure evaluation domain size does not exceed the size required by max degree
+        let expected_domain_size = std::cmp::max(max_degree, trace_length + 1).next_power_of_two();
+        if expected_domain_size != self.domain_size() {
+            panic!(
+                "incorrect constraint evaluation domain size; expected {}, actual: {}",
+                expected_domain_size,
+                self.domain_size()
+            );
+        }
     }
 }
 

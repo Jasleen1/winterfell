@@ -1,10 +1,11 @@
-use super::{utils, StarkDomain, TraceTable};
-use common::{errors::ProverError, ComputationContext, ConstraintEvaluator, TransitionEvaluator};
+use super::{utils, StarkDomain};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::field::{BaseElement, FieldElement};
+use math::field::FieldElement;
 
 mod assertions;
-use assertions::{evaluate_assertions, prepare_assertion_constraints};
+
+mod evaluator;
+pub use evaluator::ConstraintEvaluator;
 
 mod constraint_poly;
 pub use constraint_poly::ConstraintPoly;
@@ -18,68 +19,6 @@ pub use evaluation_table::ConstraintEvaluationTable;
 
 // PROCEDURES
 // ================================================================================================
-
-/// Evaluates constraints defined by the constraint evaluator against the extended execution trace.
-pub fn evaluate_constraints<T: TransitionEvaluator, E: FieldElement + From<BaseElement>>(
-    evaluator: &mut ConstraintEvaluator<T>,
-    extended_trace: &TraceTable,
-    domain: &StarkDomain,
-    context: &ComputationContext,
-) -> Result<ConstraintEvaluationTable<E>, ProverError> {
-    // constraints are evaluated over a constraint evaluation domain. this is an optimization
-    // because constraint evaluation domain can be many times smaller than the full LDE domain.
-    let ce_domain_size = evaluator.ce_domain_size();
-
-    // perform pre-processing of assertion constraints, extract divisors from them, and combine
-    // divisors into a single vector of all constraint divisors (assertion constraint divisors)
-    // should be appended at the end
-    let mut divisors = evaluator.constraint_divisors().to_vec();
-    let assertion_constraints = prepare_assertion_constraints(evaluator, &mut divisors);
-
-    // allocate space for constraint evaluations; there should be as many columns in the
-    // table as there are divisors
-    let mut evaluation_table = ConstraintEvaluationTable::<E>::new(context, divisors);
-
-    // we already have all the data we need in the extended trace table, but since we are
-    // doing evaluations over a much smaller domain, we only need to read a small subset
-    // of the data. Stride specifies how many rows we can skip over.
-    let stride = evaluator.lde_domain_size() / ce_domain_size;
-    let blowup_factor = evaluator.lde_blowup_factor();
-    let lde_domain = domain.lde_values();
-
-    // allocate buffers to hold current and next rows of the trace table
-    let mut current = vec![BaseElement::ZERO; extended_trace.width()];
-    let mut next = vec![BaseElement::ZERO; extended_trace.width()];
-
-    for i in 0..ce_domain_size {
-        // translate steps in the constraint evaluation domain to steps in LDE domain;
-        // at the last step, next state wraps around and we actually read the first step again
-        let lde_step = i * stride;
-        let next_lde_step = (lde_step + blowup_factor) % lde_domain.len();
-
-        // read current and next rows from the execution trace table into the buffers
-        // TODO: this currently reads each row from trace table twice, and ideally should be fixed
-        extended_trace.copy_row(lde_step, &mut current);
-        extended_trace.copy_row(next_lde_step, &mut next);
-
-        let x = lde_domain[lde_step];
-
-        // pass the current and next rows of the trace table through the constraint evaluator
-        let mut evaluation_row = evaluator.evaluate_at_step(&current, &next, x, i)?;
-
-        // evaluate assertion constraints
-        evaluate_assertions(&assertion_constraints, &current, x, i, &mut evaluation_row);
-
-        // record the result in the evaluation table
-        evaluation_table.update_row(i, &evaluation_row);
-    }
-
-    #[cfg(debug_assertions)]
-    evaluator.validate_transition_degrees();
-
-    // build and return constraint evaluation table
-    Ok(evaluation_table)
-}
 
 /// Puts constraint evaluations into a Merkle tree; 2 evaluations per leaf
 pub fn build_constraint_tree<E: FieldElement>(

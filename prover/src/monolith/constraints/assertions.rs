@@ -1,4 +1,4 @@
-use common::{ConstraintDivisor, ConstraintEvaluator, TransitionEvaluator};
+use common::ComputationContext;
 use math::{
     fft,
     field::{BaseElement, FieldElement},
@@ -12,65 +12,13 @@ use std::collections::HashMap;
 /// larger polynomials all evaluations over the constraint evaluation domain will be pre-computed.
 const SMALL_POLY_DEGREE: usize = 63;
 
-// CONSTANTS
-// ================================================================================================
-
-/// Converts assertion constraints to a specialized representation. This is especially important
-/// for large polynomial constraints. Such constraints are evaluated over the entire constraint
-/// evaluation domain and the results are cached. This allows us to replace polynomial evaluation
-/// at every step with a single lookup.
-pub fn prepare_assertion_constraints<T: TransitionEvaluator>(
-    evaluator: &ConstraintEvaluator<T>,
-    divisors: &mut Vec<ConstraintDivisor>,
-) -> Vec<AssertionConstraintGroup> {
-    let mut groups = Vec::with_capacity(evaluator.assertion_constraints().len());
-    let mut twiddle_map = HashMap::new();
-    for group in evaluator.assertion_constraints() {
-        groups.push(AssertionConstraintGroup::new(
-            group,
-            evaluator.ce_domain_size(),
-            evaluator.ce_blowup_factor(),
-            evaluator.domain_offset(),
-            &mut twiddle_map,
-        ));
-        divisors.push(group.divisor().clone());
-    }
-    groups
-}
-
-/// Evaluates all assertion group at a specific step of the execution trace. `ce_step` is the
-/// step in the constraint evaluation domain and `x` is the corresponding domain value. That is
-/// x = g^ce_step, where g is the generator of the constraint evaluation domain.
-pub fn evaluate_assertions<E: FieldElement + From<BaseElement>>(
-    constraint_groups: &[AssertionConstraintGroup],
-    state: &[E],
-    x: E,
-    ce_step: usize,
-    result: &mut Vec<E>,
-) {
-    // compute the adjustment degree outside of the group so that we can re-use
-    // it for groups which have the same adjustment degree
-    let mut degree_adjustment = constraint_groups[0].degree_adjustment;
-    let mut xp = x.exp(degree_adjustment.into());
-
-    for group in constraint_groups.iter() {
-        // recompute adjustment degree only when it has changed
-        if group.degree_adjustment != degree_adjustment {
-            degree_adjustment = group.degree_adjustment;
-            xp = x.exp(degree_adjustment.into());
-        }
-        // evaluate the group and save the result
-        result.push(group.evaluate(state, ce_step, x, xp));
-    }
-}
-
 // ASSERTION CONSTRAINT GROUP
 // ================================================================================================
 
 /// Contains constraints all having the same divisor. The constraints are separated into single
 /// value constraints, small polynomial constraints, and large polynomial constraints.
 pub struct AssertionConstraintGroup {
-    degree_adjustment: u32,
+    pub(super) degree_adjustment: u32,
     single_value_constraints: Vec<SingleValueConstraint>,
     small_poly_constraints: Vec<SmallPolyConstraint>,
     large_poly_constraints: Vec<LargePolyConstraint>,
@@ -80,10 +28,8 @@ impl AssertionConstraintGroup {
     /// Creates a new specialized constraint group; twiddles and ce_blowup_factor are passed in for
     /// evaluating large polynomial constraints (if any).
     pub fn new(
-        group: &common::AssertionConstraintGroup,
-        ce_domain_size: usize,
-        ce_blowup_factor: usize,
-        domain_offset: BaseElement,
+        group: common::AssertionConstraintGroup,
+        context: &ComputationContext,
         twiddle_map: &mut HashMap<usize, Vec<BaseElement>>,
     ) -> AssertionConstraintGroup {
         let mut result = AssertionConstraintGroup {
@@ -118,14 +64,14 @@ impl AssertionConstraintGroup {
                 let values = fft::evaluate_poly_with_offset(
                     constraint.poly(),
                     &twiddles,
-                    domain_offset,
-                    ce_domain_size / poly_length,
+                    context.domain_offset(),
+                    context.ce_domain_size() / poly_length,
                 );
 
                 result.large_poly_constraints.push(LargePolyConstraint {
                     register: constraint.register(),
                     values,
-                    step_offset: constraint.step_offset() * ce_blowup_factor,
+                    step_offset: constraint.step_offset() * context.ce_blowup_factor(),
                     coefficients: *constraint.cc(),
                 });
             }

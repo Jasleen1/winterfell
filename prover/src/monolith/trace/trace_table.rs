@@ -1,4 +1,4 @@
-use common::utils::uninit_vector;
+use common::{utils::uninit_vector, EvaluationFrame};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::field::{AsBytes, BaseElement, FieldElement};
 
@@ -51,10 +51,19 @@ impl TraceTable {
     }
 
     /// Copies values of all registers at the specified `step` into the `destination` slice.
-    pub fn copy_row(&self, step: usize, destination: &mut [BaseElement]) {
-        for (i, register) in self.data.iter().enumerate() {
-            destination[i] = register[step];
+    pub fn read_row_into(&self, step: usize, row: &mut [BaseElement]) {
+        for (register, value) in self.data.iter().zip(row.iter_mut()) {
+            *value = register[step];
         }
+    }
+
+    /// Reads current and next rows from the execution trace table into the specified frame.
+    pub fn read_frame_into(&self, lde_step: usize, frame: &mut EvaluationFrame<BaseElement>) {
+        // at the end of the trace, next state wraps around and we read the first step again
+        let next_lde_step = (lde_step + self.blowup()) % self.len();
+
+        self.read_row_into(lde_step, &mut frame.current);
+        self.read_row_into(next_lde_step, &mut frame.next);
     }
 
     // TRACE COMMITMENT
@@ -77,7 +86,7 @@ impl TraceTable {
                     let offset = batch_idx * batch_size;
                     let mut trace_state = vec![BaseElement::ZERO; self.width()];
                     for (i, row_hash) in hashed_states_batch.iter_mut().enumerate() {
-                        self.copy_row(i + offset, &mut trace_state);
+                        self.read_row_into(i + offset, &mut trace_state);
                         hash(trace_state.as_slice().as_bytes(), row_hash);
                     }
                 });
@@ -87,7 +96,7 @@ impl TraceTable {
         {
             let mut trace_state = vec![BaseElement::ZERO; self.width()];
             for (i, row_hash) in hashed_states.iter_mut().enumerate() {
-                self.copy_row(i, &mut trace_state);
+                self.read_row_into(i, &mut trace_state);
                 hash(trace_state.as_slice().as_bytes(), row_hash);
             }
         }

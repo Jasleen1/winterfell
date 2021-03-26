@@ -16,7 +16,6 @@ mod deep_fri;
 
 mod trace;
 pub use trace::ExecutionTrace;
-use trace::TraceTable;
 
 mod utils;
 
