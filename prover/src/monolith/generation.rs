@@ -7,7 +7,7 @@ use math::field::{BaseElement, FieldElement, FromVec};
 use std::time::Instant;
 
 use super::{
-    constraints::{build_constraint_tree, query_constraints, ConstraintEvaluator},
+    constraints::{ConstraintCommitment, ConstraintEvaluator},
     deep_fri::CompositionPoly,
     trace::ExecutionTrace,
     utils, ProverChannel, StarkDomain,
@@ -103,12 +103,12 @@ where
 
     // finally, commit to constraint polynomial evaluations
     let now = Instant::now();
-    let constraint_tree =
-        build_constraint_tree(combined_constraint_evaluations, context.options().hash_fn());
-    channel.commit_constraints(*constraint_tree.root());
+    let constraint_commitment =
+        ConstraintCommitment::new(combined_constraint_evaluations, context.options().hash_fn());
+    channel.commit_constraints(constraint_commitment.root());
     debug!(
         "Committed to constraint evaluations by building a Merkle tree of depth {} in {} ms",
-        constraint_tree.depth(),
+        constraint_commitment.tree_depth(),
         now.elapsed().as_millis()
     );
 
@@ -190,10 +190,10 @@ where
     // state of the trace at that position + Merkle authentication path
     let (trace_paths, trace_states) = extended_trace.query(trace_tree, &query_positions);
 
-    // query the constraint evaluations at the selected positions; for each query, we need just
+    // query the constraint commitment at the selected positions; for each query, we need just
     // a Merkle authentication path. this is because constraint evaluations for each step are
     // merged into a single value and Merkle authentication paths contain these values already
-    let constraint_paths = query_constraints(constraint_tree, &query_positions);
+    let constraint_paths = constraint_commitment.query(&query_positions);
 
     // build the proof object
     let proof = channel.build_proof(
