@@ -7,6 +7,14 @@ use common::{
 use math::field::{BaseElement, FieldElement};
 use std::collections::HashMap;
 
+#[cfg(feature = "concurrent")]
+use rayon::prelude::*;
+
+// CONSTANTS
+// ================================================================================================
+
+const MIN_CONCURRENT_DOMAIN_SIZE: usize = 8192;
+
 // CONSTRAINT EVALUATOR
 // ================================================================================================
 
@@ -16,7 +24,6 @@ where
 {
     assertions: Vec<AssertionConstraintGroup>,
     transition: T,
-    context: ComputationContext,
     divisors: Vec<ConstraintDivisor>,
 
     #[cfg(debug_assertions)]
@@ -26,7 +33,8 @@ where
 impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-
+    /// Returns a new evaluator which can be used to evaluate transition and assertion constraints
+    /// over extended execution trace.
     pub fn new<C: PublicCoin>(
         coin: &C,
         context: &ComputationContext,
@@ -66,9 +74,8 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
             .collect();
 
         Ok(ConstraintEvaluator {
-            transition,
             assertions,
-            context: context.clone(),
+            transition,
             divisors,
             #[cfg(debug_assertions)]
             transition_constraint_degrees,
@@ -85,25 +92,58 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         trace: &TraceTable,
         domain: &StarkDomain,
     ) -> ConstraintEvaluationTable<BaseElement> {
+        assert_eq!(
+            trace.len(),
+            domain.lde_domain_size(),
+            "extended trace length is not consistent with evaluation domain"
+        );
         // allocate space for constraint evaluations; when we are in debug mode, we also allocate
         // memory to hold all transition constraint evaluations (before they are merged into a
         // single value) so that we can check their degree late
         #[cfg(not(debug_assertions))]
         let mut evaluation_table =
-            ConstraintEvaluationTable::<BaseElement>::new(&self.context, self.divisors.clone());
+            ConstraintEvaluationTable::<BaseElement>::new(domain, self.divisors.clone());
         #[cfg(debug_assertions)]
         let mut evaluation_table = ConstraintEvaluationTable::<BaseElement>::new(
-            &self.context,
+            domain,
             self.divisors.clone(),
             self.transition_constraint_degrees.to_vec(),
         );
 
+        // when `concurrent` feature is enabled, evaluate constraints in multiple threads,
+        // unless the constraint evaluation domain is small, then don't bother with concurrent
+        // evaluation
+        if cfg!(feature = "concurrent") && domain.ce_domain_size() >= MIN_CONCURRENT_DOMAIN_SIZE {
+            #[cfg(feature = "concurrent")]
+            self.evaluate_concurrent(trace, domain, &mut evaluation_table);
+        } else {
+            self.evaluate_sequential(trace, domain, &mut evaluation_table);
+        }
+
+        // when in debug mode, make sure expected transition constraint degrees align with
+        // actual degrees we got during constraint evaluation
+        #[cfg(debug_assertions)]
+        evaluation_table.validate_transition_degrees();
+
+        evaluation_table
+    }
+
+    // EVALUATION HELPERS
+    // --------------------------------------------------------------------------------------------
+
+    /// Evaluates the constraints in a single thread and saves the result into `evaluation_table`.
+    pub fn evaluate_sequential(
+        &self,
+        trace: &TraceTable,
+        domain: &StarkDomain,
+        evaluation_table: &mut ConstraintEvaluationTable<BaseElement>,
+    ) {
         // initialize buffers to hold trace values and evaluation results at each step
         let mut ev_frame = EvaluationFrame::new(trace.width());
         let mut evaluations = vec![BaseElement::ZERO; evaluation_table.num_columns()];
         let mut t_evaluations = vec![BaseElement::ZERO; self.transition.num_constraints()];
 
-        for step in 0..evaluation_table.domain_size() {
+        for step in 0..evaluation_table.num_rows() {
             // translate steps in the constraint evaluation domain to steps in LDE domain
             let (lde_step, x) = domain.ce_step_to_lde_info(step);
 
@@ -126,17 +166,59 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
             // record the result in the evaluation table
             evaluation_table.update_row(step, &evaluations);
         }
-
-        // when in debug mode, make sure expected transition constraint degrees align with
-        // actual degrees we got during constraint evaluation
-        #[cfg(debug_assertions)]
-        evaluation_table.validate_transition_degrees(self.context.trace_length());
-
-        evaluation_table
     }
 
-    // EVALUATION HELPERS
-    // --------------------------------------------------------------------------------------------
+    /// Evaluates the constraints in multiple threads (usually as many threads as are available
+    /// in rayon's global thread pool) and saves the result into `evaluation_table`. The evaluation
+    /// is done by breaking the evaluation table into multiple fragments and processing each
+    /// fragment in a separate thread.
+    #[cfg(feature = "concurrent")]
+    fn evaluate_concurrent(
+        &self,
+        trace: &TraceTable,
+        domain: &StarkDomain,
+        evaluation_table: &mut ConstraintEvaluationTable<BaseElement>,
+    ) {
+        let num_evaluation_columns = evaluation_table.num_columns();
+        let num_fragments = rayon::current_num_threads().next_power_of_two();
+
+        evaluation_table
+            .fragments(num_fragments)
+            .par_iter_mut()
+            .for_each(|fragment| {
+                // initialize buffers to hold trace values and evaluation results at each
+                // step; in concurrent mode we do this separately for each fragment
+                let mut ev_frame = EvaluationFrame::new(trace.width());
+                let mut evaluations = vec![BaseElement::ZERO; num_evaluation_columns];
+                let mut t_evaluations = vec![BaseElement::ZERO; self.transition.num_constraints()];
+
+                for i in 0..fragment.num_rows() {
+                    let step = i + fragment.offset();
+
+                    // translate steps in the constraint evaluation domain to steps in LDE domain
+                    let (lde_step, x) = domain.ce_step_to_lde_info(step);
+
+                    // update evaluation frame buffer with data from the execution trace;
+                    // this will read current and next rows from the trace into the buffer
+                    trace.read_frame_into(lde_step, &mut ev_frame);
+
+                    // evaluate transition constraints and save the merged result the
+                    // first slot of the evaluations buffer
+                    evaluations[0] =
+                        self.evaluate_transition(&ev_frame, x, step, &mut t_evaluations);
+
+                    // TODO: in debug mode, save t_evaluations into the fragment
+
+                    // evaluate assertion constraints; the results go into remaining slots
+                    // of the evaluations buffer
+                    let current_state = &ev_frame.current;
+                    self.evaluate_assertions(current_state, x, step, &mut evaluations[1..]);
+
+                    // record the result in the evaluation table
+                    fragment.update_row(i, &evaluations);
+                }
+            });
+    }
 
     /// Evaluates transition constraints at the specified step of the execution trace. `step` is
     /// the step in the constraint evaluation, and `x` is the corresponding domain value. That

@@ -1,5 +1,7 @@
+use crate::monolith::domain::StarkDomain;
+
 use super::{utils, ConstraintPoly};
-use common::{errors::ProverError, utils::uninit_vector, ComputationContext, ConstraintDivisor};
+use common::{errors::ProverError, utils::uninit_vector, ConstraintDivisor};
 use math::{
     fft,
     field::{BaseElement, FieldElement},
@@ -9,13 +11,20 @@ use math::{
 #[cfg(feature = "concurrent")]
 use rayon::prelude::*;
 
+// CONSTANTS
+// ================================================================================================
+
+#[cfg(feature = "concurrent")]
+const MIN_FRAGMENT_SIZE: usize = 256;
+
 // CONSTRAINT EVALUATION TABLE
 // ================================================================================================
+
 pub struct ConstraintEvaluationTable<E: FieldElement + From<BaseElement>> {
     evaluations: Vec<Vec<E>>,
     divisors: Vec<ConstraintDivisor>,
-    composition_degree: usize,
     domain_offset: BaseElement,
+    trace_length: usize,
 
     #[cfg(debug_assertions)]
     t_evaluations: Vec<Vec<BaseElement>>,
@@ -29,81 +38,91 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
     /// Returns a new constraint evaluation table with number of columns equal to the number of
     /// specified divisors, and number of rows equal to the size of constraint evaluation domain.
     #[cfg(not(debug_assertions))]
-    pub fn new(context: &ComputationContext, divisors: Vec<ConstraintDivisor>) -> Self {
+    pub fn new(domain: &StarkDomain, divisors: Vec<ConstraintDivisor>) -> Self {
         let num_columns = divisors.len();
-        let num_rows = context.ce_domain_size();
+        let num_rows = domain.ce_domain_size();
         ConstraintEvaluationTable {
             evaluations: (0..num_columns).map(|_| uninit_vector(num_rows)).collect(),
             divisors,
-            domain_offset: context.domain_offset(),
-            composition_degree: context.composition_degree(),
+            domain_offset: domain.offset(),
+            trace_length: domain.trace_length(),
         }
     }
 
-    /// Same as above constructor but in debug mode, we also want to keep track of all evaluated
-    /// transition constraints so that we can verify that their stated degrees match their actual
-    /// degrees
+    /// Similar to the as above constructor but used in debug mode. In debug mode we also want
+    /// to keep track of all evaluated transition constraints so that we can verify that their
+    /// expected degrees match their actual degrees.
     #[cfg(debug_assertions)]
     pub fn new(
-        context: &ComputationContext,
+        domain: &StarkDomain,
         divisors: Vec<ConstraintDivisor>,
-        t_degrees: Vec<usize>,
+        transition_constraint_degrees: Vec<usize>,
     ) -> Self {
         let num_columns = divisors.len();
-        let num_rows = context.ce_domain_size();
-        let num_t_columns = t_degrees.len();
+        let num_rows = domain.ce_domain_size();
+        let num_t_columns = transition_constraint_degrees.len();
         ConstraintEvaluationTable {
             evaluations: (0..num_columns).map(|_| uninit_vector(num_rows)).collect(),
             divisors,
-            domain_offset: context.domain_offset(),
-            composition_degree: context.composition_degree(),
+            domain_offset: domain.offset(),
+            trace_length: domain.trace_length(),
             t_evaluations: (0..num_t_columns)
                 .map(|_| uninit_vector(num_rows))
                 .collect(),
-            t_expected_degrees: t_degrees,
+            t_expected_degrees: transition_constraint_degrees,
         }
     }
 
     // PUBLIC ACCESSORS
     // --------------------------------------------------------------------------------------------
-    pub fn domain_size(&self) -> usize {
+
+    /// Returns the number of rows in this table. This is the same as the size of the constraint
+    /// evaluation domain.
+    pub fn num_rows(&self) -> usize {
         self.evaluations[0].len()
     }
 
+    /// Returns number of columns in this table. The first column always contains the value of
+    /// combined transition constraint evaluations; the remaining columns contain values of
+    /// assertion constraint evaluations combined based on common divisors.
     pub fn num_columns(&self) -> usize {
         self.evaluations.len()
-    }
-
-    #[allow(dead_code)]
-    pub fn divisors(&self) -> &[ConstraintDivisor] {
-        &self.divisors
     }
 
     // DATA MUTATORS
     // --------------------------------------------------------------------------------------------
 
+    /// Updates a single row in the table with provided data.
     pub fn update_row(&mut self, row_idx: usize, row_data: &[BaseElement]) {
         for (column, &value) in self.evaluations.iter_mut().zip(row_data) {
             column[row_idx] = E::from(value);
         }
     }
 
-    #[allow(dead_code)]
-    pub fn chunks(&mut self, chunk_size: usize) -> Vec<TableChunk<E>> {
-        let num_chunks = self.domain_size() / chunk_size;
+    /// In concurrent mode, we break the table into fragments and update each fragment in
+    /// separate threads.
+    #[cfg(feature = "concurrent")]
+    pub fn fragments(&mut self, num_fragments: usize) -> Vec<TableFragment<E>> {
+        let fragment_size = self.num_rows() / num_fragments;
+        assert!(
+            fragment_size >= MIN_FRAGMENT_SIZE,
+            "fragment size must be at least {}, but was {}",
+            MIN_FRAGMENT_SIZE,
+            fragment_size
+        );
 
-        let mut chunk_data = (0..num_chunks).map(|_| Vec::new()).collect::<Vec<_>>();
+        let mut fragment_data = (0..num_fragments).map(|_| Vec::new()).collect::<Vec<_>>();
         self.evaluations.iter_mut().for_each(|column| {
-            for (i, chunk) in column.chunks_mut(chunk_size).enumerate() {
-                chunk_data[i].push(chunk);
+            for (i, fragment) in column.chunks_mut(fragment_size).enumerate() {
+                fragment_data[i].push(fragment);
             }
         });
 
-        chunk_data
+        fragment_data
             .into_iter()
             .enumerate()
-            .map(|(i, data)| TableChunk {
-                offset: i * chunk_size,
+            .map(|(i, data)| TableFragment {
+                offset: i * fragment_size,
                 data,
             })
             .collect()
@@ -114,14 +133,14 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
     /// Interpolates all constraint evaluations into polynomials, divides them by their respective
     /// divisors, and combines the results into a single polynomial
     pub fn into_poly(self) -> Result<ConstraintPoly<E>, ProverError> {
-        let constraint_poly_degree = self.composition_degree;
+        let constraint_poly_degree = self.constraint_poly_degree();
         let domain_offset = self.domain_offset;
 
         // allocate memory for the combined polynomial
-        let mut combined_poly = vec![E::ZERO; self.domain_size()];
+        let mut combined_poly = vec![E::ZERO; self.num_rows()];
 
         // build twiddles for interpolation; these can be used to interpolate all polynomials
-        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.domain_size());
+        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.num_rows());
 
         #[cfg(feature = "concurrent")]
         {
@@ -157,7 +176,7 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
     // DEBUG HELPERS
     // --------------------------------------------------------------------------------------------
 
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(feature = "concurrent")))]
     pub fn update_transition_evaluations(&mut self, row_idx: usize, row_data: &[BaseElement]) {
         for (column, &value) in self.t_evaluations.iter_mut().zip(row_data) {
             column[row_idx] = value;
@@ -165,13 +184,13 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
     }
 
     #[cfg(debug_assertions)]
-    pub fn validate_transition_degrees(&mut self, trace_length: usize) {
+    pub fn validate_transition_degrees(&mut self) {
         // collect actual degrees for all transition constraints by interpolating saved
         // constraint evaluations into polynomials and checking their degree; also
         // determine max transition constraint degree
         let mut actual_degrees = Vec::with_capacity(self.t_expected_degrees.len());
         let mut max_degree = 0;
-        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.domain_size());
+        let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.num_rows());
         for evaluations in self.t_evaluations.iter() {
             let mut poly = evaluations.clone();
             fft::interpolate_poly(&mut poly, &inv_twiddles);
@@ -190,32 +209,54 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
         }
 
         // make sure evaluation domain size does not exceed the size required by max degree
-        let expected_domain_size = std::cmp::max(max_degree, trace_length + 1).next_power_of_two();
-        if expected_domain_size != self.domain_size() {
+        let expected_domain_size =
+            std::cmp::max(max_degree, self.trace_length + 1).next_power_of_two();
+        if expected_domain_size != self.num_rows() {
             panic!(
                 "incorrect constraint evaluation domain size; expected {}, actual: {}",
                 expected_domain_size,
-                self.domain_size()
+                self.num_rows()
             );
         }
     }
+
+    // HELPER METHODS
+    // --------------------------------------------------------------------------------------------
+
+    /// Computes expected degree of composed constraint polynomial.
+    fn constraint_poly_degree(&self) -> usize {
+        self.num_rows() - self.trace_length
+    }
 }
 
-// TABLE CHUNK
+// TABLE FRAGMENTS
 // ================================================================================================
 
-#[allow(dead_code)]
-pub struct TableChunk<'a, E: FieldElement + From<BaseElement>> {
+#[cfg(feature = "concurrent")]
+pub struct TableFragment<'a, E: FieldElement + From<BaseElement>> {
     offset: usize,
     data: Vec<&'a mut [E]>,
 }
 
-#[allow(dead_code)]
-impl<'a, E: FieldElement + From<BaseElement>> TableChunk<'a, E> {
+#[cfg(feature = "concurrent")]
+impl<'a, E: FieldElement + From<BaseElement>> TableFragment<'a, E> {
+    /// Returns the row at which the fragment starts.
     pub fn offset(&self) -> usize {
         self.offset
     }
 
+    /// Returns the number of evaluation rows in the fragment.
+    pub fn num_rows(&self) -> usize {
+        self.data[0].len()
+    }
+
+    /// Returns the number of columns in every evaluation row.
+    #[allow(dead_code)]
+    pub fn num_columns(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Updates a single row in the fragment with provided data.
     pub fn update_row(&mut self, row_idx: usize, row_data: &[BaseElement]) {
         for (column, &value) in self.data.iter_mut().zip(row_data) {
             column[row_idx] = E::from(value);

@@ -7,7 +7,7 @@ use math::field::{BaseElement, FieldElement, FromVec};
 use std::time::Instant;
 
 use super::{
-    constraints::{build_constraint_tree, ConstraintEvaluator, query_constraints},
+    constraints::{build_constraint_tree, query_constraints, ConstraintEvaluator},
     deep_fri::CompositionPoly,
     trace::ExecutionTrace,
     utils, ProverChannel, StarkDomain,
@@ -50,7 +50,7 @@ where
         extended_trace.width(),
         log2(trace_polys.poly_size()),
         log2(extended_trace.len()),
-        context.options().blowup_factor(),
+        extended_trace.blowup(),
         now.elapsed().as_millis()
     );
 
@@ -77,7 +77,7 @@ where
     let constraint_evaluations = evaluator.evaluate(&extended_trace, &domain);
     debug!(
         "Evaluated constraints over domain of 2^{} elements in {} ms",
-        log2(constraint_evaluations.domain_size()),
+        log2(constraint_evaluations.num_rows()),
         now.elapsed().as_millis()
     );
 
