@@ -1,6 +1,9 @@
 use super::{trace_table::TraceTable, PolyTable, StarkDomain};
-use common::Assertions;
-use math::{fft, field::BaseElement};
+use common::{utils::uninit_vector, Assertions};
+use math::{
+    fft,
+    field::{BaseElement, FieldElement},
+};
 
 #[cfg(feature = "concurrent")]
 use rayon::prelude::*;
@@ -9,15 +12,40 @@ use rayon::prelude::*;
 // ================================================================================================
 
 const MIN_TRACE_LENGTH: usize = 8;
+const MIN_FRAGMENT_LENGTH: usize = 2;
 
 // TRACE TABLE
 // ================================================================================================
 pub struct ExecutionTrace(Vec<Vec<BaseElement>>);
 
 impl ExecutionTrace {
-    // CONSTRUCTOR
+    // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
-    /// Creates a new trace table from a list of provided register traces.
+
+    /// Creates a new execution trace of the specified width and length; data in the trace is not
+    /// initialized and it is expected that the trace will be filled using one of the data mutator
+    /// methods.
+    pub fn new(width: usize, length: usize) -> Self {
+        assert!(
+            width > 0,
+            "execution trace must consist of at least one register"
+        );
+        assert!(
+            length >= MIN_TRACE_LENGTH,
+            "execution trace must be at lest {} steps long, but was {}",
+            MIN_TRACE_LENGTH,
+            length
+        );
+        assert!(
+            length.is_power_of_two(),
+            "execution trace length must be a power of 2"
+        );
+
+        let registers = (0..width).map(|_| uninit_vector(length)).collect();
+        ExecutionTrace(registers)
+    }
+
+    /// Creates a new execution trace from a list of provided register traces.
     pub fn init(registers: Vec<Vec<BaseElement>>) -> Self {
         assert!(
             !registers.is_empty(),
@@ -42,6 +70,73 @@ impl ExecutionTrace {
         }
 
         ExecutionTrace(registers)
+    }
+
+    // DATA MUTATORS
+    // --------------------------------------------------------------------------------------------
+
+    /// Fills all rows in the execution trace using the specified closures as follows:
+    /// - `init` closure is used to initialize the first row of the trace; it receives a mutable
+    ///   reference to the first state initialized to all zeros. The contents of the state are
+    ///   copied into the first row of the trace after the closure returns.
+    /// - `update` closure is used to populate all subsequent rows of the trace; it receives two
+    ///   parameters:
+    ///   - index of the last updated row (starting with 0).
+    ///   - a mutable reference to the last updated state; the contents of the state are copied
+    ///     into the next row of the trace after the closure returns.
+    pub fn fill<I, U>(&mut self, init: I, update: U)
+    where
+        I: Fn(&mut [BaseElement]),
+        U: Fn(usize, &mut [BaseElement]),
+    {
+        let mut state = vec![BaseElement::ZERO; self.width()];
+        init(&mut state);
+        self.update_row(0, &state);
+
+        for i in 0..self.len() - 1 {
+            update(i, &mut state);
+            self.update_row(i + 1, &state);
+        }
+    }
+
+    /// Updates a single row in the execution trace with provided data.
+    pub fn update_row(&mut self, step: usize, state: &[BaseElement]) {
+        for (register, &value) in self.0.iter_mut().zip(state) {
+            register[step] = value;
+        }
+    }
+
+    /// Breaks the execution trace into mutable fragments each having the number of rows
+    /// specified by `fragment_length` parameter. The returned fragments can be used to
+    /// update data in the trace from multiple threads.
+    pub fn fragments(&mut self, fragment_length: usize) -> Vec<ExecutionTraceFragment> {
+        assert!(
+            fragment_length >= MIN_FRAGMENT_LENGTH,
+            "fragment length must be at least {}, but was {}",
+            MIN_FRAGMENT_LENGTH,
+            fragment_length
+        );
+        assert!(
+            fragment_length.is_power_of_two(),
+            "fragment length must be a power of 2"
+        );
+        let num_fragments = self.len() / fragment_length;
+
+        let mut fragment_data = (0..num_fragments).map(|_| Vec::new()).collect::<Vec<_>>();
+        self.0.iter_mut().for_each(|column| {
+            for (i, fragment) in column.chunks_mut(fragment_length).enumerate() {
+                fragment_data[i].push(fragment);
+            }
+        });
+
+        fragment_data
+            .into_iter()
+            .enumerate()
+            .map(|(i, data)| ExecutionTraceFragment {
+                offset: i * fragment_length,
+                data,
+            })
+            .collect()
     }
 
     // PUBLIC ACCESSORS
@@ -124,6 +219,68 @@ impl ExecutionTrace {
             TraceTable::new(extended_trace, domain.trace_to_lde_blowup()),
             PolyTable::new(self.0),
         )
+    }
+}
+
+// TRACE FRAGMENTS
+// ================================================================================================
+
+pub struct ExecutionTraceFragment<'a> {
+    offset: usize,
+    data: Vec<&'a mut [BaseElement]>,
+}
+
+impl<'a> ExecutionTraceFragment<'a> {
+    // PUBLIC ACCESSORS
+    // --------------------------------------------------------------------------------------------
+    /// Returns the step at which the fragment starts.
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    /// Returns the length of this execution trace fragment.
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.data[0].len()
+    }
+
+    /// Returns the width of the fragment (same as the width of the underlying table)
+    pub fn width(&self) -> usize {
+        self.data.len()
+    }
+
+    // DATA MUTATORS
+    // --------------------------------------------------------------------------------------------
+
+    /// Fills all rows in the fragment using the specified closures as follows:
+    /// - `init` closure is used to initialize the first row of the fragment; it receives a
+    ///   mutable reference to the first state initialized to all zeros. Contents contents of the
+    ///   state are copied into the first row of the fragment after the closure returns.
+    /// - `update` closure is used to populate all subsequent rows of the fragment; it receives two
+    ///   parameters:
+    ///   - index of the last updated row (starting with 0).
+    ///   - a mutable reference to the last updated state; the contents of the state are copied
+    ///     into the next row of the fragment after the closure returns.
+    pub fn fill<I, T>(&mut self, init_state: I, update_state: T)
+    where
+        I: Fn(&mut [BaseElement]),
+        T: Fn(usize, &mut [BaseElement]),
+    {
+        let mut state = vec![BaseElement::ZERO; self.width()];
+        init_state(&mut state);
+        self.update_row(0, &state);
+
+        for i in 0..self.len() - 1 {
+            update_state(i, &mut state);
+            self.update_row(i + 1, &state);
+        }
+    }
+
+    /// Updates a single row in the fragment with provided data.
+    pub fn update_row(&mut self, row_idx: usize, row_data: &[BaseElement]) {
+        for (column, &value) in self.data.iter_mut().zip(row_data) {
+            column[row_idx] = value;
+        }
     }
 }
 

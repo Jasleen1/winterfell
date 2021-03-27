@@ -15,7 +15,7 @@ mod constraints;
 mod deep_fri;
 
 mod trace;
-pub use trace::ExecutionTrace;
+pub use trace::{ExecutionTrace, ExecutionTraceFragment};
 
 mod utils;
 
