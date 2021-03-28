@@ -30,7 +30,7 @@ where
     let t_evaluator = T::new(context, coin.get_transition_coefficient_prng());
     // evaluate transition constraints and merge them into a single value
     let mut t_evaluations = vec![E::ZERO; t_evaluator.num_constraints()];
-    t_evaluator.evaluate_at_x(&mut t_evaluations, &ood_frame.current, &ood_frame.next, x);
+    t_evaluator.evaluate_at_x(&mut t_evaluations, &ood_frame, x);
     let t_evaluation = t_evaluator.merge_evaluations(&t_evaluations, x);
 
     // divide out the evaluation of divisor at x

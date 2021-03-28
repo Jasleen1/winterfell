@@ -1,17 +1,16 @@
+use super::{rescue, CYCLE_LENGTH, STATE_WIDTH};
+use crate::utils::{
+    are_equal, build_cyclic_domain, extend_cyclic_values, is_zero, transpose, EvaluationResult,
+};
 use prover::{
     crypto::RandomElementGenerator,
     math::{
         field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
-    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, EvaluationFrame, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
-
-use crate::utils::{
-    are_equal, build_cyclic_domain, extend_cyclic_values, is_zero, transpose, EvaluationResult,
-};
-
-use super::{rescue, CYCLE_LENGTH, STATE_WIDTH};
 
 // CONSTANTS
 // ================================================================================================
@@ -106,8 +105,7 @@ impl TransitionEvaluator for RescueEvaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         step: usize,
     ) {
         // determine which rounds constants to use
@@ -115,12 +113,12 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 1, constraints for Rescue round are enforced
         let hash_flag = self.mask_constants[step % self.mask_constants.len()];
-        rescue::enforce_round(result, current, next, &ark, hash_flag);
+        rescue::enforce_round(result, &frame.current, &frame.next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
         let copy_flag = BaseElement::ONE - hash_flag;
-        enforce_hash_copy(result, current, next, copy_flag);
+        enforce_hash_copy(result, &frame.current, &frame.next, copy_flag);
     }
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
@@ -128,8 +126,7 @@ impl TransitionEvaluator for RescueEvaluator {
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         x: E,
     ) {
         // map x to the corresponding coordinate in constant cycles
@@ -145,12 +142,12 @@ impl TransitionEvaluator for RescueEvaluator {
 
         // when hash_flag = 1, constraints for Rescue round are enforced
         let hash_flag = polynom::eval(&E::from_vec(&self.mask_poly), x);
-        rescue::enforce_round(result, current, next, &ark, hash_flag);
+        rescue::enforce_round(result, &frame.current, &frame.next, &ark, hash_flag);
 
         // when hash_flag = 0, constraints for copying hash values to the next
         // step are enforced.
         let copy_flag = E::ONE - hash_flag;
-        enforce_hash_copy(result, current, next, copy_flag);
+        enforce_hash_copy(result, &frame.current, &frame.next, copy_flag);
     }
 
     fn constraint_groups(&self) -> &[TransitionConstraintGroup] {

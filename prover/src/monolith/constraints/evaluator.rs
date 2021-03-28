@@ -235,8 +235,7 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
         evaluations.fill(BaseElement::ZERO);
 
         // evaluate transition constraints and save the results into evaluations buffer
-        self.transition
-            .evaluate_at_step(evaluations, &frame.current, &frame.next, step);
+        self.transition.evaluate_at_step(evaluations, frame, step);
 
         // merge transition constraint evaluations into a single value and return it;
         // we can do this here because all transition constraints have the same divisor.
