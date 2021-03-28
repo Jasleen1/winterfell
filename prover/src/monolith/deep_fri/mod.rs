@@ -19,7 +19,12 @@ pub struct CompositionPoly<E: FieldElement + From<BaseElement>> {
 impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
+    /// Returns a new composition polynomial. This also initializes memory needed to hold
+    /// polynomial coefficients.
     pub fn new(context: &ComputationContext, z: E, cc: CompositionCoefficients<E>) -> Self {
+        // compute another out-of-domain point offset from z by exactly trace generator;
+        // this will be used in building OOD evaluation frame for the "next" state of the
+        // computation
         let g = E::from(BaseElement::get_root_of_unity(utils::log2(
             context.trace_length(),
         )));
@@ -37,13 +42,9 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
     // ACCESSORS
     // --------------------------------------------------------------------------------------------
 
+    /// Returns the expected degree of the composition polynomial.
     pub fn degree(&self) -> usize {
         self.degree
-    }
-
-    #[allow(dead_code)] // TODO: remove
-    pub fn len(&self) -> usize {
-        self.coefficients.len()
     }
 
     // TRACE POLYNOMIAL COMPOSITION
@@ -69,8 +70,8 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         let mut t1_composition = E::zeroed_vector(trace_length);
         let mut t2_composition = E::zeroed_vector(trace_length);
         for (i, poly) in polys.into_iter().enumerate() {
-            // compute T1(x) = (T(x) - T(z)), multiply it by a pseudo-random
-            // coefficient, and add the result into composition polynomial
+            // compute T1(x) = (T(x) - T(z)), multiply it by a pseudo-random coefficient,
+            // and add the result into composition polynomial
             acc_poly(
                 &mut t1_composition,
                 &poly,
@@ -78,8 +79,8 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
                 self.cc.trace[i].0,
             );
 
-            // compute T2(x) = (T(x) - T(z * g)), multiply it by a pseudo-random
-            // coefficient, and add the result into composition polynomial
+            // compute T2(x) = (T(x) - T(z * g)), multiply it by a pseudo-random coefficient,
+            // and add the result into composition polynomial
             acc_poly(
                 &mut t2_composition,
                 &poly,
@@ -90,9 +91,18 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 
         // divide the two composition polynomials by (x - z) and (x - z * g) respectively,
         // and add the resulting polynomials together; the output of this step is a single
-        // trace polynomial T(x) and deg(T(x)) = trace_length - 2
-        polynom::syn_div_in_place(&mut t1_composition, 1, self.z);
-        polynom::syn_div_in_place(&mut t2_composition, 1, self.next_z);
+        // trace polynomial T(x) and deg(T(x)) = trace_length - 2.
+        // when `concurrent` feature is enabled, we perform the divisions in separate threads.
+        #[cfg(feature = "concurrent")]
+        rayon::join(
+            || polynom::syn_div_in_place(&mut t1_composition, 1, self.z),
+            || polynom::syn_div_in_place(&mut t2_composition, 1, self.next_z),
+        );
+        #[cfg(not(feature = "concurrent"))]
+        {
+            polynom::syn_div_in_place(&mut t1_composition, 1, self.z);
+            polynom::syn_div_in_place(&mut t2_composition, 1, self.next_z);
+        }
         utils::add_in_place(&mut t1_composition, &t2_composition);
         let trace_poly = t1_composition;
         debug_assert_eq!(trace_length - 2, polynom::degree_of(&trace_poly));
@@ -129,10 +139,11 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 
     // CONSTRAINT POLYNOMIAL COMPOSITION
     // --------------------------------------------------------------------------------------------
-    /// Divides out OOD point z from the constraint polynomial and saves the
-    /// result into the composition polynomial.
+    /// Divides out OOD point z from the constraint polynomial and saves the result into the
+    /// composition polynomial.
     pub fn add_constraint_poly(&mut self, constraint_poly: ConstraintPoly<BaseElement>) {
-        // TODO: find a better ay to do this (ideally, with zero-copy)
+        // TODO: this function should accept generic ConstraintPoly<E>; this would allow
+        // getting rid of the below conversion
         let mut constraint_poly = constraint_poly
             .into_vec()
             .into_iter()
