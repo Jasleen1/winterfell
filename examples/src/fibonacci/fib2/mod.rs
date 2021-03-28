@@ -105,13 +105,17 @@ fn build_fib_trace(length: usize) -> ExecutionTrace {
         "sequence length must be a power of 2"
     );
 
-    let mut reg0 = vec![BaseElement::ONE];
-    let mut reg1 = vec![BaseElement::ONE];
+    let mut trace = ExecutionTrace::new(2, length);
+    trace.fill(
+        |state| {
+            state[0] = BaseElement::ONE;
+            state[1] = BaseElement::ONE;
+        },
+        |_, state| {
+            state[0] = state[0] + state[1];
+            state[1] = state[0] + state[1];
+        },
+    );
 
-    for i in 0..(length / 2 - 1) {
-        reg0.push(reg0[i] + reg1[i]);
-        reg1.push(reg1[i] + reg0[i + 1]);
-    }
-
-    ExecutionTrace::init(vec![reg0, reg1])
+    trace
 }

@@ -4,6 +4,9 @@ use prover::{
     ExecutionTrace,
 };
 
+#[cfg(feature = "concurrent")]
+use rayon::prelude::*;
+
 // CONSTANTS
 // ================================================================================================
 
@@ -12,6 +15,12 @@ const ZERO_KEY: [BaseElement; 2] = [BaseElement::ZERO, BaseElement::ZERO];
 
 // TYPES AND INTERFACES
 // ================================================================================================
+
+struct SignatureInfo {
+    m0: u128,
+    m1: u128,
+    key_schedule: KeySchedule,
+}
 
 struct KeySchedule {
     sec_keys1: Vec<[BaseElement; 2]>,
@@ -26,111 +35,135 @@ struct KeySchedule {
 pub fn generate_trace(messages: &[[BaseElement; 2]], signatures: &[Signature]) -> ExecutionTrace {
     // allocate memory to hold the trace table
     let trace_length = SIG_CYCLE_LENGTH * messages.len();
-    let mut trace = (0..STATE_WIDTH)
-        .map(|_| vec![BaseElement::ZERO; trace_length])
-        .collect::<Vec<Vec<BaseElement>>>();
+    let mut trace = ExecutionTrace::new(STATE_WIDTH, trace_length);
 
-    for i in 0..messages.len() {
-        let steps = (i * SIG_CYCLE_LENGTH, (i + 1) * SIG_CYCLE_LENGTH - 1);
-        append_sig_verification(&mut trace, steps, &messages[i], &signatures[i]);
+    let powers_of_two = BaseElement::get_power_series(TWO, 128);
+
+    #[cfg(not(feature = "concurrent"))]
+    for (i, sig_trace) in trace.fragments(SIG_CYCLE_LENGTH).iter_mut().enumerate() {
+        let sig_info = build_sig_info(&messages[i], &signatures[i]);
+        sig_trace.fill(
+            |state| {
+                init_sig_verification_state(&sig_info, state);
+            },
+            |step, state| {
+                update_sig_verification_state(step, &sig_info, &powers_of_two, state);
+            },
+        );
     }
 
-    ExecutionTrace::init(trace)
+    #[cfg(feature = "concurrent")]
+    trace
+        .fragments(SIG_CYCLE_LENGTH)
+        .par_iter_mut()
+        .enumerate()
+        .for_each(|(i, sig_trace)| {
+            let sig_info = build_sig_info(&messages[i], &signatures[i]);
+            sig_trace.fill(
+                |state| {
+                    init_sig_verification_state(&sig_info, state);
+                },
+                |step, state| {
+                    update_sig_verification_state(step, &sig_info, &powers_of_two, state);
+                },
+            );
+        });
+
+    trace
 }
 
-pub fn append_sig_verification(
-    trace: &mut Vec<Vec<BaseElement>>,
-    steps: (usize, usize),
-    msg: &[BaseElement; 2],
-    sig: &Signature,
+// TRACE INITIALIZATION
+// ================================================================================================
+
+fn init_sig_verification_state(sig_info: &SignatureInfo, state: &mut [BaseElement]) {
+    // message accumulators
+    state[0] = BaseElement::new(sig_info.m0 & 1); // m0 bits
+    state[1] = BaseElement::new(sig_info.m1 & 1); // m1 bits
+    state[2] = BaseElement::ZERO; // m0 accumulator
+    state[3] = BaseElement::ZERO; // m1 accumulator
+
+    // secret key 1 hashing
+    state[4] = sig_info.key_schedule.sec_keys1[0][0];
+    state[5] = sig_info.key_schedule.sec_keys1[0][1];
+    state[6] = BaseElement::ZERO;
+    state[7] = BaseElement::ZERO;
+    state[8] = BaseElement::ZERO; // capacity
+    state[9] = BaseElement::ZERO; // capacity
+
+    // secret key 2 hashing
+    state[10] = sig_info.key_schedule.sec_keys2[0][0];
+    state[11] = sig_info.key_schedule.sec_keys2[0][1];
+    state[12] = BaseElement::ZERO;
+    state[13] = BaseElement::ZERO;
+    state[14] = BaseElement::ZERO; // capacity
+    state[15] = BaseElement::ZERO; // capacity
+
+    // public key hashing
+    state[16] = BaseElement::ZERO;
+    state[17] = BaseElement::ZERO;
+    state[18] = BaseElement::ZERO;
+    state[19] = BaseElement::ZERO;
+    state[20] = BaseElement::ZERO; // capacity
+    state[21] = BaseElement::ZERO; // capacity
+}
+
+// TRANSITION FUNCTION
+// ================================================================================================
+
+fn update_sig_verification_state(
+    step: usize,
+    sig_info: &SignatureInfo,
+    powers_of_two: &[BaseElement],
+    state: &mut [BaseElement],
 ) {
-    let m0 = msg[0].as_u128();
-    let m1 = msg[1].as_u128();
-    let key_schedule = build_key_schedule(m0, m1, sig);
+    // determine which cycle we are in and also where in the cycle we are
+    let cycle_num = step / CYCLE_LENGTH;
+    let cycle_step = step % CYCLE_LENGTH;
 
-    // initialize first state of signature verification
-    let mut state: [BaseElement; STATE_WIDTH] = [
-        // message accumulators
-        BaseElement::new(m0 & 1), // m0 bits
-        BaseElement::new(m1 & 1), // m1 bits
-        BaseElement::ZERO,        // m0 accumulator
-        BaseElement::ZERO,        // m1 accumulator
-        // secret key 1 hashing
-        key_schedule.sec_keys1[0][0],
-        key_schedule.sec_keys1[0][1],
-        BaseElement::ZERO,
-        BaseElement::ZERO,
-        BaseElement::ZERO, // capacity
-        BaseElement::ZERO, // capacity
-        // secret key 2 hashing
-        key_schedule.sec_keys2[0][0],
-        key_schedule.sec_keys2[0][1],
-        BaseElement::ZERO,
-        BaseElement::ZERO,
-        BaseElement::ZERO, // capacity
-        BaseElement::ZERO, // capacity
-        // public key hashing
-        BaseElement::ZERO,
-        BaseElement::ZERO,
-        BaseElement::ZERO,
-        BaseElement::ZERO,
-        BaseElement::ZERO, // capacity
-        BaseElement::ZERO, // capacity
-    ];
+    // break the state into logical parts
+    let (mut msg_acc_state, rest) = state.split_at_mut(4);
+    let (mut sec_key_1_hash, rest) = rest.split_at_mut(6);
+    let (mut sec_key_2_hash, mut pub_key_hash) = rest.split_at_mut(6);
 
-    let (first_step, last_step) = steps;
+    if cycle_step < NUM_HASH_ROUNDS {
+        // for the first 7 steps in each cycle apply Rescue round function to
+        // registers where keys are hashed; all other registers retain their values
+        rescue::apply_round(&mut sec_key_1_hash, cycle_step);
+        rescue::apply_round(&mut sec_key_2_hash, cycle_step);
+        rescue::apply_round(&mut pub_key_hash, cycle_step);
+    } else {
+        let m0_bit = msg_acc_state[0];
+        let m1_bit = msg_acc_state[1];
 
-    // copy initial state into the trace
-    for (reg, &val) in state.iter().enumerate() {
-        trace[reg][first_step] = val;
-    }
+        // copy next set of public keys into the registers computing hash of the public key
+        update_pub_key_hash(
+            &mut pub_key_hash,
+            m0_bit,
+            m1_bit,
+            &sec_key_1_hash,
+            &sec_key_2_hash,
+            &sig_info.key_schedule.pub_keys1[cycle_num],
+            &sig_info.key_schedule.pub_keys2[cycle_num],
+        );
 
-    let mut power_of_two = BaseElement::ONE;
+        // copy next set of private keys into the registers computing private key hashes
+        init_hash_state(
+            &mut sec_key_1_hash,
+            &sig_info.key_schedule.sec_keys1[cycle_num + 1],
+        );
+        init_hash_state(
+            &mut sec_key_2_hash,
+            &sig_info.key_schedule.sec_keys2[cycle_num + 1],
+        );
 
-    // execute the transition function for all steps
-    for step in first_step..last_step {
-        // determine which cycle we are in and also where in the cycle we are
-        let cycle_num = (step % SIG_CYCLE_LENGTH) / CYCLE_LENGTH;
-        let cycle_step = (step % SIG_CYCLE_LENGTH) % CYCLE_LENGTH;
-
-        // break the state into logical parts
-        let (mut msg_acc_state, rest) = state.split_at_mut(4);
-        let (mut sec_key_1_hash, rest) = rest.split_at_mut(6);
-        let (mut sec_key_2_hash, mut pub_key_hash) = rest.split_at_mut(6);
-
-        if cycle_step < NUM_HASH_ROUNDS {
-            // for the first 7 steps in each cycle apply Rescue round function to
-            // registers where keys are hashed; all other registers retain their values
-            rescue::apply_round(&mut sec_key_1_hash, cycle_step);
-            rescue::apply_round(&mut sec_key_2_hash, cycle_step);
-            rescue::apply_round(&mut pub_key_hash, cycle_step);
-        } else {
-            let m0_bit = msg_acc_state[0];
-            let m1_bit = msg_acc_state[1];
-
-            // copy next set of public keys into the registers computing hash of the public key
-            update_pub_key_hash(
-                &mut pub_key_hash,
-                m0_bit,
-                m1_bit,
-                &sec_key_1_hash,
-                &sec_key_2_hash,
-                &key_schedule.pub_keys1[cycle_num],
-                &key_schedule.pub_keys2[cycle_num],
-            );
-
-            // copy next set of private keys into the registers computing private key hashes
-            init_hash_state(&mut sec_key_1_hash, &key_schedule.sec_keys1[cycle_num + 1]);
-            init_hash_state(&mut sec_key_2_hash, &key_schedule.sec_keys2[cycle_num + 1]);
-
-            // update message accumulator with the next set of message bits
-            power_of_two = apply_message_acc(&mut msg_acc_state, m0, m1, cycle_num, power_of_two);
-        }
-
-        // copy state into the trace
-        for (reg, &val) in state.iter().enumerate() {
-            trace[reg][step + 1] = val;
-        }
+        // update message accumulator with the next set of message bits
+        apply_message_acc(
+            &mut msg_acc_state,
+            sig_info.m0,
+            sig_info.m1,
+            cycle_num,
+            powers_of_two[cycle_num],
+        );
     }
 }
 
@@ -140,7 +173,7 @@ fn apply_message_acc(
     m1: u128,
     cycle_num: usize,
     power_of_two: BaseElement,
-) -> BaseElement {
+) {
     let m0_bit = state[0];
     let m1_bit = state[1];
 
@@ -148,8 +181,6 @@ fn apply_message_acc(
     state[1] = BaseElement::from((m1 >> (cycle_num + 1)) & 1);
     state[2] = state[2] + power_of_two * m0_bit;
     state[3] = state[3] + power_of_two * m1_bit;
-
-    power_of_two * TWO
 }
 
 fn init_hash_state(state: &mut [BaseElement], values: &[BaseElement; 2]) {
@@ -189,6 +220,17 @@ fn update_pub_key_hash(
 
 // HELPER FUNCTIONS
 // ================================================================================================
+
+fn build_sig_info(msg: &[BaseElement; 2], sig: &Signature) -> SignatureInfo {
+    let m0 = msg[0].as_u128();
+    let m1 = msg[1].as_u128();
+    let key_schedule = build_key_schedule(m0, m1, sig);
+    SignatureInfo {
+        m0,
+        m1,
+        key_schedule,
+    }
+}
 
 /// Transforms signature into 4 vectors of keys such that keys 0..127 and 127..254 end up in
 /// different vectors; keys that are missing from the signature are replaced with a zeros.
