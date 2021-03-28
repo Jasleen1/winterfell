@@ -9,7 +9,8 @@ use prover::{
         field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
-    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, EvaluationFrame, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
 
 // CONSTANTS
@@ -109,8 +110,7 @@ impl TransitionEvaluator for LamportThresholdEvaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         step: usize,
     ) {
         // determine signature mask and power of two value for the current step
@@ -125,8 +125,8 @@ impl TransitionEvaluator for LamportThresholdEvaluator {
         // evaluate the constraints
         evaluate_constraints(
             result,
-            current,
-            next,
+            &frame.current,
+            &frame.next,
             ark,
             hash_flag,
             sig_cycle_end_flag,
@@ -139,8 +139,7 @@ impl TransitionEvaluator for LamportThresholdEvaluator {
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         x: E,
     ) {
         // determine signature mask and power of two for the specified x
@@ -164,8 +163,8 @@ impl TransitionEvaluator for LamportThresholdEvaluator {
         // evaluate the constraints
         evaluate_constraints(
             result,
-            current,
-            next,
+            &frame.current,
+            &frame.next,
             ark,
             hash_flag,
             sig_cycle_end_flag,

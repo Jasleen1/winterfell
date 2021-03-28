@@ -1,8 +1,8 @@
 use super::{compose_constraints, evaluate_constraints, VerifierChannel};
 use common::CompositionCoefficients;
 use common::{
-    errors::VerifierError, Assertions, ComputationContext, ConstraintEvaluator, EvaluationFrame,
-    PublicCoin, TransitionEvaluator,
+    errors::VerifierError, Assertions, ComputationContext, EvaluationFrame, PublicCoin,
+    TransitionEvaluator,
 };
 use fri::VerifierChannel as FriVerifierChannel;
 use math::field::{BaseElement, FieldElement, FromVec};
@@ -25,12 +25,11 @@ where
     // draw a pseudo-random out-of-domain point for DEEP composition
     let z = channel.draw_deep_point::<E>();
 
-    // build constraint evaluator
-    let evaluator = ConstraintEvaluator::<T>::new(channel, context, assertions)?;
-
     // evaluate constraints at z
     let ood_frame = channel.read_ood_frame()?;
-    let constraint_evaluation_at_z = evaluate_constraints(evaluator, &ood_frame, z);
+    let constraint_evaluation_at_z = evaluate_constraints::<VerifierChannel<E>, T, E>(
+        channel, context, assertions, &ood_frame, z,
+    );
 
     // 2 ----- Read queried trace states and constraint evaluations ---------------------------
 

@@ -1,17 +1,16 @@
+use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
+use crate::utils::{
+    are_equal, build_cyclic_domain, extend_cyclic_values, is_binary, is_zero, not, transpose,
+    EvaluationResult,
+};
 use prover::{
     crypto::RandomElementGenerator,
     math::{
         field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
-    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
-};
-
-use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
-
-use crate::utils::{
-    are_equal, build_cyclic_domain, extend_cyclic_values, is_binary, is_zero, not, transpose,
-    EvaluationResult,
+    ComputationContext, ConstraintDegree, EvaluationFrame, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
 
 // RESCUE TRANSITION CONSTRAINT EVALUATOR
@@ -101,8 +100,7 @@ impl TransitionEvaluator for AnonTokenEvaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         step: usize,
     ) {
         // determine which rounds constants and masks to use
@@ -110,7 +108,7 @@ impl TransitionEvaluator for AnonTokenEvaluator {
         let masks = &self.mask_constants[step % self.mask_constants.len()];
 
         // evaluate constraints with these round constants and masks
-        evaluate_constraints(result, current, next, ark, masks);
+        evaluate_constraints(result, &frame.current, &frame.next, ark, masks);
     }
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
@@ -118,8 +116,7 @@ impl TransitionEvaluator for AnonTokenEvaluator {
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         x: E,
     ) {
         // map x to the corresponding coordinate in constant cycles
@@ -140,7 +137,7 @@ impl TransitionEvaluator for AnonTokenEvaluator {
         }
 
         // evaluate constraints with these round constants and masks
-        evaluate_constraints(result, current, next, &ark, &masks);
+        evaluate_constraints(result, &frame.current, &frame.next, &ark, &masks);
     }
 
     fn get_ce_blowup_factor() -> usize {

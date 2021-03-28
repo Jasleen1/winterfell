@@ -9,8 +9,8 @@ mod channel;
 pub mod tests;
 
 pub use common::{
-    proof::StarkProof, Assertions, ComputationContext, ConstraintDegree, ProofOptions,
-    TransitionConstraintGroup, TransitionEvaluator,
+    proof::StarkProof, Assertions, ComputationContext, ConstraintDegree, EvaluationFrame,
+    ProofOptions, TransitionConstraintGroup, TransitionEvaluator,
 };
 pub use crypto;
 pub use math;

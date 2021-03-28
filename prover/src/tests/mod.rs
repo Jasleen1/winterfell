@@ -1,7 +1,7 @@
 use crate::ExecutionTrace;
 use common::{
-    ComputationContext, ConstraintDegree, FieldExtension, ProofOptions, TransitionConstraintGroup,
-    TransitionEvaluator,
+    ComputationContext, ConstraintDegree, EvaluationFrame, FieldExtension, ProofOptions,
+    TransitionConstraintGroup, TransitionEvaluator,
 };
 use crypto::{hash::blake3, RandomElementGenerator};
 use math::field::{BaseElement, FieldElement, FromVec};
@@ -55,20 +55,20 @@ impl TransitionEvaluator for FibEvaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         _step: usize,
     ) {
-        self.evaluate_at_x(result, current, next, BaseElement::ZERO)
+        self.evaluate_at_x(result, frame, BaseElement::ZERO)
     }
 
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         _x: E,
     ) {
+        let current = &frame.current;
+        let next = &frame.next;
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());

@@ -1,4 +1,4 @@
-use super::{ComputationContext, ConstraintDegree};
+use super::{ComputationContext, ConstraintDegree, EvaluationFrame};
 use crypto::RandomElementGenerator;
 use fasthash::xx::Hash64;
 use math::field::{BaseElement, FieldElement, FromVec};
@@ -19,8 +19,7 @@ pub trait TransitionEvaluator: Send + Sync {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         step: usize,
     );
 
@@ -30,8 +29,7 @@ pub trait TransitionEvaluator: Send + Sync {
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         x: E,
     );
 

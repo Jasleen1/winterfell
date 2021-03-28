@@ -3,7 +3,8 @@ use crate::utils::are_equal;
 use prover::{
     crypto::RandomElementGenerator,
     math::field::{BaseElement, FieldElement, FromVec},
-    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, EvaluationFrame, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
 
 // FIBONACCI TRANSITION CONSTRAINT EVALUATOR
@@ -29,20 +30,21 @@ impl TransitionEvaluator for MulFib8Evaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         _step: usize,
     ) {
-        self.evaluate_at_x(result, current, next, BaseElement::ZERO)
+        self.evaluate_at_x(result, frame, BaseElement::ZERO)
     }
 
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         _x: E,
     ) {
+        let current = &frame.current;
+        let next = &frame.next;
+
         // expected state width is 8 field elements
         debug_assert_eq!(NUM_REGISTERS, current.len());
         debug_assert_eq!(NUM_REGISTERS, next.len());
