@@ -11,8 +11,7 @@ pub use options::{FieldExtension, ProofOptions};
 mod evaluator;
 pub use evaluator::{
     Assertion, AssertionConstraint, AssertionConstraintGroup, Assertions, ConstraintDegree,
-    ConstraintDivisor, ConstraintEvaluator, EvaluationFrame, TransitionConstraintGroup,
-    TransitionEvaluator,
+    ConstraintDivisor, EvaluationFrame, TransitionConstraintGroup, TransitionEvaluator,
 };
 
 mod random;
