@@ -9,6 +9,7 @@ use rand::{distributions::Uniform, prelude::*};
 use serde::{Deserialize, Serialize};
 
 mod extensions;
+pub use extensions::QuadElement;
 
 #[cfg(test)]
 mod tests;

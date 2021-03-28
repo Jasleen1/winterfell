@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use math::{
     fft,
-    field::{BaseElement, FieldElement, QuadExtension, StarkField},
+    field::{BaseElement, FieldElement, QuadElement, StarkField},
 };
 use rand::Rng;
 use std::time::Duration;
@@ -48,11 +48,11 @@ fn fft_evaluate_poly(c: &mut Criterion) {
         let twiddles = fft::get_twiddles::<BaseElement>(size);
         let p = BaseElement::prng_vector(get_seed(), size / blowup_factor)
             .into_iter()
-            .map(QuadExtension::from)
+            .map(QuadElement::from)
             .collect::<Vec<_>>();
         group.bench_function(BenchmarkId::new("extension", size), |bench| {
             bench.iter_with_large_drop(|| {
-                let mut result = vec![QuadExtension::ZERO; size];
+                let mut result = vec![QuadElement::ZERO; size];
                 result[..p.len()].copy_from_slice(&p);
                 fft::evaluate_poly(&mut result, &twiddles);
                 result

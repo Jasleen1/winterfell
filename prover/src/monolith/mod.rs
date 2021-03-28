@@ -3,7 +3,7 @@ use common::{
     errors::ProverError, proof::StarkProof, Assertions, ComputationContext, FieldExtension,
     ProofOptions, TransitionEvaluator,
 };
-use math::field::{BaseElement, QuadExtension};
+use math::field::{BaseElement, QuadElement};
 use std::marker::PhantomData;
 
 mod domain;
@@ -63,7 +63,7 @@ impl<T: TransitionEvaluator> Prover<T> {
         match self.options.field_extension() {
             FieldExtension::None => generate_proof::<T, BaseElement>(trace, assertions, context),
             FieldExtension::Quadratic => {
-                generate_proof::<T, QuadExtension<BaseElement>>(trace, assertions, context)
+                generate_proof::<T, QuadElement>(trace, assertions, context)
             }
         }
     }

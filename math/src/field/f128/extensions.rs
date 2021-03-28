@@ -1,4 +1,4 @@
-use super::{AsBytes, BaseElement, FieldElement};
+use super::{AsBytes, BaseElement, FieldElement, FromVec};
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display, Formatter},
@@ -7,10 +7,16 @@ use core::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct QuadExtension(BaseElement, BaseElement);
+// QUADRATIC EXTENSION FIELD
+// ================================================================================================
 
-impl FieldElement for QuadExtension {
+/// Represents an element in a quadratic extensions of the base field. The extension element
+/// is α + β * φ, where φ is a root of the polynomial x^2 - x - 1, and α and β are base
+/// field elements. In other words, the extension field is F[X]/(X^2-X-1).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct QuadElement(BaseElement, BaseElement);
+
+impl FieldElement for QuadElement {
     type PositiveInteger = u128;
     type Base = BaseElement;
 
@@ -60,7 +66,7 @@ impl FieldElement for QuadExtension {
     }
 }
 
-impl Display for QuadExtension {
+impl Display for QuadElement {
     fn fmt(&self, f: &mut Formatter) -> core::fmt::Result {
         write!(f, "({}, {})", self.0, self.1)
     }
@@ -69,7 +75,7 @@ impl Display for QuadExtension {
 // OVERLOADED OPERATORS
 // ================================================================================================
 
-impl Add for QuadExtension {
+impl Add for QuadElement {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
@@ -77,7 +83,7 @@ impl Add for QuadExtension {
     }
 }
 
-impl Sub for QuadExtension {
+impl Sub for QuadElement {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
@@ -85,7 +91,7 @@ impl Sub for QuadExtension {
     }
 }
 
-impl Mul for QuadExtension {
+impl Mul for QuadElement {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
@@ -97,7 +103,7 @@ impl Mul for QuadExtension {
     }
 }
 
-impl Div for QuadExtension {
+impl Div for QuadElement {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
@@ -106,7 +112,7 @@ impl Div for QuadExtension {
     }
 }
 
-impl Neg for QuadExtension {
+impl Neg for QuadElement {
     type Output = Self;
 
     fn neg(self) -> Self {
@@ -117,43 +123,43 @@ impl Neg for QuadExtension {
 // TYPE CONVERSIONS
 // ================================================================================================
 
-impl From<BaseElement> for QuadExtension {
+impl From<BaseElement> for QuadElement {
     fn from(e: BaseElement) -> Self {
         Self(e, BaseElement::ZERO)
     }
 }
 
-impl From<u128> for QuadExtension {
+impl From<u128> for QuadElement {
     fn from(value: u128) -> Self {
-        QuadExtension(BaseElement::from(value), BaseElement::ZERO)
+        QuadElement(BaseElement::from(value), BaseElement::ZERO)
     }
 }
 
-impl From<u64> for QuadExtension {
+impl From<u64> for QuadElement {
     fn from(value: u64) -> Self {
-        QuadExtension(BaseElement::from(value), BaseElement::ZERO)
+        QuadElement(BaseElement::from(value), BaseElement::ZERO)
     }
 }
 
-impl From<u32> for QuadExtension {
+impl From<u32> for QuadElement {
     fn from(value: u32) -> Self {
-        QuadExtension(BaseElement::from(value), BaseElement::ZERO)
+        QuadElement(BaseElement::from(value), BaseElement::ZERO)
     }
 }
 
-impl From<u16> for QuadExtension {
+impl From<u16> for QuadElement {
     fn from(value: u16) -> Self {
-        QuadExtension(BaseElement::from(value), BaseElement::ZERO)
+        QuadElement(BaseElement::from(value), BaseElement::ZERO)
     }
 }
 
-impl From<u8> for QuadExtension {
+impl From<u8> for QuadElement {
     fn from(value: u8) -> Self {
-        QuadExtension(BaseElement::from(value), BaseElement::ZERO)
+        QuadElement(BaseElement::from(value), BaseElement::ZERO)
     }
 }
 
-impl<'a> TryFrom<&'a [u8]> for QuadExtension {
+impl<'a> TryFrom<&'a [u8]> for QuadElement {
     type Error = String;
 
     /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
@@ -180,36 +186,38 @@ impl<'a> TryFrom<&'a [u8]> for QuadExtension {
     }
 }
 
+impl FromVec<BaseElement> for QuadElement {}
+
 // SERIALIZATION
 // ================================================================================================
 
-impl AsBytes for QuadExtension {
+impl AsBytes for QuadElement {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
-        let self_ptr: *const QuadExtension = self;
+        let self_ptr: *const QuadElement = self;
         unsafe { slice::from_raw_parts(self_ptr as *const u8, Self::ELEMENT_BYTES) }
     }
 }
 
-impl AsBytes for [QuadExtension] {
+impl AsBytes for [QuadElement] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe {
             slice::from_raw_parts(
                 self.as_ptr() as *const u8,
-                self.len() * QuadExtension::ELEMENT_BYTES,
+                self.len() * QuadElement::ELEMENT_BYTES,
             )
         }
     }
 }
 
-impl AsBytes for [QuadExtension; 4] {
+impl AsBytes for [QuadElement; 4] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe {
             slice::from_raw_parts(
                 self.as_ptr() as *const u8,
-                self.len() * QuadExtension::ELEMENT_BYTES,
+                self.len() * QuadElement::ELEMENT_BYTES,
             )
         }
     }
