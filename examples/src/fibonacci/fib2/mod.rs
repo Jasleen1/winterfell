@@ -112,8 +112,8 @@ fn build_fib_trace(length: usize) -> ExecutionTrace {
             state[1] = BaseElement::ONE;
         },
         |_, state| {
-            state[0] = state[0] + state[1];
-            state[1] = state[0] + state[1];
+            state[0] += state[1];
+            state[1] += state[0];
         },
     );
 

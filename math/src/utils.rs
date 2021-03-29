@@ -14,12 +14,12 @@ pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
     );
 
     #[cfg(not(feature = "concurrent"))]
-    a.iter_mut().zip(b).for_each(|(a, &b)| *a = *a + b);
+    a.iter_mut().zip(b).for_each(|(a, &b)| *a += b);
 
     #[cfg(feature = "concurrent")]
     a.par_iter_mut()
         .zip(b.par_iter())
-        .for_each(|(a, &b)| *a = *a + b);
+        .for_each(|(a, &b)| *a += b);
 }
 
 /// Computes a[i] + b[i] * c for all i and saves result into a.
@@ -35,12 +35,12 @@ where
 
     #[cfg(not(feature = "concurrent"))]
     a.iter_mut().zip(b).for_each(|(a, &b)| {
-        *a = *a + E::from(b) * c;
+        *a += E::from(b) * c;
     });
 
     #[cfg(feature = "concurrent")]
     a.par_iter_mut().zip(b).for_each(|(a, &b)| {
-        *a = *a + E::from(b) * c;
+        *a += E::from(b) * c;
     });
 }
 

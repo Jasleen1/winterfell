@@ -38,13 +38,13 @@ pub trait EvaluationResult<E> {
 
 impl<E: FieldElement> EvaluationResult<E> for [E] {
     fn agg_constraint(&mut self, index: usize, flag: E, value: E) {
-        self[index] = self[index] + flag * value;
+        self[index] += flag * value;
     }
 }
 
 impl<E: FieldElement> EvaluationResult<E> for Vec<E> {
     fn agg_constraint(&mut self, index: usize, flag: E, value: E) {
-        self[index] = self[index] + flag * value;
+        self[index] += flag * value;
     }
 }
 

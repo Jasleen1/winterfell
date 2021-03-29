@@ -204,7 +204,7 @@ pub fn get_inv_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
         "domain size must be a power of 2"
     );
     let root = B::get_root_of_unity(domain_size.trailing_zeros());
-    let inv_root = B::exp(root, (domain_size as u32 - 1).into());
+    let inv_root = root.exp((domain_size as u32 - 1).into());
     let mut inv_twiddles = B::get_power_series(inv_root, domain_size / 2);
     permute(&mut inv_twiddles);
     inv_twiddles

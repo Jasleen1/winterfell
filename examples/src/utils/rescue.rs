@@ -41,7 +41,7 @@ pub fn enforce_round<E: FieldElement + From<BaseElement>>(
     apply_sbox(&mut step1);
     apply_mds(&mut step1);
     for i in 0..STATE_WIDTH {
-        step1[i] = step1[i] + ark[i];
+        step1[i] += ark[i];
     }
 
     // compute the state that should result from applying the inverse for the second
@@ -49,7 +49,7 @@ pub fn enforce_round<E: FieldElement + From<BaseElement>>(
     let mut step2 = [E::ZERO; STATE_WIDTH];
     step2.copy_from_slice(next);
     for i in 0..STATE_WIDTH {
-        step2[i] = step2[i] - ark[STATE_WIDTH + i];
+        step2[i] -= ark[STATE_WIDTH + i];
     }
     apply_inv_mds(&mut step2);
     apply_sbox(&mut step2);
@@ -87,7 +87,7 @@ pub fn get_round_constants() -> Vec<Vec<BaseElement>> {
 #[allow(clippy::needless_range_loop)]
 fn add_constants(state: &mut [BaseElement], ark: &[BaseElement], offset: usize) {
     for i in 0..STATE_WIDTH {
-        state[i] = state[i] + ark[offset + i];
+        state[i] += ark[offset + i];
     }
 }
 
@@ -95,7 +95,7 @@ fn add_constants(state: &mut [BaseElement], ark: &[BaseElement], offset: usize) 
 #[allow(clippy::needless_range_loop)]
 fn apply_sbox<E: FieldElement>(state: &mut [E]) {
     for i in 0..STATE_WIDTH {
-        state[i] = E::exp(state[i], ALPHA.into());
+        state[i] = state[i].exp(ALPHA.into());
     }
 }
 
@@ -104,7 +104,7 @@ fn apply_sbox<E: FieldElement>(state: &mut [E]) {
 fn apply_inv_sbox(state: &mut [BaseElement]) {
     // TODO: optimize
     for i in 0..STATE_WIDTH {
-        state[i] = BaseElement::exp(state[i], INV_ALPHA);
+        state[i] = state[i].exp(INV_ALPHA);
     }
 }
 
@@ -119,7 +119,7 @@ fn apply_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
         }
 
         for j in 0..STATE_WIDTH {
-            result[i] = result[i] + temp[j];
+            result[i] += temp[j];
         }
     }
     state.copy_from_slice(&result);
@@ -136,7 +136,7 @@ fn apply_inv_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
         }
 
         for j in 0..STATE_WIDTH {
-            result[i] = result[i] + temp[j];
+            result[i] += temp[j];
         }
     }
     state.copy_from_slice(&result);

@@ -23,7 +23,7 @@ pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
     let mut y = p[3] * x;
     y = (y + p[2]) * x;
     y = (y + p[1]) * x;
-    y = y + p[0];
+    y += p[0];
     y
 }
 
@@ -155,24 +155,24 @@ fn interpolate_batch_into<E: FieldElement + From<BaseElement>>(
 
         // iteration 1
         inv_y = ys[1] * inverses[j + 1];
-        result[i][0] = result[i][0] + inv_y * equations[j + 1][0];
-        result[i][1] = result[i][1] + inv_y * equations[j + 1][1];
-        result[i][2] = result[i][2] + inv_y * equations[j + 1][2];
-        result[i][3] = result[i][3] + inv_y * equations[j + 1][3];
+        result[i][0] += inv_y * equations[j + 1][0];
+        result[i][1] += inv_y * equations[j + 1][1];
+        result[i][2] += inv_y * equations[j + 1][2];
+        result[i][3] += inv_y * equations[j + 1][3];
 
         // iteration 2
         inv_y = ys[2] * inverses[j + 2];
-        result[i][0] = result[i][0] + inv_y * equations[j + 2][0];
-        result[i][1] = result[i][1] + inv_y * equations[j + 2][1];
-        result[i][2] = result[i][2] + inv_y * equations[j + 2][2];
-        result[i][3] = result[i][3] + inv_y * equations[j + 2][3];
+        result[i][0] += inv_y * equations[j + 2][0];
+        result[i][1] += inv_y * equations[j + 2][1];
+        result[i][2] += inv_y * equations[j + 2][2];
+        result[i][3] += inv_y * equations[j + 2][3];
 
         // iteration 3
         inv_y = ys[3] * inverses[j + 3];
-        result[i][0] = result[i][0] + inv_y * equations[j + 3][0];
-        result[i][1] = result[i][1] + inv_y * equations[j + 3][1];
-        result[i][2] = result[i][2] + inv_y * equations[j + 3][2];
-        result[i][3] = result[i][3] + inv_y * equations[j + 3][3];
+        result[i][0] += inv_y * equations[j + 3][0];
+        result[i][1] += inv_y * equations[j + 3][1];
+        result[i][2] += inv_y * equations[j + 3][2];
+        result[i][3] += inv_y * equations[j + 3][3];
     }
 }
 

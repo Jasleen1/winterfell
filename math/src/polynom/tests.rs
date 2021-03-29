@@ -22,14 +22,14 @@ fn eval() {
     assert_eq!(poly[0] + poly[1] * x, super::eval(&poly[..2], x));
 
     // degree 2
-    let x2 = BaseElement::exp(x, 2);
+    let x2 = x.exp(2);
     assert_eq!(
         poly[0] + poly[1] * x + poly[2] * x2,
         super::eval(&poly[..3], x)
     );
 
     // degree 3
-    let x3 = BaseElement::exp(x, 3);
+    let x3 =x.exp(3);
     assert_eq!(
         poly[0] + poly[1] * x + poly[2] * x2 + poly[3] * x3,
         super::eval(&poly, x)

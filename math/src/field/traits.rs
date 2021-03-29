@@ -2,7 +2,9 @@ use crate::utils;
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display},
-    ops::{Add, BitAnd, Div, Mul, Neg, Shl, ShrAssign, Sub},
+    ops::{
+        Add, AddAssign, BitAnd, Div, DivAssign, Mul, MulAssign, Neg, Shl, ShrAssign, Sub, SubAssign,
+    },
 };
 
 #[cfg(feature = "concurrent")]
@@ -27,6 +29,10 @@ pub trait FieldElement:
     + Sub<Self, Output = Self>
     + Mul<Self, Output = Self>
     + Div<Self, Output = Self>
+    + AddAssign<Self>
+    + SubAssign<Self>
+    + MulAssign<Self>
+    + DivAssign<Self>
     + Neg<Output = Self>
     + From<u128>
     + From<u64>
@@ -76,7 +82,7 @@ pub trait FieldElement:
         // TODO: optimize
         while p > int_zero {
             if p & int_one == int_one {
-                r = r * b;
+                r *= b;
             }
             p >>= int_one;
             b = b * b;
@@ -146,7 +152,7 @@ pub trait FieldElement:
         for &value in values {
             result.push(last);
             if value != Self::ZERO {
-                last = last * value;
+                last *= value;
             }
         }
 
@@ -157,7 +163,7 @@ pub trait FieldElement:
                 result[i] = Self::ZERO;
             } else {
                 result[i] = last * result[i];
-                last = last * values[i];
+                last *= values[i];
             }
         }
         result
@@ -229,6 +235,8 @@ pub trait FieldElement:
     // INITIALIZATION
     // --------------------------------------------------------------------------------------------
 
+    /// Returns a vector initialized with all zero elements; specialized implementations of this
+    /// function may be faster than the generic implementation.
     fn zeroed_vector(n: usize) -> Vec<Self> {
         vec![Self::ZERO; n]
     }
@@ -276,7 +284,7 @@ pub trait StarkField: FieldElement + AsBytes {
             Self::TWO_ADICITY
         );
         let power = Self::PositiveInteger::from(1u32) << (Self::TWO_ADICITY - n);
-        Self::exp(Self::TWO_ADIC_ROOT_OF_UNITY, power)
+        Self::TWO_ADIC_ROOT_OF_UNITY.exp(power)
     }
 
     /// Returns a vector of n pseudo-random elements drawn uniformly from the entire

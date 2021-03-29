@@ -61,7 +61,7 @@ where
         // by the divisor
         let evaluation = evaluate_assertion_group(group, &ood_frame.current, x, xp);
         let z = group.divisor().evaluate_at(x);
-        result = result + evaluation / z;
+        result += evaluation / z;
     }
 
     result
@@ -87,8 +87,8 @@ fn evaluate_assertion_group<E: FieldElement + From<BaseElement>>(
         // evaluate the constraint at `x`
         let evaluation = constraint.evaluate_at(x, state[constraint.register()]);
         // then multiply the result by combination coefficients, and add them to the aggregators
-        result = result + evaluation * E::from(constraint.cc().0);
-        result_adj = result_adj + evaluation * E::from(constraint.cc().1);
+        result += evaluation * E::from(constraint.cc().0);
+        result_adj += evaluation * E::from(constraint.cc().1);
     }
 
     // perform degree adjustment and complete the linear combination

@@ -147,7 +147,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         let value_at_z = polynom::eval(&constraint_poly, self.z);
 
         // compute C(x) = (P(x) - P(z)) / (x - z)
-        constraint_poly[0] = constraint_poly[0] - value_at_z;
+        constraint_poly[0] -= value_at_z;
         polynom::syn_div_in_place(&mut constraint_poly, 1, self.z);
 
         // add C(x) * K into the result
@@ -178,5 +178,5 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 fn acc_poly<E: FieldElement>(accumulator: &mut Vec<E>, poly: &[E], value: E, k: E) {
     utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = value * k;
-    accumulator[0] = accumulator[0] - adjusted_tz;
+    accumulator[0] -= adjusted_tz;
 }

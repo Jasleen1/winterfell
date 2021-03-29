@@ -2,7 +2,7 @@ use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Range, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
 use rand::{distributions::Uniform, prelude::*};
@@ -135,41 +135,65 @@ impl Display for BaseElement {
 // ================================================================================================
 
 impl Add for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn add(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(add(self.0, rhs.0))
+    fn add(self, rhs: Self) -> Self {
+        Self(add(self.0, rhs.0))
+    }
+}
+
+impl AddAssign for BaseElement {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
     }
 }
 
 impl Sub for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn sub(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(sub(self.0, rhs.0))
+    fn sub(self, rhs: Self) -> Self {
+        Self(sub(self.0, rhs.0))
+    }
+}
+
+impl SubAssign for BaseElement {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
 impl Mul for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn mul(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(mul(self.0, rhs.0))
+    fn mul(self, rhs: Self) -> Self {
+        Self(mul(self.0, rhs.0))
+    }
+}
+
+impl MulAssign for BaseElement {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
     }
 }
 
 impl Div for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn div(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(mul(self.0, inv(rhs.0)))
+    fn div(self, rhs: Self) -> Self {
+        Self(mul(self.0, inv(rhs.0)))
+    }
+}
+
+impl DivAssign for BaseElement {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 
 impl Neg for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn neg(self) -> BaseElement {
+    fn neg(self) -> Self {
         Self(sub(0, self.0))
     }
 }

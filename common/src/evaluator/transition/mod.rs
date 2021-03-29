@@ -77,13 +77,13 @@ pub trait TransitionEvaluator: Send + Sync {
                 group.indexes.iter().zip(group.coefficients.iter())
             {
                 let evaluation = evaluations[constraint_idx];
-                result = result + evaluation * E::from(coefficients.0);
-                result_adj = result_adj + evaluation * E::from(coefficients.1);
+                result += evaluation * E::from(coefficients.0);
+                result_adj += evaluation * E::from(coefficients.1);
             }
 
             // increase the degree of D(x) * x^p
-            let xp = E::exp(x, group.degree_adjustment.into());
-            result = result + result_adj * xp;
+            let xp = x.exp(group.degree_adjustment.into());
+            result += result_adj * xp;
         }
 
         result

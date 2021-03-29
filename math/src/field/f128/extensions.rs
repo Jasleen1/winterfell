@@ -2,7 +2,7 @@ use super::{AsBytes, BaseElement, FieldElement, FromVec};
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     slice,
 };
 use serde::{Deserialize, Serialize};
@@ -83,11 +83,23 @@ impl Add for QuadElement {
     }
 }
 
+impl AddAssign for QuadElement {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
+    }
+}
+
 impl Sub for QuadElement {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
         Self(self.0 - rhs.0, self.1 - rhs.1)
+    }
+}
+
+impl SubAssign for QuadElement {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -103,12 +115,24 @@ impl Mul for QuadElement {
     }
 }
 
+impl MulAssign for QuadElement {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
+    }
+}
+
 impl Div for QuadElement {
     type Output = Self;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
     fn div(self, rhs: Self) -> Self {
         self * rhs.inv()
+    }
+}
+
+impl DivAssign for QuadElement {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 

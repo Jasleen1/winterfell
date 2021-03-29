@@ -48,7 +48,7 @@ where
             let mut factor = E::ONE;
             for (d, c) in chunk.iter_mut().zip(p.iter()) {
                 *d = *c * factor;
-                factor = factor * offset;
+                factor *= offset;
             }
             fft_in_place(chunk, twiddles, 1, 1, 0);
         });
@@ -70,7 +70,7 @@ where
     fft_in_place(v, inv_twiddles, 1, 1, 0);
     let inv_length = E::inv((v.len() as u64).into());
     for e in v.iter_mut() {
-        *e = *e * inv_length;
+        *e *= inv_length;
     }
     permute(v);
 }
@@ -88,8 +88,8 @@ where
     let domain_offset = E::inv(domain_offset.into());
     let mut offset = E::inv((values.len() as u64).into());
     for coeff in values.iter_mut() {
-        *coeff = *coeff * offset;
-        offset = offset * domain_offset;
+        *coeff *= offset;
+        offset *= domain_offset;
     }
 }
 
@@ -173,7 +173,7 @@ where
     let i = offset;
     let j = offset + stride;
     let temp = values[i];
-    values[j] = values[j] * E::from(twiddle);
+    values[j] *= E::from(twiddle);
     values[i] = temp + values[j];
     values[j] = temp - values[j];
 }

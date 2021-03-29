@@ -110,22 +110,22 @@ fn test_get_root_of_unity() {
     );
     assert_eq!(
         BaseElement::ONE,
-        BaseElement::exp(root_40, u128::pow(2, 40))
+        root_40.exp(u128::pow(2, 40))
     );
 
     let root_39 = BaseElement::get_root_of_unity(39);
-    let expected = BaseElement::exp(root_40, 2);
+    let expected = root_40.exp(2);
     assert_eq!(expected, root_39);
     assert_eq!(
         BaseElement::ONE,
-        BaseElement::exp(root_39, u128::pow(2, 39))
+        root_39.exp(u128::pow(2, 39))
     );
 }
 
 #[test]
 fn test_g_is_2_exp_40_root() {
     let g = BaseElement::TWO_ADIC_ROOT_OF_UNITY;
-    assert_eq!(BaseElement::exp(g, 1u128 << 40), BaseElement::ONE);
+    assert_eq!(g.exp(1u128 << 40), BaseElement::ONE);
 }
 
 #[test]

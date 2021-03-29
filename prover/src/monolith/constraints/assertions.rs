@@ -97,22 +97,22 @@ impl AssertionConstraintGroup {
         // evaluate all single-value constraints
         for constraint in self.single_value_constraints.iter() {
             let (ev, ev_adj) = constraint.evaluate(state);
-            result = result + ev;
-            result_adj = result_adj + ev_adj;
+            result += ev;
+            result_adj += ev_adj;
         }
 
         // evaluate all small polynomial constraints
         for constraint in self.small_poly_constraints.iter() {
             let (ev, ev_adj) = constraint.evaluate(state, x);
-            result = result + ev;
-            result_adj = result_adj + ev_adj;
+            result += ev;
+            result_adj += ev_adj;
         }
 
         // evaluate all large polynomial constraints
         for constraint in self.large_poly_constraints.iter() {
             let (ev, ev_adj) = constraint.evaluate(state, ce_step);
-            result = result + ev;
-            result_adj = result_adj + ev_adj;
+            result += ev;
+            result_adj += ev_adj;
         }
 
         result + result_adj * xp

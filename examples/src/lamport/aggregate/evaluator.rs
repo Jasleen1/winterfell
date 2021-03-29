@@ -138,7 +138,7 @@ impl TransitionEvaluator for LamportPlusEvaluator {
 
         // determine which Rescue rounds constants and hash mask to use
         let num_cycles = (self.trace_length / HASH_CYCLE_LEN) as u32;
-        let x = E::exp(x, num_cycles.into());
+        let x = x.exp(num_cycles.into());
         let mut hash_constants = [E::ZERO; 1 + 2 * rescue::STATE_WIDTH];
         for (i, poly) in self.hash_polys.iter().enumerate() {
             hash_constants[i] = polynom::eval(&E::from_vec(poly), x);
@@ -264,7 +264,7 @@ fn build_sig_cycle_constants(
         // we switch to a new power of two once every 8 steps this is so that a
         // new power of two is available for every hash cycle
         if i % HASH_CYCLE_LEN == 0 {
-            current_power_of_two = current_power_of_two * TWO;
+            current_power_of_two *= TWO;
         }
         *value = current_power_of_two;
     }
