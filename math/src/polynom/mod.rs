@@ -43,7 +43,7 @@ pub fn interpolate<E: FieldElement>(xs: &[E], ys: &[E], remove_leading_zeros: bo
     }
     let denominators = E::inv_many(&denominators);
 
-    let mut result = vec![E::ZERO; xs.len()];
+    let mut result = E::zeroed_vector(xs.len());
     for i in 0..xs.len() {
         let y_slice = ys[i] * denominators[i];
         if ys[i] != E::ZERO {
@@ -92,7 +92,7 @@ pub fn sub<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
 /// Multiplies polynomial `a` by polynomial `b`
 pub fn mul<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     let result_len = a.len() + b.len() - 1;
-    let mut result = vec![E::ZERO; result_len];
+    let mut result = E::zeroed_vector(result_len);
     for i in 0..a.len() {
         for j in 0..b.len() {
             let s = a[i] * b[j];
@@ -123,7 +123,7 @@ pub fn div<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
         assert!(b[0] != E::ZERO, "cannot divide polynomial by zero");
     }
 
-    let mut result = vec![E::ZERO; apos - bpos + 1];
+    let mut result = E::zeroed_vector(apos - bpos + 1);
     for i in (0..result.len()).rev() {
         let quot = a[apos] / b[bpos];
         result[i] = quot;

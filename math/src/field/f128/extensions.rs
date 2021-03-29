@@ -46,10 +46,6 @@ impl FieldElement for QuadElement {
         Self(BaseElement::rand(), BaseElement::rand())
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        [self.0.to_bytes(), self.1.to_bytes()].concat()
-    }
-
     fn zeroed_vector(n: usize) -> Vec<Self> {
         // this uses a specialized vector initialization code which requests zero-filled memory
         // from the OS; unfortunately, this works only for built-in types and we can't use
@@ -63,6 +59,10 @@ impl FieldElement for QuadElement {
         let len = v.len() / Self::ELEMENT_BYTES;
         let cap = v.capacity() / Self::ELEMENT_BYTES;
         unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
+    }
+
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        elements.as_bytes()
     }
 }
 
@@ -211,7 +211,7 @@ impl AsBytes for [QuadElement] {
     }
 }
 
-impl AsBytes for [QuadElement; 4] {
+impl<const N: usize> AsBytes for [QuadElement; N] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe {

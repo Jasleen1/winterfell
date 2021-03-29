@@ -70,10 +70,6 @@ impl FieldElement for BaseElement {
         Self::try_from(bytes).ok()
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
-
     fn zeroed_vector(n: usize) -> Vec<Self> {
         // this uses a specialized vector initialization code which requests zero-filled memory
         // from the OS; unfortunately, this works only for built-in types and we can't use
@@ -87,6 +83,10 @@ impl FieldElement for BaseElement {
         let len = v.len() / Self::ELEMENT_BYTES;
         let cap = v.capacity() / Self::ELEMENT_BYTES;
         unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
+    }
+
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        elements.as_bytes()
     }
 }
 
@@ -264,7 +264,7 @@ impl AsBytes for [BaseElement] {
     }
 }
 
-impl AsBytes for [BaseElement; 4] {
+impl<const N: usize> AsBytes for [BaseElement; N] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         unsafe {

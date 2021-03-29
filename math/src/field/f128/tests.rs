@@ -179,14 +179,14 @@ fn test_get_power_series_with_offset() {
 // ================================================================================================
 fn build_seed() -> [u8; 32] {
     let mut result = [0; 32];
-    let seed = BaseElement::rand().to_bytes();
+    let seed = BaseElement::rand().as_bytes().to_vec();
     result[..16].copy_from_slice(&seed);
     result
 }
 
 impl BaseElement {
     pub fn to_big_uint(&self) -> BigUint {
-        BigUint::from_bytes_le(&self.to_bytes())
+        BigUint::from_bytes_le(self.as_bytes())
     }
 
     pub fn from_big_uint(value: BigUint) -> Self {

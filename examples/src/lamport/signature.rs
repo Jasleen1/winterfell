@@ -1,5 +1,5 @@
 use super::rescue::Hasher as Rescue;
-use prover::math::field::{BaseElement, FieldElement, StarkField};
+use prover::math::field::{AsBytes, BaseElement, FieldElement, StarkField};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, convert::TryInto};
 
@@ -122,8 +122,8 @@ impl PublicKey {
     #[allow(dead_code)]
     pub fn to_bytes(&self) -> [u8; 32] {
         let mut bytes = [0; 32];
-        bytes[..16].copy_from_slice(&self.0[0].to_bytes());
-        bytes[16..].copy_from_slice(&self.0[1].to_bytes());
+        bytes[..16].copy_from_slice(self.0[0].as_bytes());
+        bytes[16..].copy_from_slice(self.0[1].as_bytes());
         bytes
     }
 

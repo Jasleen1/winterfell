@@ -12,7 +12,8 @@ use rayon::prelude::*;
 // ================================================================================================
 
 pub trait FieldElement:
-    Copy
+    AsBytes
+    + Copy
     + Clone
     + Debug
     + Display
@@ -85,8 +86,8 @@ pub trait FieldElement:
     }
 
     /// Generates a vector with values [1, b, b^2, b^3, b^4, ..., b^(n-1)].
-    /// When `concurrent` feature is enabled, series generation is done concurrently
-    /// in multiple threads.
+    /// When `concurrent` feature is enabled, series generation is done concurrently in multiple
+    /// threads.
     fn get_power_series(b: Self, n: usize) -> Vec<Self> {
         const MIN_CONCURRENT_SIZE: usize = 1024;
         let mut result = utils::uninit_vector(n);
@@ -109,8 +110,8 @@ pub trait FieldElement:
     }
 
     /// Generates a vector with values [s, s * b, s * b^2, s * b^3, s * b^4, ..., s * b^(n-1)].
-    /// When `concurrent` feature is enabled, series generation is done concurrently
-    /// in multiple threads.
+    /// When `concurrent` feature is enabled, series generation is done concurrently in multiple
+    /// threads.
     fn get_power_series_with_offset(b: Self, s: Self, n: usize) -> Vec<Self> {
         const MIN_CONCURRENT_SIZE: usize = 1024;
         let mut result = utils::uninit_vector(n);
@@ -133,12 +134,12 @@ pub trait FieldElement:
         result
     }
 
-    /// Computes a multiplicative inverse of this element. If this element is ZERO
-    /// ZERO is returned.
+    /// Computes a multiplicative inverse of this element. If this element is ZERO, ZERO is
+    /// returned.
     fn inv(self) -> Self;
 
-    /// Computes a multiplicative inverse of a sequence of elements using batch
-    /// inversion method. Any ZEROs in the provided sequence are ignored.
+    /// Computes a multiplicative inverse of a sequence of elements using batch inversion method.
+    /// Any ZEROs in the provided sequence are ignored.
     fn inv_many(values: &[Self]) -> Vec<Self> {
         let mut result = Vec::with_capacity(values.len());
         let mut last = Self::ONE;
@@ -168,49 +169,20 @@ pub trait FieldElement:
     // RANDOMNESS
     // --------------------------------------------------------------------------------------------
 
-    /// Returns a cryptographically-secure random element drawn uniformly from
-    /// the entire field.
+    /// Returns a cryptographically-secure random element drawn uniformly from the entire field.
     fn rand() -> Self;
 
-    /// Returns a field element if the set of bytes forms a valid field element,
-    /// otherwise returns None. This function is primarily intended for sampling
-    /// random field elements from a hash function output.
+    /// Returns a field element if the set of bytes forms a valid field element, otherwise returns
+    /// None. This function is primarily intended for sampling random field elements from a hash
+    /// function output.
     fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
 
     // SERIALIZATION / DESERIALIZATION
     // --------------------------------------------------------------------------------------------
 
-    /// Returns the byte representation of the element in little-endian byte order.
-    fn to_bytes(&self) -> Vec<u8>;
-
-    /// Writes a vector of filed elements into the provided slice of bytes in little-endian
-    /// byte order.
-    fn write_into(elements: &[Self], result: &mut [u8]) -> Result<usize, String> {
-        let num_bytes = elements.len() * Self::ELEMENT_BYTES;
-        if result.len() < num_bytes {
-            return Err(format!(
-                "result must be at least {} bytes long, but was {}",
-                num_bytes,
-                result.len()
-            ));
-        }
-
-        for (i, element) in elements.iter().enumerate() {
-            let start = i * Self::ELEMENT_BYTES;
-            result[start..start + Self::ELEMENT_BYTES].copy_from_slice(&element.to_bytes());
-        }
-        Ok(num_bytes)
-    }
-
-    /// Returns a vector of bytes with all elements from the provided slice written
-    /// into the vector in little-endian byte order.
-    fn write_into_vec(elements: &[Self]) -> Vec<u8> {
-        let mut result = Vec::with_capacity(elements.len() * Self::ELEMENT_BYTES);
-        for element in elements {
-            result.extend_from_slice(&element.to_bytes());
-        }
-        result
-    }
+    /// Converts a list of elements into byte representation. The conversion just re-interprets
+    /// the underlying memory and is thus zero-copy.
+    fn elements_as_bytes(elements: &[Self]) -> &[u8];
 
     /// Reads elements from the specified slice of bytes and copies them into the provided
     /// result slice. The elements are assumed to be stored in the slice one after the other
@@ -242,7 +214,7 @@ pub trait FieldElement:
 
     /// Returns a vector of elements read from the provided slice of bytes. The elements are
     /// assumed to be stored in the slice one after the other in little-endian byte order.
-    fn read_to_vec(bytes: &[u8]) -> Result<Vec<Self>, String> {
+    fn read_into_vec(bytes: &[u8]) -> Result<Vec<Self>, String> {
         if bytes.len() % Self::ELEMENT_BYTES != 0 {
             return Err(String::from(
                 "number of bytes does not divide into whole number of elements",

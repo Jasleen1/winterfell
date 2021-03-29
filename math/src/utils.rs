@@ -53,7 +53,7 @@ pub fn log2(n: usize) -> u32 {
 // VECTOR FUNCTIONS
 // ================================================================================================
 
-pub fn uninit_vector<E: FieldElement>(length: usize) -> Vec<E> {
+pub fn uninit_vector<T>(length: usize) -> Vec<T> {
     let mut vector = Vec::with_capacity(length);
     unsafe {
         vector.set_len(length);

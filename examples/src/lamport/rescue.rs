@@ -1,5 +1,5 @@
 use crate::utils::{are_equal, EvaluationResult};
-use prover::math::field::{BaseElement, FieldElement};
+use prover::math::field::{AsBytes, BaseElement, FieldElement};
 
 /// Function state is set to 6 field elements or 96 bytes; 4 elements are reserved for rate
 /// and 2 elements are reserved for capacity.
@@ -92,8 +92,8 @@ impl Hash {
     #[allow(dead_code)]
     pub fn to_bytes(&self) -> [u8; 32] {
         let mut bytes = [0; 32];
-        bytes[..16].copy_from_slice(&self.0[0].to_bytes());
-        bytes[16..].copy_from_slice(&self.0[1].to_bytes());
+        bytes[..16].copy_from_slice(self.0[0].as_bytes());
+        bytes[16..].copy_from_slice(self.0[1].as_bytes());
         bytes
     }
 

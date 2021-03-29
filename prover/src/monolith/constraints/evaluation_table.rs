@@ -135,7 +135,7 @@ impl<E: FieldElement + From<BaseElement>> ConstraintEvaluationTable<E> {
         let domain_offset = self.domain_offset;
 
         // allocate memory for the combined polynomial
-        let mut combined_poly = vec![E::ZERO; self.num_rows()];
+        let mut combined_poly = E::zeroed_vector(self.num_rows());
 
         // build twiddles for interpolation; these can be used to interpolate all polynomials
         let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(self.num_rows());

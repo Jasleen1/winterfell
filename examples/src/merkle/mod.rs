@@ -87,7 +87,7 @@ impl Example for MerkleExample {
         );
 
         // assert that the trace terminates with tree root
-        let root = BaseElement::read_to_vec(tree.root()).unwrap();
+        let root = BaseElement::read_into_vec(tree.root()).unwrap();
         let last_step = ((tree_depth + 1) * 16) - 1;
         let mut assertions = Assertions::new(TRACE_WIDTH, last_step + 1).unwrap();
         assertions.add_single(0, last_step, root[0]).unwrap();

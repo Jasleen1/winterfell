@@ -80,9 +80,9 @@ impl<E: FieldElement + From<BaseElement>> VerifierChannel<E> {
     /// Returns trace polynomial evaluations at OOD points z and z * g, where g is the generator
     /// of the LDE domain.
     pub fn read_ood_frame(&self) -> Result<EvaluationFrame<E>, VerifierError> {
-        let current = E::read_to_vec(&self.ood_frame.trace_at_z1)
+        let current = E::read_into_vec(&self.ood_frame.trace_at_z1)
             .map_err(|_| VerifierError::OodFrameDeserializationFailed)?;
-        let next = E::read_to_vec(&self.ood_frame.trace_at_z2)
+        let next = E::read_into_vec(&self.ood_frame.trace_at_z2)
             .map_err(|_| VerifierError::OodFrameDeserializationFailed)?;
         Ok(EvaluationFrame { current, next })
     }

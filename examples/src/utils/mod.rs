@@ -2,7 +2,7 @@ use prover::math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
 };
-use std::ops::Range;
+use std::{convert::TryInto, ops::Range};
 
 pub mod rescue;
 
@@ -83,13 +83,13 @@ pub fn extend_cyclic_values(
 pub type TreeNode = (BaseElement, BaseElement);
 
 pub fn node_to_bytes(node: TreeNode) -> [u8; 32] {
-    let mut result = [0; 32];
-    BaseElement::write_into(&[node.0, node.1], &mut result).unwrap();
-    result
+    BaseElement::elements_as_bytes(&[node.0, node.1])
+        .try_into()
+        .unwrap()
 }
 
 pub fn bytes_to_node(bytes: [u8; 32]) -> TreeNode {
-    let elements = BaseElement::read_to_vec(&bytes).unwrap();
+    let elements = BaseElement::read_into_vec(&bytes).unwrap();
     (elements[0], elements[1])
 }
 

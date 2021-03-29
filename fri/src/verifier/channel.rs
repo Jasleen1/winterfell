@@ -39,7 +39,7 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
     /// valid against the commitment sent by the prover.
     fn read_remainder(&self) -> Result<Vec<E>, VerifierError> {
         // convert remainder bytes into field elements of appropriate type
-        let remainder = E::read_to_vec(&self.fri_remainder())
+        let remainder = E::read_into_vec(&self.fri_remainder())
             .map_err(VerifierError::RemainderDeserializationError)?;
 
         // build remainder Merkle tree

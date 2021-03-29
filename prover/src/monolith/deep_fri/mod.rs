@@ -26,7 +26,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         let next_z = z * g;
 
         CompositionPoly {
-            coefficients: vec![E::ZERO; context.ce_domain_size()],
+            coefficients: E::zeroed_vector(context.ce_domain_size()),
             degree: context.deep_composition_degree(),
             cc,
             z,
@@ -66,8 +66,8 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 
         // combine trace polynomials into 2 composition polynomials T1(x) and T2(x)
         let polys = trace_polys.into_vec();
-        let mut t1_composition = vec![E::ZERO; trace_length];
-        let mut t2_composition = vec![E::ZERO; trace_length];
+        let mut t1_composition = E::zeroed_vector(trace_length);
+        let mut t2_composition = E::zeroed_vector(trace_length);
         for (i, poly) in polys.into_iter().enumerate() {
             // Convert polys[i] from type BaseElement into type E
             // TODO: find a better ay to do this (ideally, with zero-copy)

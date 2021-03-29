@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use math::field::{BaseElement, FieldElement};
+use math::field::{AsBytes, BaseElement, FieldElement};
 use std::convert::TryInto;
 
 pub fn add(c: &mut Criterion) {
@@ -28,13 +28,7 @@ pub fn mul(c: &mut Criterion) {
 
 pub fn exp(c: &mut Criterion) {
     let x = BaseElement::rand();
-    let y = u128::from_le_bytes(
-        BaseElement::rand()
-            .to_bytes()
-            .as_slice()
-            .try_into()
-            .unwrap(),
-    );
+    let y = u128::from_le_bytes(BaseElement::rand().as_bytes().try_into().unwrap());
     c.bench_function("field_exp", |bench| {
         bench.iter(|| BaseElement::exp(black_box(x), black_box(y)))
     });

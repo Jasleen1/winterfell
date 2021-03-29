@@ -1,5 +1,5 @@
 use crate::{
-    field::{BaseElement, FieldElement, StarkField},
+    field::{AsBytes, BaseElement, FieldElement, StarkField},
     polynom,
 };
 
@@ -130,7 +130,7 @@ fn fft_get_twiddles() {
 // ================================================================================================
 fn build_seed() -> [u8; 32] {
     let mut result = [0; 32];
-    let seed = BaseElement::rand().to_bytes();
+    let seed = BaseElement::rand().as_bytes().to_vec();
     result[..16].copy_from_slice(&seed);
     result
 }

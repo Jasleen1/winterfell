@@ -7,7 +7,7 @@ use common::errors::VerifierError;
 use log::debug;
 use prover::{
     crypto::{hash::rescue_s, MerkleTree},
-    math::field::{BaseElement, FieldElement, StarkField},
+    math::field::{AsBytes, BaseElement, FieldElement, StarkField},
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
@@ -105,7 +105,7 @@ impl Example for AnonTokenExample {
         // - registers [5, 6] at step 14 contain value of the subtoken
         // - service_uuid was inserted into register 6 at the first step
         let last_step = ((tree_depth + 1) * 16) - 1;
-        let root = BaseElement::read_to_vec(tree.root()).unwrap();
+        let root = BaseElement::read_into_vec(tree.root()).unwrap();
         let mut assertions = Assertions::new(TRACE_TABLE_WIDTH, last_step + 1).unwrap();
         assertions.add_single(1, last_step, root[0]).unwrap();
         assertions.add_single(2, last_step, root[1]).unwrap();
@@ -161,7 +161,7 @@ fn build_merkle_tree(depth: usize, issued_token: TreeNode, index: usize) -> Merk
 
 fn build_issued_token(token_seed: BaseElement) -> (BaseElement, BaseElement) {
     let mut result = [0; 32];
-    rescue_s(&token_seed.to_bytes(), &mut result);
+    rescue_s(token_seed.as_bytes(), &mut result);
     bytes_to_node(result)
 }
 

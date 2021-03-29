@@ -183,7 +183,7 @@ impl<C: ProverChannel> FriProver<C> {
 
         FriProof {
             layers,
-            rem_values: BaseElement::write_into_vec(&request.remainder),
+            rem_values: BaseElement::elements_as_bytes(&request.remainder).to_vec(),
             partitioned: true,
         }
     }
@@ -279,7 +279,7 @@ fn build_fri_layer(queries: &mut [QueryResult], indexes: Vec<usize>) -> FriProof
     for query in queries.iter() {
         indexes.push(query.index);
         paths.push(query.path.clone());
-        values.push(BaseElement::write_into_vec(&query.value));
+        values.push(BaseElement::elements_as_bytes(&query.value).to_vec());
     }
 
     let batch_proof = BatchMerkleProof::from_paths(&paths, &indexes);
