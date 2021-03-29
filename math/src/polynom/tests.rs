@@ -29,7 +29,7 @@ fn eval() {
     );
 
     // degree 3
-    let x3 =x.exp(3);
+    let x3 = x.exp(3);
     assert_eq!(
         poly[0] + poly[1] * x + poly[2] * x2 + poly[3] * x3,
         super::eval(&poly, x)

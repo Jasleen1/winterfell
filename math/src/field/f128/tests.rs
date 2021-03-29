@@ -108,18 +108,12 @@ fn test_get_root_of_unity() {
         BaseElement::from(23953097886125630542083529559205016746u128),
         root_40
     );
-    assert_eq!(
-        BaseElement::ONE,
-        root_40.exp(u128::pow(2, 40))
-    );
+    assert_eq!(BaseElement::ONE, root_40.exp(u128::pow(2, 40)));
 
     let root_39 = BaseElement::get_root_of_unity(39);
     let expected = root_40.exp(2);
     assert_eq!(expected, root_39);
-    assert_eq!(
-        BaseElement::ONE,
-        root_39.exp(u128::pow(2, 39))
-    );
+    assert_eq!(BaseElement::ONE, root_39.exp(u128::pow(2, 39)));
 }
 
 #[test]

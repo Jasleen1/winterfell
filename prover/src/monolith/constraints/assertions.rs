@@ -89,33 +89,24 @@ impl AssertionConstraintGroup {
         x: E,
         xp: E,
     ) -> E {
-        // separately track the degree-adjusted and un-adjusted results so that we can
-        // perform only one multiplication by `xp` at the end.
         let mut result = E::ZERO;
-        let mut result_adj = E::ZERO;
 
         // evaluate all single-value constraints
         for constraint in self.single_value_constraints.iter() {
-            let (ev, ev_adj) = constraint.evaluate(state);
-            result += ev;
-            result_adj += ev_adj;
+            result += constraint.evaluate(state, xp);
         }
 
         // evaluate all small polynomial constraints
         for constraint in self.small_poly_constraints.iter() {
-            let (ev, ev_adj) = constraint.evaluate(state, x);
-            result += ev;
-            result_adj += ev_adj;
+            result += constraint.evaluate(state, x, xp);
         }
 
         // evaluate all large polynomial constraints
         for constraint in self.large_poly_constraints.iter() {
-            let (ev, ev_adj) = constraint.evaluate(state, ce_step);
-            result += ev;
-            result_adj += ev_adj;
+            result += constraint.evaluate(state, ce_step, xp);
         }
 
-        result + result_adj * xp
+        result
     }
 }
 
@@ -131,12 +122,9 @@ struct SingleValueConstraint {
 }
 
 impl SingleValueConstraint {
-    pub fn evaluate<E: FieldElement + From<BaseElement>>(&self, state: &[E]) -> (E, E) {
+    pub fn evaluate<E: FieldElement + From<BaseElement>>(&self, state: &[E], xp: E) -> E {
         let evaluation = state[self.register] - E::from(self.value);
-        (
-            evaluation * E::from(self.coefficients.0),
-            evaluation * E::from(self.coefficients.1),
-        )
+        evaluation * (E::from(self.coefficients.0) + E::from(self.coefficients.1) * xp)
     }
 }
 
@@ -151,18 +139,16 @@ struct SmallPolyConstraint {
 }
 
 impl SmallPolyConstraint {
-    pub fn evaluate<E: FieldElement + From<BaseElement>>(&self, state: &[E], x: E) -> (E, E) {
+    pub fn evaluate<E: FieldElement + From<BaseElement>>(&self, state: &[E], x: E, xp: E) -> E {
         let x = x * E::from(self.x_offset);
+        // evaluate constraint polynomial as x * offset using Horner evaluation
         let assertion_value = self
             .poly
             .iter()
             .rev()
             .fold(E::ZERO, |result, coeff| result * x + E::from(*coeff));
         let evaluation = state[self.register] - assertion_value;
-        (
-            evaluation * E::from(self.coefficients.0),
-            evaluation * E::from(self.coefficients.1),
-        )
+        evaluation * (E::from(self.coefficients.0) + E::from(self.coefficients.1) * xp)
     }
 }
 
@@ -181,7 +167,8 @@ impl LargePolyConstraint {
         &self,
         state: &[E],
         ce_step: usize,
-    ) -> (E, E) {
+        xp: E,
+    ) -> E {
         let value_index = if self.step_offset > 0 {
             // if the assertion happens on steps which are not a power of 2, we need to offset the
             // evaluation; the below basically computes (ce_step - step_offset) % values.len();
@@ -195,9 +182,6 @@ impl LargePolyConstraint {
             ce_step
         };
         let evaluation = state[self.register] - E::from(self.values[value_index]);
-        (
-            evaluation * E::from(self.coefficients.0),
-            evaluation * E::from(self.coefficients.1),
-        )
+        evaluation * (E::from(self.coefficients.0) + E::from(self.coefficients.1) * xp)
     }
 }

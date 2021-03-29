@@ -68,24 +68,19 @@ pub trait TransitionEvaluator: Send + Sync {
     /// divisor will be applied later to this single value.
     fn merge_evaluations<E: FieldElement + From<BaseElement>>(&self, evaluations: &[E], x: E) -> E {
         let mut result = E::ZERO;
-
         for group in self.constraint_groups() {
-            // for each group of constraints with the same degree, separately compute
-            // combinations of D(x) and D(x) * x^p
-            let mut result_adj = E::ZERO;
+            // since constraints are grouped by their degree, we compute degree adjustment
+            // factor once per group
+            let xp = x.exp(group.degree_adjustment.into());
+
+            // compute linear combination of evaluations as cc_0 * D(x) + cc_1 D(x) * x^p
             for (&constraint_idx, coefficients) in
                 group.indexes.iter().zip(group.coefficients.iter())
             {
                 let evaluation = evaluations[constraint_idx];
-                result += evaluation * E::from(coefficients.0);
-                result_adj += evaluation * E::from(coefficients.1);
+                result += evaluation * (E::from(coefficients.0) + E::from(coefficients.1) * xp);
             }
-
-            // increase the degree of D(x) * x^p
-            let xp = x.exp(group.degree_adjustment.into());
-            result += result_adj * xp;
         }
-
         result
     }
 

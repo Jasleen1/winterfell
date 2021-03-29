@@ -76,23 +76,12 @@ fn evaluate_assertion_group<E: FieldElement + From<BaseElement>>(
     x: E,
     xp: E,
 ) -> E {
-    // initialize result aggregators; we use two different aggregators so that we can
-    // accumulate the results separately for degree adjusted and un-adjusted terms.
     let mut result = E::ZERO;
-    let mut result_adj = E::ZERO;
-
-    // iterate over all constraints in the group, evaluate them, and add the evaluation
-    // into result aggregators.
     for constraint in group.constraints().iter() {
-        // evaluate the constraint at `x`
         let evaluation = constraint.evaluate_at(x, state[constraint.register()]);
-        // then multiply the result by combination coefficients, and add them to the aggregators
-        result += evaluation * E::from(constraint.cc().0);
-        result_adj += evaluation * E::from(constraint.cc().1);
+        result += evaluation * (E::from(constraint.cc().0) + E::from(constraint.cc().1) * xp);
     }
-
-    // perform degree adjustment and complete the linear combination
-    result + result_adj * xp
+    result
 }
 
 // CONSTRAINT COMPOSITION
