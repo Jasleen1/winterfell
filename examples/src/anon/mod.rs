@@ -3,15 +3,17 @@ use crate::{
     utils::{bytes_to_node, node_to_bytes, rescue, TreeNode},
     ExampleOptions,
 };
-use common::errors::VerifierError;
 use log::debug;
 use prover::{
     crypto::{hash::rescue_s, MerkleTree},
-    math::field::{AsBytes, BaseElement, FieldElement, StarkField},
+    math::{
+        field::{AsBytes, BaseElement, FieldElement, StarkField},
+        utils::{log2, read_elements_into_vec},
+    },
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
-use verifier::Verifier;
+use verifier::{Verifier, VerifierError};
 
 mod trace;
 use trace::generate_trace;
@@ -105,7 +107,7 @@ impl Example for AnonTokenExample {
         // - registers [5, 6] at step 14 contain value of the subtoken
         // - service_uuid was inserted into register 6 at the first step
         let last_step = ((tree_depth + 1) * 16) - 1;
-        let root = BaseElement::read_into_vec(tree.root()).unwrap();
+        let root = read_elements_into_vec(tree.root()).unwrap();
         let mut assertions = Assertions::new(TRACE_TABLE_WIDTH, last_step + 1).unwrap();
         assertions.add_single(1, last_step, root[0]).unwrap();
         assertions.add_single(2, last_step, root[1]).unwrap();
@@ -130,7 +132,7 @@ impl Example for AnonTokenExample {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace.width(),
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 

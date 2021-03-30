@@ -2,7 +2,8 @@ use super::utils::compute_mulfib_term;
 use crate::{Example, ExampleOptions};
 use log::debug;
 use prover::{
-    math::field::BaseElement, Assertions, ExecutionTrace, ProofOptions, Prover, StarkProof,
+    math::{field::BaseElement, utils::log2},
+    Assertions, ExecutionTrace, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::{Verifier, VerifierError};
@@ -79,7 +80,7 @@ impl Example for MulFib8Example {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace_width,
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 

@@ -2,6 +2,7 @@ use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
+    mem,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
@@ -31,6 +32,7 @@ const ELEMENT_BYTES: usize = std::mem::size_of::<u128>();
 // FIELD ELEMENT
 // ================================================================================================
 
+// TODO: get rid of Serialize and Deserialize derives
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BaseElement(u128);
 
@@ -70,23 +72,30 @@ impl FieldElement for BaseElement {
         Self::try_from(bytes).ok()
     }
 
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        elements.as_bytes()
+    }
+
     fn zeroed_vector(n: usize) -> Vec<Self> {
         // this uses a specialized vector initialization code which requests zero-filled memory
         // from the OS; unfortunately, this works only for built-in types and we can't use
         // Self::ZERO here as much less efficient initialization procedure will be invoked.
-        let result = vec![0u8; n * Self::ELEMENT_BYTES];
+        // We also use u128 to make sure the memory is aligned correctly for our element size.
+        debug_assert_eq!(Self::ELEMENT_BYTES, mem::size_of::<u128>());
+        let result = vec![0u128; n];
 
-        // so, now we need to translate a zero-filled vector of bytes into a vector of field
-        // elements
+        // translate a zero-filled vector of u128s into a vector of base field elements
         let mut v = std::mem::ManuallyDrop::new(result);
         let p = v.as_mut_ptr();
-        let len = v.len() / Self::ELEMENT_BYTES;
-        let cap = v.capacity() / Self::ELEMENT_BYTES;
+        let len = v.len();
+        let cap = v.capacity();
         unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
     }
 
-    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
-        elements.as_bytes()
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range).take(n).map(BaseElement).collect()
     }
 }
 
@@ -111,12 +120,6 @@ impl StarkField for BaseElement {
     /// sage: GF(MODULUS).primitive_element()^k
     /// 23953097886125630542083529559205016746
     const TWO_ADIC_ROOT_OF_UNITY: Self = BaseElement(G);
-
-    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
-        let range = Uniform::from(RANGE);
-        let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(BaseElement).collect()
-    }
 
     fn as_int(&self) -> Self::PositiveInteger {
         self.0

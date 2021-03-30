@@ -1,7 +1,10 @@
 use super::super::QueryResult;
 use crate::folding::quartic;
 use crypto::{HashFunction, MerkleTree};
-use math::field::{BaseElement, FieldElement, StarkField};
+use math::{
+    field::{BaseElement, FieldElement, StarkField},
+    utils::log2,
+};
 use std::{collections::HashSet, sync::Arc};
 
 // CONSTANTS
@@ -36,7 +39,7 @@ impl Partition {
         );
         // build a domain for the top layer of evaluations
         let global_domain_size = evaluations.len();
-        let g = BaseElement::get_root_of_unity(global_domain_size.trailing_zeros());
+        let g = BaseElement::get_root_of_unity(log2(global_domain_size));
         let stride = g.exp(num_partitions as u128);
         let mut x = g.exp(partition_idx as u128);
 

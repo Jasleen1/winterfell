@@ -1,6 +1,6 @@
 use crate::{
     field::{BaseElement, FieldElement, StarkField},
-    utils::remove_leading_zeros,
+    utils::{get_power_series, log2, remove_leading_zeros},
 };
 
 #[test]
@@ -220,8 +220,8 @@ fn syn_div() {
         .collect();
 
     // build the domain
-    let root = BaseElement::get_root_of_unity(ys.len().trailing_zeros());
-    let domain = BaseElement::get_power_series(root, ys.len());
+    let root = BaseElement::get_root_of_unity(log2(ys.len()));
+    let domain = get_power_series(root, ys.len());
 
     // build the polynomial
     let poly = super::interpolate(&domain, &ys, false);
@@ -270,8 +270,8 @@ pub fn syn_div_in_place_with_exception() {
         .collect();
 
     // build the domain
-    let root = BaseElement::get_root_of_unity(ys.len().trailing_zeros());
-    let domain = BaseElement::get_power_series(root, ys.len());
+    let root = BaseElement::get_root_of_unity(log2(ys.len()));
+    let domain = get_power_series(root, ys.len());
 
     // build the polynomial
     let poly = super::interpolate(&domain, &ys, false);

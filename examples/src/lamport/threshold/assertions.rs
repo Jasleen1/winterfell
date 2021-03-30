@@ -1,7 +1,10 @@
 use crate::utils::bytes_to_node;
 
 use super::{signature::AggPublicKey, HASH_CYCLE_LENGTH, SIG_CYCLE_LENGTH, STATE_WIDTH};
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    utils::log2,
+};
 use prover::Assertions;
 
 // ASSERTION BUILDER
@@ -51,7 +54,7 @@ pub fn build_assertions(
     // ----- assertions against the step in every cycle when the Merkle path computation ends -----
     // these steps depend on the depth of the public key Merkle tree; for example, if the Merkle 
     // tree has 4 elements, then the steps are: 24, 1048, 2072, 3096
-    let merkle_root_offset = (num_cycles.trailing_zeros() + 1) as usize * HASH_CYCLE_LENGTH;
+    let merkle_root_offset = (log2(num_cycles) + 1) as usize * HASH_CYCLE_LENGTH;
 
     // distinct key indexes should be used; the sequence starts at the last index of the tree
     // (to pad the first cycle) and then wraps around and proceeds with index 0, 1, 2 etc.

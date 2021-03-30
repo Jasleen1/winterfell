@@ -1,6 +1,9 @@
 use super::*;
 use num_bigint::BigUint;
 
+// BASIC ALGEBRA
+// ================================================================================================
+
 #[test]
 fn test_add() {
     // identity
@@ -102,6 +105,16 @@ fn test_inv() {
 }
 
 #[test]
+fn test_conjugate() {
+    let a = BaseElement::rand();
+    let b = a.conjugate();
+    assert_eq!(a, b);
+}
+
+// ROOTS OF UNITY
+// ================================================================================================
+
+#[test]
 fn test_get_root_of_unity() {
     let root_40 = BaseElement::get_root_of_unity(40);
     assert_eq!(
@@ -122,6 +135,9 @@ fn test_g_is_2_exp_40_root() {
     assert_eq!(g.exp(1u128 << 40), BaseElement::ONE);
 }
 
+// SERIALIZATION / DESERIALIZATION
+// ================================================================================================
+
 #[test]
 fn test_array_as_bytes() {
     let source: &[BaseElement; 4] = &[
@@ -141,33 +157,53 @@ fn test_array_as_bytes() {
 }
 
 #[test]
-fn test_get_power_series() {
-    let n = 1024 * 4; // big enough for concurrent series generation
-    let b = BaseElement::from(3u8);
+fn test_elements_as_bytes() {
+    let source = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
 
-    let mut expected = vec![BaseElement::ZERO; n];
-    for (i, value) in expected.iter_mut().enumerate() {
-        *value = b.exp((i as u64).into());
+    let expected: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
+
+    assert_eq!(expected, BaseElement::elements_as_bytes(&source));
+}
+
+// INITIALIZATION
+// ================================================================================================
+
+#[test]
+fn test_zeroed_vector() {
+    let result = BaseElement::zeroed_vector(4);
+    assert_eq!(4, result.len());
+    for element in result.into_iter() {
+        assert_eq!(BaseElement::ZERO, element);
     }
-
-    let actual = BaseElement::get_power_series(b, n);
-    assert_eq!(expected, actual);
 }
 
 #[test]
-fn test_get_power_series_with_offset() {
-    let n = 1024 * 4; // big enough for concurrent series generation
-    let b = BaseElement::from(3u8);
-    let s = BaseElement::from(7u8);
+fn test_prng_vector() {
+    let a = BaseElement::prng_vector([0; 32], 4);
+    assert_eq!(4, a.len());
 
-    let mut expected = vec![BaseElement::ZERO; n];
-    for (i, value) in expected.iter_mut().enumerate() {
-        *value = s * b.exp((i as u64).into());
+    let b = BaseElement::prng_vector([0; 32], 8);
+    assert_eq!(8, b.len());
+
+    for (&a, &b) in a.iter().zip(b.iter()) {
+        assert_eq!(a, b);
     }
 
-    let actual = BaseElement::get_power_series_with_offset(b, s, n);
-    assert_eq!(expected, actual);
+    let c = BaseElement::prng_vector([1; 32], 4);
+    for (&a, &c) in a.iter().zip(c.iter()) {
+        assert_ne!(a, c);
+    }
 }
+
 
 // HELPER FUNCTIONS
 // ================================================================================================

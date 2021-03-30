@@ -1,7 +1,7 @@
 use crate::{folding::quartic, FriOptions, FriProof, PublicCoin, VerifierError};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::field::FieldElement;
-use std::marker::PhantomData;
+use math::{field::FieldElement, utils::read_elements_into_vec};
+use std::{convert::TryInto, marker::PhantomData};
 
 type Bytes = Vec<u8>;
 
@@ -26,9 +26,17 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
         // convert query bytes into field elements of appropriate type
         let mut queries = Vec::new();
         for query_bytes in self.fri_layer_queries()[layer_idx].iter() {
-            let mut query = [E::ZERO; 4];
-            E::read_into(query_bytes, &mut query)
-                .map_err(|msg| VerifierError::LayerDeserializationError(layer_idx, msg))?;
+            let query: [E; 4] = read_elements_into_vec(query_bytes)
+                .map_err(|err| {
+                    VerifierError::LayerDeserializationError(layer_idx, err.to_string())
+                })?
+                .try_into()
+                .map_err(|_| {
+                    VerifierError::LayerDeserializationError(
+                        layer_idx,
+                        "failed to convert vec of elements to array of 4 element".to_string(),
+                    )
+                })?;
             queries.push(query);
         }
 
@@ -39,8 +47,8 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
     /// valid against the commitment sent by the prover.
     fn read_remainder(&self) -> Result<Vec<E>, VerifierError> {
         // convert remainder bytes into field elements of appropriate type
-        let remainder = E::read_into_vec(&self.fri_remainder())
-            .map_err(VerifierError::RemainderDeserializationError)?;
+        let remainder = read_elements_into_vec(&self.fri_remainder())
+            .map_err(|err| VerifierError::RemainderDeserializationError(err.to_string()))?;
 
         // build remainder Merkle tree
         let remainder_values = quartic::transpose(&remainder, 1);

@@ -1,6 +1,7 @@
 use prover::math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
+    utils::read_elements_into_vec,
 };
 use std::{convert::TryInto, ops::Range};
 
@@ -89,7 +90,7 @@ pub fn node_to_bytes(node: TreeNode) -> [u8; 32] {
 }
 
 pub fn bytes_to_node(bytes: [u8; 32]) -> TreeNode {
-    let elements = BaseElement::read_into_vec(&bytes).unwrap();
+    let elements = read_elements_into_vec(&bytes).unwrap();
     (elements[0], elements[1])
 }
 

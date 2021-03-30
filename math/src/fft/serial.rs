@@ -1,6 +1,6 @@
 use crate::{
     field::{FieldElement, StarkField},
-    utils::uninit_vector,
+    utils::{log2, uninit_vector},
 };
 
 // CONSTANTS
@@ -35,7 +35,7 @@ where
     E: FieldElement + From<B>,
 {
     let domain_size = p.len() * blowup_factor;
-    let g = B::get_root_of_unity(domain_size.trailing_zeros());
+    let g = B::get_root_of_unity(log2(domain_size));
     let mut result = uninit_vector(domain_size);
 
     result

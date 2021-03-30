@@ -20,9 +20,9 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     pub fn new(context: &ComputationContext, z: E, cc: CompositionCoefficients<E>) -> Self {
-        let g = E::from(BaseElement::get_root_of_unity(
-            context.trace_length().trailing_zeros(),
-        ));
+        let g = E::from(BaseElement::get_root_of_unity(utils::log2(
+            context.trace_length(),
+        )));
         let next_z = z * g;
 
         CompositionPoly {

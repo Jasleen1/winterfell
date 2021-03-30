@@ -1,11 +1,11 @@
-use super::{AsBytes, BaseElement, FieldElement, FromVec};
+use super::super::{AsBytes, BaseElement, FieldElement, FromVec};
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display, Formatter},
+    mem,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     slice,
 };
-use serde::{Deserialize, Serialize};
 
 // QUADRATIC EXTENSION FIELD
 // ================================================================================================
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Represents an element in a quadratic extensions of the base field. The extension element
 /// is α + β * φ, where φ is a root of the polynomial x^2 - x - 1, and α and β are base
 /// field elements. In other words, the extension field is F[X]/(X^2-X-1).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub struct QuadElement(BaseElement, BaseElement);
 
 impl FieldElement for QuadElement {
@@ -38,31 +38,44 @@ impl FieldElement for QuadElement {
         Self(self.0 + self.1, -self.1)
     }
 
+    fn rand() -> Self {
+        Self(BaseElement::rand(), BaseElement::rand())
+    }
+
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
         Self::try_from(&bytes[..Self::ELEMENT_BYTES as usize]).ok()
     }
 
-    fn rand() -> Self {
-        Self(BaseElement::rand(), BaseElement::rand())
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        elements.as_bytes()
     }
 
     fn zeroed_vector(n: usize) -> Vec<Self> {
         // this uses a specialized vector initialization code which requests zero-filled memory
         // from the OS; unfortunately, this works only for built-in types and we can't use
         // Self::ZERO here as much less efficient initialization procedure will be invoked.
-        let result = vec![0u8; n * Self::ELEMENT_BYTES];
+        // We also use u128 to make sure the memory is aligned correctly for our element size.
+        debug_assert_eq!(Self::ELEMENT_BYTES, mem::size_of::<u128>() * 2);
+        let result = vec![0u128; n * 2];
 
-        // so, now we need to translate a zero-filled vector of bytes into a vector of field
-        // elements
+        // translate a zero-filled vector of u128s into a vector of extension field elements
         let mut v = std::mem::ManuallyDrop::new(result);
         let p = v.as_mut_ptr();
-        let len = v.len() / Self::ELEMENT_BYTES;
-        let cap = v.capacity() / Self::ELEMENT_BYTES;
+        let len = v.len() / 2;
+        let cap = v.capacity() / 2;
         unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
     }
 
-    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
-        elements.as_bytes()
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        // get twice the number of base elements
+        let result = BaseElement::prng_vector(seed, n * 2);
+
+        // re-interpret vector of base elements as a vector of quad elements (but half the length)
+        let mut v = std::mem::ManuallyDrop::new(result);
+        let p = v.as_mut_ptr();
+        let len = v.len() / 2;
+        let cap = v.capacity() / 2;
+        unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
     }
 }
 

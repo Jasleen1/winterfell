@@ -1,7 +1,10 @@
 use crate::{folding::quartic, utils, FriOptions, FriProof, FriProofLayer, ProverChannel};
 use crypto::{BatchMerkleProof, MerkleTree};
 use kompact::prelude::*;
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    utils::log2,
+};
 use std::{collections::HashMap, marker::PhantomData, sync::Arc, time::Duration};
 
 mod manager;
@@ -213,7 +216,7 @@ impl ProofRequest {
     ) -> usize {
         let num_evaluations =
             self.domain_size / usize::pow(self.folding_factor, (layer_depth + 1) as u32);
-        let local_bits = num_evaluations.trailing_zeros() - self.num_partitions.trailing_zeros();
+        let local_bits = log2(num_evaluations) - log2(self.num_partitions);
         (partition_idx << local_bits) | local_idx
     }
 }

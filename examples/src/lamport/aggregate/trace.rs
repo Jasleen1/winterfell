@@ -1,7 +1,9 @@
 use super::{rescue, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS, SIG_CYCLE_LENGTH, STATE_WIDTH};
-use math::field::StarkField;
 use prover::{
-    math::field::{BaseElement, FieldElement},
+    math::{
+        field::{BaseElement, FieldElement, StarkField},
+        utils::get_power_series,
+    },
     ExecutionTrace,
 };
 
@@ -38,7 +40,7 @@ pub fn generate_trace(messages: &[[BaseElement; 2]], signatures: &[Signature]) -
     let trace_length = SIG_CYCLE_LENGTH * messages.len();
     let mut trace = ExecutionTrace::new(STATE_WIDTH, trace_length);
 
-    let powers_of_two = BaseElement::get_power_series(TWO, 128);
+    let powers_of_two = get_power_series(TWO, 128);
 
     #[cfg(not(feature = "concurrent"))]
     for (i, sig_trace) in trace.fragments(SIG_CYCLE_LENGTH).iter_mut().enumerate() {
