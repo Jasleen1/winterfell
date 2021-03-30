@@ -8,13 +8,23 @@ mod tests;
 // ================================================================================================
 
 /// Evaluates polynomial `p` at coordinate `x`.
-pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
+pub fn eval<B, E>(p: &[B], x: E) -> E
+where
+    B: FieldElement,
+    E: FieldElement + From<B>,
+{
     // Horner evaluation
-    p.iter().rev().fold(E::ZERO, |acc, coeff| acc * x + *coeff)
+    p.iter()
+        .rev()
+        .fold(E::ZERO, |acc, &coeff| acc * x + E::from(coeff))
 }
 
 /// Evaluates polynomial `p` at all coordinates in `xs` slice.
-pub fn eval_many<E: FieldElement>(p: &[E], xs: &[E]) -> Vec<E> {
+pub fn eval_many<B, E>(p: &[B], xs: &[E]) -> Vec<E>
+where
+    B: FieldElement,
+    E: FieldElement + From<B>,
+{
     xs.iter().map(|x| eval(p, *x)).collect()
 }
 

@@ -13,7 +13,7 @@ fn eval() {
         BaseElement::from(16234810094004944758u128),
     ];
 
-    assert_eq!(BaseElement::ZERO, super::eval(&[], x));
+    assert_eq!(BaseElement::ZERO, super::eval(&poly[..0], x));
 
     // constant
     assert_eq!(poly[0], super::eval(&poly[..1], x));

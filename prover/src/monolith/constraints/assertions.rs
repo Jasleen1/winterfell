@@ -2,6 +2,7 @@ use common::ComputationContext;
 use math::{
     fft,
     field::{BaseElement, FieldElement},
+    polynom,
 };
 use std::collections::HashMap;
 
@@ -141,12 +142,8 @@ struct SmallPolyConstraint {
 impl SmallPolyConstraint {
     pub fn evaluate<E: FieldElement + From<BaseElement>>(&self, state: &[E], x: E, xp: E) -> E {
         let x = x * E::from(self.x_offset);
-        // evaluate constraint polynomial as x * offset using Horner evaluation
-        let assertion_value = self
-            .poly
-            .iter()
-            .rev()
-            .fold(E::ZERO, |result, coeff| result * x + E::from(*coeff));
+        // evaluate constraint polynomial as x * offset
+        let assertion_value = polynom::eval(&self.poly, x);
         let evaluation = state[self.register] - assertion_value;
         evaluation * (E::from(self.coefficients.0) + E::from(self.coefficients.1) * xp)
     }

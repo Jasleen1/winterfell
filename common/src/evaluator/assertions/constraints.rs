@@ -1,5 +1,8 @@
 use crate::{ComputationContext, ConstraintDivisor};
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    polynom,
+};
 
 // ASSERTION CONSTRAINT GROUP
 // ================================================================================================
@@ -109,8 +112,7 @@ impl AssertionConstraint {
             // if constraint polynomial consists of just a constant, use that constant
             E::from(self.poly[0])
         } else {
-            // otherwise, we need to evaluate the polynomial at `x` (using Horner method); but
-            // first we need to do the following:
+            // otherwise, we need to evaluate the polynomial at `x`; but first do the following:
             // 1. for assertions which don't fall on steps that are powers of two, we need to
             //    evaluate assertion polynomial at x * offset (instead of just x)
             // 2. map the coefficients of the polynomial into the evaluation field. If we are
@@ -118,10 +120,7 @@ impl AssertionConstraint {
             //    extension field, coefficients of the polynomial are mapped from the base
             //    field into the extension field.
             let x = x * E::from(self.x_offset);
-            self.poly
-                .iter()
-                .rev()
-                .fold(E::ZERO, |result, coeff| result * x + E::from(*coeff))
+            polynom::eval(&self.poly, x)
         };
         // subtract assertion value from trace value
         trace_value - assertion_value
