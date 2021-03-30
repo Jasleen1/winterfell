@@ -2,7 +2,7 @@ use crate::utils::uninit_vector;
 use crypto::HashFunction;
 use math::{
     field::{BaseElement, FieldElement},
-    utils::batch_inversion,
+    utils::{batch_inversion, transmute_vector},
 };
 
 #[cfg(feature = "concurrent")]
@@ -76,15 +76,7 @@ pub fn transpose<E: FieldElement>(source: &[E], stride: usize) -> Vec<[E; 4]> {
 
 /// Re-interprets a vector of field elements as a vector of quartic elements.
 pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
-    assert!(
-        vector.len() % 4 == 0,
-        "vector length must be divisible by 4"
-    );
-    let mut v = std::mem::ManuallyDrop::new(vector);
-    let p = v.as_mut_ptr();
-    let len = v.len() / 4;
-    let cap = v.capacity() / 4;
-    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+    transmute_vector::<E, 4>(vector)
 }
 
 /// Computes hashes for all quartic elements using the specified hash function.

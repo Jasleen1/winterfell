@@ -160,6 +160,9 @@ fn serial_batch_inversion<E: FieldElement>(values: &[E], result: &mut [E]) {
 // VECTOR FUNCTIONS
 // ================================================================================================
 
+/// Returns a vector of the specified length with un-initialized memory. This is faster than
+/// requesting a vector with initialized memory and is useful when we overwrite all contents of
+/// the vector immediately after initialization. Otherwise, this will lead to undefined behavior.
 pub fn uninit_vector<T>(length: usize) -> Vec<T> {
     let mut vector = Vec::with_capacity(length);
     unsafe {
@@ -168,6 +171,7 @@ pub fn uninit_vector<T>(length: usize) -> Vec<T> {
     vector
 }
 
+/// Returns a vector with zero elements removed from the end of the vector.
 pub fn remove_leading_zeros<E: FieldElement>(values: &[E]) -> Vec<E> {
     for i in (0..values.len()).rev() {
         if values[i] != E::ZERO {
@@ -176,6 +180,21 @@ pub fn remove_leading_zeros<E: FieldElement>(values: &[E]) -> Vec<E> {
     }
 
     [].to_vec()
+}
+
+/// Transmutes a vector of n elements into a vector of n / N elements, each of which is
+/// an array of N elements.
+pub fn transmute_vector<T, const N: usize>(source: Vec<T>) -> Vec<[T; N]> {
+    assert!(
+        source.len() % N == 0,
+        "source length must be divisible by {}",
+        N
+    );
+    let mut v = std::mem::ManuallyDrop::new(source);
+    let p = v.as_mut_ptr();
+    let len = v.len() / N;
+    let cap = v.capacity() / N;
+    unsafe { Vec::from_raw_parts(p as *mut [T; N], len, cap) }
 }
 
 // SERIALIZATION / DESERIALIZATION

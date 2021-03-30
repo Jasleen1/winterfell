@@ -73,6 +73,14 @@ impl FieldElement for BaseElement {
         Self::try_from(bytes).ok()
     }
 
+    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8> {
+        let mut v = std::mem::ManuallyDrop::new(elements);
+        let p = v.as_mut_ptr();
+        let len = v.len() * Self::ELEMENT_BYTES;
+        let cap = v.capacity() * Self::ELEMENT_BYTES;
+        unsafe { Vec::from_raw_parts(p as *mut u8, len, cap) }
+    }
+
     fn elements_as_bytes(elements: &[Self]) -> &[u8] {
         elements.as_bytes()
     }

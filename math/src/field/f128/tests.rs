@@ -5,7 +5,7 @@ use num_bigint::BigUint;
 // ================================================================================================
 
 #[test]
-fn test_add() {
+fn add() {
     // identity
     let r = BaseElement::rand();
     assert_eq!(r, r + BaseElement::ZERO);
@@ -31,7 +31,7 @@ fn test_add() {
 }
 
 #[test]
-fn test_sub() {
+fn sub() {
     // identity
     let r = BaseElement::rand();
     assert_eq!(r, r - BaseElement::ZERO);
@@ -48,7 +48,7 @@ fn test_sub() {
 }
 
 #[test]
-fn test_mul() {
+fn mul() {
     // identity
     let r = BaseElement::rand();
     assert_eq!(BaseElement::ZERO, r * BaseElement::ZERO);
@@ -91,7 +91,7 @@ fn test_mul() {
 }
 
 #[test]
-fn test_inv() {
+fn inv() {
     // identity
     assert_eq!(BaseElement::ONE, BaseElement::inv(BaseElement::ONE));
     assert_eq!(BaseElement::ZERO, BaseElement::inv(BaseElement::ZERO));
@@ -105,7 +105,7 @@ fn test_inv() {
 }
 
 #[test]
-fn test_conjugate() {
+fn conjugate() {
     let a = BaseElement::rand();
     let b = a.conjugate();
     assert_eq!(a, b);
@@ -115,7 +115,7 @@ fn test_conjugate() {
 // ================================================================================================
 
 #[test]
-fn test_get_root_of_unity() {
+fn get_root_of_unity() {
     let root_40 = BaseElement::get_root_of_unity(40);
     assert_eq!(
         BaseElement::from(23953097886125630542083529559205016746u128),
@@ -139,7 +139,7 @@ fn test_g_is_2_exp_40_root() {
 // ================================================================================================
 
 #[test]
-fn test_array_as_bytes() {
+fn array_as_bytes() {
     let source: &[BaseElement; 4] = &[
         BaseElement::new(1),
         BaseElement::new(2),
@@ -157,7 +157,25 @@ fn test_array_as_bytes() {
 }
 
 #[test]
-fn test_elements_as_bytes() {
+fn elements_into_bytes() {
+    let source = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    let expected: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
+
+    assert_eq!(expected, BaseElement::elements_into_bytes(source));
+}
+
+#[test]
+fn elements_as_bytes() {
     let source = vec![
         BaseElement::new(1),
         BaseElement::new(2),
@@ -175,7 +193,7 @@ fn test_elements_as_bytes() {
 }
 
 #[test]
-fn test_bytes_as_elements() {
+fn bytes_as_elements() {
     let bytes: Vec<u8> = vec![
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -207,7 +225,7 @@ fn test_bytes_as_elements() {
 // ================================================================================================
 
 #[test]
-fn test_zeroed_vector() {
+fn zeroed_vector() {
     let result = BaseElement::zeroed_vector(4);
     assert_eq!(4, result.len());
     for element in result.into_iter() {
@@ -216,7 +234,7 @@ fn test_zeroed_vector() {
 }
 
 #[test]
-fn test_prng_vector() {
+fn prng_vector() {
     let a = BaseElement::prng_vector([0; 32], 4);
     assert_eq!(4, a.len());
 

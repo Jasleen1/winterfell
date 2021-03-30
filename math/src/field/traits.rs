@@ -61,7 +61,17 @@ pub trait FieldElement:
     // ALGEBRA
     // --------------------------------------------------------------------------------------------
 
-    /// Exponentiates this element by `power` parameter.
+    /// Returns this field element added to itself.
+    fn double(self) -> Self {
+        self + self
+    }
+
+    /// Returns a square of the field element.
+    fn square(self) -> Self {
+        self * self
+    }
+
+    /// Exponentiates this field element by `power` parameter.
     fn exp(self, power: Self::PositiveInteger) -> Self {
         let mut r = Self::ONE;
         let mut b = self;
@@ -82,13 +92,13 @@ pub trait FieldElement:
                 r *= b;
             }
             p >>= int_one;
-            b = b * b;
+            b = b.square();
         }
 
         r
     }
 
-    /// Computes a multiplicative inverse of this element. If this element is ZERO, ZERO is
+    /// Returns a multiplicative inverse of this field element. If this element is ZERO, ZERO is
     /// returned.
     fn inv(self) -> Self;
 
@@ -108,6 +118,10 @@ pub trait FieldElement:
 
     // SERIALIZATION / DESERIALIZATION
     // --------------------------------------------------------------------------------------------
+
+    /// Converts a vector of filed elements into a vector of bytes. This conversion just
+    /// re-interprets the underlying memory and is thus zero-copy.
+    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8>;
 
     /// Converts a list of elements into byte representation. The conversion just re-interprets
     /// the underlying memory and is thus zero-copy.
