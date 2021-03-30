@@ -21,7 +21,6 @@ mod tests;
 pub struct QuadElement(BaseElement, BaseElement);
 
 impl QuadElement {
-
     pub const fn new(v0: u128, v1: u128) -> Self {
         QuadElement(BaseElement::new(v0), BaseElement::new(v1))
     }

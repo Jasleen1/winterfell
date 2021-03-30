@@ -92,31 +92,6 @@ pub trait FieldElement:
     /// returned.
     fn inv(self) -> Self;
 
-    /// Computes a multiplicative inverse of a sequence of elements using batch inversion method.
-    /// Any ZEROs in the provided sequence are ignored.
-    fn inv_many(values: &[Self]) -> Vec<Self> {
-        let mut result = Vec::with_capacity(values.len());
-        let mut last = Self::ONE;
-        for &value in values {
-            result.push(last);
-            if value != Self::ZERO {
-                last *= value;
-            }
-        }
-
-        last = last.inv();
-
-        for i in (0..values.len()).rev() {
-            if values[i] == Self::ZERO {
-                result[i] = Self::ZERO;
-            } else {
-                result[i] *= last;
-                last *= values[i];
-            }
-        }
-        result
-    }
-
     /// Returns a conjugate of this field element.
     fn conjugate(&self) -> Self;
 
@@ -139,12 +114,15 @@ pub trait FieldElement:
     fn elements_as_bytes(elements: &[Self]) -> &[u8];
 
     /// Converts a list of bytes into a list of field elements. The conversion just re-interprets
-    /// the underlying memory and is thus zero-copy. This method is unsafe because it does not
-    /// check whether underlying bytes represent valid field elements.
+    /// the underlying memory and is thus zero-copy.
     ///
     /// An error is returned if:
     /// * Memory alignment of `bytes` does not match memory alignment of field element data.
     /// * Length of `bytes` does not divide into whole number of elements.
+    ///
+    /// # Safety
+    /// This function is unsafe because it does not check whether underlying bytes represent valid
+    /// field elements.
     unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError>;
 
     // INITIALIZATION

@@ -176,11 +176,10 @@ fn test_elements_as_bytes() {
 
 #[test]
 fn test_bytes_as_elements() {
-
     let bytes: Vec<u8> = vec![
         1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 5
+        0, 0, 0, 0, 5,
     ];
 
     let expected = vec![
@@ -195,7 +194,10 @@ fn test_bytes_as_elements() {
     assert_eq!(expected, result.unwrap());
 
     let result = unsafe { BaseElement::bytes_as_elements(&bytes) };
-    assert_eq!(result, Err(SerializationError::NotEnoughBytesForWholeElements(65)));
+    assert_eq!(
+        result,
+        Err(SerializationError::NotEnoughBytesForWholeElements(65))
+    );
 
     let result = unsafe { BaseElement::bytes_as_elements(&bytes[1..]) };
     assert_eq!(result, Err(SerializationError::InvalidMemoryAlignment));

@@ -1,5 +1,4 @@
-use crate::field::FieldElement;
-use crate::utils;
+use crate::{field::FieldElement, utils};
 use std::mem;
 
 #[cfg(test)]
@@ -41,7 +40,7 @@ pub fn interpolate<E: FieldElement>(xs: &[E], ys: &[E], remove_leading_zeros: bo
     for i in 0..xs.len() {
         denominators.push(eval(&numerators[i], xs[i]));
     }
-    let denominators = E::inv_many(&denominators);
+    let denominators = utils::batch_inversion(&denominators);
 
     let mut result = E::zeroed_vector(xs.len());
     for i in 0..xs.len() {

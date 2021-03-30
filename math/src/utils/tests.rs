@@ -28,3 +28,14 @@ fn get_power_series_with_offset() {
     let actual = super::get_power_series_with_offset(b, s, n);
     assert_eq!(expected, actual);
 }
+
+#[test]
+fn batch_inversion() {
+    let n = 1024 * 4; // big enough for concurrent series generation
+    let a = BaseElement::prng_vector([1; 32], n);
+
+    let b = super::batch_inversion(&a);
+    for (&a, &b) in a.iter().zip(b.iter()) {
+        assert_eq!(a.inv(), b);
+    }
+}

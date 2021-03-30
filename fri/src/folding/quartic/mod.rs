@@ -1,6 +1,9 @@
 use crate::utils::uninit_vector;
 use crypto::HashFunction;
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    utils::batch_inversion,
+};
 
 #[cfg(feature = "concurrent")]
 pub mod concurrent;
@@ -141,7 +144,7 @@ fn interpolate_batch_into<E: FieldElement + From<BaseElement>>(
         inverses[j + 3] = eval(&equations[j + 3], x3);
     }
 
-    let inverses = E::inv_many(&inverses);
+    let inverses = batch_inversion(&inverses);
 
     for (i, j) in (0..n).zip((0..equations.len()).step_by(4)) {
         let ys = ys[i];

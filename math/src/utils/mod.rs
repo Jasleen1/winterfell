@@ -96,6 +96,29 @@ where
     });
 }
 
+/// Computes a multiplicative inverse of a sequence of elements using batch inversion method.
+/// Any ZEROs in the provided sequence are ignored.
+pub fn batch_inversion<E: FieldElement>(values: &[E]) -> Vec<E> {
+    const MIN_CONCURRENT_SIZE: usize = 1024;
+    let mut result: Vec<E> = uninit_vector(values.len());
+    if cfg!(feature = "concurrent") && values.len() >= MIN_CONCURRENT_SIZE {
+        #[cfg(feature = "concurrent")]
+        {
+            let batch_size = values.len() / rayon::current_num_threads().next_power_of_two();
+            result
+                .par_chunks_mut(batch_size)
+                .zip(values.par_chunks(batch_size))
+                .for_each(|(result, values)| {
+                    serial_batch_inversion(values, result);
+                });
+        }
+    } else {
+        serial_batch_inversion(values, &mut result);
+    }
+
+    result
+}
+
 /// Returns base 2 logarithm of `n`, where `n` is a power of two.
 pub fn log2(n: usize) -> u32 {
     assert!(n.is_power_of_two(), "n must be a power of two");
@@ -110,6 +133,27 @@ fn fill_power_series<E: FieldElement>(result: &mut [E], base: E, start: E) {
     result[0] = start;
     for i in 1..result.len() {
         result[i] = result[i - 1] * base;
+    }
+}
+
+fn serial_batch_inversion<E: FieldElement>(values: &[E], result: &mut [E]) {
+    let mut last = E::ONE;
+    for (result, &value) in result.iter_mut().zip(values.iter()) {
+        *result = last;
+        if value != E::ZERO {
+            last *= value;
+        }
+    }
+
+    last = last.inv();
+
+    for i in (0..values.len()).rev() {
+        if values[i] == E::ZERO {
+            result[i] = E::ZERO;
+        } else {
+            result[i] *= last;
+            last *= values[i];
+        }
     }
 }
 
