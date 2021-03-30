@@ -13,6 +13,6 @@ pub use proof::{FriProof, FriProofLayer};
 mod public_coin;
 pub use public_coin::PublicCoin;
 
-mod folding;
+pub mod folding;
 
 pub mod utils;

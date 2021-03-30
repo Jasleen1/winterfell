@@ -6,7 +6,8 @@ members = [
   "fri",
   "prover",
   "verifier",
-  "examples"
+  "examples",
+  "fractal_indexer"
 ]
 
 [profile.release]
