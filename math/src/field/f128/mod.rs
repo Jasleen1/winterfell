@@ -1,4 +1,5 @@
 use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
+use crate::errors::SerializationError;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
@@ -74,6 +75,23 @@ impl FieldElement for BaseElement {
 
     fn elements_as_bytes(elements: &[Self]) -> &[u8] {
         elements.as_bytes()
+    }
+
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError> {
+        if bytes.len() % Self::ELEMENT_BYTES != 0 {
+            return Err(SerializationError::NotEnoughBytesForWholeElements(
+                bytes.len(),
+            ));
+        }
+
+        let p = bytes.as_ptr();
+        let len = bytes.len() / Self::ELEMENT_BYTES;
+
+        if (p as usize) % mem::align_of::<u128>() != 0 {
+            return Err(SerializationError::InvalidMemoryAlignment);
+        }
+
+        Ok(slice::from_raw_parts(p as *const Self, len))
     }
 
     fn zeroed_vector(n: usize) -> Vec<Self> {

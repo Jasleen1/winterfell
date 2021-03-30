@@ -1,3 +1,4 @@
+use crate::errors::SerializationError;
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display},
@@ -136,6 +137,15 @@ pub trait FieldElement:
     /// Converts a list of elements into byte representation. The conversion just re-interprets
     /// the underlying memory and is thus zero-copy.
     fn elements_as_bytes(elements: &[Self]) -> &[u8];
+
+    /// Converts a list of bytes into a list of field elements. The conversion just re-interprets
+    /// the underlying memory and is thus zero-copy. This method is unsafe because it does not
+    /// check whether underlying bytes represent valid field elements.
+    ///
+    /// An error is returned if:
+    /// * Memory alignment of `bytes` does not match memory alignment of field element data.
+    /// * Length of `bytes` does not divide into whole number of elements.
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError>;
 
     // INITIALIZATION
     // --------------------------------------------------------------------------------------------

@@ -174,6 +174,33 @@ fn test_elements_as_bytes() {
     assert_eq!(expected, BaseElement::elements_as_bytes(&source));
 }
 
+#[test]
+fn test_bytes_as_elements() {
+
+    let bytes: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 5
+    ];
+
+    let expected = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[..64]) };
+    assert!(result.is_ok());
+    assert_eq!(expected, result.unwrap());
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes) };
+    assert_eq!(result, Err(SerializationError::NotEnoughBytesForWholeElements(65)));
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[1..]) };
+    assert_eq!(result, Err(SerializationError::InvalidMemoryAlignment));
+}
+
 // INITIALIZATION
 // ================================================================================================
 
@@ -203,7 +230,6 @@ fn test_prng_vector() {
         assert_ne!(a, c);
     }
 }
-
 
 // HELPER FUNCTIONS
 // ================================================================================================
