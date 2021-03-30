@@ -11,20 +11,25 @@ name = "winterfell"
 path = "src/main.rs"
 bench = false
 
+[features]
+concurrent = ["prover/concurrent", "rayon"]
+
 [dependencies]
-hex = "0.4.2"
-log = "0.4.11"
-env_logger = "0.8.2"
-bincode = "1.3.1"
-blake3 = "0.3.7"
-serde = { version = "1.0.117", features = ["derive"] }
+hex = "0.4"
+log = "0.4"
+env_logger = "0.8"
+bincode = "1.3"
+blake3 = "0.3"
+structopt = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+rayon = { version = "1.5", optional = true }
 common = { path = "../common" }
 prover = { path = "../prover" }
 verifier = { path = "../verifier" }
 math = { path = "../math" }
 
 [dev-dependencies]
-criterion = "0.3.3"
+criterion = "0.3"
 
 [[bench]]
 name = "fibonacci"
@@ -33,6 +38,3 @@ harness = false
 [[bench]]
 name = "rescue"
 harness = false
-
-[features]
-extension_field = ["prover/extension_field"]

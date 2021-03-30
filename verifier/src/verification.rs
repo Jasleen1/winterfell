@@ -1,8 +1,8 @@
-use super::VerifierChannel;
+use super::{compose_constraints, evaluate_constraints, VerifierChannel};
 use common::CompositionCoefficients;
 use common::{
-    errors::VerifierError, Assertion, AssertionEvaluator, ComputationContext, ConstraintEvaluator,
-    EvaluationFrame, PublicCoin, TransitionEvaluator,
+    errors::VerifierError, Assertions, ComputationContext, EvaluationFrame, PublicCoin,
+    TransitionEvaluator,
 };
 use fri::VerifierChannel as FriVerifierChannel;
 use math::field::{BaseElement, FieldElement, FromVec};
@@ -10,14 +10,14 @@ use math::field::{BaseElement, FieldElement, FromVec};
 // VERIFICATION PROCEDURE
 // ================================================================================================
 
-pub fn perform_verification<
-    T: TransitionEvaluator,
-    A: AssertionEvaluator,
-    E: FieldElement + From<BaseElement> + FromVec<BaseElement>,
->(
+pub fn perform_verification<T, E>(
     channel: &VerifierChannel<E>,
-    assertions: Vec<Assertion>,
-) -> Result<bool, VerifierError> {
+    assertions: Assertions,
+) -> Result<(), VerifierError>
+where
+    T: TransitionEvaluator,
+    E: FieldElement + From<BaseElement> + FromVec<BaseElement>,
+{
     let context = channel.context();
 
     // 1 ----- Compute constraint evaluations at OOD point z ----------------------------------
@@ -25,13 +25,11 @@ pub fn perform_verification<
     // draw a pseudo-random out-of-domain point for DEEP composition
     let z = channel.draw_deep_point::<E>();
 
-    // build constraint evaluator
-    let evaluator = ConstraintEvaluator::<T, A>::new(channel, context, assertions)?;
-
     // evaluate constraints at z
     let ood_frame = channel.read_ood_frame()?;
-    let constraint_evaluation_at_z =
-        evaluate_constraints_at(evaluator, &ood_frame.current, &ood_frame.next, z);
+    let constraint_evaluation_at_z = evaluate_constraints::<VerifierChannel<E>, T, E>(
+        channel, context, assertions, &ood_frame, z,
+    );
 
     // 2 ----- Read queried trace states and constraint evaluations ---------------------------
 
@@ -40,9 +38,10 @@ pub fn perform_verification<
 
     // compute LDE domain coordinates for all query positions
     let g_lde = context.generators().lde_domain;
+    let domain_offset = context.domain_offset();
     let x_coordinates: Vec<BaseElement> = query_positions
         .iter()
-        .map(|&p| BaseElement::exp(g_lde, p as u128))
+        .map(|&p| g_lde.exp((p as u64).into()) * domain_offset)
         .collect();
 
     // read trace states and constraint evaluations at the queried positions; this also
@@ -93,40 +92,7 @@ pub fn perform_verification<
         context.options().to_fri_options(),
     );
     fri::verify(&fri_context, channel, &evaluations, &query_positions)
-        .map_err(VerifierError::VerificationFailed)
-}
-
-// CONSTRAINT EVALUATION
-// ================================================================================================
-
-/// TODO: move into ConstraintEvaluator?
-pub fn evaluate_constraints_at<
-    T: TransitionEvaluator,
-    A: AssertionEvaluator,
-    E: FieldElement + FromVec<BaseElement>,
->(
-    mut evaluator: ConstraintEvaluator<T, A>,
-    state1: &[E],
-    state2: &[E],
-    x: E,
-) -> E {
-    let evaluations = evaluator.evaluate_at_x(state1, state2, x).to_vec();
-    let divisors = evaluator.constraint_divisors();
-    debug_assert!(
-        divisors.len() == evaluations.len(),
-        "number of divisors ({}) does not match the number of evaluations ({})",
-        divisors.len(),
-        evaluations.len()
-    );
-
-    // iterate over evaluations and divide out values implied by the divisors
-    let mut result = E::ZERO;
-    for (&evaluation, divisor) in evaluations.iter().zip(divisors.iter()) {
-        let z = divisor.evaluate_at(x);
-        result = result + evaluation / z;
-    }
-
-    result
+        .map_err(VerifierError::FriVerificationFailed)
 }
 
 // TRACE COMPOSITION
@@ -168,33 +134,10 @@ fn compose_registers<E: FieldElement + From<BaseElement>>(
         }
 
         // raise the degree to match composition degree
-        let xp = E::exp(x, incremental_degree.into());
+        let xp = x.exp(incremental_degree.into());
         composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
 
         result.push(composition);
-    }
-
-    result
-}
-
-// CONSTRAINT COMPOSITION
-// ================================================================================================
-
-/// TODO: add comments
-fn compose_constraints<E: FieldElement + From<BaseElement>>(
-    evaluations: Vec<BaseElement>,
-    x_coordinates: &[BaseElement],
-    z: E,
-    evaluation_at_z: E,
-    cc: &CompositionCoefficients<E>,
-) -> Vec<E> {
-    // divide out deep point from the evaluations
-    let mut result = Vec::with_capacity(evaluations.len());
-    for (evaluation, &x) in evaluations.into_iter().zip(x_coordinates) {
-        // compute C(x) = (P(x) - P(z)) / (x - z)
-        let composition = (E::from(evaluation) - evaluation_at_z) / (E::from(x) - z);
-        // multiply by pseudo-random coefficient for linear combination
-        result.push(composition * cc.constraints);
     }
 
     result

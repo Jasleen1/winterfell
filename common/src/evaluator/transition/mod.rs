@@ -1,12 +1,13 @@
-use super::{ComputationContext, ConstraintDegree};
+use super::{ComputationContext, ConstraintDegree, EvaluationFrame};
 use crypto::RandomElementGenerator;
+use fasthash::xx::Hash64;
 use math::field::{BaseElement, FieldElement, FromVec};
 use std::collections::HashMap;
 
 // TRANSITION EVALUATOR TRAIT
 // ================================================================================================
 
-pub trait TransitionEvaluator {
+pub trait TransitionEvaluator: Send + Sync {
     fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self;
 
     // ABSTRACT METHODS
@@ -14,23 +15,21 @@ pub trait TransitionEvaluator {
 
     /// Evaluates transition constraints at the specified `step` of the execution trace extended
     /// over constraint evaluation domain. The evaluations are saved into the `results` slice. This
-    /// method is used by the prover to evaluate/ constraint for all steps of the execution trace.
+    /// method is used by the prover to evaluate constraints for all steps of the execution trace.
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         step: usize,
     );
 
     /// Evaluates transition constraints at the specified `x` coordinate, which could be in or out
     /// of evaluation domain. The evaluations are saved into the `results` slice. This method is
-    /// used by both the prover and the verifier to evaluate constraints at an out-of-domain point.
+    /// used by the verifier to evaluate constraints at an out-of-domain point.
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         x: E,
     );
 
@@ -105,7 +104,7 @@ pub trait TransitionEvaluator {
         let divisor_degree = context.trace_length() - 1;
         let target_degree = context.composition_degree() + divisor_degree;
 
-        let mut groups = HashMap::new();
+        let mut groups = HashMap::with_hasher(Hash64);
         for (i, degree) in degrees.iter().enumerate() {
             let evaluation_degree = degree.get_evaluation_degree(context.trace_length());
             let degree_adjustment = (target_degree - evaluation_degree) as u32;

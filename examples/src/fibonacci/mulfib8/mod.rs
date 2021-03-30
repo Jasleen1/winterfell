@@ -1,11 +1,11 @@
-use common::errors::VerifierError;
+use super::utils::compute_mulfib_term;
+use crate::{Example, ExampleOptions};
 use log::debug;
-use prover::{math::field::BaseElement, Assertion, ProofOptions, Prover, StarkProof};
+use prover::{
+    math::field::BaseElement, Assertions, ExecutionTrace, ProofOptions, Prover, StarkProof,
+};
 use std::time::Instant;
-use verifier::Verifier;
-
-use super::utils::{build_proof_options, compute_mulfib_term};
-use crate::Example;
+use verifier::{Verifier, VerifierError};
 
 mod evaluator;
 use evaluator::MulFib8Evaluator;
@@ -15,33 +15,36 @@ mod tests;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
-pub fn get_example() -> Box<dyn Example> {
-    Box::new(MulFib8Example {
-        options: None,
-        sequence_length: 0,
-    })
-}
-
 const NUM_REGISTERS: usize = 8;
 
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
+    Box::new(MulFib8Example::new(options.to_proof_options(28, 16)))
+}
+
 pub struct MulFib8Example {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     sequence_length: usize,
 }
 
-impl Example for MulFib8Example {
-    fn prepare(
-        &mut self,
-        mut sequence_length: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Vec<Assertion> {
-        if sequence_length == 0 {
-            sequence_length = 1_048_576
+impl MulFib8Example {
+    pub fn new(options: ProofOptions) -> MulFib8Example {
+        MulFib8Example {
+            options,
+            sequence_length: 0,
         }
+    }
+}
+
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
+
+impl Example for MulFib8Example {
+    fn prepare(&mut self, sequence_length: usize) -> Assertions {
+        assert!(
+            sequence_length.is_power_of_two(),
+            "sequence length must be a power of 2"
+        );
         self.sequence_length = sequence_length;
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
@@ -53,14 +56,14 @@ impl Example for MulFib8Example {
             now.elapsed().as_millis()
         );
 
-        vec![
-            Assertion::new(0, 0, BaseElement::new(1)),
-            Assertion::new(1, 0, BaseElement::new(2)),
-            Assertion::new(6, trace_length - 1, result),
-        ]
+        let mut assertions = Assertions::new(NUM_REGISTERS, trace_length).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(1)).unwrap();
+        assertions.add_single(1, 0, BaseElement::new(2)).unwrap();
+        assertions.add_single(6, trace_length - 1, result).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         let sequence_length = self.sequence_length;
         debug!(
             "Generating proof for computing multiplicative Fibonacci sequence (8 terms per step) up to {}th term\n\
@@ -71,8 +74,8 @@ impl Example for MulFib8Example {
         // generate execution trace
         let now = Instant::now();
         let trace = build_mulfib_trace(sequence_length);
-        let trace_width = trace.len();
-        let trace_length = trace[0].len();
+        let trace_width = trace.width();
+        let trace_length = trace.len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace_width,
@@ -81,11 +84,11 @@ impl Example for MulFib8Example {
         );
 
         // generate the proof
-        let prover = Prover::<MulFib8Evaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<MulFib8Evaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<(), VerifierError> {
         let verifier = Verifier::<MulFib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }
@@ -94,7 +97,7 @@ impl Example for MulFib8Example {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_mulfib_trace(length: usize) -> Vec<Vec<BaseElement>> {
+pub fn build_mulfib_trace(length: usize) -> ExecutionTrace {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -120,5 +123,5 @@ pub fn build_mulfib_trace(length: usize) -> Vec<Vec<BaseElement>> {
         reg7.push(reg5[i + 1] * reg6[i + 1]);
     }
 
-    vec![reg0, reg1, reg2, reg3, reg4, reg5, reg6, reg7]
+    ExecutionTrace::init(vec![reg0, reg1, reg2, reg3, reg4, reg5, reg6, reg7])
 }

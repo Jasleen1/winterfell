@@ -10,15 +10,7 @@ pub struct ComputationContext {
     trace_width: usize,
     trace_length: usize,
     ce_blowup_factor: usize,
-    field_extension: FieldExtension,
     generators: Generators,
-}
-
-#[repr(u8)]
-#[derive(Copy, Clone)]
-pub enum FieldExtension {
-    None = 1,
-    Quadratic = 2,
 }
 
 #[derive(Clone)]
@@ -43,7 +35,6 @@ impl ComputationContext {
         trace_width: usize,
         trace_length: usize,
         ce_blowup_factor: usize,
-        field_extension: FieldExtension,
         options: ProofOptions,
     ) -> Self {
         assert!(
@@ -80,7 +71,6 @@ impl ComputationContext {
             trace_width,
             trace_length,
             ce_blowup_factor,
-            field_extension,
             generators,
         }
     }
@@ -103,16 +93,20 @@ impl ComputationContext {
     // CONSTRAINT INFO
     // --------------------------------------------------------------------------------------------
 
-    pub fn lde_domain_size(&self) -> usize {
-        compute_lde_domain_size(self.trace_length, self.options.blowup_factor())
+    pub fn lde_blowup_factor(&self) -> usize {
+        self.options.blowup_factor()
     }
 
-    pub fn ce_domain_size(&self) -> usize {
-        compute_ce_domain_size(self.trace_length, self.ce_blowup_factor)
+    pub fn lde_domain_size(&self) -> usize {
+        compute_lde_domain_size(self.trace_length, self.lde_blowup_factor())
     }
 
     pub fn ce_blowup_factor(&self) -> usize {
         self.ce_blowup_factor
+    }
+
+    pub fn ce_domain_size(&self) -> usize {
+        compute_ce_domain_size(self.trace_length, self.ce_blowup_factor)
     }
 
     pub fn composition_degree(&self) -> usize {
@@ -126,10 +120,6 @@ impl ComputationContext {
     // OTHER PROPERTIES
     // --------------------------------------------------------------------------------------------
 
-    pub fn field_extension(&self) -> FieldExtension {
-        self.field_extension
-    }
-
     pub fn options(&self) -> &ProofOptions {
         &self.options
     }
@@ -138,16 +128,56 @@ impl ComputationContext {
         &self.generators
     }
 
+    pub fn domain_offset(&self) -> BaseElement {
+        self.options.domain_offset()
+    }
+
     // UTILITY FUNCTIONS
     // --------------------------------------------------------------------------------------------
 
+    /// Returns g^step, where g is the generator of trace domain.
     pub fn get_trace_x_at(&self, step: usize) -> BaseElement {
         debug_assert!(
             step < self.trace_length,
             "step must be in the trace domain [0, {})",
             self.trace_length
         );
-        BaseElement::exp(self.generators.trace_domain, step as u128)
+        self.generators.trace_domain.exp((step as u64).into())
+    }
+
+    /// Returns a sequence: g^first_step, g^(first_step + stride), g^(first_step + 2 * stride)...
+    /// where g is the generator of trace domain. The number of elements in the sequence is
+    /// defined as trace_length / stride.
+    pub fn get_trace_x_at_steps(&self, first_step: usize, stride: usize) -> Vec<BaseElement> {
+        debug_assert!(
+            stride.is_power_of_two(),
+            "stride must be a power of two but was {}",
+            stride
+        );
+        debug_assert!(
+            first_step < stride,
+            "first step ({}) cannot be greater than stride ({})",
+            first_step,
+            stride
+        );
+        debug_assert!(
+            stride < self.trace_length,
+            "stride ({}) must be smaller than trace length ({})",
+            stride,
+            self.trace_length
+        );
+
+        // compute g^first_step and g^stride
+        let start = self.generators.trace_domain.exp((first_step as u64).into());
+        let step = self.generators.trace_domain.exp((stride as u64).into());
+
+        let mut result = vec![BaseElement::ZERO; self.trace_length / stride];
+        result[0] = start;
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * step;
+        }
+
+        result
     }
 }
 

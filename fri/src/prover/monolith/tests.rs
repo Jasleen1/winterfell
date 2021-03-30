@@ -1,25 +1,26 @@
+use math::field::{BaseElement, StarkField};
+
 use super::{
-    super::tests::{build_evaluations, build_prover_channel, verify_proof},
+    super::tests::{build_evaluations, build_lde_domain, build_prover_channel, verify_proof},
     FriProver,
 };
 use crate::{FriOptions, PublicCoin};
-use kompact::prelude::*;
 
 #[test]
-fn distributed_fri_prove_verify() {
+fn sequential_fri_prove_verify() {
     let trace_length = 4096;
     let ce_blowup = 2;
     let lde_blowup = 8;
+    let offset = BaseElement::GENERATOR;
 
-    let options = FriOptions::new(lde_blowup, crypto::hash::blake3);
+    let options = FriOptions::new(lde_blowup, offset, crypto::hash::blake3);
     let mut channel = build_prover_channel(trace_length, &options);
     let evaluations = build_evaluations(trace_length, lde_blowup, ce_blowup);
+    let lde_domain = build_lde_domain(trace_length, lde_blowup, offset);
 
     // instantiate the prover and generate the proof
-    let num_workers = 128;
-    let system = KompactConfig::default().build().expect("system");
-    let mut prover = FriProver::new(&system, options.clone(), num_workers);
-    prover.build_layers(&mut channel, &evaluations);
+    let mut prover = FriProver::new(options.clone());
+    prover.build_layers(&mut channel, evaluations.clone(), &lde_domain);
     let positions = channel.draw_query_positions();
     let proof = prover.build_proof(&positions);
 
@@ -34,7 +35,5 @@ fn distributed_fri_prove_verify() {
         &positions,
         &options,
     );
-    assert!(result.is_ok(), "{:?}", result);
-
-    system.shutdown().expect("shutdown");
+    assert!(result.is_ok(), "{:}", result.err().unwrap());
 }

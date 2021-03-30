@@ -26,11 +26,6 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-      - name: Extension field examples test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test 
-          args: --features extension_field --manifest-path examples/Cargo.toml
 
   clippy:
     name: Clippy

@@ -66,8 +66,9 @@ impl DefaultProverChannel {
             }
         }
 
-        assert!(
-            result.len() == self.num_queries,
+        assert_eq!(
+            result.len(),
+            self.num_queries,
             "needed to generate {} query positions, but generated only {}",
             self.num_queries,
             result.len()

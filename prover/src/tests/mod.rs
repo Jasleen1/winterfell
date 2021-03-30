@@ -1,6 +1,7 @@
+use crate::ExecutionTrace;
 use common::{
-    ComputationContext, ConstraintDegree, FieldExtension, ProofOptions, TransitionConstraintGroup,
-    TransitionEvaluator,
+    ComputationContext, ConstraintDegree, EvaluationFrame, FieldExtension, ProofOptions,
+    TransitionConstraintGroup, TransitionEvaluator,
 };
 use crypto::{hash::blake3, RandomElementGenerator};
 use math::field::{BaseElement, FieldElement, FromVec};
@@ -8,7 +9,7 @@ use math::field::{BaseElement, FieldElement, FromVec};
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
+pub fn build_fib_trace(length: usize) -> ExecutionTrace {
     assert!(length.is_power_of_two(), "length must be a power of 2");
 
     let mut reg1 = vec![BaseElement::ONE];
@@ -19,7 +20,7 @@ pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
         reg2.push(reg1[i] + BaseElement::from(2u8) * reg2[i]);
     }
 
-    vec![reg1, reg2]
+    ExecutionTrace::init(vec![reg1, reg2])
 }
 
 pub fn build_proof_context(
@@ -27,14 +28,8 @@ pub fn build_proof_context(
     ce_blowup_factor: usize,
     lde_blowup_factor: usize,
 ) -> ComputationContext {
-    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3);
-    ComputationContext::new(
-        2,
-        trace_length,
-        ce_blowup_factor,
-        FieldExtension::None,
-        options,
-    )
+    let options = ProofOptions::new(32, lde_blowup_factor, 0, blake3, FieldExtension::None);
+    ComputationContext::new(2, trace_length, ce_blowup_factor, options)
 }
 
 // FIBONACCI TRANSITION EVALUATOR
@@ -60,20 +55,20 @@ impl TransitionEvaluator for FibEvaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         _step: usize,
     ) {
-        self.evaluate_at_x(result, current, next, BaseElement::ZERO)
+        self.evaluate_at_x(result, frame, BaseElement::ZERO)
     }
 
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         _x: E,
     ) {
+        let current = &frame.current;
+        let next = &frame.next;
         // expected state width is 2 field elements
         debug_assert_eq!(2, current.len());
         debug_assert_eq!(2, next.len());

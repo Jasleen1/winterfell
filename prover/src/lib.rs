@@ -1,5 +1,5 @@
 mod monolith;
-pub use monolith::Prover;
+pub use monolith::{ExecutionTrace, ExecutionTraceFragment, Prover};
 
 mod distributed;
 
@@ -9,7 +9,7 @@ mod channel;
 pub mod tests;
 
 pub use common::{
-    proof::StarkProof, Assertion, AssertionEvaluator, ComputationContext, ConstraintDegree,
+    proof::StarkProof, Assertions, ComputationContext, ConstraintDegree, EvaluationFrame,
     ProofOptions, TransitionConstraintGroup, TransitionEvaluator,
 };
 pub use crypto;

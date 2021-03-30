@@ -1,4 +1,4 @@
-use crate::{folding::quartic, utils, FriOptions, FriProof, PublicCoin};
+use crate::{folding::quartic, FriOptions, FriProof, PublicCoin, VerifierError};
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
 use math::field::FieldElement;
 use std::marker::PhantomData;
@@ -16,21 +16,19 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
         &self,
         layer_idx: usize,
         positions: &[usize],
-    ) -> Result<Vec<[E; 4]>, String> {
+    ) -> Result<Vec<[E; 4]>, VerifierError> {
         let layer_root = self.fri_layer_commitments()[layer_idx];
         let layer_proof = &self.fri_layer_proofs()[layer_idx];
         if !MerkleTree::verify_batch(&layer_root, &positions, &layer_proof, self.hash_fn()) {
-            return Err(format!(
-                "FRI queries did not match the commitment at layer {}",
-                layer_idx
-            ));
+            return Err(VerifierError::LayerCommitmentMismatch(layer_idx));
         }
 
         // convert query bytes into field elements of appropriate type
         let mut queries = Vec::new();
         for query_bytes in self.fri_layer_queries()[layer_idx].iter() {
             let mut query = [E::ZERO; 4];
-            E::read_into(query_bytes, &mut query)?;
+            E::read_into(query_bytes, &mut query)
+                .map_err(|msg| VerifierError::LayerDeserializationError(layer_idx, msg))?;
             queries.push(query);
         }
 
@@ -39,19 +37,20 @@ pub trait VerifierChannel<E: FieldElement>: PublicCoin {
 
     /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
     /// valid against the commitment sent by the prover.
-    fn read_remainder(&self) -> Result<Vec<E>, String> {
+    fn read_remainder(&self) -> Result<Vec<E>, VerifierError> {
         // convert remainder bytes into field elements of appropriate type
-        let remainder = E::read_to_vec(&self.fri_remainder())?;
+        let remainder = E::read_to_vec(&self.fri_remainder())
+            .map_err(VerifierError::RemainderDeserializationError)?;
 
         // build remainder Merkle tree
         let remainder_values = quartic::transpose(&remainder, 1);
-        let hashed_values = utils::hash_values(&remainder_values, self.hash_fn());
+        let hashed_values = quartic::hash_values(&remainder_values, self.hash_fn());
         let remainder_tree = MerkleTree::new(hashed_values, self.hash_fn());
 
         // make sure the root of the tree matches the committed root of the last layer
         let committed_root = self.fri_layer_commitments().last().unwrap();
         if committed_root != remainder_tree.root() {
-            return Err(String::from("FRI remainder did not match the commitment"));
+            return Err(VerifierError::RemainderCommitmentMismatch);
         }
 
         Ok(remainder)

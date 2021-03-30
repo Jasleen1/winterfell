@@ -1,50 +1,51 @@
-use std::time::Instant;
-
+use super::utils::compute_fib_term;
+use crate::{Example, ExampleOptions};
 use log::debug;
-
-use common::errors::VerifierError;
-use evaluator::Fib8Evaluator;
 use prover::{
     math::field::{BaseElement, FieldElement},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ExecutionTrace, ProofOptions, Prover, StarkProof,
 };
-use verifier::Verifier;
-
-use super::utils::{build_proof_options, compute_fib_term};
-use crate::Example;
+use std::time::Instant;
+use verifier::{Verifier, VerifierError};
 
 mod evaluator;
+use evaluator::Fib8Evaluator;
 
 #[cfg(test)]
 mod tests;
 
 // FIBONACCI EXAMPLE
 // ================================================================================================
-pub fn get_example() -> Box<dyn Example> {
-    Box::new(Fib8Example {
-        options: None,
-        sequence_length: 0,
-    })
+const TRACE_WIDTH: usize = 8;
+
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
+    Box::new(Fib8Example::new(options.to_proof_options(28, 16)))
 }
 
 pub struct Fib8Example {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     sequence_length: usize,
 }
 
-impl Example for Fib8Example {
-    fn prepare(
-        &mut self,
-        mut sequence_length: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Vec<Assertion> {
-        if sequence_length == 0 {
-            sequence_length = 1_048_576
+impl Fib8Example {
+    pub fn new(options: ProofOptions) -> Fib8Example {
+        Fib8Example {
+            options,
+            sequence_length: 0,
         }
+    }
+}
+
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
+
+impl Example for Fib8Example {
+    fn prepare(&mut self, sequence_length: usize) -> Assertions {
+        assert!(
+            sequence_length.is_power_of_two(),
+            "sequence length must be a power of 2"
+        );
         self.sequence_length = sequence_length;
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
         let trace_length = sequence_length / 8;
 
         // compute Fibonacci sequence
@@ -58,14 +59,14 @@ impl Example for Fib8Example {
 
         // assert that the trace starts with 7th and 8th terms of Fibonacci sequence (the first
         // 6 terms are not recorded in the trace), and ends with the expected result
-        vec![
-            Assertion::new(0, 0, BaseElement::new(13)),
-            Assertion::new(1, 0, BaseElement::new(21)),
-            Assertion::new(1, trace_length - 1, result),
-        ]
+        let mut assertions = Assertions::new(TRACE_WIDTH, trace_length).unwrap();
+        assertions.add_single(0, 0, BaseElement::new(13)).unwrap();
+        assertions.add_single(1, 0, BaseElement::new(21)).unwrap();
+        assertions.add_single(1, trace_length - 1, result).unwrap();
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         debug!(
             "Generating proof for computing Fibonacci sequence (8 terms per step) up to {}th term\n\
             ---------------------",
@@ -75,8 +76,8 @@ impl Example for Fib8Example {
         // generate execution trace
         let now = Instant::now();
         let trace = build_fib_trace(self.sequence_length);
-        let trace_width = trace.len();
-        let trace_length = trace[0].len();
+        let trace_width = trace.width();
+        let trace_length = trace.len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace_width,
@@ -85,11 +86,11 @@ impl Example for Fib8Example {
         );
 
         // generate the proof
-        let prover = Prover::<Fib8Evaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<Fib8Evaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<(), VerifierError> {
         let verifier = Verifier::<Fib8Evaluator>::new();
         verifier.verify(proof, assertions)
     }
@@ -98,7 +99,7 @@ impl Example for Fib8Example {
 // FIBONACCI TRACE BUILDER
 // ================================================================================================
 
-pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
+pub fn build_fib_trace(length: usize) -> ExecutionTrace {
     assert!(
         length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -131,5 +132,5 @@ pub fn build_fib_trace(length: usize) -> Vec<Vec<BaseElement>> {
         reg1.push(n7);
     }
 
-    vec![reg0, reg1]
+    ExecutionTrace::init(vec![reg0, reg1])
 }

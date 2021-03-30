@@ -1,6 +1,6 @@
 use crate::{folding::quartic, utils};
 use math::{
-    field::{BaseElement, FieldElement},
+    field::{BaseElement, FieldElement, StarkField},
     polynom,
 };
 use std::mem;
@@ -11,17 +11,20 @@ pub use context::VerifierContext;
 mod channel;
 pub use channel::{DefaultVerifierChannel, VerifierChannel};
 
+mod errors;
+pub use errors::VerifierError;
+
 // VERIFICATION PROCEDURE
 // ================================================================================================
 
-/// Returns OK(true) if values in the `evaluations` slice represent evaluations of a polynomial
+/// Returns OK(()) if values in the `evaluations` slice represent evaluations of a polynomial
 /// with degree <= context.max_degree() against x coordinates specified by the `positions` slice.
 pub fn verify<E, C>(
     context: &VerifierContext,
     channel: &C,
     evaluations: &[E],
     positions: &[usize],
-) -> Result<bool, String>
+) -> Result<(), VerifierError>
 where
     E: FieldElement + From<BaseElement>,
     C: VerifierChannel<E>,
@@ -32,14 +35,15 @@ where
     );
     let domain_size = context.domain_size();
     let domain_root = context.domain_root();
+    let domain_offset = context.domain_offset();
     let num_partitions = channel.num_fri_partitions();
 
     // powers of the given root of unity 1, p, p^2, p^3 such that p^4 = 1
     let quartic_roots = [
         BaseElement::ONE,
-        BaseElement::exp(domain_root, (domain_size as u32 / 4).into()),
-        BaseElement::exp(domain_root, (domain_size as u32 / 2).into()),
-        BaseElement::exp(domain_root, (domain_size as u32 * 3 / 4).into()),
+        domain_root.exp((domain_size as u32 / 4).into()),
+        domain_root.exp((domain_size as u32 / 2).into()),
+        domain_root.exp((domain_size as u32 * 3 / 4).into()),
     ];
 
     // 1 ----- verify the recursive components of the FRI proof -----------------------------------
@@ -70,16 +74,13 @@ where
             context.folding_factor(),
         );
         if evaluations != query_values {
-            return Err(format!(
-                "evaluations did not match query values at depth {}",
-                depth
-            ));
+            return Err(VerifierError::LayerValuesNotConsistent(depth));
         }
 
         // build a set of x for each row polynomial
         let mut xs = Vec::with_capacity(folded_positions.len());
         for &i in folded_positions.iter() {
-            let xe = BaseElement::exp(domain_root, (i as u32).into());
+            let xe = domain_root.exp((i as u32).into()) * domain_offset;
             xs.push([
                 quartic_roots[0] * xe,
                 quartic_roots[1] * xe,
@@ -99,7 +100,7 @@ where
         evaluations = quartic::evaluate_batch(&row_polys, alpha);
 
         // update variables for the next iteration of the loop
-        domain_root = BaseElement::exp(domain_root, 4);
+        domain_root = domain_root.exp(4);
         max_degree_plus_1 /= 4;
         domain_size /= 4;
         mem::swap(&mut positions, &mut folded_positions);
@@ -112,9 +113,7 @@ where
     let remainder = channel.read_remainder()?;
     for (&position, evaluation) in positions.iter().zip(evaluations) {
         if remainder[position] != evaluation {
-            return Err(String::from(
-                "remainder values are inconsistent with values of the last column",
-            ));
+            return Err(VerifierError::RemainderValuesNotConsistent);
         }
     }
 
@@ -134,11 +133,9 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
     max_degree_plus_1: usize,
     domain_root: BaseElement,
     blowup_factor: usize,
-) -> Result<bool, String> {
+) -> Result<(), VerifierError> {
     if max_degree_plus_1 > remainder.len() {
-        return Err(String::from(
-            "remainder degree is greater than number of remainder values",
-        ));
+        return Err(VerifierError::RemainderDegreeNotValid);
     }
 
     // exclude points which should be skipped during evaluation
@@ -150,7 +147,11 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
     }
 
     // pick a subset of points from the remainder and interpolate them into a polynomial
-    let domain = BaseElement::get_power_series(domain_root, remainder.len());
+    let domain = BaseElement::get_power_series_with_offset(
+        domain_root,
+        BaseElement::GENERATOR,
+        remainder.len(),
+    );
     let mut xs = Vec::with_capacity(max_degree_plus_1);
     let mut ys = Vec::with_capacity(max_degree_plus_1);
     for &p in positions.iter().take(max_degree_plus_1) {
@@ -162,14 +163,12 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
     // check that polynomial evaluates correctly for all other points in the remainder
     for &p in positions.iter().skip(max_degree_plus_1) {
         if polynom::eval(&poly, E::from(domain[p])) != remainder[p] {
-            return Err(format!(
-                "remainder is not a valid degree {} polynomial",
-                max_degree_plus_1 - 1
+            return Err(VerifierError::RemainderDegreeMismatch(
+                max_degree_plus_1 - 1,
             ));
         }
     }
-
-    Ok(true)
+    Ok(())
 }
 
 // HELPER FUNCTIONS

@@ -1,37 +1,39 @@
 use crate::utils::uninit_vector;
+use crypto::HashFunction;
 use math::field::{BaseElement, FieldElement};
+
+#[cfg(feature = "concurrent")]
+pub mod concurrent;
 
 #[cfg(test)]
 mod tests;
+
+// CONSTANTS
+// ================================================================================================
+pub const FOLDING_FACTOR: usize = 4;
+
+// PUBLIC FUNCTIONS
+// ================================================================================================
 
 /// Evaluates degree 3 polynomial `p` at coordinate `x`. This function is about 30% faster than
 /// the `polynom::eval` function.
 pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
     debug_assert!(p.len() == 4, "Polynomial must have 4 terms");
-    let mut y = p[0] + p[1] * x;
-
-    let x2 = x * x;
-    y = y + p[2] * x2;
-
-    let x3 = x2 * x;
-    y = y + p[3] * x3;
-
+    // Horner's evaluation
+    let mut y = p[3] * x;
+    y = (y + p[2]) * x;
+    y = (y + p[1]) * x;
+    y = y + p[0];
     y
 }
 
 /// Evaluates a batch of degree 3 polynomials at the provided X coordinate.
 pub fn evaluate_batch<E: FieldElement>(polys: &[[E; 4]], x: E) -> Vec<E> {
     let n = polys.len();
-
-    let mut result: Vec<E> = Vec::with_capacity(n);
-    unsafe {
-        result.set_len(n);
-    }
-
+    let mut result: Vec<E> = uninit_vector(n);
     for i in 0..n {
         result[i] = eval(&polys[i], x);
     }
-
     result
 }
 
@@ -48,7 +50,63 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
         xs.len() == ys.len(),
         "number of X coordinates must be equal to number of Y coordinates"
     );
+    let mut result: Vec<[E; 4]> = uninit_vector(xs.len());
+    interpolate_batch_into(xs, ys, &mut result);
+    result
+}
 
+/// Transposes the source vector into a matrix of quartic elements.
+pub fn transpose<E: FieldElement>(source: &[E], stride: usize) -> Vec<[E; 4]> {
+    assert!(
+        source.len() % (4 * stride) == 0,
+        "vector length must be divisible by {}",
+        4 * stride
+    );
+    let row_count = source.len() / (4 * stride);
+
+    let mut result = to_quartic_vec(uninit_vector(row_count * 4));
+    for (i, element) in result.iter_mut().enumerate() {
+        transpose_element(element, &source, i, stride, row_count);
+    }
+    result
+}
+
+/// Re-interprets a vector of field elements as a vector of quartic elements.
+pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
+    assert!(
+        vector.len() % 4 == 0,
+        "vector length must be divisible by 4"
+    );
+    let mut v = std::mem::ManuallyDrop::new(vector);
+    let p = v.as_mut_ptr();
+    let len = v.len() / 4;
+    let cap = v.capacity() / 4;
+    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+}
+
+/// Computes hashes for all quartic elements using the specified hash function.
+pub fn hash_values<E: FieldElement>(values: &[[E; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
+    let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
+    // TODO: ideally, this should be done using something like update() method of a hasher
+    let mut buf = vec![0u8; 4 * E::ELEMENT_BYTES];
+    for i in 0..values.len() {
+        buf[..E::ELEMENT_BYTES].copy_from_slice(&values[i][0].to_bytes());
+        buf[E::ELEMENT_BYTES..E::ELEMENT_BYTES * 2].copy_from_slice(&values[i][1].to_bytes());
+        buf[E::ELEMENT_BYTES * 2..E::ELEMENT_BYTES * 3].copy_from_slice(&values[i][2].to_bytes());
+        buf[E::ELEMENT_BYTES * 3..E::ELEMENT_BYTES * 4].copy_from_slice(&values[i][3].to_bytes());
+        hash(&buf, &mut result[i]);
+    }
+    result
+}
+
+// HELPER FUNCTION
+// ================================================================================================
+
+fn interpolate_batch_into<E: FieldElement + From<BaseElement>>(
+    xs: &[[BaseElement; 4]],
+    ys: &[[E; 4]],
+    result: &mut [[E; 4]],
+) {
     let n = xs.len();
     let mut equations: Vec<[E; 4]> = Vec::with_capacity(n * 4);
     let mut inverses: Vec<E> = Vec::with_capacity(n * 4);
@@ -91,11 +149,6 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
 
     let inverses = E::inv_many(&inverses);
 
-    let mut result: Vec<[E; 4]> = Vec::with_capacity(n);
-    unsafe {
-        result.set_len(n);
-    }
-
     for (i, j) in (0..n).zip((0..equations.len()).step_by(4)) {
         let ys = ys[i];
 
@@ -127,40 +180,19 @@ pub fn interpolate_batch<E: FieldElement + From<BaseElement>>(
         result[i][2] = result[i][2] + inv_y * equations[j + 3][2];
         result[i][3] = result[i][3] + inv_y * equations[j + 3][3];
     }
-
-    result
 }
 
-pub fn transpose<E: FieldElement>(vector: &[E], stride: usize) -> Vec<[E; 4]> {
-    assert!(
-        vector.len() % (4 * stride) == 0,
-        "vector length must be divisible by {}",
-        4 * stride
-    );
-    let row_count = vector.len() / (4 * stride);
-
-    let mut result = to_quartic_vec(uninit_vector(row_count * 4));
-    for i in 0..row_count {
-        result[i] = [
-            vector[i * stride],
-            vector[(i + row_count) * stride],
-            vector[(i + 2 * row_count) * stride],
-            vector[(i + 3 * row_count) * stride],
-        ];
-    }
-
-    result
-}
-
-/// Re-interprets a vector of integers as a vector of quartic elements.
-pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
-    assert!(
-        vector.len() % 4 == 0,
-        "vector length must be divisible by 4"
-    );
-    let mut v = std::mem::ManuallyDrop::new(vector);
-    let p = v.as_mut_ptr();
-    let len = v.len() / 4;
-    let cap = v.capacity() / 4;
-    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+fn transpose_element<E: FieldElement>(
+    target: &mut [E; 4],
+    source: &[E],
+    i: usize,
+    stride: usize,
+    row_count: usize,
+) {
+    *target = [
+        source[i * stride],
+        source[(i + row_count) * stride],
+        source[(i + 2 * row_count) * stride],
+        source[(i + 3 * row_count) * stride],
+    ];
 }

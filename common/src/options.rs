@@ -1,9 +1,17 @@
 use crypto::HashFunction;
 use fri::FriOptions;
+use math::field::{BaseElement, StarkField};
 use serde::{Deserialize, Serialize};
 
 // TYPES AND INTERFACES
 // ================================================================================================
+
+#[repr(u8)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
+pub enum FieldExtension {
+    None = 1,
+    Quadratic = 2,
+}
 
 // TODO: validate field values on de-serialization
 #[derive(Clone, Serialize, Deserialize)]
@@ -13,11 +21,14 @@ pub struct ProofOptions {
     grinding_factor: u8,
     #[serde(with = "hash_fn_serialization")]
     hash_fn: HashFunction,
+    field_extension: FieldExtension,
 }
 
 // PROOF OPTIONS IMPLEMENTATION
 // ================================================================================================
 impl ProofOptions {
+    // CONSTRUCTORS
+    // --------------------------------------------------------------------------------------------
     /// Returns new ProofOptions struct constructed from the specified parameters, which must
     /// comply with the following:
     /// * num_queries must be an integer between 1 and 128;
@@ -29,6 +40,7 @@ impl ProofOptions {
         blowup_factor: usize,
         grinding_factor: u32,
         hash_fn: HashFunction,
+        field_extension: FieldExtension,
     ) -> ProofOptions {
         assert!(num_queries > 0, "num_queries must be greater than 0");
         assert!(num_queries <= 128, "num_queries cannot be greater than 128");
@@ -53,8 +65,12 @@ impl ProofOptions {
             blowup_factor: blowup_factor.trailing_zeros() as u8,
             grinding_factor: grinding_factor as u8,
             hash_fn,
+            field_extension,
         }
     }
+
+    // PUBLIC ACCESSORS
+    // --------------------------------------------------------------------------------------------
 
     /// Returns number of queries for a STARK proof. This directly impacts proof soundness as each
     /// additional query adds roughly log2(lde_domain_size / constraint_evaluation_domain_size)
@@ -89,8 +105,22 @@ impl ProofOptions {
         self.hash_fn
     }
 
+    /// Returns a value indicating whether an extension field should be used for the composition
+    /// polynomial. Using a field extension increases maximum security level of a proof, but
+    /// also has non-negligible impact on prover performance.
+    pub fn field_extension(&self) -> FieldExtension {
+        self.field_extension
+    }
+
+    /// Returns the offset by which the low-degree extension domain is shifted in relation to the
+    /// trace domain. Currently, this is hard-coded to the generator of the underlying base field.
+    pub fn domain_offset(&self) -> BaseElement {
+        BaseElement::GENERATOR
+    }
+
+    /// Returns options for FRI protocol instantiated with parameters from this proof options.
     pub fn to_fri_options(&self) -> FriOptions {
-        FriOptions::new(self.blowup_factor(), self.hash_fn)
+        FriOptions::new(self.blowup_factor(), self.domain_offset(), self.hash_fn)
     }
 }
 

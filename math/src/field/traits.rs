@@ -1,8 +1,12 @@
+use crate::utils;
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display},
     ops::{Add, BitAnd, Div, Mul, Neg, Shl, ShrAssign, Sub},
 };
+
+#[cfg(feature = "concurrent")]
+use rayon::prelude::*;
 
 // FIELD ELEMENT
 // ================================================================================================
@@ -36,6 +40,7 @@ pub trait FieldElement:
         + ShrAssign
         + Shl<u32, Output = Self::PositiveInteger>
         + From<u32>
+        + From<u64>
         + Copy;
 
     /// Number of bytes needed to encode an element
@@ -75,11 +80,50 @@ pub trait FieldElement:
     }
 
     /// Generates a vector with values [1, b, b^2, b^3, b^4, ..., b^(n-1)].
+    /// When `concurrent` feature is enabled, series generation is done concurrently
+    /// in multiple threads.
     fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = vec![Self::default(); n];
-        result[0] = Self::ONE;
-        for i in 1..n {
-            result[i] = result[i - 1] * b;
+        const MIN_CONCURRENT_SIZE: usize = 1024;
+        let mut result = utils::uninit_vector(n);
+        if cfg!(feature = "concurrent") && n >= MIN_CONCURRENT_SIZE && n.is_power_of_two() {
+            #[cfg(feature = "concurrent")]
+            {
+                let batch_size = n / rayon::current_num_threads().next_power_of_two();
+                result
+                    .par_chunks_mut(batch_size)
+                    .enumerate()
+                    .for_each(|(i, batch)| {
+                        let batch_start = i * batch_size;
+                        fill_power_series(batch, b, b.exp((batch_start as u32).into()));
+                    });
+            }
+        } else {
+            fill_power_series(&mut result, b, Self::ONE);
+        }
+        result
+    }
+
+    /// Generates a vector with values [s, s * b, s * b^2, s * b^3, s * b^4, ..., s * b^(n-1)].
+    /// When `concurrent` feature is enabled, series generation is done concurrently
+    /// in multiple threads.
+    fn get_power_series_with_offset(b: Self, s: Self, n: usize) -> Vec<Self> {
+        const MIN_CONCURRENT_SIZE: usize = 1024;
+        let mut result = utils::uninit_vector(n);
+        if cfg!(feature = "concurrent") && n >= MIN_CONCURRENT_SIZE && n.is_power_of_two() {
+            #[cfg(feature = "concurrent")]
+            {
+                let batch_size = n / rayon::current_num_threads().next_power_of_two();
+                result
+                    .par_chunks_mut(batch_size)
+                    .enumerate()
+                    .for_each(|(i, batch)| {
+                        let batch_start = i * batch_size;
+                        let start = s * b.exp((batch_start as u32).into());
+                        fill_power_series(batch, b, start);
+                    });
+            }
+        } else {
+            fill_power_series(&mut result, b, s);
         }
         result
     }
@@ -197,6 +241,17 @@ pub trait FieldElement:
     }
 }
 
+// HELPER FUNCTIONS
+// ------------------------------------------------------------------------------------------------
+
+#[inline(always)]
+fn fill_power_series<E: FieldElement>(result: &mut [E], base: E, start: E) {
+    result[0] = start;
+    for i in 1..result.len() {
+        result[i] = result[i - 1] * base;
+    }
+}
+
 // STARK FIELD
 // ================================================================================================
 
@@ -227,7 +282,7 @@ pub trait StarkField: FieldElement + AsBytes {
             "order cannot exceed 2^{}",
             Self::TWO_ADICITY
         );
-        let power = Self::PositiveInteger::from(1) << (Self::TWO_ADICITY - n);
+        let power = Self::PositiveInteger::from(1u32) << (Self::TWO_ADICITY - n);
         Self::exp(Self::TWO_ADIC_ROOT_OF_UNITY, power)
     }
 

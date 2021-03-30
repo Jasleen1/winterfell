@@ -1,8 +1,8 @@
-use std::time::Duration;
-
+use common::{FieldExtension, ProofOptions};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-
-use winterfell::fibonacci;
+use prover::crypto::hash;
+use std::time::Duration;
+use winterfell::{fibonacci, Example};
 
 const SIZES: [usize; 3] = [16_384, 65_536, 262_144];
 
@@ -11,9 +11,10 @@ fn fibonacci(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(20));
 
-    let mut fib = fibonacci::fib2::get_example();
+    let options = ProofOptions::new(32, 8, 0, hash::blake3, FieldExtension::None);
+    let mut fib = fibonacci::fib2::FibExample::new(options);
     for &size in SIZES.iter() {
-        let assertions = fib.prepare(size, 8, 32, 0);
+        let assertions = fib.prepare(size);
         group.bench_with_input(
             BenchmarkId::from_parameter(size),
             &assertions,

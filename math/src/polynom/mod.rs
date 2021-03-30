@@ -136,64 +136,93 @@ pub fn div<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     result
 }
 
-/// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method;
+/// Divides polynomial `p` by polynomial (x^`a` - `b`) using synthetic division method;
 /// if the polynomials don't divide evenly, the remainder is ignored.
-pub fn syn_div<E: FieldElement>(a: &[E], b: E) -> Vec<E> {
-    let mut result = a.to_vec();
-    syn_div_in_place(&mut result, b);
+///
+/// Panics if:
+/// * `a` is zero;
+/// * `b` is zero;
+pub fn syn_div<E: FieldElement>(p: &[E], a: usize, b: E) -> Vec<E> {
+    let mut result = p.to_vec();
+    syn_div_in_place(&mut result, a, b);
     result
 }
 
-/// Divides polynomial `a` by binomial (x - `b`) using Synthetic division method and stores the
-/// result in `a`; if the polynomials don't divide evenly, the remainder is ignored.
-pub fn syn_div_in_place<E: FieldElement>(a: &mut [E], b: E) {
-    let mut c = E::ZERO;
-    for i in (0..a.len()).rev() {
-        let temp = a[i] + b * c;
-        a[i] = c;
-        c = temp;
+/// Divides polynomial `p` by polynomial (x^`a` - `b`) using synthetic division method
+/// and stores the result in `p`; if the polynomials don't divide evenly, the remainder
+/// is ignored.
+///
+/// Panics if:
+/// * `a` is zero;
+/// * `b` is zero;
+pub fn syn_div_in_place<E: FieldElement>(p: &mut [E], a: usize, b: E) {
+    assert!(a != 0, "divisor degree cannot be zero");
+    assert!(b != E::ZERO, "constant cannot be zero");
+
+    if a == 1 {
+        // if we are dividing by (x - `b`), we can use a single variable to keep track
+        // of the remainder; this way, we can avoid shifting the values in the slice later
+        let mut c = E::ZERO;
+        for coeff in p.iter_mut().rev() {
+            *coeff = *coeff + b * c;
+            mem::swap(coeff, &mut c);
+        }
+    } else {
+        // if we are dividing by a polynomial of higher power, we need to keep track of the
+        // full remainder. we do that in place, but then need to shift the values at the end
+        // to discard the remainder
+        let degree_offset = p.len() - a;
+        if b == E::ONE {
+            // if `b` is 1, no need to multiply by `b` in every iteration of the loop
+            for i in (0..degree_offset).rev() {
+                p[i] = p[i] + p[i + a];
+            }
+        } else {
+            for i in (0..degree_offset).rev() {
+                p[i] = p[i] + p[i + a] * b;
+            }
+        }
+        // discard the remainder
+        p.copy_within(a.., 0);
+        p[degree_offset..].fill(E::ZERO);
     }
 }
 
-/// Divides polynomial `a` by polynomial (x^degree - 1) / (x - exceptions[i]) for all i using
-/// Synthetic division method and stores the result in `a`; if the polynomials don't divide evenly,
+/// Divides polynomial `p` by polynomial (x^`a` - 1) / (x - `exception`) using synthetic
+/// division method and stores the result in `p`; if the polynomials don't divide evenly,
 /// the remainder is ignored.
-pub fn syn_div_expanded_in_place<E: FieldElement>(a: &mut [E], degree: usize, exceptions: &[E]) {
-    // allocate space for the result
-    let mut result = utils::filled_vector(a.len(), a.len() + exceptions.len(), E::ZERO);
+///
+/// Panics if:
+/// * `a` is zero;
+/// * `exception` is zero;
+pub fn syn_div_in_place_with_exception<E: FieldElement>(p: &mut [E], a: usize, exception: E) {
+    assert!(a != 0, "divisor degree cannot be zero");
+    assert!(exception != E::ZERO, "exception cannot be zero");
 
-    // compute a / (x^degree - 1)
-    result.copy_from_slice(&a);
-    let degree_offset = a.len() - degree;
+    // compute p / (x^a - 1)
+    let degree_offset = p.len() - a;
     for i in (0..degree_offset).rev() {
-        result[i] = result[i] + result[i + degree];
+        p[i] = p[i] + p[i + a];
     }
 
-    // multiply result by (x - exceptions[i]) in place
-    for &exception in exceptions {
-        // exception term is negative
-        let exception = -exception;
-
-        // extend length of result since we are raising degree
-        unsafe {
-            result.set_len(result.len() + 1);
-        }
-
-        let mut next_term = result[0];
-        result[0] = E::ZERO;
-        for i in 0..(result.len() - 1) {
-            result[i] = result[i] + next_term * exception;
-            mem::swap(&mut next_term, &mut result[i + 1]);
-        }
+    // multiply by (x - exception); this skips the last iteration of the loop so that we
+    // can avoid resizing `p`; the last iteration will be applied at the end of the function
+    // once remainder terms have been discarded
+    let exception = -exception;
+    let mut next_term = p[0];
+    p[0] = E::ZERO;
+    for i in 0..(p.len() - 1) {
+        p[i] = p[i] + next_term * exception;
+        mem::swap(&mut next_term, &mut p[i + 1]);
     }
 
-    // copy result back into `a` skipping remainder terms
-    a[..(degree_offset + exceptions.len())].copy_from_slice(&result[degree..]);
+    // discard the remainder terms
+    p.copy_within(a.., 0);
+    p[degree_offset..].fill(E::ZERO);
 
-    // fill the rest of the result with 0
-    for res in a.iter_mut().skip(degree_offset + exceptions.len()) {
-        *res = E::ZERO;
-    }
+    // apply the last iteration of the multiplication loop
+    p[degree_offset - 1] = p[degree_offset - 1] + next_term * exception;
+    p[degree_offset] = next_term;
 }
 
 // DEGREE INFERENCE

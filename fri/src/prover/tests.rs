@@ -1,6 +1,6 @@
 use crate::{
     verifier, DefaultProverChannel, DefaultVerifierChannel, FriOptions, FriProof, VerifierChannel,
-    VerifierContext,
+    VerifierContext, VerifierError,
 };
 use math::{
     fft,
@@ -14,10 +14,14 @@ pub fn build_prover_channel(trace_length: usize, options: &FriOptions) -> Defaul
     DefaultProverChannel::new(options.clone(), trace_length * options.blowup_factor(), 32)
 }
 
-pub fn build_lde_domain(trace_length: usize, lde_blowup: usize) -> Vec<BaseElement> {
+pub fn build_lde_domain(
+    trace_length: usize,
+    lde_blowup: usize,
+    offset: BaseElement,
+) -> Vec<BaseElement> {
     let domain_size = trace_length * lde_blowup;
     let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-    BaseElement::get_power_series(g, domain_size)
+    BaseElement::get_power_series_with_offset(g, offset, domain_size)
 }
 
 pub fn build_evaluations(
@@ -30,10 +34,9 @@ pub fn build_evaluations(
     let domain_size = trace_length * lde_blowup;
     p.resize(domain_size, BaseElement::ZERO);
 
-    let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-    let twiddles = fft::get_twiddles(g, domain_size);
+    let twiddles = fft::get_twiddles::<BaseElement>(domain_size);
 
-    fft::evaluate_poly(&mut p, &twiddles, true);
+    fft::evaluate_poly(&mut p, &twiddles);
     p
 }
 
@@ -44,7 +47,7 @@ pub fn verify_proof(
     max_degree: usize,
     positions: &[usize],
     options: &FriOptions,
-) -> Result<bool, String> {
+) -> Result<(), VerifierError> {
     let channel = DefaultVerifierChannel::new(proof, commitments, options);
     let context = VerifierContext::new(
         evaluations.len(),

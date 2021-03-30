@@ -1,10 +1,17 @@
 use math::{
     fft,
-    field::{BaseElement, FieldElement, StarkField},
+    field::{BaseElement, FieldElement},
     polynom,
 };
 
+#[cfg(feature = "concurrent")]
+use rayon::prelude::*;
+
+// ADD IN PLACE
+// ================================================================================================
+
 /// Computes a[i] + b[i] for all i and stores the results in a.
+#[cfg(not(feature = "concurrent"))]
 pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
     assert!(
         a.len() == b.len(),
@@ -15,16 +22,20 @@ pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
     }
 }
 
-/// Computes a[i] + b[i] * c for all i and saves result into a.
-pub fn mul_acc<E: FieldElement>(a: &mut [E], b: &[E], c: E) {
+/// Computes a[i] + b[i] for all i and stores the results in a.
+#[cfg(feature = "concurrent")]
+pub fn add_in_place<E: FieldElement>(a: &mut [E], b: &[E]) {
     assert!(
         a.len() == b.len(),
-        "number of values must be the same for both slices"
+        "number of values must be the same for both operands"
     );
-    for i in 0..a.len() {
-        a[i] = a[i] + b[i] * c;
-    }
+    a.par_iter_mut()
+        .zip(b.par_iter())
+        .for_each(|(a, b)| *a = *a + *b);
 }
+
+// INFER DEGREE
+// ================================================================================================
 
 /// Determines degree of a polynomial implied by the provided evaluations
 pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> usize {
@@ -33,10 +44,7 @@ pub fn infer_degree<E: FieldElement + From<BaseElement>>(evaluations: &[E]) -> u
         "number of evaluations must be a power of 2"
     );
     let mut poly = evaluations.to_vec();
-    let root = E::from(BaseElement::get_root_of_unity(
-        evaluations.len().trailing_zeros(),
-    ));
-    let inv_twiddles = fft::get_inv_twiddles(root, evaluations.len());
-    fft::interpolate_poly(&mut poly, &inv_twiddles, true);
+    let inv_twiddles = fft::get_inv_twiddles::<BaseElement>(evaluations.len());
+    fft::interpolate_poly(&mut poly, &inv_twiddles);
     polynom::degree_of(&poly)
 }

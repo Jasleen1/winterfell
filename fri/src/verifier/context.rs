@@ -21,8 +21,8 @@ impl VerifierContext {
             max_degree,
             domain_size,
             domain_root,
-            num_partitions,
             options,
+            num_partitions,
         }
     }
 
@@ -36,6 +36,10 @@ impl VerifierContext {
 
     pub fn domain_root(&self) -> BaseElement {
         self.domain_root
+    }
+
+    pub fn domain_offset(&self) -> BaseElement {
+        self.options.domain_offset()
     }
 
     pub fn num_partitions(&self) -> usize {

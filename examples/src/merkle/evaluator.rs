@@ -1,18 +1,17 @@
+use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
+use crate::utils::{
+    are_equal, build_cyclic_domain, extend_cyclic_values, is_binary, is_zero, not, transpose,
+    EvaluationResult,
+};
 use prover::{
     crypto::RandomElementGenerator,
     math::{
         field::{BaseElement, FieldElement, FromVec},
         polynom,
     },
-    ComputationContext, ConstraintDegree, TransitionConstraintGroup, TransitionEvaluator,
+    ComputationContext, ConstraintDegree, EvaluationFrame, TransitionConstraintGroup,
+    TransitionEvaluator,
 };
-
-use crate::utils::{
-    are_equal, build_cyclic_domain, extend_cyclic_values, is_binary, is_zero, not, transpose,
-    EvaluationResult,
-};
-
-use super::{rescue, CYCLE_LENGTH, HASH_STATE_WIDTH};
 
 // RESCUE TRANSITION CONSTRAINT EVALUATOR
 // ================================================================================================
@@ -30,14 +29,21 @@ impl TransitionEvaluator for MerkleEvaluator {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(context: &ComputationContext, coeff_prng: RandomElementGenerator) -> Self {
-        let (inv_twiddles, ev_twiddles) =
-            build_cyclic_domain(CYCLE_LENGTH, context.ce_blowup_factor());
+        let (inv_twiddles, ev_twiddles) = build_cyclic_domain(CYCLE_LENGTH);
+        let trace_length = context.trace_length();
+        let blowup_factor = context.ce_blowup_factor();
 
         // extend mask constants to match constraint evaluation domain
         let mut mask_polys = Vec::new();
         let mut mask_evaluations = Vec::new();
         for mask in CYCLE_MASKS.iter() {
-            let (poly, evaluations) = extend_cyclic_values(mask, &inv_twiddles, &ev_twiddles);
+            let (poly, evaluations) = extend_cyclic_values(
+                mask,
+                &inv_twiddles,
+                &ev_twiddles,
+                blowup_factor,
+                trace_length,
+            );
             mask_polys.push(poly);
             mask_evaluations.push(evaluations);
         }
@@ -48,7 +54,13 @@ impl TransitionEvaluator for MerkleEvaluator {
         let mut ark_evaluations = Vec::new();
 
         for constant in rescue::get_round_constants().into_iter() {
-            let (poly, evaluations) = extend_cyclic_values(&constant, &inv_twiddles, &ev_twiddles);
+            let (poly, evaluations) = extend_cyclic_values(
+                &constant,
+                &inv_twiddles,
+                &ev_twiddles,
+                blowup_factor,
+                trace_length,
+            );
             ark_polys.push(poly);
             ark_evaluations.push(evaluations);
         }
@@ -70,7 +82,7 @@ impl TransitionEvaluator for MerkleEvaluator {
             mask_constants,
             ark_constants,
             ark_polys,
-            trace_length: context.trace_length(),
+            trace_length,
         }
     }
 
@@ -82,8 +94,7 @@ impl TransitionEvaluator for MerkleEvaluator {
     fn evaluate_at_step(
         &self,
         result: &mut [BaseElement],
-        current: &[BaseElement],
-        next: &[BaseElement],
+        frame: &EvaluationFrame<BaseElement>,
         step: usize,
     ) {
         // determine which rounds constants and masks to use
@@ -91,7 +102,7 @@ impl TransitionEvaluator for MerkleEvaluator {
         let masks = &self.mask_constants[step % self.mask_constants.len()];
 
         // evaluate constraints with these round constants and masks
-        evaluate_constraints(result, current, next, ark, masks);
+        evaluate_constraints(result, &frame.current, &frame.next, ark, masks);
     }
 
     /// Evaluates transition constraints at the specified x coordinate; this method is
@@ -99,8 +110,7 @@ impl TransitionEvaluator for MerkleEvaluator {
     fn evaluate_at_x<E: FieldElement + FromVec<BaseElement>>(
         &self,
         result: &mut [E],
-        current: &[E],
-        next: &[E],
+        frame: &EvaluationFrame<E>,
         x: E,
     ) {
         // map x to the corresponding coordinate in constant cycles
@@ -121,7 +131,7 @@ impl TransitionEvaluator for MerkleEvaluator {
         }
 
         // evaluate constraints with these round constants and masks
-        evaluate_constraints(result, current, next, &ark, &masks);
+        evaluate_constraints(result, &frame.current, &frame.next, &ark, &masks);
     }
 
     fn constraint_groups(&self) -> &[TransitionConstraintGroup] {

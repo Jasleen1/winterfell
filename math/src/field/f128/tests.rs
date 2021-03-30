@@ -146,6 +146,35 @@ fn test_array_as_bytes() {
     assert_eq!(expected, source.as_bytes());
 }
 
+#[test]
+fn test_get_power_series() {
+    let n = 1024 * 4; // big enough for concurrent series generation
+    let b = BaseElement::from(3u8);
+
+    let mut expected = vec![BaseElement::ZERO; n];
+    for (i, value) in expected.iter_mut().enumerate() {
+        *value = b.exp((i as u64).into());
+    }
+
+    let actual = BaseElement::get_power_series(b, n);
+    assert_eq!(expected, actual);
+}
+
+#[test]
+fn test_get_power_series_with_offset() {
+    let n = 1024 * 4; // big enough for concurrent series generation
+    let b = BaseElement::from(3u8);
+    let s = BaseElement::from(7u8);
+
+    let mut expected = vec![BaseElement::ZERO; n];
+    for (i, value) in expected.iter_mut().enumerate() {
+        *value = s * b.exp((i as u64).into());
+    }
+
+    let actual = BaseElement::get_power_series_with_offset(b, s, n);
+    assert_eq!(expected, actual);
+}
+
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_seed() -> [u8; 32] {

@@ -1,0 +1,4 @@
+[submodule "plasma/arrow"]
+	path = plasma/arrow
+	url = https://github.com/apache/arrow.git
+	ignore = dirty

@@ -1,7 +1,7 @@
 use super::rescue::Hasher as Rescue;
 use prover::math::field::{BaseElement, FieldElement, StarkField};
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
+use std::{cmp::Ordering, convert::TryInto};
 
 // CONSTANTS
 // ================================================================================================
@@ -19,7 +19,7 @@ pub struct PrivateKey {
     pub_key_hash: PublicKey,
 }
 
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Eq)]
 pub struct PublicKey(KeyData);
 
 #[derive(Serialize, Deserialize)]
@@ -129,6 +129,28 @@ impl PublicKey {
 
     pub fn to_elements(&self) -> [BaseElement; 2] {
         self.0
+    }
+}
+
+impl Default for PublicKey {
+    fn default() -> Self {
+        PublicKey([BaseElement::ZERO; 2])
+    }
+}
+
+impl Ord for PublicKey {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.0[0] == other.0[0] {
+            self.0[1].as_u128().cmp(&other.0[1].as_u128())
+        } else {
+            self.0[0].as_u128().cmp(&other.0[0].as_u128())
+        }
+    }
+}
+
+impl PartialOrd for PublicKey {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 

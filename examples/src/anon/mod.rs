@@ -1,14 +1,14 @@
 use super::Example;
-use crate::utils::{bytes_to_node, node_to_bytes, rescue, TreeNode};
+use crate::{
+    utils::{bytes_to_node, node_to_bytes, rescue, TreeNode},
+    ExampleOptions,
+};
 use common::errors::VerifierError;
 use log::debug;
 use prover::{
-    crypto::{
-        hash::{blake3, rescue_s},
-        MerkleTree,
-    },
+    crypto::{hash::rescue_s, MerkleTree},
     math::field::{BaseElement, FieldElement, StarkField},
-    Assertion, ProofOptions, Prover, StarkProof,
+    Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
 use verifier::Verifier;
@@ -25,12 +25,13 @@ use evaluator::AnonTokenEvaluator;
 const CYCLE_LENGTH: usize = 16;
 const NUM_HASH_ROUNDS: usize = 14;
 const HASH_STATE_WIDTH: usize = 4;
+const TRACE_TABLE_WIDTH: usize = 9;
 
 // ANONYMOUS TOKEN EXAMPLE
 // ================================================================================================
-pub fn get_example() -> Box<dyn Example> {
+pub fn get_example(options: ExampleOptions) -> Box<dyn Example> {
     Box::new(AnonTokenExample {
-        options: None,
+        options: options.to_proof_options(28, 32),
         service_uuid: BaseElement::rand(),
         token_seed: BaseElement::rand(),
         token_index: 0,
@@ -39,26 +40,22 @@ pub fn get_example() -> Box<dyn Example> {
 }
 
 pub struct AnonTokenExample {
-    options: Option<ProofOptions>,
+    options: ProofOptions,
     service_uuid: BaseElement,
     token_seed: BaseElement,
     token_index: usize,
     path: Vec<TreeNode>,
 }
 
-impl Example for AnonTokenExample {
-    fn prepare(
-        &mut self,
-        mut tree_depth: usize,
-        blowup_factor: usize,
-        num_queries: usize,
-        grinding_factor: u32,
-    ) -> Vec<Assertion> {
-        self.options = build_proof_options(blowup_factor, num_queries, grinding_factor);
-        if tree_depth == 0 {
-            tree_depth = 7;
-        }
+// EXAMPLE IMPLEMENTATION
+// ================================================================================================
 
+impl Example for AnonTokenExample {
+    fn prepare(&mut self, tree_depth: usize) -> Assertions {
+        assert!(
+            (tree_depth + 1).is_power_of_two(),
+            "tree depth must be one less than a power of 2"
+        );
         // print out sample values of token seed and service uuid
         debug!(
             "Set token_seed to {:x} and service_uuid to {:x}",
@@ -109,16 +106,17 @@ impl Example for AnonTokenExample {
         // - service_uuid was inserted into register 6 at the first step
         let last_step = ((tree_depth + 1) * 16) - 1;
         let root = BaseElement::read_to_vec(tree.root()).unwrap();
-        vec![
-            Assertion::new(1, last_step, root[0]),
-            Assertion::new(2, last_step, root[1]),
-            Assertion::new(6, 0, self.service_uuid),
-            Assertion::new(5, 14, subtoken.0),
-            Assertion::new(6, 14, subtoken.1),
-        ]
+        let mut assertions = Assertions::new(TRACE_TABLE_WIDTH, last_step + 1).unwrap();
+        assertions.add_single(1, last_step, root[0]).unwrap();
+        assertions.add_single(2, last_step, root[1]).unwrap();
+        assertions.add_single(6, 0, self.service_uuid).unwrap();
+        assertions.add_single(5, 14, subtoken.0).unwrap();
+        assertions.add_single(6, 14, subtoken.1).unwrap();
+
+        assertions
     }
 
-    fn prove(&self, assertions: Vec<Assertion>) -> StarkProof {
+    fn prove(&self, assertions: Assertions) -> StarkProof {
         // generate the execution trace
         debug!("Generating anonymous subtoken proof\n---------------------");
         let now = Instant::now();
@@ -128,20 +126,20 @@ impl Example for AnonTokenExample {
             self.service_uuid,
             &self.path,
         );
-        let trace_length = trace[0].len();
+        let trace_length = trace.len();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
-            trace.len(),
+            trace.width(),
             trace_length.trailing_zeros(),
             now.elapsed().as_millis()
         );
 
         // generate the proof
-        let prover = Prover::<AnonTokenEvaluator>::new(self.options.clone().unwrap());
+        let prover = Prover::<AnonTokenEvaluator>::new(self.options.clone());
         prover.prove(trace, assertions).unwrap()
     }
 
-    fn verify(&self, proof: StarkProof, assertions: Vec<Assertion>) -> Result<bool, VerifierError> {
+    fn verify(&self, proof: StarkProof, assertions: Assertions) -> Result<(), VerifierError> {
         let verifier = Verifier::<AnonTokenEvaluator>::new();
         verifier.verify(proof, assertions)
     }
@@ -149,22 +147,6 @@ impl Example for AnonTokenExample {
 
 // HELPER FUNCTIONS
 // ================================================================================================
-#[allow(clippy::unnecessary_wraps)]
-fn build_proof_options(
-    mut blowup_factor: usize,
-    mut num_queries: usize,
-    grinding_factor: u32,
-) -> Option<ProofOptions> {
-    if blowup_factor == 0 {
-        blowup_factor = 32;
-    }
-    if num_queries == 0 {
-        num_queries = 28;
-    }
-    let options = ProofOptions::new(num_queries, blowup_factor, grinding_factor, blake3);
-    Some(options)
-}
-
 fn build_merkle_tree(depth: usize, issued_token: TreeNode, index: usize) -> MerkleTree {
     let num_leaves = usize::pow(2, depth as u32);
     let leaf_elements = BaseElement::prng_vector([1; 32], num_leaves * 2);

@@ -1,4 +1,5 @@
 use crate::HashFunction;
+use fasthash::xx::Hash64;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -13,8 +14,9 @@ impl BatchMerkleProof {
     /// Constructs a batch Merkle proof from individual Merkle authentication paths.
     /// TODO: optimize this to reduce amount of vector cloning.
     pub fn from_paths(paths: &[Vec<[u8; 32]>], indexes: &[usize]) -> BatchMerkleProof {
-        assert!(
-            paths.len() == indexes.len(),
+        assert_eq!(
+            paths.len(),
+            indexes.len(),
             "number of paths must equal number of indexes"
         );
         assert!(!paths.is_empty(), "at least one path must be provided");
@@ -79,7 +81,7 @@ impl BatchMerkleProof {
     /// Computes a node to which all Merkle paths aggregated in this proof resolve.
     pub fn get_root(&self, indexes: &[usize], hash: HashFunction) -> Option<[u8; 32]> {
         let mut buf = [0u8; 64];
-        let mut v: HashMap<usize, [u8; 32]> = HashMap::new();
+        let mut v = HashMap::with_hasher(Hash64);
 
         // replace odd indexes, offset, and sort in ascending order
         let offset = usize::pow(2, self.depth as u32);
