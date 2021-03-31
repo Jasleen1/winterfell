@@ -7,6 +7,9 @@ use fri::{self, FriProof};
 use math::field::{BaseElement, FieldElement, StarkField};
 use std::convert::TryInto;
 
+#[cfg(feature = "concurrent")]
+use rayon::prelude::*;
+
 // TYPES AND INTERFACES
 // ================================================================================================
 
@@ -175,23 +178,36 @@ fn build_query_seed(fri_roots: &[[u8; 32]], hash_fn: HashFunction) -> [u8; 32] {
 
 fn find_pow_nonce(seed: [u8; 32], grinding_factor: u32, hash: HashFunction) -> ([u8; 32], u64) {
     let mut buf = [0u8; 64];
-    let mut result = [0u8; 32];
-    let mut nonce = 1u64;
-
-    // copy seed into the buffer
     buf[0..32].copy_from_slice(&seed);
-    // initial round
+
+    #[cfg(not(feature = "concurrent"))]
+    let nonce = (1..u64::MAX)
+        .find(|nonce| {
+            let mut result = [0u8; 32];
+            let mut buf = buf;
+
+            buf[56..].copy_from_slice(&nonce.to_le_bytes());
+            hash(&buf, &mut result);
+            u64::from_le_bytes(result[..8].try_into().unwrap()).trailing_zeros() >= grinding_factor
+        })
+        .expect("nonce not found");
+
+    #[cfg(feature = "concurrent")]
+    let nonce = (1..u64::MAX)
+        .into_par_iter()
+        .find_any(|nonce| {
+            let mut result = [0u8; 32];
+            let mut buf = buf;
+
+            buf[56..].copy_from_slice(&nonce.to_le_bytes());
+            hash(&buf, &mut result);
+            u64::from_le_bytes(result[..8].try_into().unwrap()).trailing_zeros() >= grinding_factor
+        })
+        .expect("nonce not found");
+
+    let mut result = [0u8; 32];
     buf[56..].copy_from_slice(&nonce.to_le_bytes());
     hash(&buf, &mut result);
-
-    // increment the counter (u64 in the last 8 bytes) and hash until the output starts
-    // with the number of leading zeros specified by the grinding_factor
-    while u64::from_le_bytes(result[..8].try_into().unwrap()).trailing_zeros() < grinding_factor {
-        nonce += 1;
-        buf[56..].copy_from_slice(&nonce.to_le_bytes());
-
-        hash(&buf, &mut result);
-    }
 
     (result, nonce)
 }
