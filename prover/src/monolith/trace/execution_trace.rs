@@ -1,4 +1,4 @@
-use super::{trace_table::TraceTable, PolyTable, StarkDomain};
+use super::{StarkDomain, TracePolyTable, TraceTable};
 use common::{utils::uninit_vector, Assertions};
 use math::{
     fft,
@@ -188,7 +188,7 @@ impl ExecutionTrace {
     /// Extends all registers of the trace table to the length of the LDE domain; The extension
     /// is done by first interpolating a register into a polynomial and then evaluating the
     /// polynomial over the LDE domain.
-    pub fn extend(mut self, domain: &StarkDomain) -> (TraceTable, PolyTable) {
+    pub fn extend(mut self, domain: &StarkDomain) -> (TraceTable, TracePolyTable) {
         assert_eq!(
             self.len(),
             domain.trace_length(),
@@ -217,7 +217,7 @@ impl ExecutionTrace {
 
         (
             TraceTable::new(extended_trace, domain.trace_to_lde_blowup()),
-            PolyTable::new(self.0),
+            TracePolyTable::new(self.0),
         )
     }
 }

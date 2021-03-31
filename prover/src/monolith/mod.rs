@@ -9,13 +9,11 @@ use std::marker::PhantomData;
 mod domain;
 use domain::StarkDomain;
 
-mod types;
-
 mod constraints;
 mod deep_fri;
 
 mod trace;
-pub use trace::{ExecutionTrace, ExecutionTraceFragment};
+pub use trace::{ExecutionTrace, ExecutionTraceFragment, TracePolyTable};
 
 mod generation;
 use generation::generate_proof;
