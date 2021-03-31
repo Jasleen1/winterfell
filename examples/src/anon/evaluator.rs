@@ -121,7 +121,7 @@ impl TransitionEvaluator for AnonTokenEvaluator {
     ) {
         // map x to the corresponding coordinate in constant cycles
         let num_cycles = (self.trace_length / CYCLE_LENGTH) as u32;
-        let x = E::exp(x, num_cycles.into());
+        let x = x.exp(num_cycles.into());
 
         // determine round constants at the specified x coordinate; we do this by
         // evaluating polynomials for round constants the augmented x coordinate

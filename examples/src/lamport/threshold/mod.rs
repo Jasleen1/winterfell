@@ -5,7 +5,10 @@ use super::{
 use crate::{utils::TreeNode, ExampleOptions};
 use log::debug;
 use prover::{
-    math::field::{BaseElement, FieldElement},
+    math::{
+        field::{BaseElement, FieldElement},
+        utils::log2,
+    },
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
@@ -103,7 +106,7 @@ impl Example for LamportThresholdExample {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace.width(),
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 

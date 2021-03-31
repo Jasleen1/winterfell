@@ -1,5 +1,4 @@
-use crate::field::FieldElement;
-use crate::utils;
+use crate::{field::FieldElement, utils};
 use std::mem;
 
 #[cfg(test)]
@@ -9,13 +8,23 @@ mod tests;
 // ================================================================================================
 
 /// Evaluates polynomial `p` at coordinate `x`.
-pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
+pub fn eval<B, E>(p: &[B], x: E) -> E
+where
+    B: FieldElement,
+    E: FieldElement + From<B>,
+{
     // Horner evaluation
-    p.iter().rev().fold(E::ZERO, |acc, coeff| acc * x + *coeff)
+    p.iter()
+        .rev()
+        .fold(E::ZERO, |acc, &coeff| acc * x + E::from(coeff))
 }
 
 /// Evaluates polynomial `p` at all coordinates in `xs` slice.
-pub fn eval_many<E: FieldElement>(p: &[E], xs: &[E]) -> Vec<E> {
+pub fn eval_many<B, E>(p: &[B], xs: &[E]) -> Vec<E>
+where
+    B: FieldElement,
+    E: FieldElement + From<B>,
+{
     xs.iter().map(|x| eval(p, *x)).collect()
 }
 
@@ -41,15 +50,15 @@ pub fn interpolate<E: FieldElement>(xs: &[E], ys: &[E], remove_leading_zeros: bo
     for i in 0..xs.len() {
         denominators.push(eval(&numerators[i], xs[i]));
     }
-    let denominators = E::inv_many(&denominators);
+    let denominators = utils::batch_inversion(&denominators);
 
-    let mut result = vec![E::ZERO; xs.len()];
+    let mut result = E::zeroed_vector(xs.len());
     for i in 0..xs.len() {
         let y_slice = ys[i] * denominators[i];
         if ys[i] != E::ZERO {
             for (j, res) in result.iter_mut().enumerate() {
                 if numerators[i][j] != E::ZERO {
-                    *res = *res + numerators[i][j] * y_slice;
+                    *res += numerators[i][j] * y_slice;
                 }
             }
         }
@@ -92,11 +101,11 @@ pub fn sub<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
 /// Multiplies polynomial `a` by polynomial `b`
 pub fn mul<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
     let result_len = a.len() + b.len() - 1;
-    let mut result = vec![E::ZERO; result_len];
+    let mut result = E::zeroed_vector(result_len);
     for i in 0..a.len() {
         for j in 0..b.len() {
             let s = a[i] * b[j];
-            result[i + j] = result[i + j] + s;
+            result[i + j] += s;
         }
     }
     result
@@ -123,12 +132,12 @@ pub fn div<E: FieldElement>(a: &[E], b: &[E]) -> Vec<E> {
         assert!(b[0] != E::ZERO, "cannot divide polynomial by zero");
     }
 
-    let mut result = vec![E::ZERO; apos - bpos + 1];
+    let mut result = E::zeroed_vector(apos - bpos + 1);
     for i in (0..result.len()).rev() {
         let quot = a[apos] / b[bpos];
         result[i] = quot;
         for j in (0..bpos).rev() {
-            a[i + j] = a[i + j] - b[j] * quot;
+            a[i + j] -= b[j] * quot;
         }
         apos = apos.wrapping_sub(1);
     }
@@ -164,7 +173,7 @@ pub fn syn_div_in_place<E: FieldElement>(p: &mut [E], a: usize, b: E) {
         // of the remainder; this way, we can avoid shifting the values in the slice later
         let mut c = E::ZERO;
         for coeff in p.iter_mut().rev() {
-            *coeff = *coeff + b * c;
+            *coeff += b * c;
             mem::swap(coeff, &mut c);
         }
     } else {
@@ -175,11 +184,11 @@ pub fn syn_div_in_place<E: FieldElement>(p: &mut [E], a: usize, b: E) {
         if b == E::ONE {
             // if `b` is 1, no need to multiply by `b` in every iteration of the loop
             for i in (0..degree_offset).rev() {
-                p[i] = p[i] + p[i + a];
+                p[i] += p[i + a];
             }
         } else {
             for i in (0..degree_offset).rev() {
-                p[i] = p[i] + p[i + a] * b;
+                p[i] += p[i + a] * b;
             }
         }
         // discard the remainder
@@ -202,7 +211,7 @@ pub fn syn_div_in_place_with_exception<E: FieldElement>(p: &mut [E], a: usize, e
     // compute p / (x^a - 1)
     let degree_offset = p.len() - a;
     for i in (0..degree_offset).rev() {
-        p[i] = p[i] + p[i + a];
+        p[i] += p[i + a];
     }
 
     // multiply by (x - exception); this skips the last iteration of the loop so that we
@@ -212,7 +221,7 @@ pub fn syn_div_in_place_with_exception<E: FieldElement>(p: &mut [E], a: usize, e
     let mut next_term = p[0];
     p[0] = E::ZERO;
     for i in 0..(p.len() - 1) {
-        p[i] = p[i] + next_term * exception;
+        p[i] += next_term * exception;
         mem::swap(&mut next_term, &mut p[i + 1]);
     }
 
@@ -221,7 +230,7 @@ pub fn syn_div_in_place_with_exception<E: FieldElement>(p: &mut [E], a: usize, e
     p[degree_offset..].fill(E::ZERO);
 
     // apply the last iteration of the multiplication loop
-    p[degree_offset - 1] = p[degree_offset - 1] + next_term * exception;
+    p[degree_offset - 1] += next_term * exception;
     p[degree_offset] = next_term;
 }
 
@@ -250,6 +259,7 @@ fn get_zero_roots<E: FieldElement>(xs: &[E]) -> Vec<E> {
     for i in 0..xs.len() {
         n -= 1;
         result[n] = E::ZERO;
+        #[allow(clippy::assign_op_pattern)]
         for j in n..xs.len() {
             result[j] = result[j] - result[j + 1] * xs[i];
         }

@@ -2,6 +2,7 @@ use crate::{folding::quartic, utils};
 use math::{
     field::{BaseElement, FieldElement, StarkField},
     polynom,
+    utils::get_power_series_with_offset,
 };
 use std::mem;
 
@@ -147,11 +148,7 @@ fn verify_remainder<E: FieldElement + From<BaseElement>>(
     }
 
     // pick a subset of points from the remainder and interpolate them into a polynomial
-    let domain = BaseElement::get_power_series_with_offset(
-        domain_root,
-        BaseElement::GENERATOR,
-        remainder.len(),
-    );
+    let domain = get_power_series_with_offset(domain_root, BaseElement::GENERATOR, remainder.len());
     let mut xs = Vec::with_capacity(max_degree_plus_1);
     let mut ys = Vec::with_capacity(max_degree_plus_1);
     for &p in positions.iter().take(max_degree_plus_1) {

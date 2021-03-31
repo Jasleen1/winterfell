@@ -98,13 +98,13 @@ impl ProverChannel {
                 trace_paths: trace_paths.nodes,
                 trace_states: trace_states
                     .into_iter()
-                    .map(|s| BaseElement::write_into_vec(&s))
+                    .map(|s| BaseElement::elements_as_bytes(&s).to_vec())
                     .collect(),
                 constraint_proof: constraint_paths,
             },
             ood_frame: OodEvaluationFrame {
-                trace_at_z1: E::write_into_vec(&ood_frame.current),
-                trace_at_z2: E::write_into_vec(&ood_frame.next),
+                trace_at_z1: E::elements_as_bytes(&ood_frame.current).to_vec(),
+                trace_at_z2: E::elements_as_bytes(&ood_frame.next).to_vec(),
             },
             fri_proof,
             pow_nonce: self.pow_nonce,

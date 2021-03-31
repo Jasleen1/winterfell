@@ -5,6 +5,7 @@ use crate::{
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
+    utils::{get_power_series_with_offset, log2},
 };
 
 // TEST UTILS
@@ -20,8 +21,8 @@ pub fn build_lde_domain(
     offset: BaseElement,
 ) -> Vec<BaseElement> {
     let domain_size = trace_length * lde_blowup;
-    let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-    BaseElement::get_power_series_with_offset(g, offset, domain_size)
+    let g = BaseElement::get_root_of_unity(log2(domain_size));
+    get_power_series_with_offset(g, offset, domain_size)
 }
 
 pub fn build_evaluations(

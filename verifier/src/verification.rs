@@ -125,17 +125,17 @@ fn compose_registers<E: FieldElement + From<BaseElement>>(
             // compute T1(x) = (T(x) - T(z)) / (x - z)
             let t1 = (value - trace_at_z1[i]) / (x - z);
             // multiply it by a pseudo-random coefficient, and combine with result
-            composition = composition + t1 * cc.trace[i].0;
+            composition += t1 * cc.trace[i].0;
 
             // compute T2(x) = (T(x) - T(z * g)) / (x - z * g)
             let t2 = (value - trace_at_z2[i]) / (x - next_z);
             // multiply it by a pseudo-random coefficient, and combine with result
-            composition = composition + t2 * cc.trace[i].1;
+            composition += t2 * cc.trace[i].1;
         }
 
         // raise the degree to match composition degree
         let xp = x.exp(incremental_degree.into());
-        composition = composition * cc.trace_degree.0 + composition * xp * cc.trace_degree.1;
+        composition *= cc.trace_degree.0 + xp * cc.trace_degree.1;
 
         result.push(composition);
     }

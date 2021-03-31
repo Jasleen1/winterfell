@@ -1,6 +1,9 @@
 use crate::utils::uninit_vector;
 use crypto::HashFunction;
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    utils::{batch_inversion, transmute_vector},
+};
 
 #[cfg(feature = "concurrent")]
 pub mod concurrent;
@@ -23,7 +26,7 @@ pub fn eval<E: FieldElement>(p: &[E], x: E) -> E {
     let mut y = p[3] * x;
     y = (y + p[2]) * x;
     y = (y + p[1]) * x;
-    y = y + p[0];
+    y += p[0];
     y
 }
 
@@ -73,28 +76,14 @@ pub fn transpose<E: FieldElement>(source: &[E], stride: usize) -> Vec<[E; 4]> {
 
 /// Re-interprets a vector of field elements as a vector of quartic elements.
 pub fn to_quartic_vec<E: FieldElement>(vector: Vec<E>) -> Vec<[E; 4]> {
-    assert!(
-        vector.len() % 4 == 0,
-        "vector length must be divisible by 4"
-    );
-    let mut v = std::mem::ManuallyDrop::new(vector);
-    let p = v.as_mut_ptr();
-    let len = v.len() / 4;
-    let cap = v.capacity() / 4;
-    unsafe { Vec::from_raw_parts(p as *mut [E; 4], len, cap) }
+    transmute_vector::<E, 4>(vector)
 }
 
 /// Computes hashes for all quartic elements using the specified hash function.
 pub fn hash_values<E: FieldElement>(values: &[[E; 4]], hash: HashFunction) -> Vec<[u8; 32]> {
     let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
-    // TODO: ideally, this should be done using something like update() method of a hasher
-    let mut buf = vec![0u8; 4 * E::ELEMENT_BYTES];
-    for i in 0..values.len() {
-        buf[..E::ELEMENT_BYTES].copy_from_slice(&values[i][0].to_bytes());
-        buf[E::ELEMENT_BYTES..E::ELEMENT_BYTES * 2].copy_from_slice(&values[i][1].to_bytes());
-        buf[E::ELEMENT_BYTES * 2..E::ELEMENT_BYTES * 3].copy_from_slice(&values[i][2].to_bytes());
-        buf[E::ELEMENT_BYTES * 3..E::ELEMENT_BYTES * 4].copy_from_slice(&values[i][3].to_bytes());
-        hash(&buf, &mut result[i]);
+    for (r, v) in result.iter_mut().zip(values) {
+        hash(E::elements_as_bytes(v), r);
     }
     result
 }
@@ -147,7 +136,7 @@ fn interpolate_batch_into<E: FieldElement + From<BaseElement>>(
         inverses[j + 3] = eval(&equations[j + 3], x3);
     }
 
-    let inverses = E::inv_many(&inverses);
+    let inverses = batch_inversion(&inverses);
 
     for (i, j) in (0..n).zip((0..equations.len()).step_by(4)) {
         let ys = ys[i];
@@ -161,24 +150,24 @@ fn interpolate_batch_into<E: FieldElement + From<BaseElement>>(
 
         // iteration 1
         inv_y = ys[1] * inverses[j + 1];
-        result[i][0] = result[i][0] + inv_y * equations[j + 1][0];
-        result[i][1] = result[i][1] + inv_y * equations[j + 1][1];
-        result[i][2] = result[i][2] + inv_y * equations[j + 1][2];
-        result[i][3] = result[i][3] + inv_y * equations[j + 1][3];
+        result[i][0] += inv_y * equations[j + 1][0];
+        result[i][1] += inv_y * equations[j + 1][1];
+        result[i][2] += inv_y * equations[j + 1][2];
+        result[i][3] += inv_y * equations[j + 1][3];
 
         // iteration 2
         inv_y = ys[2] * inverses[j + 2];
-        result[i][0] = result[i][0] + inv_y * equations[j + 2][0];
-        result[i][1] = result[i][1] + inv_y * equations[j + 2][1];
-        result[i][2] = result[i][2] + inv_y * equations[j + 2][2];
-        result[i][3] = result[i][3] + inv_y * equations[j + 2][3];
+        result[i][0] += inv_y * equations[j + 2][0];
+        result[i][1] += inv_y * equations[j + 2][1];
+        result[i][2] += inv_y * equations[j + 2][2];
+        result[i][3] += inv_y * equations[j + 2][3];
 
         // iteration 3
         inv_y = ys[3] * inverses[j + 3];
-        result[i][0] = result[i][0] + inv_y * equations[j + 3][0];
-        result[i][1] = result[i][1] + inv_y * equations[j + 3][1];
-        result[i][2] = result[i][2] + inv_y * equations[j + 3][2];
-        result[i][3] = result[i][3] + inv_y * equations[j + 3][3];
+        result[i][0] += inv_y * equations[j + 3][0];
+        result[i][1] += inv_y * equations[j + 3][1];
+        result[i][2] += inv_y * equations[j + 3][2];
+        result[i][3] += inv_y * equations[j + 3][3];
     }
 }
 

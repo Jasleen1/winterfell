@@ -1,6 +1,9 @@
 use super::{rescue, Signature, CYCLE_LENGTH, NUM_HASH_ROUNDS, SIG_CYCLE_LENGTH, STATE_WIDTH};
 use prover::{
-    math::field::{BaseElement, FieldElement},
+    math::{
+        field::{BaseElement, FieldElement, StarkField},
+        utils::get_power_series,
+    },
     ExecutionTrace,
 };
 
@@ -37,7 +40,7 @@ pub fn generate_trace(messages: &[[BaseElement; 2]], signatures: &[Signature]) -
     let trace_length = SIG_CYCLE_LENGTH * messages.len();
     let mut trace = ExecutionTrace::new(STATE_WIDTH, trace_length);
 
-    let powers_of_two = BaseElement::get_power_series(TWO, 128);
+    let powers_of_two = get_power_series(TWO, 128);
 
     #[cfg(not(feature = "concurrent"))]
     for (i, sig_trace) in trace.fragments(SIG_CYCLE_LENGTH).iter_mut().enumerate() {
@@ -179,8 +182,8 @@ fn apply_message_acc(
 
     state[0] = BaseElement::from((m0 >> (cycle_num + 1)) & 1);
     state[1] = BaseElement::from((m1 >> (cycle_num + 1)) & 1);
-    state[2] = state[2] + power_of_two * m0_bit;
-    state[3] = state[3] + power_of_two * m1_bit;
+    state[2] += power_of_two * m0_bit;
+    state[3] += power_of_two * m1_bit;
 }
 
 fn init_hash_state(state: &mut [BaseElement], values: &[BaseElement; 2]) {
@@ -202,19 +205,19 @@ fn update_pub_key_hash(
     pub_key2: &[BaseElement],
 ) {
     if m0_bit == FieldElement::ONE {
-        state[0] = state[0] + sec_key1_hash[0];
-        state[1] = state[1] + sec_key1_hash[1];
+        state[0] += sec_key1_hash[0];
+        state[1] += sec_key1_hash[1];
     } else {
-        state[0] = state[0] + pub_key1[0];
-        state[1] = state[1] + pub_key1[1];
+        state[0] += pub_key1[0];
+        state[1] += pub_key1[1];
     }
 
     if m1_bit == FieldElement::ONE {
-        state[2] = state[2] + sec_key2_hash[0];
-        state[3] = state[3] + sec_key2_hash[1];
+        state[2] += sec_key2_hash[0];
+        state[3] += sec_key2_hash[1];
     } else {
-        state[2] = state[2] + pub_key2[0];
-        state[3] = state[3] + pub_key2[1];
+        state[2] += pub_key2[0];
+        state[3] += pub_key2[1];
     }
 }
 
@@ -222,8 +225,8 @@ fn update_pub_key_hash(
 // ================================================================================================
 
 fn build_sig_info(msg: &[BaseElement; 2], sig: &Signature) -> SignatureInfo {
-    let m0 = msg[0].as_u128();
-    let m1 = msg[1].as_u128();
+    let m0 = msg[0].as_int();
+    let m1 = msg[1].as_int();
     let key_schedule = build_key_schedule(m0, m1, sig);
     SignatureInfo {
         m0,

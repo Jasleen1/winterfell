@@ -1,5 +1,8 @@
 use crate::FriOptions;
-use math::field::{BaseElement, StarkField};
+use math::{
+    field::{BaseElement, StarkField},
+    utils::log2,
+};
 
 pub struct VerifierContext {
     max_degree: usize,
@@ -16,7 +19,7 @@ impl VerifierContext {
         num_partitions: usize,
         options: FriOptions,
     ) -> Self {
-        let domain_root = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
+        let domain_root = BaseElement::get_root_of_unity(log2(domain_size));
         VerifierContext {
             max_degree,
             domain_size,

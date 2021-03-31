@@ -1,4 +1,4 @@
-use super::{utils, StarkDomain};
+use super::{trace::TraceTable, StarkDomain};
 
 mod assertions;
 pub use assertions::AssertionConstraintGroup;

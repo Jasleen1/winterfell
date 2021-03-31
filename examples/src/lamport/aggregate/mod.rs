@@ -3,7 +3,10 @@ use super::{
 };
 use crate::ExampleOptions;
 use log::debug;
-use prover::{math::field::BaseElement, Assertions, ProofOptions, Prover, StarkProof};
+use prover::{
+    math::{field::BaseElement, utils::log2},
+    Assertions, ProofOptions, Prover, StarkProof,
+};
 use std::time::Instant;
 use verifier::{Verifier, VerifierError};
 
@@ -105,7 +108,7 @@ impl Example for LamportAggregateExample {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace.width(),
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 

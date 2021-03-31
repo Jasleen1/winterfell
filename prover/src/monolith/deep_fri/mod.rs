@@ -1,9 +1,9 @@
-use super::{constraints::ConstraintPoly, types::PolyTable, utils, StarkDomain};
+use super::{constraints::ConstraintPoly, StarkDomain, TracePolyTable};
 use common::{CompositionCoefficients, ComputationContext, EvaluationFrame};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
-    polynom,
+    polynom, utils,
 };
 
 // COMPOSITION POLYNOMIAL
@@ -20,13 +20,13 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     pub fn new(context: &ComputationContext, z: E, cc: CompositionCoefficients<E>) -> Self {
-        let g = E::from(BaseElement::get_root_of_unity(
-            context.trace_length().trailing_zeros(),
-        ));
+        let g = E::from(BaseElement::get_root_of_unity(utils::log2(
+            context.trace_length(),
+        )));
         let next_z = z * g;
 
         CompositionPoly {
-            coefficients: vec![E::ZERO; context.ce_domain_size()],
+            coefficients: E::zeroed_vector(context.ce_domain_size()),
             degree: context.deep_composition_degree(),
             cc,
             z,
@@ -55,7 +55,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
     /// T2_i(x) = (T_i(x) - T_i(z * g)) / (x - z * g) are computed for all i and combined
     /// together into a single polynomial using a pseudo-random linear combination;
     /// 3. Then the degree of the polynomial is adjusted to match the composition degree.
-    pub fn add_trace_polys(&mut self, trace_polys: PolyTable) -> EvaluationFrame<E> {
+    pub fn add_trace_polys(&mut self, trace_polys: TracePolyTable) -> EvaluationFrame<E> {
         // compute a second out-of-domain point which corresponds to the next
         // computation state in relation to point z
         let trace_length = trace_polys.poly_size();
@@ -66,18 +66,14 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 
         // combine trace polynomials into 2 composition polynomials T1(x) and T2(x)
         let polys = trace_polys.into_vec();
-        let mut t1_composition = vec![E::ZERO; trace_length];
-        let mut t2_composition = vec![E::ZERO; trace_length];
+        let mut t1_composition = E::zeroed_vector(trace_length);
+        let mut t2_composition = E::zeroed_vector(trace_length);
         for (i, poly) in polys.into_iter().enumerate() {
-            // Convert polys[i] from type BaseElement into type E
-            // TODO: find a better ay to do this (ideally, with zero-copy)
-            let e_poly = poly.into_iter().map(E::from).collect::<Vec<_>>();
-
             // compute T1(x) = (T(x) - T(z)), multiply it by a pseudo-random
             // coefficient, and add the result into composition polynomial
             acc_poly(
                 &mut t1_composition,
-                &e_poly,
+                &poly,
                 trace_state1[i],
                 self.cc.trace[i].0,
             );
@@ -86,7 +82,7 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
             // coefficient, and add the result into composition polynomial
             acc_poly(
                 &mut t2_composition,
-                &e_poly,
+                &poly,
                 trace_state2[i],
                 self.cc.trace[i].1,
             );
@@ -112,13 +108,13 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         // where k_1 and k_2 are pseudo-random coefficients.
 
         // this is equivalent to T(x) * k_1
-        mul_acc(
+        utils::mul_acc(
             &mut self.coefficients[..trace_length],
             &trace_poly,
             self.cc.trace_degree.0,
         );
         // this is equivalent to T(x) * x^incremental_degree * k_2
-        mul_acc(
+        utils::mul_acc(
             &mut self.coefficients[incremental_degree..(incremental_degree + trace_length)],
             &trace_poly,
             self.cc.trace_degree.1,
@@ -147,11 +143,11 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
         let value_at_z = polynom::eval(&constraint_poly, self.z);
 
         // compute C(x) = (P(x) - P(z)) / (x - z)
-        constraint_poly[0] = constraint_poly[0] - value_at_z;
+        constraint_poly[0] -= value_at_z;
         polynom::syn_div_in_place(&mut constraint_poly, 1, self.z);
 
         // add C(x) * K into the result
-        mul_acc(
+        utils::mul_acc(
             &mut self.coefficients[..constraint_poly.len()],
             &constraint_poly,
             self.cc.constraints,
@@ -175,19 +171,12 @@ impl<E: FieldElement + From<BaseElement>> CompositionPoly<E> {
 // ================================================================================================
 
 /// Computes (P(x) - value) * k and saves the result into the accumulator
-fn acc_poly<E: FieldElement>(accumulator: &mut Vec<E>, poly: &[E], value: E, k: E) {
-    mul_acc(accumulator, poly, k);
+fn acc_poly<B, E>(accumulator: &mut Vec<E>, poly: &[B], value: E, k: E)
+where
+    B: StarkField,
+    E: FieldElement + From<B>,
+{
+    utils::mul_acc(accumulator, poly, k);
     let adjusted_tz = value * k;
-    accumulator[0] = accumulator[0] - adjusted_tz;
-}
-
-/// Computes a[i] + b[i] * c for all i and saves result into a.
-pub fn mul_acc<E: FieldElement>(a: &mut [E], b: &[E], c: E) {
-    assert!(
-        a.len() == b.len(),
-        "number of values must be the same for both slices"
-    );
-    for i in 0..a.len() {
-        a[i] = a[i] + b[i] * c;
-    }
+    accumulator[0] -= adjusted_tz;
 }

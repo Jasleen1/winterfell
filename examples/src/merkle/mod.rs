@@ -5,7 +5,10 @@ use crate::{
 use log::debug;
 use prover::{
     crypto::{hash::rescue_s, MerkleTree},
-    math::field::{BaseElement, FieldElement, StarkField},
+    math::{
+        field::{BaseElement, FieldElement, StarkField},
+        utils::{log2, read_elements_into_vec},
+    },
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
@@ -61,7 +64,7 @@ impl Example for MerkleExample {
             (tree_depth + 1).is_power_of_two(),
             "tree depth must be one less than a power of 2"
         );
-        self.index = (BaseElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
+        self.index = (BaseElement::rand().as_int() % u128::pow(2, tree_depth as u32)) as usize;
 
         // build Merkle tree of the specified depth
         let now = Instant::now();
@@ -87,7 +90,7 @@ impl Example for MerkleExample {
         );
 
         // assert that the trace terminates with tree root
-        let root = BaseElement::read_to_vec(tree.root()).unwrap();
+        let root = read_elements_into_vec(tree.root()).unwrap();
         let last_step = ((tree_depth + 1) * 16) - 1;
         let mut assertions = Assertions::new(TRACE_WIDTH, last_step + 1).unwrap();
         assertions.add_single(0, last_step, root[0]).unwrap();
@@ -108,7 +111,7 @@ impl Example for MerkleExample {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace.width(),
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 

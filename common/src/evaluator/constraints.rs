@@ -127,16 +127,16 @@ impl ConstraintDivisor {
         // compute the numerator value
         let mut numerator = E::ONE;
         for (degree, constant) in self.numerator.iter() {
-            let v = E::exp(x, (*degree as u32).into());
+            let v = x.exp((*degree as u32).into());
             let v = v - E::from(*constant);
-            numerator = numerator * v;
+            numerator *= v;
         }
 
         // compute the denominator value
         let mut denominator = E::ONE;
         for exception in self.exclude.iter() {
             let v = x - E::from(*exception);
-            denominator = denominator * v;
+            denominator *= v;
         }
 
         numerator / denominator

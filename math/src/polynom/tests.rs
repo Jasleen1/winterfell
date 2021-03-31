@@ -1,6 +1,6 @@
 use crate::{
     field::{BaseElement, FieldElement, StarkField},
-    utils::remove_leading_zeros,
+    utils::{get_power_series, log2, remove_leading_zeros},
 };
 
 #[test]
@@ -13,7 +13,7 @@ fn eval() {
         BaseElement::from(16234810094004944758u128),
     ];
 
-    assert_eq!(BaseElement::ZERO, super::eval(&[], x));
+    assert_eq!(BaseElement::ZERO, super::eval(&poly[..0], x));
 
     // constant
     assert_eq!(poly[0], super::eval(&poly[..1], x));
@@ -22,14 +22,14 @@ fn eval() {
     assert_eq!(poly[0] + poly[1] * x, super::eval(&poly[..2], x));
 
     // degree 2
-    let x2 = BaseElement::exp(x, 2);
+    let x2 = x.exp(2);
     assert_eq!(
         poly[0] + poly[1] * x + poly[2] * x2,
         super::eval(&poly[..3], x)
     );
 
     // degree 3
-    let x3 = BaseElement::exp(x, 3);
+    let x3 = x.exp(3);
     assert_eq!(
         poly[0] + poly[1] * x + poly[2] * x2 + poly[3] * x3,
         super::eval(&poly, x)
@@ -220,8 +220,8 @@ fn syn_div() {
         .collect();
 
     // build the domain
-    let root = BaseElement::get_root_of_unity(ys.len().trailing_zeros());
-    let domain = BaseElement::get_power_series(root, ys.len());
+    let root = BaseElement::get_root_of_unity(log2(ys.len()));
+    let domain = get_power_series(root, ys.len());
 
     // build the polynomial
     let poly = super::interpolate(&domain, &ys, false);
@@ -270,8 +270,8 @@ pub fn syn_div_in_place_with_exception() {
         .collect();
 
     // build the domain
-    let root = BaseElement::get_root_of_unity(ys.len().trailing_zeros());
-    let domain = BaseElement::get_power_series(root, ys.len());
+    let root = BaseElement::get_root_of_unity(log2(ys.len()));
+    let domain = get_power_series(root, ys.len());
 
     // build the polynomial
     let poly = super::interpolate(&domain, &ys, false);

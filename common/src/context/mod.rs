@@ -1,5 +1,8 @@
 use crate::ProofOptions;
-use math::field::{BaseElement, FieldElement, StarkField};
+use math::{
+    field::{BaseElement, FieldElement, StarkField},
+    utils::log2,
+};
 
 // TYPES AND INTERFACES
 // ================================================================================================
@@ -200,8 +203,8 @@ fn build_generators(
     let lde_domain_size = compute_lde_domain_size(trace_length, lde_blowup_factor);
 
     Generators {
-        trace_domain: BaseElement::get_root_of_unity(trace_length.trailing_zeros()),
-        ce_domain: BaseElement::get_root_of_unity(ce_domain_size.trailing_zeros()),
-        lde_domain: BaseElement::get_root_of_unity(lde_domain_size.trailing_zeros()),
+        trace_domain: BaseElement::get_root_of_unity(log2(trace_length)),
+        ce_domain: BaseElement::get_root_of_unity(log2(ce_domain_size)),
+        lde_domain: BaseElement::get_root_of_unity(log2(lde_domain_size)),
     }
 }

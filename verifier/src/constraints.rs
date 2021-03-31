@@ -29,7 +29,7 @@ where
     // instantiate transition evaluator
     let t_evaluator = T::new(context, coin.get_transition_coefficient_prng());
     // evaluate transition constraints and merge them into a single value
-    let mut t_evaluations = vec![E::ZERO; t_evaluator.num_constraints()];
+    let mut t_evaluations = E::zeroed_vector(t_evaluator.num_constraints());
     t_evaluator.evaluate_at_x(&mut t_evaluations, &ood_frame, x);
     let t_evaluation = t_evaluator.merge_evaluations(&t_evaluations, x);
 
@@ -61,7 +61,7 @@ where
         // by the divisor
         let evaluation = evaluate_assertion_group(group, &ood_frame.current, x, xp);
         let z = group.divisor().evaluate_at(x);
-        result = result + evaluation / z;
+        result += evaluation / z;
     }
 
     result
@@ -76,23 +76,12 @@ fn evaluate_assertion_group<E: FieldElement + From<BaseElement>>(
     x: E,
     xp: E,
 ) -> E {
-    // initialize result aggregators; we use two different aggregators so that we can
-    // accumulate the results separately for degree adjusted and un-adjusted terms.
     let mut result = E::ZERO;
-    let mut result_adj = E::ZERO;
-
-    // iterate over all constraints in the group, evaluate them, and add the evaluation
-    // into result aggregators.
     for constraint in group.constraints().iter() {
-        // evaluate the constraint at `x`
         let evaluation = constraint.evaluate_at(x, state[constraint.register()]);
-        // then multiply the result by combination coefficients, and add them to the aggregators
-        result = result + evaluation * E::from(constraint.cc().0);
-        result_adj = result_adj + evaluation * E::from(constraint.cc().1);
+        result += evaluation * (E::from(constraint.cc().0) + E::from(constraint.cc().1) * xp);
     }
-
-    // perform degree adjustment and complete the linear combination
-    result + result_adj * xp
+    result
 }
 
 // CONSTRAINT COMPOSITION

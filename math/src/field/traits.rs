@@ -1,18 +1,18 @@
-use crate::utils;
+use crate::errors::SerializationError;
 use core::{
     convert::TryFrom,
     fmt::{Debug, Display},
-    ops::{Add, BitAnd, Div, Mul, Neg, Shl, ShrAssign, Sub},
+    ops::{
+        Add, AddAssign, BitAnd, Div, DivAssign, Mul, MulAssign, Neg, Shl, ShrAssign, Sub, SubAssign,
+    },
 };
-
-#[cfg(feature = "concurrent")]
-use rayon::prelude::*;
 
 // FIELD ELEMENT
 // ================================================================================================
 
 pub trait FieldElement:
-    Copy
+    AsBytes
+    + Copy
     + Clone
     + Debug
     + Display
@@ -26,6 +26,10 @@ pub trait FieldElement:
     + Sub<Self, Output = Self>
     + Mul<Self, Output = Self>
     + Div<Self, Output = Self>
+    + AddAssign<Self>
+    + SubAssign<Self>
+    + MulAssign<Self>
+    + DivAssign<Self>
     + Neg<Output = Self>
     + From<u128>
     + From<u64>
@@ -43,6 +47,8 @@ pub trait FieldElement:
         + From<u64>
         + Copy;
 
+    type Base: StarkField;
+
     /// Number of bytes needed to encode an element
     const ELEMENT_BYTES: usize;
 
@@ -52,7 +58,20 @@ pub trait FieldElement:
     /// The multiplicative identity.
     const ONE: Self;
 
-    /// Exponentiates this element by `power` parameter.
+    // ALGEBRA
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns this field element added to itself.
+    fn double(self) -> Self {
+        self + self
+    }
+
+    /// Returns a square of the field element.
+    fn square(self) -> Self {
+        self * self
+    }
+
+    /// Exponentiates this field element by `power` parameter.
     fn exp(self, power: Self::PositiveInteger) -> Self {
         let mut r = Self::ONE;
         let mut b = self;
@@ -70,186 +89,68 @@ pub trait FieldElement:
         // TODO: optimize
         while p > int_zero {
             if p & int_one == int_one {
-                r = r * b;
+                r *= b;
             }
             p >>= int_one;
-            b = b * b;
+            b = b.square();
         }
 
         r
     }
 
-    /// Generates a vector with values [1, b, b^2, b^3, b^4, ..., b^(n-1)].
-    /// When `concurrent` feature is enabled, series generation is done concurrently
-    /// in multiple threads.
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        const MIN_CONCURRENT_SIZE: usize = 1024;
-        let mut result = utils::uninit_vector(n);
-        if cfg!(feature = "concurrent") && n >= MIN_CONCURRENT_SIZE && n.is_power_of_two() {
-            #[cfg(feature = "concurrent")]
-            {
-                let batch_size = n / rayon::current_num_threads().next_power_of_two();
-                result
-                    .par_chunks_mut(batch_size)
-                    .enumerate()
-                    .for_each(|(i, batch)| {
-                        let batch_start = i * batch_size;
-                        fill_power_series(batch, b, b.exp((batch_start as u32).into()));
-                    });
-            }
-        } else {
-            fill_power_series(&mut result, b, Self::ONE);
-        }
-        result
-    }
-
-    /// Generates a vector with values [s, s * b, s * b^2, s * b^3, s * b^4, ..., s * b^(n-1)].
-    /// When `concurrent` feature is enabled, series generation is done concurrently
-    /// in multiple threads.
-    fn get_power_series_with_offset(b: Self, s: Self, n: usize) -> Vec<Self> {
-        const MIN_CONCURRENT_SIZE: usize = 1024;
-        let mut result = utils::uninit_vector(n);
-        if cfg!(feature = "concurrent") && n >= MIN_CONCURRENT_SIZE && n.is_power_of_two() {
-            #[cfg(feature = "concurrent")]
-            {
-                let batch_size = n / rayon::current_num_threads().next_power_of_two();
-                result
-                    .par_chunks_mut(batch_size)
-                    .enumerate()
-                    .for_each(|(i, batch)| {
-                        let batch_start = i * batch_size;
-                        let start = s * b.exp((batch_start as u32).into());
-                        fill_power_series(batch, b, start);
-                    });
-            }
-        } else {
-            fill_power_series(&mut result, b, s);
-        }
-        result
-    }
-
-    /// Computes a multiplicative inverse of this element. If this element is ZERO
-    /// ZERO is returned.
+    /// Returns a multiplicative inverse of this field element. If this element is ZERO, ZERO is
+    /// returned.
     fn inv(self) -> Self;
 
-    /// Computes a multiplicative inverse of a sequence of elements using batch
-    /// inversion method. Any ZEROs in the provided sequence are ignored.
-    fn inv_many(values: &[Self]) -> Vec<Self> {
-        let mut result = Vec::with_capacity(values.len());
-        let mut last = Self::ONE;
-        for &value in values {
-            result.push(last);
-            if value != Self::ZERO {
-                last = last * value;
-            }
-        }
+    /// Returns a conjugate of this field element.
+    fn conjugate(&self) -> Self;
 
-        last = Self::inv(last);
+    // RANDOMNESS
+    // --------------------------------------------------------------------------------------------
 
-        for i in (0..values.len()).rev() {
-            if values[i] == Self::ZERO {
-                result[i] = Self::ZERO;
-            } else {
-                result[i] = last * result[i];
-                last = last * values[i];
-            }
-        }
-        result
-    }
-
-    /// Returns a cryptographically-secure random element drawn uniformly from
-    /// the entire field.
+    /// Returns a cryptographically-secure random element drawn uniformly from the entire field.
     fn rand() -> Self;
 
-    /// Returns a field element if the set of bytes forms a valid field element,
-    /// otherwise returns None. This function is primarily intended for sampling
-    /// random field elements from a hash function output.
+    /// Returns a field element if the set of bytes forms a valid field element, otherwise returns
+    /// None. This function is primarily intended for sampling random field elements from a hash
+    /// function output.
     fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
 
-    /// Returns the byte representation of the element in little-endian byte order.
-    fn to_bytes(&self) -> Vec<u8>;
+    // SERIALIZATION / DESERIALIZATION
+    // --------------------------------------------------------------------------------------------
 
-    /// Writes a vector of filed elements into the provided slice of bytes in little-endian
-    /// byte order.
-    fn write_into(elements: &[Self], result: &mut [u8]) -> Result<usize, String> {
-        let num_bytes = elements.len() * Self::ELEMENT_BYTES;
-        if result.len() < num_bytes {
-            return Err(format!(
-                "result must be at least {} bytes long, but was {}",
-                num_bytes,
-                result.len()
-            ));
-        }
+    /// Converts a vector of filed elements into a vector of bytes. This conversion just
+    /// re-interprets the underlying memory and is thus zero-copy.
+    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8>;
 
-        for (i, element) in elements.iter().enumerate() {
-            let start = i * Self::ELEMENT_BYTES;
-            result[start..start + Self::ELEMENT_BYTES].copy_from_slice(&element.to_bytes());
-        }
-        Ok(num_bytes)
+    /// Converts a list of elements into byte representation. The conversion just re-interprets
+    /// the underlying memory and is thus zero-copy.
+    fn elements_as_bytes(elements: &[Self]) -> &[u8];
+
+    /// Converts a list of bytes into a list of field elements. The conversion just re-interprets
+    /// the underlying memory and is thus zero-copy.
+    ///
+    /// An error is returned if:
+    /// * Memory alignment of `bytes` does not match memory alignment of field element data.
+    /// * Length of `bytes` does not divide into whole number of elements.
+    ///
+    /// # Safety
+    /// This function is unsafe because it does not check whether underlying bytes represent valid
+    /// field elements.
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError>;
+
+    // INITIALIZATION
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns a vector initialized with all zero elements; specialized implementations of this
+    /// function may be faster than the generic implementation.
+    fn zeroed_vector(n: usize) -> Vec<Self> {
+        vec![Self::ZERO; n]
     }
 
-    /// Returns a vector of bytes with all elements from the provided slice written
-    /// into the vector in little-endian byte order.
-    fn write_into_vec(elements: &[Self]) -> Vec<u8> {
-        let mut result = Vec::with_capacity(elements.len() * Self::ELEMENT_BYTES);
-        for element in elements {
-            result.extend_from_slice(&element.to_bytes());
-        }
-        result
-    }
-
-    /// Reads elements from the specified slice of bytes and copies them into the provided
-    /// result slice. The elements are assumed to be stored in the slice one after the other
-    /// in little-endian byte order. Returns the number of read elements.
-    fn read_into(bytes: &[u8], result: &mut [Self]) -> Result<usize, String> {
-        let num_elements = bytes.len() / Self::ELEMENT_BYTES;
-        if result.len() < num_elements {
-            return Err(format!(
-                "result must be at least {} elements long, but was {}",
-                num_elements,
-                result.len()
-            ));
-        }
-
-        for i in (0..bytes.len()).step_by(Self::ELEMENT_BYTES) {
-            match Self::try_from(&bytes[i..i + Self::ELEMENT_BYTES]) {
-                Ok(value) => result[i / Self::ELEMENT_BYTES] = value,
-                Err(_) => {
-                    return Err(format!(
-                        "failed to read element from bytes at position {}",
-                        i
-                    ))
-                }
-            }
-        }
-
-        Ok(num_elements)
-    }
-
-    /// Returns a vector of elements read from the provided slice of bytes. The elements are
-    /// assumed to be stored in the slice one after the other in little-endian byte order.
-    fn read_to_vec(bytes: &[u8]) -> Result<Vec<Self>, String> {
-        if bytes.len() % Self::ELEMENT_BYTES != 0 {
-            return Err(String::from(
-                "number of bytes does not divide into whole number of elements",
-            ));
-        }
-
-        let mut result = vec![Self::ZERO; bytes.len() / Self::ELEMENT_BYTES];
-        Self::read_into(bytes, &mut result)?;
-        Ok(result)
-    }
-}
-
-// HELPER FUNCTIONS
-// ------------------------------------------------------------------------------------------------
-
-#[inline(always)]
-fn fill_power_series<E: FieldElement>(result: &mut [E], base: E, start: E) {
-    result[0] = start;
-    for i in 1..result.len() {
-        result[i] = result[i - 1] * base;
-    }
+    /// Returns a vector of n pseudo-random elements drawn uniformly from the entire
+    /// field based on the provided seed.
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
 }
 
 // STARK FIELD
@@ -283,14 +184,11 @@ pub trait StarkField: FieldElement + AsBytes {
             Self::TWO_ADICITY
         );
         let power = Self::PositiveInteger::from(1u32) << (Self::TWO_ADICITY - n);
-        Self::exp(Self::TWO_ADIC_ROOT_OF_UNITY, power)
+        Self::TWO_ADIC_ROOT_OF_UNITY.exp(power)
     }
 
-    /// Returns a vector of n pseudo-random elements drawn uniformly from the entire
-    /// field based on the provided seed.
-    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self>;
-
-    fn from_int(value: Self::PositiveInteger) -> Self;
+    // Returns an integer representation of the field element.
+    fn as_int(&self) -> Self::PositiveInteger;
 }
 
 pub trait FromVec<E: FieldElement>: From<E> {

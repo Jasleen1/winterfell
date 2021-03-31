@@ -1,6 +1,7 @@
 use math::{
     field::{BaseElement, FieldElement, StarkField},
     polynom,
+    utils::get_power_series,
 };
 
 #[test]
@@ -18,7 +19,7 @@ fn eval() {
 #[test]
 fn interpolate_batch() {
     let r = BaseElement::get_root_of_unity(4);
-    let xs = super::to_quartic_vec(BaseElement::get_power_series(r, 16));
+    let xs = super::to_quartic_vec(get_power_series(r, 16));
     let ys = super::to_quartic_vec(
         vec![1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
             .into_iter()

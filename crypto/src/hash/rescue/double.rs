@@ -61,7 +61,7 @@ pub fn rescue_d(values: &[u8], result: &mut [u8]) {
 #[allow(clippy::needless_range_loop)]
 fn add_constants(state: &mut [BaseElement; STATE_WIDTH], offset: usize) {
     for i in 0..STATE_WIDTH {
-        state[i] = state[i] + ARK[offset + i];
+        state[i] += ARK[offset + i];
     }
 }
 
@@ -69,7 +69,7 @@ fn add_constants(state: &mut [BaseElement; STATE_WIDTH], offset: usize) {
 #[allow(clippy::needless_range_loop)]
 fn apply_sbox(state: &mut [BaseElement; STATE_WIDTH]) {
     for i in 0..STATE_WIDTH {
-        state[i] = BaseElement::exp(state[i], ALPHA);
+        state[i] = state[i].exp(ALPHA);
     }
 }
 
@@ -78,7 +78,7 @@ fn apply_sbox(state: &mut [BaseElement; STATE_WIDTH]) {
 fn apply_inv_sbox(state: &mut [BaseElement; STATE_WIDTH]) {
     // TODO: optimize
     for i in 0..STATE_WIDTH {
-        state[i] = BaseElement::exp(state[i], INV_ALPHA);
+        state[i] = state[i].exp(INV_ALPHA);
     }
 }
 
@@ -93,7 +93,7 @@ fn apply_mds(state: &mut [BaseElement; STATE_WIDTH]) {
         }
 
         for j in 0..STATE_WIDTH {
-            result[i] = result[i] + temp[j];
+            result[i] += temp[j];
         }
     }
     state.copy_from_slice(&result);

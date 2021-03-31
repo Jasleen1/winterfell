@@ -1,11 +1,11 @@
 use crate::{utils, HashFunction};
+use fasthash::xx::Hash64;
 use std::{
     collections::{BTreeSet, HashMap},
     slice,
 };
 
 mod proofs;
-use fasthash::xx::Hash64;
 pub use proofs::BatchMerkleProof;
 
 #[cfg(feature = "concurrent")]

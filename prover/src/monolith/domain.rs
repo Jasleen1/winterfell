@@ -2,6 +2,7 @@ use common::ComputationContext;
 use math::{
     fft,
     field::{BaseElement, StarkField},
+    utils::{get_power_series_with_offset, log2},
 };
 
 // TYPES AND INTERFACES
@@ -111,6 +112,6 @@ impl StarkDomain {
 // ================================================================================================
 
 fn build_lde_domain<B: StarkField>(domain_size: usize, offset: B) -> Vec<B> {
-    let g = B::get_root_of_unity(domain_size.trailing_zeros());
-    B::get_power_series_with_offset(g, offset, domain_size)
+    let g = B::get_root_of_unity(log2(domain_size));
+    get_power_series_with_offset(g, offset, domain_size)
 }
