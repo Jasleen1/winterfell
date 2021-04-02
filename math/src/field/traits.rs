@@ -282,7 +282,7 @@ pub trait StarkField: FieldElement + AsBytes {
             "order cannot exceed 2^{}",
             Self::TWO_ADICITY
         );
-        let power = Self::PositiveInteger::from(1u32) << (Self::TWO_ADICITY - n);
+        let power = Self::PositiveInteger::from(1u64) << (Self::TWO_ADICITY - n);
         Self::exp(Self::TWO_ADIC_ROOT_OF_UNITY, power)
     }
 
