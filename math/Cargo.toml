@@ -30,3 +30,4 @@ rayon = { version = "1.5", optional = true }
 [dev-dependencies]
 criterion = "0.3"
 num-bigint = "0.4"
+proptest = "1.0"

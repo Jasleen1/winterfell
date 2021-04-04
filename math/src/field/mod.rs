@@ -1,5 +1,7 @@
 mod traits;
 pub use traits::{AsBytes, FieldElement, FromVec, StarkField};
 
-mod f128;
+pub mod f128;
 pub use f128::{BaseElement, QuadElement};
+
+pub mod f62;

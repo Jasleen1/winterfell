@@ -80,13 +80,12 @@ pub trait FieldElement:
         let int_zero = Self::PositiveInteger::from(0u32);
         let int_one = Self::PositiveInteger::from(1u32);
 
-        if b == Self::ZERO {
-            return Self::ZERO;
-        } else if p == int_zero {
+        if p == int_zero {
             return Self::ONE;
+        } else if b == Self::ZERO {
+            return Self::ZERO;
         }
 
-        // TODO: optimize
         while p > int_zero {
             if p & int_one == int_one {
                 r *= b;
