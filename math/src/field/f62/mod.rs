@@ -95,7 +95,7 @@ impl FieldElement for BaseElement {
     fn rand() -> Self {
         let range = Uniform::from(RANGE);
         let mut g = thread_rng();
-        BaseElement(g.sample(range))
+        BaseElement::new(g.sample(range))
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
@@ -149,7 +149,7 @@ impl FieldElement for BaseElement {
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
         let range = Uniform::from(RANGE);
         let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(BaseElement).collect()
+        g.sample_iter(range).take(n).map(BaseElement::new).collect()
     }
 }
 
@@ -164,7 +164,7 @@ impl StarkField for BaseElement {
 
     /// sage: GF(MODULUS).primitive_element()
     /// 3
-    const GENERATOR: Self = BaseElement(3);
+    const GENERATOR: Self = BaseElement::new(3);
 
     /// sage: is_odd((MODULUS - 1) / 2^42)
     /// True
@@ -173,7 +173,7 @@ impl StarkField for BaseElement {
     /// sage: k = (MODULUS - 1) / 2^42
     /// sage: GF(MODULUS).primitive_element()^k
     /// 2943937234904130615
-    const TWO_ADIC_ROOT_OF_UNITY: Self = BaseElement(G);
+    const TWO_ADIC_ROOT_OF_UNITY: Self = BaseElement::new(G);
 
     fn as_int(&self) -> Self::PositiveInteger {
         // convert from Montgomery representation by multiplying by 1
@@ -324,12 +324,13 @@ impl From<u8> for BaseElement {
 }
 
 impl From<[u8; 8]> for BaseElement {
-    /// Converts the value encoded in an array of 8 bytes into a field element. The bytes
-    /// are assumed to be in little-endian byte order. If the value is greater than or equal
-    /// to the field modulus, modular reduction is silently preformed.
+    /// Converts the value encoded in an array of 8 bytes into a field element. The bytes are
+    /// assumed to encode the element in the canonical representation in little-endian byte order.
+    /// If the value is greater than or equal to the field modulus, modular reduction is silently
+    /// preformed.
     fn from(bytes: [u8; 8]) -> Self {
         let value = u64::from_le_bytes(bytes);
-        BaseElement::from(value)
+        BaseElement::new(value)
     }
 }
 
@@ -337,7 +338,8 @@ impl<'a> TryFrom<&'a [u8]> for BaseElement {
     type Error = ElementDecodingError;
 
     /// Converts a slice of bytes into a field element; returns error if the value encoded in bytes
-    /// is not a valid field element. The bytes are assumed to be in little-endian byte order.
+    /// is not a valid field element. The bytes are assumed to encode the element in the canonical
+    /// representation in little-endian byte order.
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() < ELEMENT_BYTES {
             return Err(ElementDecodingError::NotEnoughBytes(
@@ -366,19 +368,16 @@ impl AsBytes for BaseElement {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         let self_ptr: *const BaseElement = self;
-        unsafe { slice::from_raw_parts(self_ptr as *const u8, BaseElement::ELEMENT_BYTES) }
+        unsafe { slice::from_raw_parts(self_ptr as *const u8, ELEMENT_BYTES) }
     }
 }
 
 impl AsBytes for [BaseElement] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
-        unsafe {
-            slice::from_raw_parts(
-                self.as_ptr() as *const u8,
-                self.len() * BaseElement::ELEMENT_BYTES,
-            )
-        }
+        let self_ptr = self.as_ptr();
+        let new_len = self.len() * ELEMENT_BYTES;
+        unsafe { slice::from_raw_parts(self_ptr as *const u8, new_len) }
     }
 }
 

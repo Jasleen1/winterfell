@@ -1,6 +1,7 @@
-use super::{BaseElement, FieldElement, StarkField};
+use super::{BaseElement, ElementDecodingError, FieldElement, SerializationError, StarkField};
 use num_bigint::BigUint;
 use proptest::prelude::*;
+use std::convert::TryFrom;
 
 // MANUAL TESTS
 // ================================================================================================
@@ -96,11 +97,150 @@ fn element_as_int() {
     assert_eq!(v % super::M, e.as_int());
 }
 
+// ROOTS OF UNITY
+// ------------------------------------------------------------------------------------------------
+
+#[test]
+fn get_root_of_unity() {
+    let root_42 = BaseElement::get_root_of_unity(42);
+    assert_eq!(BaseElement::TWO_ADIC_ROOT_OF_UNITY, root_42);
+    assert_eq!(BaseElement::ONE, root_42.exp(1u64 << 42));
+
+    let root_41 = BaseElement::get_root_of_unity(41);
+    let expected = root_42.exp(2);
+    assert_eq!(expected, root_41);
+    assert_eq!(BaseElement::ONE, root_41.exp(1u64 << 41));
+}
+
+// SERIALIZATION AND DESERIALIZATION
+// ------------------------------------------------------------------------------------------------
+
 #[test]
 fn from_u128() {
     let v = u128::MAX;
     let e = BaseElement::from(v);
     assert_eq!((v % super::M as u128) as u64, e.as_int());
+}
+
+#[test]
+fn try_from_slice() {
+    let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0];
+    let result = BaseElement::try_from(bytes.as_slice());
+    assert!(result.is_ok());
+    assert_eq!(1, result.unwrap().as_int());
+
+    let bytes = vec![1, 0, 0, 0, 0, 0, 0];
+    let result = BaseElement::try_from(bytes.as_slice());
+    assert_eq!(Err(ElementDecodingError::NotEnoughBytes(8, 7)), result);
+
+    let bytes = vec![1, 0, 0, 0, 0, 0, 0, 0, 0];
+    let result = BaseElement::try_from(bytes.as_slice());
+    assert_eq!(Err(ElementDecodingError::TooManyBytes(8, 9)), result);
+
+    let bytes = vec![255, 255, 255, 255, 255, 255, 255, 255];
+    let result = BaseElement::try_from(bytes.as_slice());
+    assert_eq!(
+        Err(ElementDecodingError::ValueTooLarger(
+            "18446744073709551615".to_string()
+        )),
+        result
+    );
+}
+
+#[test]
+fn elements_into_bytes() {
+    let source = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    let mut expected = vec![];
+    expected.extend_from_slice(&source[0].0.to_le_bytes());
+    expected.extend_from_slice(&source[1].0.to_le_bytes());
+    expected.extend_from_slice(&source[2].0.to_le_bytes());
+    expected.extend_from_slice(&source[3].0.to_le_bytes());
+
+    assert_eq!(expected, BaseElement::elements_into_bytes(source));
+}
+
+#[test]
+fn elements_as_bytes() {
+    let source = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    let mut expected = vec![];
+    expected.extend_from_slice(&source[0].0.to_le_bytes());
+    expected.extend_from_slice(&source[1].0.to_le_bytes());
+    expected.extend_from_slice(&source[2].0.to_le_bytes());
+    expected.extend_from_slice(&source[3].0.to_le_bytes());
+
+    assert_eq!(expected, BaseElement::elements_as_bytes(&source));
+}
+
+#[test]
+fn bytes_as_elements() {
+    let elements = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    let mut bytes = vec![];
+    bytes.extend_from_slice(&elements[0].0.to_le_bytes());
+    bytes.extend_from_slice(&elements[1].0.to_le_bytes());
+    bytes.extend_from_slice(&elements[2].0.to_le_bytes());
+    bytes.extend_from_slice(&elements[3].0.to_le_bytes());
+    bytes.extend_from_slice(&BaseElement::new(5).0.to_le_bytes());
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[..32]) };
+    assert!(result.is_ok());
+    assert_eq!(elements, result.unwrap());
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[..33]) };
+    assert_eq!(
+        result,
+        Err(SerializationError::NotEnoughBytesForWholeElements(33))
+    );
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[1..33]) };
+    assert_eq!(result, Err(SerializationError::InvalidMemoryAlignment));
+}
+
+// INITIALIZATION
+// ------------------------------------------------------------------------------------------------
+
+#[test]
+fn zeroed_vector() {
+    let result = BaseElement::zeroed_vector(4);
+    assert_eq!(4, result.len());
+    for element in result.into_iter() {
+        assert_eq!(BaseElement::ZERO, element);
+    }
+}
+
+#[test]
+fn prng_vector() {
+    let a = BaseElement::prng_vector([0; 32], 4);
+    assert_eq!(4, a.len());
+
+    let b = BaseElement::prng_vector([0; 32], 8);
+    assert_eq!(8, b.len());
+
+    for (&a, &b) in a.iter().zip(b.iter()) {
+        assert_eq!(a, b);
+    }
+
+    let c = BaseElement::prng_vector([1; 32], 4);
+    for (&a, &c) in a.iter().zip(c.iter()) {
+        assert_ne!(a, c);
+    }
 }
 
 // RANDOMIZED TESTS
