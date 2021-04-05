@@ -14,3 +14,18 @@ pub enum SerializationError {
     #[error("slice memory alignment is not valid for this field element type")]
     InvalidMemoryAlignment,
 }
+
+#[derive(Error, Debug, PartialEq)]
+pub enum ElementDecodingError {
+    #[error("not enough bytes for a full field element; expected {0} bytes, but was {1} bytes")]
+    NotEnoughBytes(usize, usize),
+
+    #[error("too many bytes for a field element; expected {0} bytes, but was {1} bytes")]
+    TooManyBytes(usize, usize),
+
+    #[error("invalid field element: value {0} is greater than or equal to the field modulus")]
+    ValueTooLarger(String),
+
+    #[error("{0}")]
+    UnknownError(String),
+}

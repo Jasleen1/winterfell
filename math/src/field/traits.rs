@@ -39,13 +39,14 @@ pub trait FieldElement:
     + for<'a> TryFrom<&'a [u8]>
 {
     type PositiveInteger: BitAnd<Output = Self::PositiveInteger>
+        + Copy
+        + Debug
         + PartialEq
         + PartialOrd
         + ShrAssign
         + Shl<u32, Output = Self::PositiveInteger>
         + From<u32>
-        + From<u64>
-        + Copy;
+        + From<u64>;
 
     type Base: StarkField;
 
@@ -66,9 +67,14 @@ pub trait FieldElement:
         self + self
     }
 
-    /// Returns a square of the field element.
+    /// Returns this field element raised to power 2.
     fn square(self) -> Self {
         self * self
+    }
+
+    /// Returns this field element raised to power 3.
+    fn cube(self) -> Self {
+        self * self * self
     }
 
     /// Exponentiates this field element by `power` parameter.
@@ -80,13 +86,12 @@ pub trait FieldElement:
         let int_zero = Self::PositiveInteger::from(0u32);
         let int_one = Self::PositiveInteger::from(1u32);
 
-        if b == Self::ZERO {
-            return Self::ZERO;
-        } else if p == int_zero {
+        if p == int_zero {
             return Self::ONE;
+        } else if b == Self::ZERO {
+            return Self::ZERO;
         }
 
-        // TODO: optimize
         while p > int_zero {
             if p & int_one == int_one {
                 r *= b;
@@ -112,23 +117,26 @@ pub trait FieldElement:
     fn rand() -> Self;
 
     /// Returns a field element if the set of bytes forms a valid field element, otherwise returns
-    /// None. This function is primarily intended for sampling random field elements from a hash
-    /// function output.
+    /// None. The element is expected to be in canonical representation. This function is primarily
+    /// intended for sampling random field elements from a hash function output.
     fn from_random_bytes(bytes: &[u8]) -> Option<Self>;
 
     // SERIALIZATION / DESERIALIZATION
     // --------------------------------------------------------------------------------------------
 
-    /// Converts a vector of filed elements into a vector of bytes. This conversion just
-    /// re-interprets the underlying memory and is thus zero-copy.
+    /// Converts a vector of filed elements into a vector of bytes. The elements may be in the
+    /// internal representation rather than in the canonical representation. This conversion is
+    /// intended to be zero-copy (i.e. by re-interpreting the underlying memory).
     fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8>;
 
-    /// Converts a list of elements into byte representation. The conversion just re-interprets
-    /// the underlying memory and is thus zero-copy.
+    /// Converts a list of elements into a list of bytes. The elements may be in the internal
+    /// representation rather than in the canonical representation. This conversion is intended
+    /// to be zero-copy (i.e. by re-interpreting the underlying memory).
     fn elements_as_bytes(elements: &[Self]) -> &[u8];
 
-    /// Converts a list of bytes into a list of field elements. The conversion just re-interprets
-    /// the underlying memory and is thus zero-copy.
+    /// Converts a list of bytes into a list of field elements. The elements are assumed to
+    /// encoded in the internal representation rather than in the canonical representation. The
+    /// conversion is intended to be zero-copy (i.e. by re-interpreting the underlying memory).
     ///
     /// An error is returned if:
     /// * Memory alignment of `bytes` does not match memory alignment of field element data.
@@ -136,7 +144,7 @@ pub trait FieldElement:
     ///
     /// # Safety
     /// This function is unsafe because it does not check whether underlying bytes represent valid
-    /// field elements.
+    /// field elements according to their internal representation.
     unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError>;
 
     // INITIALIZATION
