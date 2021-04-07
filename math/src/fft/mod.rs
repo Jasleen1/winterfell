@@ -213,7 +213,7 @@ pub fn get_inv_twiddles<B: StarkField>(domain_size: usize) -> Vec<B> {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-fn permute<E: FieldElement>(v: &mut [E]) {
+pub fn permute<E: FieldElement>(v: &mut [E]) {
     if cfg!(feature = "concurrent") && v.len() >= MIN_CONCURRENT_SIZE {
         #[cfg(feature = "concurrent")]
         concurrent::permute(v);

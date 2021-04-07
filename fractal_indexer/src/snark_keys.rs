@@ -1,5 +1,6 @@
+use common::proof::StarkProof;
 use crypto::{MerkleTree, HashFunction};
-use math::{field::{BaseElement, FieldElement}};
+use math::{field::{BaseElement, FieldElement, StarkField}};
 use crate::{r1cs::*, index::*, indexed_matrix::*};
 #[derive(Clone, Debug)]
 pub struct ProverIndexPolynomial<E: FieldElement> {
@@ -41,13 +42,13 @@ pub struct VerifierKey {
 
 // QUESTION: Currently using the utils hash_values function which uses quartic folding.
 // Is there any drawback to doing this here, where there's no layering?
-pub fn commit_polynomial_evaluations<E: FieldElement>(evaluations: &Vec<E>, hash_fn: HashFunction) -> MerkleTree {
+pub fn commit_polynomial_evaluations<E: StarkField>(evaluations: &Vec<E>, hash_fn: HashFunction) -> MerkleTree {
     let transposed_evaluations = fri::folding::quartic::transpose(evaluations, 1);
-    let hashed_evaluations = fri::utils::hash_values(&transposed_evaluations, hash_fn);
+    let hashed_evaluations = fri::folding::quartic::hash_values(&transposed_evaluations, hash_fn);
     MerkleTree::new(hashed_evaluations, hash_fn)
 }
 
-pub fn generate_prover_and_verifier_matrix_index<E: FieldElement>(indexed: IndexedMatrix<E>, hash_fn: HashFunction) -> (ProverMatrixIndex<E>, VerifierMatrixIndex){
+pub fn generate_prover_and_verifier_matrix_index<E: StarkField>(indexed: IndexedMatrix<E>, hash_fn: HashFunction) -> (ProverMatrixIndex<E>, VerifierMatrixIndex){
     let matrix = indexed.matrix;
     let row_polynomial = indexed.row_poly;
     let col_polynomial = indexed.col_poly;
@@ -70,7 +71,7 @@ pub fn generate_prover_and_verifier_matrix_index<E: FieldElement>(indexed: Index
     (prover_matrix_index, verifier_matrix_index)
 }
 
-pub fn generate_prover_and_verifier_keys<E: FieldElement>(Index { params, indexed_a, indexed_b, indexed_c }: Index<E>, hash_fn: HashFunction) -> (ProverKey<E>, VerifierKey) {
+pub fn generate_prover_and_verifier_keys<E: StarkField>(Index { params, indexed_a, indexed_b, indexed_c }: Index<E>, hash_fn: HashFunction) -> (ProverKey<E>, VerifierKey) {
     let (matrix_a_index, matrix_a_commitments) = generate_prover_and_verifier_matrix_index(indexed_a, hash_fn);
     let (matrix_b_index, matrix_b_commitments) = generate_prover_and_verifier_matrix_index(indexed_b, hash_fn);
     let (matrix_c_index, matrix_c_commitments) = generate_prover_and_verifier_matrix_index(indexed_c, hash_fn);

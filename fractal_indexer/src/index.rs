@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
-use math::{fft, field::{BaseElement, FieldElement, SmallFieldElement17, StarkField}};
+use math::{fft, field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17, StarkField}};
 
 use crate::{indexed_matrix::IndexedMatrix, r1cs::R1CS};
 #[derive(Clone, Debug)]
@@ -13,14 +13,14 @@ pub struct IndexParams {
     pub num_non_zero: usize,
 }
 #[derive(Clone, Debug)]
-pub struct Index<E: FieldElement> {
+pub struct Index<E: StarkField> {
     pub params: IndexParams,
     pub indexed_a: IndexedMatrix<E>,
     pub indexed_b: IndexedMatrix<E>,
     pub indexed_c: IndexedMatrix<E>
 }
 
-impl<E: FieldElement> Index<E> {
+impl<E: StarkField> Index<E> {
     pub fn new(params: IndexParams, indexed_a: IndexedMatrix<E>, indexed_b: IndexedMatrix<E>, indexed_c: IndexedMatrix<E>) -> Self {
         Index {params, indexed_a: indexed_a, indexed_b: indexed_b, indexed_c: indexed_c}
     }
@@ -67,8 +67,11 @@ pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseEl
     let i_field = BaseElement::get_power_series(i_field_base, num_input_variables); 
     let h_field = BaseElement::get_power_series(h_field_base, num_constraints);
     
-    let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
-    let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
+    // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
+    // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
+
+    let inv_twiddles_k_elts = fft::get_inv_twiddles::<BaseElement>(num_non_zero);
+    let twiddles_l_elts = fft::get_twiddles::<BaseElement>(ext_field_size);
     
     IndexDomains {
         i_field_base,
@@ -99,8 +102,10 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
     let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables); 
     let h_field = SmallFieldElement17::get_power_series(h_field_base, num_constraints);
     
-    let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
-    let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
+    // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
+    // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
+    let inv_twiddles_k_elts = SmallFieldElement17::get_inv_twiddles(num_non_zero);
+    let twiddles_l_elts = SmallFieldElement17::get_twiddles(ext_field_size);
     
     IndexDomains {
         i_field_base,

@@ -1,7 +1,7 @@
 use std::vec;
 
 use indexed_matrix::IndexedMatrix;
-use math::field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17};
+use math::field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17, StarkField};
 use crate::{*, errors::R1CSError, r1cs::*, index::*};
 
 #[test] 
@@ -88,13 +88,29 @@ fn test_domain_building_17() {
     assert_eq!(l_field_base, SmallFieldElement17::new(3));
 } 
 
+
+
+#[test] 
+fn test_getting_roots_17() {
+    let test_root_16 = SmallFieldElement17::get_root_of_unity(16);
+    assert_eq!(test_root_16, SmallFieldElement17::new(3));
+    let test_root_8 = SmallFieldElement17::get_root_of_unity(8);
+    assert_eq!(test_root_8, SmallFieldElement17::new(9));
+    let test_root_2 = SmallFieldElement17::get_root_of_unity(2);
+    assert_eq!(test_root_2, SmallFieldElement17::new(16));
+}
+
+
+
 #[test]
 fn test_single_indexed_matrix_17() {
     let m1 = make_all_ones_matrix_f17("A", 2, 2);
     let matrix_a = m1.unwrap();
     let params = IndexParams {num_input_variables: 2, num_constraints: 2, num_non_zero: 4};
     let domains = build_primefield_index_domains(params.clone());
+    println!("Domains {:?}", domains);
     let indexed_a = IndexedMatrix::new(matrix_a, domains.clone());
+    println!("Indexed a is {:?}", indexed_a);
     let row_poly = indexed_a.row_poly;
     let col_poly = indexed_a.col_poly;
     let expected_row_poly = vec![0, 0, 1, 0];

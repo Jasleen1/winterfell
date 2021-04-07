@@ -8,6 +8,7 @@ use core::{
 };
 use rand::{distributions::Uniform, prelude::*};
 use serde::{Deserialize, Serialize};
+use super::super::fft;
 
 #[cfg(test)]
 mod tests;
@@ -44,6 +45,31 @@ impl SmallFieldElement17 {
     pub fn as_u128(&self) -> u128 {
         self.0
     }
+
+    pub fn get_twiddles(domain_size: usize) -> Vec<Self> {
+        debug_assert!(
+            domain_size.is_power_of_two(),
+            "domain size must be a power of 2"
+        );
+        let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
+        let mut twiddles = Self::get_power_series(root, domain_size / 2);
+        fft::permute(&mut twiddles);
+        twiddles
+    }
+
+    pub fn get_inv_twiddles(domain_size: usize) -> Vec<Self> {
+        debug_assert!(
+            domain_size.is_power_of_two(),
+            "domain size must be a power of 2"
+        );
+        let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
+        let inv_root = Self::exp(root, (domain_size as u32 - 1).into());
+        let mut inv_twiddles = Self::get_power_series(inv_root, domain_size / 2);
+        fft::permute(&mut inv_twiddles);
+        inv_twiddles
+    }
+    
+
 }
 
 impl FieldElement for SmallFieldElement17 {

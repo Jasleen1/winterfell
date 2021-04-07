@@ -4,12 +4,12 @@ use std::convert::TryInto;
 
 
 // TODO: This implementation assumes all matrices are square and all inputs are public, ie no witness. Update to accomodate this.
-use math::{field::{FieldElement}, fft};
+use math::{field::{FieldElement, StarkField}, fft};
 use crate::{r1cs::*, index::*, };
 
 
 #[derive(Clone, Debug)]
-pub struct IndexedMatrix<E: FieldElement> {
+pub struct IndexedMatrix<E: StarkField> {
     // i_field: Vec<E>, // This is the subfield of H (below) based on which non-witness inputs are indexed
     // h_field: Vec<E>, // This is the field which indexes the matrices. Total length of input+witness = |H|.   
     // k_field: Vec<E>, // This is the field used for the sparse matrix representation
@@ -34,7 +34,7 @@ pub struct IndexedMatrix<E: FieldElement> {
 
 // TODO: Implement commitment for the index to be used as part of the verifier key
 // TODO: Add error checking
-impl<E:FieldElement> IndexedMatrix<E> {
+impl<E:StarkField> IndexedMatrix<E> {
     pub fn new(mat: Matrix<E>, domains: IndexDomains<E>) -> Self {
         index_matrix(mat, domains)
     }
@@ -45,7 +45,7 @@ impl<E:FieldElement> IndexedMatrix<E> {
 // Also, should the new indexed matrix be generated using something here or in the new 
 // function for Indexed Matrix?
 // QUESTION: Should the IndexDomain struct also depend on E?
-pub fn index_matrix<E: FieldElement>(mat: Matrix<E>, index_domains: IndexDomains<E>) -> IndexedMatrix<E> {
+pub fn index_matrix<E: StarkField>(mat: Matrix<E>, index_domains: IndexDomains<E>) -> IndexedMatrix<E> {
 
     let h_size = index_domains.h_field.len().try_into().unwrap();
     let l_size = index_domains.l_field_len;
@@ -74,13 +74,13 @@ pub fn index_matrix<E: FieldElement>(mat: Matrix<E>, index_domains: IndexDomains
     let inv_twiddles_k_elts = index_domains.inv_twiddles_k_elts;
 
     // interpolate row_elts into a polynomial
-    fft::interpolate_poly(&mut row_elts, &inv_twiddles_k_elts, true);
+    fft::interpolate_poly(&mut row_elts, &inv_twiddles_k_elts);
 
     // interpolate col_elts into a polynomial
-    fft::interpolate_poly(&mut col_elts, &inv_twiddles_k_elts, true);
+    fft::interpolate_poly(&mut col_elts, &inv_twiddles_k_elts);
 
     // interpolate val_elts into a polynomial
-    fft::interpolate_poly(&mut val_elts, &inv_twiddles_k_elts, true);
+    fft::interpolate_poly(&mut val_elts, &inv_twiddles_k_elts);
 
     
 
@@ -89,17 +89,17 @@ pub fn index_matrix<E: FieldElement>(mat: Matrix<E>, index_domains: IndexDomains
     // evaluate row_elts polynomial over l
     let mut row_evaluations = vec![E::ZERO; l_size];
     row_evaluations[.. total_size].copy_from_slice(&row_elts);
-    fft::evaluate_poly(&mut row_evaluations, &twiddles_l_elts, true);
+    fft::evaluate_poly(&mut row_evaluations, &twiddles_l_elts);
 
     // evaluate col_elts polynomial over l
     let mut col_evaluations = vec![E::ZERO; l_size];
     col_evaluations[.. total_size].copy_from_slice(&col_elts);
-    fft::evaluate_poly(&mut col_evaluations, &twiddles_l_elts, true);
+    fft::evaluate_poly(&mut col_evaluations, &twiddles_l_elts);
 
     // evaluate row_elts polynomial over l
     let mut val_evaluations = vec![E::ZERO; l_size];
     val_evaluations[.. total_size].copy_from_slice(&val_elts);
-    fft::evaluate_poly(&mut val_evaluations, &twiddles_l_elts, true);
+    fft::evaluate_poly(&mut val_evaluations, &twiddles_l_elts);
 
     IndexedMatrix {
         matrix: mat,
@@ -122,8 +122,9 @@ pub fn index_matrix<E: FieldElement>(mat: Matrix<E>, index_domains: IndexDomains
 // This is equivalent to computing u_H(X, X) for a multiplicative group H
 // of order dom_size = |H|.
 // TODO: Add error checking and throwing
-pub fn compute_derivative<E: FieldElement>(x: E, dom_size: u128) -> E {
+pub fn compute_derivative<E: StarkField>(x: E, dom_size: u128) -> E {
     let dom_size_coeff = E::from(dom_size);
-    let power = E::PositiveInteger::from((dom_size-1).try_into().unwrap());
+    let power_u64: u64 = (dom_size-1).try_into().unwrap();
+    let power = E::PositiveInteger::from(power_u64);
     dom_size_coeff * x.exp(power)
 }
