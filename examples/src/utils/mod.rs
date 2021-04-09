@@ -1,9 +1,9 @@
-use math::field::StarkField;
 use prover::math::{
     fft,
-    field::{BaseElement, FieldElement},
+    field::{BaseElement, FieldElement, StarkField},
+    utils::read_elements_into_vec,
 };
-use std::ops::Range;
+use std::{convert::TryInto, ops::Range};
 
 pub mod rescue;
 
@@ -39,13 +39,13 @@ pub trait EvaluationResult<E> {
 
 impl<E: FieldElement> EvaluationResult<E> for [E] {
     fn agg_constraint(&mut self, index: usize, flag: E, value: E) {
-        self[index] = self[index] + flag * value;
+        self[index] += flag * value;
     }
 }
 
 impl<E: FieldElement> EvaluationResult<E> for Vec<E> {
     fn agg_constraint(&mut self, index: usize, flag: E, value: E) {
-        self[index] = self[index] + flag * value;
+        self[index] += flag * value;
     }
 }
 
@@ -84,13 +84,13 @@ pub fn extend_cyclic_values(
 pub type TreeNode = (BaseElement, BaseElement);
 
 pub fn node_to_bytes(node: TreeNode) -> [u8; 32] {
-    let mut result = [0; 32];
-    BaseElement::write_into(&[node.0, node.1], &mut result).unwrap();
-    result
+    BaseElement::elements_as_bytes(&[node.0, node.1])
+        .try_into()
+        .unwrap()
 }
 
 pub fn bytes_to_node(bytes: [u8; 32]) -> TreeNode {
-    let elements = BaseElement::read_to_vec(&bytes).unwrap();
+    let elements = read_elements_into_vec(&bytes).unwrap();
     (elements[0], elements[1])
 }
 
@@ -147,7 +147,7 @@ pub fn print_trace(
             i,
             state[range.clone()]
                 .iter()
-                .map(|v| v.as_u128())
+                .map(|v| v.as_int())
                 .collect::<Vec<u128>>()
         );
     }
@@ -162,6 +162,6 @@ pub fn print_trace_step(trace: &[Vec<BaseElement>], step: usize) {
     println!(
         "{}\t{:?}",
         step,
-        state.iter().map(|v| v.as_u128()).collect::<Vec<u128>>()
+        state.iter().map(|v| v.as_int()).collect::<Vec<u128>>()
     );
 }

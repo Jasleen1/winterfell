@@ -1,6 +1,6 @@
 use crate::{
     field::{FieldElement, StarkField},
-    utils::uninit_vector,
+    utils::{log2, uninit_vector},
 };
 use rayon::prelude::*;
 
@@ -32,7 +32,7 @@ where
     E: FieldElement + From<B>,
 {
     let domain_size = p.len() * blowup_factor;
-    let g = B::get_root_of_unity(domain_size.trailing_zeros());
+    let g = B::get_root_of_unity(log2(domain_size));
     let mut result = uninit_vector(domain_size);
 
     result
@@ -134,7 +134,7 @@ pub(super) fn split_radix_fft<B: StarkField, E: FieldElement + From<B>>(
     let g = E::from(twiddles[twiddles.len() / 2]);
     debug_assert_eq!(g.exp((n as u32).into()), E::ONE);
 
-    let inner_len = 1_usize << (n.trailing_zeros() / 2);
+    let inner_len = 1_usize << (log2(n) / 2);
     let outer_len = n / inner_len;
     let stretch = outer_len / inner_len;
     debug_assert!(outer_len == inner_len || outer_len == 2 * inner_len);

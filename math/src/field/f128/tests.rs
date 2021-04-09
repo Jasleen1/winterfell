@@ -1,8 +1,11 @@
 use super::*;
 use num_bigint::BigUint;
 
+// BASIC ALGEBRA
+// ================================================================================================
+
 #[test]
-fn test_add() {
+fn add() {
     // identity
     let r = BaseElement::rand();
     assert_eq!(r, r + BaseElement::ZERO);
@@ -28,7 +31,7 @@ fn test_add() {
 }
 
 #[test]
-fn test_sub() {
+fn sub() {
     // identity
     let r = BaseElement::rand();
     assert_eq!(r, r - BaseElement::ZERO);
@@ -45,7 +48,7 @@ fn test_sub() {
 }
 
 #[test]
-fn test_mul() {
+fn mul() {
     // identity
     let r = BaseElement::rand();
     assert_eq!(BaseElement::ZERO, r * BaseElement::ZERO);
@@ -88,7 +91,7 @@ fn test_mul() {
 }
 
 #[test]
-fn test_inv() {
+fn inv() {
     // identity
     assert_eq!(BaseElement::ONE, BaseElement::inv(BaseElement::ONE));
     assert_eq!(BaseElement::ZERO, BaseElement::inv(BaseElement::ZERO));
@@ -102,34 +105,41 @@ fn test_inv() {
 }
 
 #[test]
-fn test_get_root_of_unity() {
+fn conjugate() {
+    let a = BaseElement::rand();
+    let b = a.conjugate();
+    assert_eq!(a, b);
+}
+
+// ROOTS OF UNITY
+// ================================================================================================
+
+#[test]
+fn get_root_of_unity() {
     let root_40 = BaseElement::get_root_of_unity(40);
     assert_eq!(
         BaseElement::from(23953097886125630542083529559205016746u128),
         root_40
     );
-    assert_eq!(
-        BaseElement::ONE,
-        BaseElement::exp(root_40, u128::pow(2, 40))
-    );
+    assert_eq!(BaseElement::ONE, root_40.exp(u128::pow(2, 40)));
 
     let root_39 = BaseElement::get_root_of_unity(39);
-    let expected = BaseElement::exp(root_40, 2);
+    let expected = root_40.exp(2);
     assert_eq!(expected, root_39);
-    assert_eq!(
-        BaseElement::ONE,
-        BaseElement::exp(root_39, u128::pow(2, 39))
-    );
+    assert_eq!(BaseElement::ONE, root_39.exp(u128::pow(2, 39)));
 }
 
 #[test]
 fn test_g_is_2_exp_40_root() {
     let g = BaseElement::TWO_ADIC_ROOT_OF_UNITY;
-    assert_eq!(BaseElement::exp(g, 1u128 << 40), BaseElement::ONE);
+    assert_eq!(g.exp(1u128 << 40), BaseElement::ONE);
 }
 
+// SERIALIZATION / DESERIALIZATION
+// ================================================================================================
+
 #[test]
-fn test_array_as_bytes() {
+fn array_as_bytes() {
     let source: &[BaseElement; 4] = &[
         BaseElement::new(1),
         BaseElement::new(2),
@@ -147,46 +157,112 @@ fn test_array_as_bytes() {
 }
 
 #[test]
-fn test_get_power_series() {
-    let n = 1024 * 4; // big enough for concurrent series generation
-    let b = BaseElement::from(3u8);
+fn elements_into_bytes() {
+    let source = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
 
-    let mut expected = vec![BaseElement::ZERO; n];
-    for (i, value) in expected.iter_mut().enumerate() {
-        *value = b.exp((i as u64).into());
-    }
+    let expected: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
 
-    let actual = BaseElement::get_power_series(b, n);
-    assert_eq!(expected, actual);
+    assert_eq!(expected, BaseElement::elements_into_bytes(source));
 }
 
 #[test]
-fn test_get_power_series_with_offset() {
-    let n = 1024 * 4; // big enough for concurrent series generation
-    let b = BaseElement::from(3u8);
-    let s = BaseElement::from(7u8);
+fn elements_as_bytes() {
+    let source = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
 
-    let mut expected = vec![BaseElement::ZERO; n];
-    for (i, value) in expected.iter_mut().enumerate() {
-        *value = s * b.exp((i as u64).into());
+    let expected: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ];
+
+    assert_eq!(expected, BaseElement::elements_as_bytes(&source));
+}
+
+#[test]
+fn bytes_as_elements() {
+    let bytes: Vec<u8> = vec![
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 5,
+    ];
+
+    let expected = vec![
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+    ];
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[..64]) };
+    assert!(result.is_ok());
+    assert_eq!(expected, result.unwrap());
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes) };
+    assert_eq!(
+        result,
+        Err(SerializationError::NotEnoughBytesForWholeElements(65))
+    );
+
+    let result = unsafe { BaseElement::bytes_as_elements(&bytes[1..]) };
+    assert_eq!(result, Err(SerializationError::InvalidMemoryAlignment));
+}
+
+// INITIALIZATION
+// ================================================================================================
+
+#[test]
+fn zeroed_vector() {
+    let result = BaseElement::zeroed_vector(4);
+    assert_eq!(4, result.len());
+    for element in result.into_iter() {
+        assert_eq!(BaseElement::ZERO, element);
+    }
+}
+
+#[test]
+fn prng_vector() {
+    let a = BaseElement::prng_vector([0; 32], 4);
+    assert_eq!(4, a.len());
+
+    let b = BaseElement::prng_vector([0; 32], 8);
+    assert_eq!(8, b.len());
+
+    for (&a, &b) in a.iter().zip(b.iter()) {
+        assert_eq!(a, b);
     }
 
-    let actual = BaseElement::get_power_series_with_offset(b, s, n);
-    assert_eq!(expected, actual);
+    let c = BaseElement::prng_vector([1; 32], 4);
+    for (&a, &c) in a.iter().zip(c.iter()) {
+        assert_ne!(a, c);
+    }
 }
 
 // HELPER FUNCTIONS
 // ================================================================================================
 fn build_seed() -> [u8; 32] {
     let mut result = [0; 32];
-    let seed = BaseElement::rand().to_bytes();
+    let seed = BaseElement::rand().as_bytes().to_vec();
     result[..16].copy_from_slice(&seed);
     result
 }
 
 impl BaseElement {
     pub fn to_big_uint(&self) -> BigUint {
-        BigUint::from_bytes_le(&self.to_bytes())
+        BigUint::from_bytes_le(self.as_bytes())
     }
 
     pub fn from_big_uint(value: BigUint) -> Self {

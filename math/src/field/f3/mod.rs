@@ -1,9 +1,9 @@
 use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
-use crate::utils;
+use crate::{errors::SerializationError, utils};
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Range, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
 use rand::{distributions::Uniform, prelude::*};
@@ -44,10 +44,21 @@ impl SmallFieldElement7 {
     pub fn as_u128(&self) -> u128 {
         self.0
     }
+
+    pub fn get_power_series(b: Self, n: usize) -> Vec<Self> {
+        let mut result = utils::uninit_vector(n);
+        result[0] = SmallFieldElement7::ONE;
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * b;
+        }
+        result
+    }
+    
 }
 
 impl FieldElement for SmallFieldElement7 {
     type PositiveInteger = u128;
+    type Base = Self;
 
     const ZERO: Self = SmallFieldElement7(0);
     const ONE: Self = SmallFieldElement7(1);
@@ -58,14 +69,8 @@ impl FieldElement for SmallFieldElement7 {
         SmallFieldElement7(inv(self.0))
     }
 
-    /// This implementation is about 5% faster than the one in the trait.
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = utils::uninit_vector(n);
-        result[0] = SmallFieldElement7::ONE;
-        for i in 1..result.len() {
-            result[i] = result[i - 1] * b;
-        }
-        result
+    fn conjugate(&self) -> Self {
+        SmallFieldElement7(self.0)
     }
 
     fn rand() -> Self {
@@ -78,9 +83,28 @@ impl FieldElement for SmallFieldElement7 {
         Self::try_from(bytes).ok()
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range).take(n).map(SmallFieldElement7).collect()
     }
+
+    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8> {
+       unimplemented!()
+    }
+
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        unimplemented!()
+    }
+
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError> {
+        unimplemented!()
+    }
+
+    fn zeroed_vector(n: usize) -> Vec<Self> {
+        unimplemented!()
+    }
+    
 }
 
 impl StarkField for SmallFieldElement7 {
@@ -123,15 +147,13 @@ impl StarkField for SmallFieldElement7 {
         Self::exp(Self::GENERATOR, power.into())
     }
 
-    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
-        let range = Uniform::from(RANGE);
-        let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(SmallFieldElement7).collect()
+    
+    fn as_int(&self) -> Self::PositiveInteger {
+        self.0
     }
-
-    fn from_int(value: u128) -> Self {
-        SmallFieldElement7::new(value)
-    }
+    // fn from_int(value: u128) -> Self {
+    //     SmallFieldElement7::new(value)
+    // }
 }
 
 impl FromVec<SmallFieldElement7> for SmallFieldElement7 {}
@@ -153,11 +175,23 @@ impl Add for SmallFieldElement7 {
     }
 }
 
+impl AddAssign for SmallFieldElement7 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
+    }
+}
+
 impl Sub for SmallFieldElement7 {
     type Output = SmallFieldElement7;
 
     fn sub(self, rhs: SmallFieldElement7) -> SmallFieldElement7 {
         SmallFieldElement7(sub(self.0, rhs.0))
+    }
+}
+
+impl SubAssign for SmallFieldElement7 {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -169,11 +203,24 @@ impl Mul for SmallFieldElement7 {
     }
 }
 
+impl MulAssign for SmallFieldElement7 {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
+    }
+}
+
+
 impl Div for SmallFieldElement7 {
     type Output = SmallFieldElement7;
 
     fn div(self, rhs: SmallFieldElement7) -> SmallFieldElement7 {
         SmallFieldElement7(mul(self.0, inv(rhs.0)))
+    }
+}
+
+impl DivAssign for SmallFieldElement7 {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 
@@ -323,6 +370,7 @@ fn extended_euclidean(x: u128, y: u128) -> (u128, u128) {
     // let q: i128 = {(u1 - v1 * (x/y)) as i128} + {M as i128};
     // let q_mod_M = q % {M as i128}; 
     let subtracting_term = v1*(x/y);
+    let subtracting_term = subtracting_term % M;
     let second_term = (M + u1 - subtracting_term) % M;
     (v1, second_term)
     // (v1, (M + u1) - v1 * (x/y))

@@ -3,7 +3,7 @@ use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Range, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
 use rand::{distributions::Uniform, prelude::*};
@@ -53,6 +53,17 @@ impl SmallFieldElement37 {
     pub fn to_small_prime_field_elt(elt: Self) -> SmallPrimeFieldElement {
         SmallPrimeFieldElement{value: elt.0, modulus: M}
     }
+
+    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
+        let mut result = utils::uninit_vector(n);
+        result[0] = SmallFieldElement37::ONE;
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * b;
+        }
+        result
+    }
+
+    
 }
 
 impl FieldElement for SmallFieldElement37 {
@@ -67,15 +78,7 @@ impl FieldElement for SmallFieldElement37 {
         Self::from_small_prime_field_elt(Self::to_small_prime_field_elt(self).inv())
     }
 
-    /// This implementation is about 5% faster than the one in the trait.
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = utils::uninit_vector(n);
-        result[0] = SmallFieldElement37::ONE;
-        for i in 1..result.len() {
-            result[i] = result[i - 1] * b;
-        }
-        result
-    }
+    
 
     fn rand() -> Self {
         let range = Uniform::from(RANGE);
@@ -87,9 +90,12 @@ impl FieldElement for SmallFieldElement37 {
         Self::try_from(bytes).ok()
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range).take(n).map(SmallFieldElement37::new).collect()
     }
+    
 }
 
 impl StarkField for SmallFieldElement37 {
@@ -133,15 +139,11 @@ impl StarkField for SmallFieldElement37 {
         // Self::exp(Self::GENERATOR, power.into())
     }
 
-    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
-        let range = Uniform::from(RANGE);
-        let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(SmallFieldElement37::new).collect()
-    }
+    
 
-    fn from_int(value: u64) -> Self {
-        SmallFieldElement37::new(value)
-    }
+    // fn from_int(value: u64) -> Self {
+    //     SmallFieldElement37::new(value)
+    // }
 }
 
 impl FromVec<SmallFieldElement37> for SmallFieldElement37 {}
@@ -163,11 +165,23 @@ impl Add for SmallFieldElement37 {
     }
 }
 
+impl AddAssign for SmallFieldElement37 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
+    }
+}
+
 impl Sub for SmallFieldElement37 {
     type Output = SmallFieldElement37;
 
     fn sub(self, rhs: SmallFieldElement37) -> SmallFieldElement37 {
         Self::from_small_prime_field_elt(Self::to_small_prime_field_elt(self) - Self::to_small_prime_field_elt(rhs))
+    }
+}
+
+impl SubAssign for SmallFieldElement37 {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -179,11 +193,23 @@ impl Mul for SmallFieldElement37 {
     }
 }
 
+impl MulAssign for SmallFieldElement37 {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
+    }
+}
+
 impl Div for SmallFieldElement37 {
     type Output = SmallFieldElement37;
 
     fn div(self, rhs: SmallFieldElement37) -> SmallFieldElement37 {
         Self::from_small_prime_field_elt(Self::to_small_prime_field_elt(self) / Self::to_small_prime_field_elt(rhs))
+    }
+}
+
+impl DivAssign for SmallFieldElement37 {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 

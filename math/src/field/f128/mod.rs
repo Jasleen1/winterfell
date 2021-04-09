@@ -1,12 +1,17 @@
 use super::traits::{AsBytes, FieldElement, FromVec, StarkField};
+use crate::errors::SerializationError;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Range, Sub},
+    mem,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
 use rand::{distributions::Uniform, prelude::*};
 use serde::{Deserialize, Serialize};
+
+mod extensions;
+pub use extensions::QuadElement;
 
 #[cfg(test)]
 mod tests;
@@ -28,6 +33,7 @@ const ELEMENT_BYTES: usize = std::mem::size_of::<u128>();
 // FIELD ELEMENT
 // ================================================================================================
 
+// TODO: get rid of Serialize and Deserialize derives
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BaseElement(u128);
 
@@ -35,19 +41,14 @@ impl BaseElement {
     /// Creates a new field element from a u128 value. If the value is greater than or equal to
     /// the field modulus, modular reduction is silently preformed. This function can also be used
     /// to initialize constants.
-    /// TODO: move into StarkField trait?
     pub const fn new(value: u128) -> Self {
         BaseElement(if value < M { value } else { value - M })
-    }
-
-    /// Returns filed element converted to u128 representation.
-    pub fn as_u128(&self) -> u128 {
-        self.0
     }
 }
 
 impl FieldElement for BaseElement {
     type PositiveInteger = u128;
+    type Base = Self;
 
     const ZERO: Self = BaseElement(0);
     const ONE: Self = BaseElement(1);
@@ -56,6 +57,10 @@ impl FieldElement for BaseElement {
 
     fn inv(self) -> Self {
         BaseElement(inv(self.0))
+    }
+
+    fn conjugate(&self) -> Self {
+        BaseElement(self.0)
     }
 
     fn rand() -> Self {
@@ -68,8 +73,55 @@ impl FieldElement for BaseElement {
         Self::try_from(bytes).ok()
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
+    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8> {
+        let mut v = std::mem::ManuallyDrop::new(elements);
+        let p = v.as_mut_ptr();
+        let len = v.len() * Self::ELEMENT_BYTES;
+        let cap = v.capacity() * Self::ELEMENT_BYTES;
+        unsafe { Vec::from_raw_parts(p as *mut u8, len, cap) }
+    }
+
+    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+        elements.as_bytes()
+    }
+
+    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError> {
+        if bytes.len() % Self::ELEMENT_BYTES != 0 {
+            return Err(SerializationError::NotEnoughBytesForWholeElements(
+                bytes.len(),
+            ));
+        }
+
+        let p = bytes.as_ptr();
+        let len = bytes.len() / Self::ELEMENT_BYTES;
+
+        if (p as usize) % mem::align_of::<u128>() != 0 {
+            return Err(SerializationError::InvalidMemoryAlignment);
+        }
+
+        Ok(slice::from_raw_parts(p as *const Self, len))
+    }
+
+    fn zeroed_vector(n: usize) -> Vec<Self> {
+        // this uses a specialized vector initialization code which requests zero-filled memory
+        // from the OS; unfortunately, this works only for built-in types and we can't use
+        // Self::ZERO here as much less efficient initialization procedure will be invoked.
+        // We also use u128 to make sure the memory is aligned correctly for our element size.
+        debug_assert_eq!(Self::ELEMENT_BYTES, mem::size_of::<u128>());
+        let result = vec![0u128; n];
+
+        // translate a zero-filled vector of u128s into a vector of base field elements
+        let mut v = std::mem::ManuallyDrop::new(result);
+        let p = v.as_mut_ptr();
+        let len = v.len();
+        let cap = v.capacity();
+        unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
+    }
+
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range).take(n).map(BaseElement).collect()
     }
 }
 
@@ -95,14 +147,8 @@ impl StarkField for BaseElement {
     /// 23953097886125630542083529559205016746
     const TWO_ADIC_ROOT_OF_UNITY: Self = BaseElement(G);
 
-    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
-        let range = Uniform::from(RANGE);
-        let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(BaseElement).collect()
-    }
-
-    fn from_int(value: u128) -> Self {
-        BaseElement::new(value)
+    fn as_int(&self) -> Self::PositiveInteger {
+        self.0
     }
 }
 
@@ -118,41 +164,65 @@ impl Display for BaseElement {
 // ================================================================================================
 
 impl Add for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn add(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(add(self.0, rhs.0))
+    fn add(self, rhs: Self) -> Self {
+        Self(add(self.0, rhs.0))
+    }
+}
+
+impl AddAssign for BaseElement {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
     }
 }
 
 impl Sub for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn sub(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(sub(self.0, rhs.0))
+    fn sub(self, rhs: Self) -> Self {
+        Self(sub(self.0, rhs.0))
+    }
+}
+
+impl SubAssign for BaseElement {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
 impl Mul for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn mul(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(mul(self.0, rhs.0))
+    fn mul(self, rhs: Self) -> Self {
+        Self(mul(self.0, rhs.0))
+    }
+}
+
+impl MulAssign for BaseElement {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
     }
 }
 
 impl Div for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn div(self, rhs: BaseElement) -> BaseElement {
-        BaseElement(mul(self.0, inv(rhs.0)))
+    fn div(self, rhs: Self) -> Self {
+        Self(mul(self.0, inv(rhs.0)))
+    }
+}
+
+impl DivAssign for BaseElement {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 
 impl Neg for BaseElement {
-    type Output = BaseElement;
+    type Output = Self;
 
-    fn neg(self) -> BaseElement {
+    fn neg(self) -> Self {
         Self(sub(0, self.0))
     }
 }
@@ -231,21 +301,31 @@ impl AsBytes for BaseElement {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
         let self_ptr: *const BaseElement = self;
-        unsafe { slice::from_raw_parts(self_ptr as *const u8, ELEMENT_BYTES) }
+        unsafe { slice::from_raw_parts(self_ptr as *const u8, BaseElement::ELEMENT_BYTES) }
     }
 }
 
 impl AsBytes for [BaseElement] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
-        unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
+        unsafe {
+            slice::from_raw_parts(
+                self.as_ptr() as *const u8,
+                self.len() * BaseElement::ELEMENT_BYTES,
+            )
+        }
     }
 }
 
-impl AsBytes for [BaseElement; 4] {
+impl<const N: usize> AsBytes for [BaseElement; N] {
     fn as_bytes(&self) -> &[u8] {
         // TODO: take endianness into account
-        unsafe { slice::from_raw_parts(self.as_ptr() as *const u8, self.len() * ELEMENT_BYTES) }
+        unsafe {
+            slice::from_raw_parts(
+                self.as_ptr() as *const u8,
+                self.len() * BaseElement::ELEMENT_BYTES,
+            )
+        }
     }
 }
 

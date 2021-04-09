@@ -1,17 +1,20 @@
-use common::{
-    errors::ProverError, proof::StarkProof, utils::log2, Assertions, ComputationContext,
-    PublicCoin, TransitionEvaluator,
-};
-use log::debug;
-use math::field::{BaseElement, FieldElement, FromVec};
-use std::time::Instant;
-
 use super::{
     constraints::{ConstraintCommitment, ConstraintEvaluator},
     deep_fri::CompositionPoly,
     trace::ExecutionTrace,
-    utils, ProverChannel, StarkDomain,
+    ProverChannel, StarkDomain,
 };
+use common::{
+    errors::ProverError, proof::StarkProof, Assertions, ComputationContext, PublicCoin,
+    TransitionEvaluator,
+};
+use log::debug;
+use math::{
+    fft::infer_degree,
+    field::{BaseElement, FieldElement, FromVec},
+    utils::log2,
+};
+use std::time::Instant;
 
 // PROOF GENERATION PROCEDURE
 // ================================================================================================
@@ -54,7 +57,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 2 ----- commit to the extended execution trace -----------------------------------------
+    // 2 ----- commit to the extended execution trace ---------------------------------------------
     let now = Instant::now();
     let trace_tree = extended_trace.build_commitment(context.options().hash_fn());
     channel.commit_trace(*trace_tree.root());
@@ -64,7 +67,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 3 ----- evaluate constraints -----------------------------------------------------------
+    // 3 ----- evaluate constraints ---------------------------------------------------------------
     let now = Instant::now();
 
     // build constraint evaluator; the channel is passed in for the evaluator to draw random
@@ -81,7 +84,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 4 ----- commit to constraint evaluations -----------------------------------------------
+    // 4 ----- commit to constraint evaluations ---------------------------------------------------
 
     // first, build a single constraint polynomial from all constraint evaluations
     let now = Instant::now();
@@ -112,7 +115,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 5 ----- build DEEP composition polynomial ----------------------------------------------
+    // 5 ----- build DEEP composition polynomial --------------------------------------------------
     let now = Instant::now();
 
     // draw an out-of-domain point z. Depending on the type of E, the point is drawn either
@@ -143,12 +146,14 @@ where
         now.elapsed().as_millis()
     );
 
-    // 6 ----- evaluate DEEP composition polynomial over LDE domain ---------------------------
+    // 6 ----- evaluate DEEP composition polynomial over LDE domain -------------------------------
     let now = Instant::now();
     let composed_evaluations = composition_poly.evaluate(&domain);
+    // we check the following condition in debug mode only because infer_degree is an expensive
+    // operation
     debug_assert_eq!(
         context.deep_composition_degree(),
-        utils::infer_degree(&composed_evaluations)
+        infer_degree(&composed_evaluations, domain.offset())
     );
     debug!(
         "Evaluated DEEP composition polynomial over LDE domain (2^{} elements) in {} ms",
@@ -156,7 +161,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 7 ----- compute FRI layers for the composition polynomial ------------------------------
+    // 7 ----- compute FRI layers for the composition polynomial ----------------------------------
     let now = Instant::now();
     let mut fri_prover = fri::FriProver::new(context.options().to_fri_options());
     fri_prover.build_layers(&mut channel, composed_evaluations, &domain.lde_values());
@@ -166,7 +171,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 8 ----- determine query positions ------------------------------------------------------
+    // 8 ----- determine query positions ----------------------------------------------------------
     let now = Instant::now();
 
     // apply proof-of-work to the query seed
@@ -180,7 +185,7 @@ where
         now.elapsed().as_millis()
     );
 
-    // 9 ----- build proof object -------------------------------------------------------------
+    // 9 ----- build proof object -----------------------------------------------------------------
     let now = Instant::now();
 
     // generate FRI proof

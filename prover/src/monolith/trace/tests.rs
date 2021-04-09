@@ -6,6 +6,7 @@ use crypto::{hash::blake3, MerkleTree};
 use math::{
     field::{AsBytes, BaseElement, FieldElement, StarkField},
     polynom,
+    utils::{get_power_series, log2},
 };
 
 #[test]
@@ -42,8 +43,8 @@ fn extend_trace_table() {
     assert_eq!(32, extended_trace.len());
 
     // make sure trace polynomials evaluate to Fibonacci trace
-    let trace_root = BaseElement::get_root_of_unity(trace_length.trailing_zeros());
-    let trace_domain = BaseElement::get_power_series(trace_root, trace_length);
+    let trace_root = BaseElement::get_root_of_unity(log2(trace_length));
+    let trace_domain = get_power_series(trace_root, trace_length);
     assert_eq!(2, trace_polys.num_polys());
     assert_eq!(
         vec![1u32, 2, 5, 13, 34, 89, 233, 610]

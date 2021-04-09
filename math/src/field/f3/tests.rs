@@ -156,14 +156,15 @@ fn test_array_as_bytes() {
 // ================================================================================================
 fn build_seed() -> [u8; 32] {
     let mut result = [0; 32];
-    let seed = SmallFieldElement7::rand().to_bytes();
+    let random_elt = SmallFieldElement7::rand();
+    let seed = random_elt.as_bytes();
     result[..16].copy_from_slice(&seed);
     result
 }
 
 impl SmallFieldElement7 {
     pub fn to_big_uint(&self) -> BigUint {
-        BigUint::from_bytes_le(&self.to_bytes())
+        BigUint::from_bytes_le(&self.as_bytes())
     }
 
     pub fn from_big_uint(value: BigUint) -> Self {

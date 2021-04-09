@@ -81,17 +81,11 @@ pub fn hash_values<E: FieldElement>(
         super::hash_values(values, hash)
     } else {
         let mut result: Vec<[u8; 32]> = uninit_vector(values.len());
-        // TODO: ideally, this should be done using something like update() method of a hasher
         result
             .par_iter_mut()
             .zip(values.par_iter())
             .for_each(|(r, v)| {
-                let mut buf = vec![0u8; FOLDING_FACTOR * E::ELEMENT_BYTES];
-                buf[..E::ELEMENT_BYTES].copy_from_slice(&v[0].to_bytes());
-                buf[E::ELEMENT_BYTES..E::ELEMENT_BYTES * 2].copy_from_slice(&v[1].to_bytes());
-                buf[E::ELEMENT_BYTES * 2..E::ELEMENT_BYTES * 3].copy_from_slice(&v[2].to_bytes());
-                buf[E::ELEMENT_BYTES * 3..E::ELEMENT_BYTES * 4].copy_from_slice(&v[3].to_bytes());
-                hash(&buf, r);
+                hash(E::elements_as_bytes(v), r);
             });
         result
     }

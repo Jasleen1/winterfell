@@ -2,7 +2,10 @@ use crate::{utils::rescue, Example, ExampleOptions};
 use log::debug;
 use prover::{
     crypto::hash::rescue_s,
-    math::field::{BaseElement, FieldElement},
+    math::{
+        field::{BaseElement, FieldElement},
+        utils::{log2, read_elements_into_vec},
+    },
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
@@ -68,7 +71,7 @@ impl Example for RescueExample {
 
         // Assert starting and ending values of the hash chain
         let last_step = (self.chain_length * 16) - 1;
-        let result = BaseElement::read_to_vec(&result).unwrap();
+        let result = read_elements_into_vec(&result).unwrap();
         let mut assertions = Assertions::new(STATE_WIDTH, last_step + 1).unwrap();
         assertions.add_single(0, 0, self.seed[0]).unwrap();
         assertions.add_single(1, 0, self.seed[1]).unwrap();
@@ -90,7 +93,7 @@ impl Example for RescueExample {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace.width(),
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 
@@ -108,7 +111,7 @@ impl Example for RescueExample {
 // HELPER FUNCTIONS
 // ================================================================================================
 fn compute_hash_chain(seed: [BaseElement; 2], length: usize) -> [u8; 32] {
-    let mut values: Vec<u8> = BaseElement::write_into_vec(&seed);
+    let mut values: Vec<u8> = BaseElement::elements_as_bytes(&seed).to_vec();
     let mut result = [0; 32];
 
     for _ in 0..length {

@@ -2,7 +2,7 @@ use std::convert::TryInto;
 
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
-use math::{fft, field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17, StarkField}};
+use math::{fft, utils, field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17, StarkField}};
 
 use crate::{indexed_matrix::IndexedMatrix, r1cs::R1CS};
 #[derive(Clone, Debug)]
@@ -64,8 +64,8 @@ pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseEl
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = BaseElement::get_root_of_unity(ext_field_size.trailing_zeros());
 
-    let i_field = BaseElement::get_power_series(i_field_base, num_input_variables); 
-    let h_field = BaseElement::get_power_series(h_field_base, num_constraints);
+    let i_field = utils::get_power_series(i_field_base, num_input_variables); 
+    let h_field = utils::get_power_series(h_field_base, num_constraints);
     
     // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
     // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);

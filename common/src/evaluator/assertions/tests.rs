@@ -1,7 +1,10 @@
 use super::*;
 use crate::{ComputationContext, FieldExtension, ProofOptions};
 use crypto::{hash::blake3, RandomElementGenerator};
-use math::field::{BaseElement, FieldElement};
+use math::{
+    field::{BaseElement, FieldElement},
+    utils::get_power_series,
+};
 
 // ASSERTION TESTS
 // ================================================================================================
@@ -259,7 +262,7 @@ fn build_assertion_constraints_one_cyclic_assertion() {
     let trace_length = 16;
     let context = build_context(trace_length);
     let coeff_prng = RandomElementGenerator::new([1; 32], 0, blake3);
-    let domain = BaseElement::get_power_series(context.generators().trace_domain, trace_length);
+    let domain = get_power_series(context.generators().trace_domain, trace_length);
 
     // initialize assertions collection
     let mut assertions = super::Assertions::new(1, trace_length).unwrap();
@@ -310,7 +313,7 @@ fn build_assertion_constraints_many_cyclic_assertions() {
     let trace_length = 16;
     let context = build_context(trace_length);
     let coeff_prng = RandomElementGenerator::new([1; 32], 0, blake3);
-    let domain = BaseElement::get_power_series(context.generators().trace_domain, trace_length);
+    let domain = get_power_series(context.generators().trace_domain, trace_length);
 
     // initialize assertions collection
     let mut assertions = super::Assertions::new(2, trace_length).unwrap();
@@ -422,7 +425,7 @@ fn build_assertion_constraints_point_and_cyclic_assertions() {
     let trace_length = 16;
     let context = build_context(trace_length);
     let coeff_prng = RandomElementGenerator::new([1; 32], 0, blake3);
-    let domain = BaseElement::get_power_series(context.generators().trace_domain, trace_length);
+    let domain = get_power_series(context.generators().trace_domain, trace_length);
 
     // initialize assertions collection
     let mut assertions = super::Assertions::new(2, trace_length).unwrap();

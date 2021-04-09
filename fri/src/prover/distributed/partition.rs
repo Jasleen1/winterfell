@@ -1,4 +1,4 @@
-use crate::{folding::quartic, utils::hash_values};
+use crate::{folding::quartic, folding::quartic::hash_values};
 use crypto::{MerkleTree, HashFunction};
 use math::field::{BaseElement, FieldElement, StarkField};
 use std::{sync::Arc, collections::HashSet};

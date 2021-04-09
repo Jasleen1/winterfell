@@ -8,8 +8,8 @@ pub struct EvaluationFrame<E: FieldElement> {
 impl<E: FieldElement> EvaluationFrame<E> {
     pub fn new(num_registers: usize) -> Self {
         EvaluationFrame {
-            current: vec![E::ZERO; num_registers],
-            next: vec![E::ZERO; num_registers],
+            current: E::zeroed_vector(num_registers),
+            next: E::zeroed_vector(num_registers),
         }
     }
 }

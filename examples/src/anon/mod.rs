@@ -3,15 +3,17 @@ use crate::{
     utils::{bytes_to_node, node_to_bytes, rescue, TreeNode},
     ExampleOptions,
 };
-use common::errors::VerifierError;
 use log::debug;
 use prover::{
     crypto::{hash::rescue_s, MerkleTree},
-    math::field::{BaseElement, FieldElement, StarkField},
+    math::{
+        field::{AsBytes, BaseElement, FieldElement, StarkField},
+        utils::{log2, read_elements_into_vec},
+    },
     Assertions, ProofOptions, Prover, StarkProof,
 };
 use std::time::Instant;
-use verifier::Verifier;
+use verifier::{Verifier, VerifierError};
 
 mod trace;
 use trace::generate_trace;
@@ -59,8 +61,8 @@ impl Example for AnonTokenExample {
         // print out sample values of token seed and service uuid
         debug!(
             "Set token_seed to {:x} and service_uuid to {:x}",
-            self.token_seed.as_u128(),
-            self.service_uuid.as_u128()
+            self.token_seed.as_int(),
+            self.service_uuid.as_int()
         );
 
         // compute issued token and service subtoken
@@ -78,7 +80,7 @@ impl Example for AnonTokenExample {
         // build Merkle tree of the specified depth with issued_token located at token_index
         let now = Instant::now();
         self.token_index =
-            (BaseElement::rand().as_u128() % u128::pow(2, tree_depth as u32)) as usize;
+            (BaseElement::rand().as_int() % u128::pow(2, tree_depth as u32)) as usize;
         let tree = build_merkle_tree(tree_depth, issued_token, self.token_index);
         debug!(
             "Inserted issued_token into Merkle tree of depth {} at index {} in {} ms",
@@ -105,7 +107,7 @@ impl Example for AnonTokenExample {
         // - registers [5, 6] at step 14 contain value of the subtoken
         // - service_uuid was inserted into register 6 at the first step
         let last_step = ((tree_depth + 1) * 16) - 1;
-        let root = BaseElement::read_to_vec(tree.root()).unwrap();
+        let root = read_elements_into_vec(tree.root()).unwrap();
         let mut assertions = Assertions::new(TRACE_TABLE_WIDTH, last_step + 1).unwrap();
         assertions.add_single(1, last_step, root[0]).unwrap();
         assertions.add_single(2, last_step, root[1]).unwrap();
@@ -130,7 +132,7 @@ impl Example for AnonTokenExample {
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
             trace.width(),
-            trace_length.trailing_zeros(),
+            log2(trace_length),
             now.elapsed().as_millis()
         );
 
@@ -161,7 +163,7 @@ fn build_merkle_tree(depth: usize, issued_token: TreeNode, index: usize) -> Merk
 
 fn build_issued_token(token_seed: BaseElement) -> (BaseElement, BaseElement) {
     let mut result = [0; 32];
-    rescue_s(&token_seed.to_bytes(), &mut result);
+    rescue_s(token_seed.as_bytes(), &mut result);
     bytes_to_node(result)
 }
 

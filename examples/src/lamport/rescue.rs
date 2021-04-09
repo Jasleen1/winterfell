@@ -1,5 +1,5 @@
 use crate::utils::{are_equal, EvaluationResult};
-use prover::math::field::{BaseElement, FieldElement};
+use prover::math::field::{AsBytes, BaseElement, FieldElement};
 
 /// Function state is set to 6 field elements or 96 bytes; 4 elements are reserved for rate
 /// and 2 elements are reserved for capacity.
@@ -43,7 +43,7 @@ impl Hasher {
     /// Absorbs data into the hasher state.
     pub fn update(&mut self, data: &[BaseElement]) {
         for &element in data {
-            self.state[self.idx] = self.state[self.idx] + element;
+            self.state[self.idx] += element;
             self.idx += 1;
             if self.idx % RATE_WIDTH == 0 {
                 apply_permutation(&mut self.state);
@@ -68,7 +68,7 @@ impl Hasher {
 
         let mut i = 0;
         for &element in data.iter() {
-            state[i] = state[i] + element;
+            state[i] += element;
             i += 1;
             if i % RATE_WIDTH == 0 {
                 apply_permutation(&mut state);
@@ -92,8 +92,8 @@ impl Hash {
     #[allow(dead_code)]
     pub fn to_bytes(&self) -> [u8; 32] {
         let mut bytes = [0; 32];
-        bytes[..16].copy_from_slice(&self.0[0].to_bytes());
-        bytes[16..].copy_from_slice(&self.0[1].to_bytes());
+        bytes[..16].copy_from_slice(self.0[0].as_bytes());
+        bytes[16..].copy_from_slice(self.0[1].as_bytes());
         bytes
     }
 
@@ -124,14 +124,14 @@ pub fn apply_round(state: &mut [BaseElement], step: usize) {
     apply_sbox(state);
     apply_mds(state);
     for i in 0..STATE_WIDTH {
-        state[i] = state[i] + ark[i];
+        state[i] += ark[i];
     }
 
     // apply second half of Rescue round
     apply_inv_sbox(state);
     apply_mds(state);
     for i in 0..STATE_WIDTH {
-        state[i] = state[i] + ark[STATE_WIDTH + i];
+        state[i] += ark[STATE_WIDTH + i];
     }
 }
 
@@ -153,7 +153,7 @@ pub fn enforce_round<E: FieldElement + From<BaseElement>>(
     apply_sbox(&mut step1);
     apply_mds(&mut step1);
     for i in 0..STATE_WIDTH {
-        step1[i] = step1[i] + ark[i];
+        step1[i] += ark[i];
     }
 
     // compute the state that should result from applying the inverse for the second
@@ -161,7 +161,7 @@ pub fn enforce_round<E: FieldElement + From<BaseElement>>(
     let mut step2 = [E::ZERO; STATE_WIDTH];
     step2.copy_from_slice(next);
     for i in 0..STATE_WIDTH {
-        step2[i] = step2[i] - ark[STATE_WIDTH + i];
+        step2[i] -= ark[STATE_WIDTH + i];
     }
     apply_inv_mds(&mut step2);
     apply_sbox(&mut step2);
@@ -199,7 +199,7 @@ pub fn get_round_constants() -> Vec<Vec<BaseElement>> {
 #[allow(clippy::needless_range_loop)]
 fn apply_sbox<E: FieldElement>(state: &mut [E]) {
     for i in 0..STATE_WIDTH {
-        state[i] = E::exp(state[i], ALPHA.into());
+        state[i] = state[i].exp(ALPHA.into());
     }
 }
 
@@ -208,7 +208,7 @@ fn apply_sbox<E: FieldElement>(state: &mut [E]) {
 fn apply_inv_sbox(state: &mut [BaseElement]) {
     // TODO: optimize
     for i in 0..STATE_WIDTH {
-        state[i] = BaseElement::exp(state[i], INV_ALPHA);
+        state[i] = state[i].exp(INV_ALPHA);
     }
 }
 
@@ -223,7 +223,7 @@ fn apply_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
         }
 
         for j in 0..STATE_WIDTH {
-            result[i] = result[i] + temp[j];
+            result[i] += temp[j];
         }
     }
     state.copy_from_slice(&result);
@@ -240,7 +240,7 @@ fn apply_inv_mds<E: FieldElement + From<BaseElement>>(state: &mut [E]) {
         }
 
         for j in 0..STATE_WIDTH {
-            result[i] = result[i] + temp[j];
+            result[i] += temp[j];
         }
     }
     state.copy_from_slice(&result);

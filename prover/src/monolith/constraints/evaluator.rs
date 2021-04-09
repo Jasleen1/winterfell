@@ -1,5 +1,4 @@
-use super::{AssertionConstraintGroup, ConstraintEvaluationTable};
-use crate::monolith::{domain::StarkDomain, trace::TraceTable};
+use super::{AssertionConstraintGroup, ConstraintEvaluationTable, StarkDomain, TraceTable};
 use common::{
     errors::EvaluatorError, Assertions, ComputationContext, ConstraintDivisor, EvaluationFrame,
     PublicCoin, TransitionEvaluator,
@@ -156,7 +155,7 @@ impl<T: TransitionEvaluator> ConstraintEvaluator<T> {
             evaluations[0] = self.evaluate_transition(&ev_frame, x, step, &mut t_evaluations);
 
             // when in debug mode, save transition constraint evaluations
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(feature = "concurrent")))]
             evaluation_table.update_transition_evaluations(step, &t_evaluations);
 
             // evaluate assertion constraints; the results go into remaining slots of the

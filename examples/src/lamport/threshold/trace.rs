@@ -3,7 +3,7 @@ use super::{
     SIG_CYCLE_LENGTH, STATE_WIDTH,
 };
 use prover::{
-    math::field::{BaseElement, FieldElement},
+    math::field::{BaseElement, FieldElement, StarkField},
     ExecutionTrace,
 };
 use std::collections::HashMap;
@@ -87,8 +87,8 @@ fn append_sig_verification(
     pub_key: &AggPublicKey,
     sig_count: usize,
 ) {
-    let m0 = msg[0].as_u128();
-    let m1 = msg[1].as_u128();
+    let m0 = msg[0].as_int();
+    let m1 = msg[1].as_int();
     let key_schedule = build_key_schedule(m0, m1, sig);
 
     // we verify that the individual public key exists in the aggregated public key after
@@ -210,7 +210,7 @@ fn append_sig_verification(
             // prepare Merkle path hashing registers for hashing of the next node
             update_merkle_path_hash(&mut merkle_path_hash, mp_bit, cycle_num, &key_path);
 
-            power_of_two = power_of_two * TWO;
+            power_of_two *= TWO;
         }
 
         // copy state into the trace
@@ -232,8 +232,8 @@ fn apply_message_acc(
 
     state[0] = BaseElement::from((m0 >> (cycle_num + 1)) & 1);
     state[1] = BaseElement::from((m1 >> (cycle_num + 1)) & 1);
-    state[2] = state[2] + power_of_two * m0_bit;
-    state[3] = state[3] + power_of_two * m1_bit;
+    state[2] += power_of_two * m0_bit;
+    state[3] += power_of_two * m1_bit;
 }
 
 fn init_hash_state(state: &mut [BaseElement], values: &[BaseElement; 2]) {
@@ -255,19 +255,19 @@ fn update_pub_key_hash(
     pub_key2: &[BaseElement],
 ) {
     if m0_bit == FieldElement::ONE {
-        state[0] = state[0] + sec_key1_hash[0];
-        state[1] = state[1] + sec_key1_hash[1];
+        state[0] += sec_key1_hash[0];
+        state[1] += sec_key1_hash[1];
     } else {
-        state[0] = state[0] + pub_key1[0];
-        state[1] = state[1] + pub_key1[1];
+        state[0] += pub_key1[0];
+        state[1] += pub_key1[1];
     }
 
     if m1_bit == FieldElement::ONE {
-        state[2] = state[2] + sec_key2_hash[0];
-        state[3] = state[3] + sec_key2_hash[1];
+        state[2] += sec_key2_hash[0];
+        state[3] += sec_key2_hash[1];
     } else {
-        state[2] = state[2] + pub_key2[0];
-        state[3] = state[3] + pub_key2[1];
+        state[2] += pub_key2[0];
+        state[3] += pub_key2[1];
     }
 }
 
@@ -305,7 +305,7 @@ fn update_merkle_path_index(
     // the cycle is offset by +1 because the first node in the Merkle path is redundant and we
     // get it by hashing the public key
     state[0] = BaseElement::from((index >> (cycle_num + 1)) & 1);
-    state[1] = state[1] + power_of_two * index_bit;
+    state[1] += power_of_two * index_bit;
 }
 
 // HELPER FUNCTIONS

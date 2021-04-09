@@ -1,7 +1,6 @@
-use std::marker::PhantomData;
-
 use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::field::FieldElement;
+use math::{field::FieldElement, utils::transmute_vector};
+use std::marker::PhantomData;
 
 // CONSTRAINT COMMITMENT
 // ================================================================================================
@@ -21,16 +20,12 @@ impl<E: FieldElement> ConstraintCommitment<E> {
             "number of values must be a power of 2"
         );
 
-        let evaluations_per_leaf = Self::evaluations_per_leaf();
+        // call evaluations_per_leaf() to make sure that the whole number of evaluations fits
+        // into a single leaf
+        let _ = Self::evaluations_per_leaf();
 
         // reinterpret vector of field elements as a vector of 32-byte arrays;
-        // TODO: move this into field element implementation
-        let mut v = std::mem::ManuallyDrop::new(evaluations);
-        let p = v.as_mut_ptr();
-        let len = v.len() / evaluations_per_leaf;
-        let cap = v.capacity() / evaluations_per_leaf;
-        let evaluations = unsafe { Vec::from_raw_parts(p as *mut [u8; 32], len, cap) };
-
+        let evaluations = transmute_vector::<u8, 32>(E::elements_into_bytes(evaluations));
         // build Merkle tree out of evaluations
         ConstraintCommitment {
             tree: MerkleTree::new(evaluations, hash_fn),

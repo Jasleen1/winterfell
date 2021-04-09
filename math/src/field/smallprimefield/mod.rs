@@ -2,7 +2,7 @@ use crate::utils;
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Range, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
 use rand::{distributions::Uniform, prelude::*};
@@ -28,7 +28,16 @@ pub struct SmallPrimeFieldElement {
 }
 
 
-
+impl SmallPrimeFieldElement {
+    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
+        let mut result = utils::uninit_vector(n);
+        result[0] = Self::get_one(b.modulus);
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * b;
+        }
+        result
+    }
+}
 
 
 impl FieldElement for SmallPrimeFieldElement {
@@ -43,14 +52,7 @@ impl FieldElement for SmallPrimeFieldElement {
         SmallPrimeFieldElement{value: inv(self.value, self.modulus), modulus: self.modulus}
     }
 
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = utils::uninit_vector(n);
-        result[0] = Self::get_one(b.modulus);
-        for i in 1..result.len() {
-            result[i] = result[i - 1] * b;
-        }
-        result
-    }
+    
 
     // These are dummies to satisfy the members for FieldElement
     fn rand() -> Self {
@@ -63,9 +65,15 @@ impl FieldElement for SmallPrimeFieldElement {
         Self::try_from(bytes).ok()
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range).take(n).map(SmallPrimeFieldElement).collect()
+    } 
+
+    // fn to_bytes(&self) -> Vec<u8> {
+    //     self.as_bytes().to_vec()
+    // }
 
 }
 
@@ -103,11 +111,23 @@ impl Add for SmallPrimeFieldElement {
     }
 }
 
+impl AddAssign for SmallPrimeFieldElement {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
+    }
+}
+
 impl Sub for SmallPrimeFieldElement {
     type Output = SmallPrimeFieldElement;
     fn sub(self, rhs: SmallPrimeFieldElement) -> SmallPrimeFieldElement {
         assert_eq!(self.modulus, rhs.modulus);
         SmallPrimeFieldElement::new(sub(self.value, rhs.value, self.modulus), self.modulus)
+    }
+}
+
+impl SubAssign for SmallPrimeFieldElement {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -119,12 +139,24 @@ impl Mul for SmallPrimeFieldElement {
     }
 }
 
+impl MulAssign for SmallPrimeFieldElement {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
+    }
+}
+
 impl Div for SmallPrimeFieldElement {
     type Output = SmallPrimeFieldElement;
     fn div(self, rhs: SmallPrimeFieldElement) -> SmallPrimeFieldElement {
         assert_eq!(self.modulus, rhs.modulus);
         let inv_rhs = inv(rhs.value, self.modulus);
         Self::new(mul(self.value, inv_rhs, self.modulus), self.modulus)
+    }
+}
+
+impl DivAssign for SmallPrimeFieldElement {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 

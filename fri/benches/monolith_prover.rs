@@ -3,6 +3,7 @@ use fri::{DefaultProverChannel, FriOptions, FriProver};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},
+    utils::{get_power_series, log2},
 };
 use std::time::Duration;
 
@@ -18,8 +19,8 @@ pub fn build_layers(c: &mut Criterion) {
     let options = FriOptions::new(BLOWUP_FACTOR, DOMAIN_OFFSET, crypto::hash::blake3);
 
     for &domain_size in &BATCH_SIZES {
-        let g = BaseElement::get_root_of_unity(domain_size.trailing_zeros());
-        let domain = BaseElement::get_power_series(g, domain_size);
+        let g = BaseElement::get_root_of_unity(log2(domain_size));
+        let domain = get_power_series(g, domain_size);
         let evaluations = build_evaluations(domain_size);
 
         fri_group.bench_with_input(

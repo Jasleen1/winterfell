@@ -1,6 +1,7 @@
 use crate::{
-    field::{BaseElement, FieldElement, StarkField},
+    field::{AsBytes, BaseElement, FieldElement, StarkField},
     polynom,
+    utils::{get_power_series, log2},
 };
 
 // POLYNOMIAL EVALUATION
@@ -117,9 +118,9 @@ fn fft_in_place() {
 #[test]
 fn fft_get_twiddles() {
     let n = super::MIN_CONCURRENT_SIZE * 2;
-    let g = BaseElement::get_root_of_unity(n.trailing_zeros());
+    let g = BaseElement::get_root_of_unity(log2(n));
 
-    let mut expected = BaseElement::get_power_series(g, n / 2);
+    let mut expected = get_power_series(g, n / 2);
     super::permute(&mut expected);
 
     let twiddles = super::get_twiddles::<BaseElement>(n);
@@ -130,7 +131,7 @@ fn fft_get_twiddles() {
 // ================================================================================================
 fn build_seed() -> [u8; 32] {
     let mut result = [0; 32];
-    let seed = BaseElement::rand().to_bytes();
+    let seed = BaseElement::rand().as_bytes().to_vec();
     result[..16].copy_from_slice(&seed);
     result
 }
@@ -140,6 +141,6 @@ fn build_random_element_vec(size: usize) -> Vec<BaseElement> {
 }
 
 fn build_domain(size: usize) -> Vec<BaseElement> {
-    let g = BaseElement::get_root_of_unity(size.trailing_zeros());
-    BaseElement::get_power_series(g, size)
+    let g = BaseElement::get_root_of_unity(log2(size));
+    get_power_series(g, size)
 }

@@ -1,9 +1,9 @@
 use super::{AsBytes, FieldElement, FromVec, StarkField};
-use crate::utils;
+use crate::{errors::SerializationError, utils};
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
-    ops::{Add, Div, Mul, Neg, Range, Sub},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Range, Sub, SubAssign},
     slice,
 };
 use rand::{distributions::Uniform, prelude::*};
@@ -46,13 +46,22 @@ impl SmallFieldElement17 {
         self.0
     }
 
+    pub fn get_power_series(b: Self, n: usize) -> Vec<Self> {
+        let mut result = utils::uninit_vector(n);
+        result[0] = SmallFieldElement17::ONE;
+        for i in 1..result.len() {
+            result[i] = result[i - 1] * b;
+        }
+        result
+    }
+
     pub fn get_twiddles(domain_size: usize) -> Vec<Self> {
         debug_assert!(
             domain_size.is_power_of_two(),
             "domain size must be a power of 2"
         );
         let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
-        let mut twiddles = Self::get_power_series(root, domain_size / 2);
+        let mut twiddles = utils::get_power_series(root, domain_size / 2);
         fft::permute(&mut twiddles);
         twiddles
     }
@@ -63,8 +72,8 @@ impl SmallFieldElement17 {
             "domain size must be a power of 2"
         );
         let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
-        let inv_root = Self::exp(root, (domain_size as u32 - 1).into());
-        let mut inv_twiddles = Self::get_power_series(inv_root, domain_size / 2);
+        let inv_root = root.exp((domain_size as u32 - 1).into());
+        let mut inv_twiddles = utils::get_power_series(inv_root, domain_size / 2);
         fft::permute(&mut inv_twiddles);
         inv_twiddles
     }
@@ -74,6 +83,7 @@ impl SmallFieldElement17 {
 
 impl FieldElement for SmallFieldElement17 {
     type PositiveInteger = u128;
+    type Base = Self;
 
     const ZERO: Self = SmallFieldElement17(0);
     const ONE: Self = SmallFieldElement17(1);
@@ -84,14 +94,8 @@ impl FieldElement for SmallFieldElement17 {
         SmallFieldElement17(inv(self.0))
     }
 
-    /// This implementation is about 5% faster than the one in the trait.
-    fn get_power_series(b: Self, n: usize) -> Vec<Self> {
-        let mut result = utils::uninit_vector(n);
-        result[0] = SmallFieldElement17::ONE;
-        for i in 1..result.len() {
-            result[i] = result[i - 1] * b;
-        }
-        result
+    fn conjugate(&self) -> Self {
+        SmallFieldElement17(self.0)
     }
 
     fn rand() -> Self {
@@ -104,9 +108,31 @@ impl FieldElement for SmallFieldElement17 {
         Self::try_from(bytes).ok()
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.as_bytes().to_vec()
-    }
+    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+        let range = Uniform::from(RANGE);
+        let g = StdRng::from_seed(seed);
+        g.sample_iter(range).take(n).map(SmallFieldElement17).collect()
+    } 
+
+    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8> {
+        unimplemented!()
+     }
+ 
+     fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+         unimplemented!()
+     }
+ 
+     unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError> {
+         unimplemented!()
+     }
+ 
+     fn zeroed_vector(n: usize) -> Vec<Self> {
+         unimplemented!()
+     }
+
+    // fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8> {
+    //     self.as_bytes().to_vec()
+    // }
 }
 
 impl StarkField for SmallFieldElement17 {
@@ -149,15 +175,19 @@ impl StarkField for SmallFieldElement17 {
         Self::exp(Self::GENERATOR, power.into())
     }
 
-    fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
-        let range = Uniform::from(RANGE);
-        let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(SmallFieldElement17).collect()
+    fn as_int(&self) -> Self::PositiveInteger {
+        self.0
     }
 
-    fn from_int(value: u128) -> Self {
-        SmallFieldElement17::new(value)
-    }
+    // fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
+    //     let range = Uniform::from(RANGE);
+    //     let g = StdRng::from_seed(seed);
+    //     g.sample_iter(range).take(n).map(SmallFieldElement17).collect()
+    // }
+
+    // fn from_int(value: u128) -> Self {
+    //     SmallFieldElement17::new(value)
+    // }
 }
 
 impl FromVec<SmallFieldElement17> for SmallFieldElement17 {}
@@ -179,11 +209,23 @@ impl Add for SmallFieldElement17 {
     }
 }
 
+impl AddAssign for SmallFieldElement17 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs
+    }
+}
+
 impl Sub for SmallFieldElement17 {
     type Output = SmallFieldElement17;
 
     fn sub(self, rhs: SmallFieldElement17) -> SmallFieldElement17 {
         SmallFieldElement17(sub(self.0, rhs.0))
+    }
+}
+
+impl SubAssign for SmallFieldElement17 {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
     }
 }
 
@@ -195,11 +237,23 @@ impl Mul for SmallFieldElement17 {
     }
 }
 
+impl MulAssign for SmallFieldElement17 {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs
+    }
+}
+
 impl Div for SmallFieldElement17 {
     type Output = SmallFieldElement17;
 
     fn div(self, rhs: SmallFieldElement17) -> SmallFieldElement17 {
         SmallFieldElement17(mul(self.0, inv(rhs.0)))
+    }
+}
+
+impl DivAssign for SmallFieldElement17 {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs
     }
 }
 
@@ -350,7 +404,10 @@ fn extended_euclidean(x: u128, y: u128) -> (u128, u128) {
     // let q: i128 = {(u1 - v1 * (x/y)) as i128} + {M as i128};
     // let q_mod_M = q % {M as i128}; 
     let subtracting_term = v1*(x/y);
-    let second_term = (M + u1 - subtracting_term) % M;
+    let subtracting_term = subtracting_term % M;
+    let subtracted = M - subtracting_term;
+    let second_term = (subtracted + u1) % M;
+    // let second_term = (M - subtracting_term + u1) % M;
     (v1, second_term)
     // (v1, (M + u1) - v1 * (x/y))
 }

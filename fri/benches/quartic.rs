@@ -1,6 +1,9 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use fri::folding::quartic::{self, to_quartic_vec};
-use math::field::{BaseElement, FieldElement, StarkField};
+use math::{
+    field::{BaseElement, FieldElement, StarkField},
+    utils::{get_power_series, log2},
+};
 
 static BATCH_SIZES: [usize; 3] = [65536, 131072, 262144];
 
@@ -26,8 +29,8 @@ criterion_main!(quartic_group);
 // ================================================================================================
 
 fn build_coordinate_batches(batch_size: usize) -> (Vec<[BaseElement; 4]>, Vec<[BaseElement; 4]>) {
-    let r = BaseElement::get_root_of_unity(batch_size.trailing_zeros());
-    let xs = to_quartic_vec(BaseElement::get_power_series(r, batch_size));
+    let r = BaseElement::get_root_of_unity(log2(batch_size));
+    let xs = to_quartic_vec(get_power_series(r, batch_size));
     let ys = to_quartic_vec(BaseElement::prng_vector([1; 32], batch_size));
     (xs, ys)
 }

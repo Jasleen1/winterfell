@@ -132,7 +132,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
             layers.push(FriProofLayer {
                 values: queried_values
                     .into_iter()
-                    .map(|v| E::write_into_vec(&v))
+                    .map(|v| E::elements_as_bytes(&v).to_vec())
                     .collect(),
                 paths: proof.nodes,
                 depth: proof.depth,
@@ -144,7 +144,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
         // TODO: write remainder to the proof in transposed form?
         let last_values = &self.layers[self.layers.len() - 1].evaluations;
         let n = last_values.len();
-        let mut remainder = vec![E::ZERO; n * FOLDING_FACTOR];
+        let mut remainder = E::zeroed_vector(n * FOLDING_FACTOR);
         for i in 0..last_values.len() {
             remainder[i] = last_values[i][0];
             remainder[i + n] = last_values[i][1];
@@ -157,7 +157,7 @@ impl<E: FieldElement + From<BaseElement>, C: ProverChannel> FriProver<E, C> {
 
         FriProof {
             layers,
-            rem_values: E::write_into_vec(&remainder),
+            rem_values: E::elements_as_bytes(&remainder).to_vec(),
             partitioned: false,
         }
     }
