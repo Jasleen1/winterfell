@@ -101,21 +101,21 @@ pub fn verify<AIR: Air>(
                 let public_coin = RandomCoin::new(&public_coin_seed);
                 let channel = VerifierChannel::new(&air, proof)?;
                 perform_verification::
-                    <AIR, AIR::BaseElement, Blake3_256<AIR::BaseElement>>
+                    <AIR, AIR::BaseField, Blake3_256<AIR::BaseField>>
                     (air, channel, public_coin)
             }
             HashFunction::Blake3_192 => {
                 let public_coin = RandomCoin::new(&public_coin_seed);
                 let channel = VerifierChannel::new(&air, proof)?;
                 perform_verification::
-                    <AIR, AIR::BaseElement, Blake3_192<AIR::BaseElement>>
+                    <AIR, AIR::BaseField, Blake3_192<AIR::BaseField>>
                     (air, channel, public_coin)
             }
             HashFunction::Sha3_256 => {
                 let public_coin = RandomCoin::new(&public_coin_seed);
                 let channel = VerifierChannel::new(&air, proof)?;
                 perform_verification::
-                    <AIR, AIR::BaseElement, Sha3_256<AIR::BaseElement>>
+                    <AIR, AIR::BaseField, Sha3_256<AIR::BaseField>>
                     (air, channel, public_coin)
             }
         },
@@ -124,21 +124,21 @@ pub fn verify<AIR: Air>(
                 let public_coin = RandomCoin::new(&public_coin_seed);
                 let channel = VerifierChannel::new(&air, proof)?;
                 perform_verification::
-                    <AIR, <AIR::BaseElement as StarkField>::QuadExtension, Blake3_256<AIR::BaseElement>>
+                    <AIR, <AIR::BaseField as StarkField>::QuadExtension, Blake3_256<AIR::BaseField>>
                     (air, channel, public_coin)
             }
             HashFunction::Blake3_192 => {
                 let public_coin = RandomCoin::new(&public_coin_seed);
                 let channel = VerifierChannel::new(&air, proof)?;
                 perform_verification::
-                    <AIR, <AIR::BaseElement as StarkField>::QuadExtension, Blake3_192<AIR::BaseElement>>
+                    <AIR, <AIR::BaseField as StarkField>::QuadExtension, Blake3_192<AIR::BaseField>>
                     (air, channel, public_coin)
             }
             HashFunction::Sha3_256 => {
                 let public_coin = RandomCoin::new(&public_coin_seed);
                 let channel = VerifierChannel::new(&air, proof)?;
                 perform_verification::
-                    <AIR, <AIR::BaseElement as StarkField>::QuadExtension, Sha3_256<AIR::BaseElement>>
+                    <AIR, <AIR::BaseField as StarkField>::QuadExtension, Sha3_256<AIR::BaseField>>
                     (air, channel, public_coin)
             }
         },
@@ -151,13 +151,13 @@ pub fn verify<AIR: Air>(
 /// attests to a correct execution of the computation specified by the provided `air`.
 fn perform_verification<A, E, H>(
     air: A,
-    mut channel: VerifierChannel<A::BaseElement, E, H>,
-    mut public_coin: RandomCoin<A::BaseElement, H>,
+    mut channel: VerifierChannel<A::BaseField, E, H>,
+    mut public_coin: RandomCoin<A::BaseField, H>,
 ) -> Result<(), VerifierError>
 where
     A: Air,
-    E: FieldElement<BaseField = A::BaseElement>,
-    H: ElementHasher<BaseField = A::BaseElement>,
+    E: FieldElement<BaseField = A::BaseField>,
+    H: ElementHasher<BaseField = A::BaseField>,
 {
     // 1 ----- trace commitment -------------------------------------------------------------------
     // read the commitment to evaluations of the trace polynomials over the LDE domain sent by the
