@@ -1,12 +1,8 @@
 [workspace]
 members = [
   "math",
-  "crypto",
-  "common",
   "fri",
-  "prover",
-  "verifier",
-  "examples",
+  "common",
   "fractal_indexer",
   "fractal_prover",
   "fractal_verifier",

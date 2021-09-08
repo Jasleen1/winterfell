@@ -1,34 +1,37 @@
 [package]
 name = "fri"
-version = "0.1.0"
+version = "0.2.0"
+description = "Implementation of FRI protocol for the Winterfell STARK prover/verifier"
+authors = ["winterfell contributors"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/novifinancial/winterfell"
+documentation = "https://docs.rs/winter-fri/0.2.0"
+categories = ["cryptography", "no-std"]
+keywords = ["crypto", "polynomial", "commitments"]
 edition = "2018"
 
 [lib]
 bench = false
 
 [[bench]]
-name = "monolith_prover"
+name = "prover"
 harness = false
 
 [[bench]]
-name = "quartic"
-required-features = ["concurrent"]
+name = "folding"
 harness = false
 
 [features]
-concurrent = ["rayon", "crypto/concurrent"]
+concurrent = ["winter-crypto/concurrent", "winter-math/concurrent", "winter-utils/concurrent", "std"]
+default = ["std"]
+std = ["winter-crypto/std", "winter-math/std", "winter-utils/std"]
 
 [dependencies]
-math = { path = "../math" }
-crypto = { path = "../crypto" }
-serde = { version = "1.0", features = ["derive"] }
-bincode = "1.3"
-kompact = { version = "0.10",  default-features = false, features = ["ser_id_64"]}
-log = "0.4"
-fasthash = "0.4"
-thiserror = "1.0"
-rayon = { version = "1.5", optional = true }
+winter-crypto = { version = "0.2", default-features = false }
+winter-math = { version = "0.2", default-features = false }
+winter-utils = { version = "0.2", default-features = false }
 
 [dev-dependencies]
-env_logger = "0.8"
 criterion = "0.3"
+winter-rand-utils = "0.2"

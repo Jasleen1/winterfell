@@ -1,14 +1,22 @@
-// Copyright (c) Facebook, Inc. and its affiliates.
-//
-// This source code is licensed under the MIT license found in the
-// LICENSE file in the root directory of this source tree.
+/// Maps positions in the current evaluation domain, to positions in the folded domain.
+pub fn fold_positions(
+    positions: &[usize],
+    source_domain_size: usize,
+    folding_factor: usize,
+) -> Vec<usize> {
+    let target_domain_size = source_domain_size / folding_factor;
 
-use winter_crypto::ElementHasher;
-use winter_math::FieldElement;
-use winter_utils::{collections::Vec, iter_mut, uninit_vector};
+    let mut result = Vec::new();
+    for position in positions {
+        let position = position % target_domain_size;
+        // make sure we don't record duplicated values
+        if !result.contains(&position) {
+            result.push(position);
+        }
+    }
 
-#[cfg(feature = "concurrent")]
-use utils::iterators::*;
+    result
+}
 
 /// Maps positions in the evaluation domain to indexes of commitment Merkle tree.
 pub fn map_positions_to_indexes(
@@ -37,15 +45,10 @@ pub fn map_positions_to_indexes(
     result
 }
 
-/// Hashes each of the arrays in the provided slice and returns a vector of resulting hashes.
-pub fn hash_values<H, E, const N: usize>(values: &[[E; N]]) -> Vec<H::Digest>
-where
-    E: FieldElement,
-    H: ElementHasher<BaseField = E::BaseField>,
-{
-    let mut result: Vec<H::Digest> = unsafe { uninit_vector(values.len()) };
-    iter_mut!(result, 1024).zip(values).for_each(|(r, v)| {
-        *r = H::hash_elements(v);
-    });
-    result
+pub fn uninit_vector<T>(length: usize) -> Vec<T> {
+    let mut vector = Vec::with_capacity(length);
+    unsafe {
+        vector.set_len(length);
+    }
+    vector
 }

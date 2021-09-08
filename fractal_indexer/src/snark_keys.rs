@@ -1,15 +1,17 @@
-use crate::{index::*, indexed_matrix::*, r1cs::*};
-use crypto::{HashFunction, MerkleTree};
+use crate::{index::{create_basefield_index_from_r1cs, Index, IndexParams}, indexed_matrix::IndexedMatrix, r1cs::{Matrix, R1CS}, errors::*};
+use winter_crypto::{Hasher, MerkleTree};
+use winter_utils::transpose_slice;
 use math::field::{BaseElement, FieldElement, StarkField};
-#[derive(Clone, Debug)]
-pub struct ProverIndexPolynomial<E: FieldElement> {
+use fri::utils::hash_values;
+#[derive(Debug)]
+pub struct ProverIndexPolynomial<H: Hasher, E: FieldElement> {
     polynomial: Vec<E>,
     evaluations: Vec<E>,
-    tree: MerkleTree,
+    tree: MerkleTree<H>,
 }
 
-impl<E: FieldElement> ProverIndexPolynomial<E> {
-    // TODO Add error checking, currently assumes index is 
+impl<H: Hasher, E: FieldElement> ProverIndexPolynomial<H, E> {
+    // TODO Add error checking, currently assumes index is
     // within range.
     pub fn get_eval_at_index(&self, index: usize) -> E {
         self.evaluations[index]
@@ -20,15 +22,15 @@ impl<E: FieldElement> ProverIndexPolynomial<E> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct ProverMatrixIndex<E: FieldElement> {
+#[derive(Debug)]
+pub struct ProverMatrixIndex<H: Hasher, E: FieldElement> {
     pub matrix: Matrix<E>,
-    pub row_poly: ProverIndexPolynomial<E>,
-    pub col_poly: ProverIndexPolynomial<E>,
-    pub val_poly: ProverIndexPolynomial<E>,
+    pub row_poly: ProverIndexPolynomial<H, E>,
+    pub col_poly: ProverIndexPolynomial<H, E>,
+    pub val_poly: ProverIndexPolynomial<H, E>,
 }
 
-impl<E: FieldElement> ProverMatrixIndex<E> {
+impl<H: Hasher, E: FieldElement> ProverMatrixIndex<H, E> {
     pub fn get_val_eval(&self, point: E) -> E {
         self.val_poly.get_eval_at_point(point)
     }
@@ -50,46 +52,44 @@ impl<E: FieldElement> ProverMatrixIndex<E> {
         self.row_poly.get_eval_at_index(index)
     }
 
-} 
-
-#[derive(Clone, Debug)]
-pub struct ProverKey<E: FieldElement> {
-    params: IndexParams,
-    matrix_a_index: ProverMatrixIndex<E>,
-    matrix_b_index: ProverMatrixIndex<E>,
-    matrix_c_index: ProverMatrixIndex<E>,
 }
 
-#[derive(Clone, Debug)]
-pub struct VerifierMatrixIndex {
-    row_poly_commitment: [u8; 32],
-    col_poly_commitment: [u8; 32],
-    val_poly_commitment: [u8; 32],
+#[derive(Debug)]
+pub struct ProverKey<H: Hasher, E: FieldElement> {
+    params: IndexParams,
+    matrix_a_index: ProverMatrixIndex<H, E>,
+    matrix_b_index: ProverMatrixIndex<H, E>,
+    matrix_c_index: ProverMatrixIndex<H, E>,
 }
 
-#[derive(Clone, Debug)]
-pub struct VerifierKey {
+#[derive(Debug)]
+pub struct VerifierMatrixIndex<H: Hasher> {
+    row_poly_commitment: H::Digest,
+    col_poly_commitment: H::Digest,
+    val_poly_commitment: H::Digest,
+}
+
+#[derive(Debug)]
+pub struct VerifierKey<H: Hasher> {
     params: IndexParams,
-    matrix_a_commitments: VerifierMatrixIndex,
-    matrix_b_commitments: VerifierMatrixIndex,
-    matrix_c_commitments: VerifierMatrixIndex,
+    matrix_a_commitments: VerifierMatrixIndex<H>,
+    matrix_b_commitments: VerifierMatrixIndex<H>,
+    matrix_c_commitments: VerifierMatrixIndex<H>,
 }
 
 // QUESTION: Currently using the utils hash_values function which uses quartic folding.
 // Is there any drawback to doing this here, where there's no layering?
-pub fn commit_polynomial_evaluations<E: StarkField>(
-    evaluations: &Vec<E>,
-    hash_fn: HashFunction,
-) -> MerkleTree {
-    let transposed_evaluations = fri::folding::quartic::transpose(evaluations, 1);
-    let hashed_evaluations = fri::folding::quartic::hash_values(&transposed_evaluations, hash_fn);
-    MerkleTree::new(hashed_evaluations, hash_fn)
+pub fn commit_polynomial_evaluations<H: Hasher, E: StarkField, const N: usize>(
+    evaluations: &Vec<E>
+) -> Result<MerkleTree<H>, IndexerError> {
+    let transposed_evaluations = transpose_slice(evaluations);
+    let hashed_evaluations = hash_values::<H, E, N>(&transposed_evaluations);
+    MerkleTree::<H>::new(hashed_evaluations)
 }
 
-pub fn generate_prover_and_verifier_matrix_index<E: StarkField>(
-    indexed: IndexedMatrix<E>,
-    hash_fn: HashFunction,
-) -> (ProverMatrixIndex<E>, VerifierMatrixIndex) {
+pub fn generate_prover_and_verifier_matrix_index<H: Hasher, E: StarkField>(
+    indexed: IndexedMatrix<E>
+) -> (ProverMatrixIndex<H, E>, VerifierMatrixIndex<H>) {
     let matrix = indexed.matrix;
     let row_polynomial = indexed.row_poly;
     let col_polynomial = indexed.col_poly;
@@ -97,9 +97,9 @@ pub fn generate_prover_and_verifier_matrix_index<E: StarkField>(
     let row_evals = indexed.row_evals_on_l;
     let col_evals = indexed.col_evals_on_l;
     let val_evals = indexed.val_evals_on_l;
-    let row_tree = commit_polynomial_evaluations(&row_evals, hash_fn);
-    let col_tree = commit_polynomial_evaluations(&col_evals, hash_fn);
-    let val_tree = commit_polynomial_evaluations(&val_evals, hash_fn);
+    let row_tree = commit_polynomial_evaluations(&row_evals);
+    let col_tree = commit_polynomial_evaluations(&col_evals);
+    let val_tree = commit_polynomial_evaluations(&val_evals);
     let row_poly_commitment = *row_tree.root();
     let col_poly_commitment = *col_tree.root();
     let val_poly_commitment = *val_tree.root();

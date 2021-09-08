@@ -9,9 +9,10 @@ bench = false
 
 [dependencies]
 displaydoc = "0.1.7"
-math = { path = "../math" }
-crypto = { path = "../crypto" }
-common = { path = "../common" }
+winter-crypto = "0.1"
+winter-utils = "0.1"
+winter-math = "0.1"
 fri = { path = "../fri" }
+math = { path = "../math" }
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"

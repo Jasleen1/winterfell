@@ -1,7 +1,7 @@
 use std::convert::TryInto;
 
 use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
-use fri::{DefaultProverChannel, FriOptions, PublicCoin};
+use winter-fri::{DefaultProverChannel, FriOptions, PublicCoin};
 use math::{
     fft,
     field::{BaseElement, FieldElement, StarkField},

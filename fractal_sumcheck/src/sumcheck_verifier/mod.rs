@@ -2,7 +2,7 @@ use math::{
     field::{BaseElement, FieldElement}
 };
 
-use fri::{
+use winter-fri::{
     verify, DefaultVerifierChannel, VerifierChannel, VerifierContext, VerifierError,
 };
 

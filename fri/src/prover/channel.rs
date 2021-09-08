@@ -1,109 +1,134 @@
-use crate::{FriOptions, PublicCoin};
-use crypto::HashFunction;
-use std::{convert::TryInto, mem::size_of};
+// Copyright (c) Facebook, Inc. and its affiliates.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
+use core::marker::PhantomData;
+use winter_crypto::{Hasher, RandomCoin};
+use winter_math::{FieldElement, StarkField};
+use winter_utils::collections::Vec;
 
 // PROVER CHANNEL TRAIT
 // ================================================================================================
 
-pub trait ProverChannel: PublicCoin {
-    fn commit_fri_layer(&mut self, layer_root: [u8; 32]);
+/// Defines an interface for a channel over which a prover communicates with a verifier.
+///
+/// The prover uses this channel to send commitments to FRI layer polynomials to the verifier, and
+/// then to draw a random value α from the channel after each commitment is sent. The prover then
+/// uses this α to construct the next FRI layer.
+///
+/// In the interactive version of the protocol, the verifier chooses α uniformly at random from
+/// the entire field. In the non-interactive version, the α is drawn pseudo-randomly based on the
+/// commitments the prover has written into the channel up to this point.
+pub trait ProverChannel<E: FieldElement> {
+    /// Hash function used by the prover to commit to polynomial evaluations.
+    type Hasher: Hasher;
+
+    /// Sends a layer commitment to the verifier.
+    ///
+    /// A layer commitment is a root of a Merkle tree built from evaluations of a polynomial
+    /// at a given layer. The Merkle tree is built by first transposing evaluations into a
+    /// two-dimensional matrix where each row contains values needed to compute a single
+    /// value of the next FRI layer, and then putting each row of the matrix into a single
+    /// leaf of the Merkle tree. Thus, the number of elements grouped into a single leaf is
+    /// equal to the `folding_factor` used for FRI layer construction.
+    fn commit_fri_layer(
+        &mut self,
+        layer_root: <<Self as ProverChannel<E>>::Hasher as Hasher>::Digest,
+    );
+
+    /// Returns a random α drawn uniformly at random from the entire field.
+    ///
+    /// The prover uses this α to build the next FRI layer.
+    ///
+    /// While in the interactive version of the protocol the verifier send a random α to the
+    /// prover, in the non-interactive version, the α is pseudo-randomly generated based on the
+    /// values the prover previously wrote into the channel.
+    fn draw_fri_alpha(&mut self) -> E;
 }
 
 // DEFAULT PROVER CHANNEL IMPLEMENTATION
 // ================================================================================================
 
-pub struct DefaultProverChannel {
-    commitments: Vec<[u8; 32]>,
-    options: FriOptions,
+/// Provides a default implementation of the [ProverChannel] trait.
+///
+/// Though this implementation is intended primarily for testing purposes, it can be used in
+/// production use cases as well.
+pub struct DefaultProverChannel<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
+    public_coin: RandomCoin<B, H>,
+    commitments: Vec<H::Digest>,
     domain_size: usize,
     num_queries: usize,
+    _field_element: PhantomData<E>,
 }
 
-impl DefaultProverChannel {
-    pub fn new(options: FriOptions, domain_size: usize, num_queries: usize) -> Self {
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> DefaultProverChannel<B, E, H> {
+    /// Returns a new prover channel instantiated from the specified parameters.
+    ///
+    /// # Panics
+    /// Panics if:
+    /// * `domain_size` is smaller than 8 or is not a power of two.
+    /// * `num_queries` is zero.
+    pub fn new(domain_size: usize, num_queries: usize) -> Self {
+        assert!(
+            domain_size >= 8,
+            "domain size must be at least 8, but was {}",
+            domain_size
+        );
+        assert!(
+            domain_size.is_power_of_two(),
+            "domain size must be a power of two, but was {}",
+            domain_size
+        );
+        assert!(
+            num_queries > 0,
+            "number of queries must be greater than zero"
+        );
         DefaultProverChannel {
+            public_coin: RandomCoin::new(&[]),
             commitments: Vec::new(),
-            options,
             domain_size,
             num_queries,
+            _field_element: PhantomData,
         }
     }
 
-    pub fn draw_query_positions(&self) -> Vec<usize> {
-        let hash = self.options.hash_fn();
-        let lde_blowup_factor = self.options.blowup_factor();
-
-        // determine how many bits are needed to represent valid indexes in the domain
-        let value_mask = self.domain_size - 1;
-        let value_offset = 32 - size_of::<usize>();
-
-        // initialize the seed for PRNG
-        let mut seed = [0u8; 64];
-        seed[..32].copy_from_slice(&self.query_seed());
-        let mut value_bytes = [0u8; 32];
-
-        // draw values from PRNG until we get as many unique values as specified by
-        // num_queries, but skipping values which are a multiple of blowup factor
-        let mut result = Vec::new();
-        for i in 0usize..1000 {
-            // update the seed with the new counter and hash the result
-            seed[56..].copy_from_slice(&i.to_le_bytes());
-            hash(&seed, &mut value_bytes);
-
-            // read the required number of bits from the hashed value
-            let value =
-                usize::from_le_bytes(value_bytes[value_offset..].try_into().unwrap()) & value_mask;
-
-            if value % lde_blowup_factor == 0 {
-                continue;
-            }
-            if result.contains(&value) {
-                continue;
-            }
-            result.push(value);
-            if result.len() >= self.num_queries {
-                break;
-            }
-        }
-
-        assert_eq!(
-            result.len(),
-            self.num_queries,
-            "needed to generate {} query positions, but generated only {}",
-            self.num_queries,
-            result.len()
-        );
-
-        result
+    /// Draws a set of positions at which the polynomial evaluations committed at the first FRI
+    /// layer should be queried.
+    ///
+    /// The positions are pseudo-randomly generated based on the values the prover has written
+    /// into this channel.
+    ///
+    /// # Panics
+    /// Panics if the specified number of unique positions could not be drawn from the specified
+    /// domain. Both number of queried positions and domain size are specified during
+    /// construction of the channel.
+    pub fn draw_query_positions(&mut self) -> Vec<usize> {
+        self.public_coin
+            .draw_integers(self.num_queries, self.domain_size)
+            .expect("failed to draw query position")
     }
 
-    fn query_seed(&self) -> [u8; 32] {
-        // combine roots of all FIR layers into a single array of bytes
-        let mut root_bytes: Vec<u8> = Vec::with_capacity(self.commitments.len() * 32);
-        for root in self.commitments.iter() {
-            root.iter().for_each(|&v| root_bytes.push(v));
-        }
-
-        // hash the array of bytes into a single 32-byte value
-        let mut query_seed = [0u8; 32];
-        self.options.hash_fn()(&root_bytes, &mut query_seed);
-
-        query_seed
-    }
-}
-
-impl ProverChannel for DefaultProverChannel {
-    fn commit_fri_layer(&mut self, layer_root: [u8; 32]) {
-        self.commitments.push(layer_root);
-    }
-}
-
-impl PublicCoin for DefaultProverChannel {
-    fn fri_layer_commitments(&self) -> &[[u8; 32]] {
+    /// Returns a list of FRI layer commitments written by the prover into this channel.
+    pub fn layer_commitments(&self) -> &[H::Digest] {
         &self.commitments
     }
+}
 
-    fn hash_fn(&self) -> HashFunction {
-        self.options.hash_fn()
+impl<B, E, H> ProverChannel<E> for DefaultProverChannel<B, E, H>
+where
+    B: StarkField,
+    E: FieldElement<BaseField = B>,
+    H: Hasher,
+{
+    type Hasher = H;
+
+    fn commit_fri_layer(&mut self, layer_root: H::Digest) {
+        self.commitments.push(layer_root);
+        self.public_coin.reseed(layer_root);
+    }
+
+    fn draw_fri_alpha(&mut self) -> E {
+        self.public_coin.draw().expect("failed to draw FRI alpha")
     }
 }

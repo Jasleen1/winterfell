@@ -8,10 +8,12 @@ edition = "2018"
 
 [dependencies]
 displaydoc = "0.1.7"
+winter-crypto = "0.1"
+winter-utils = "0.1"
+winter-math = "0.1"
+winter-fri = "0.2"
 math = { path = "../math" }
-crypto = { path = "../crypto" }
 common = { path = "../common" }
-fri = { path = "../fri" }
 fractal_utils = { path = "../fractal_utils" }
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"

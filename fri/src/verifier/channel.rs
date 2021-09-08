@@ -1,166 +1,198 @@
-use crate::{folding::quartic, FriOptions, FriProof, PublicCoin, VerifierError};
-use crypto::{BatchMerkleProof, HashFunction, MerkleTree};
-use math::{field::FieldElement, utils::read_elements_into_vec};
-use std::{convert::TryInto, marker::PhantomData};
+// Copyright (c) Facebook, Inc. and its affiliates.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
 
-type Bytes = Vec<u8>;
+use crate::{utils::hash_values, FriProof, VerifierError};
+use winter_crypto::{BatchMerkleProof, ElementHasher, Hasher, MerkleTree};
+use winter_math::FieldElement;
+use winter_utils::{collections::Vec, group_vector_elements, transpose_slice, DeserializationError};
 
 // VERIFIER CHANNEL TRAIT
 // ================================================================================================
 
-pub trait VerifierChannel<E: FieldElement>: PublicCoin {
-    /// Returns FRI query values at the specified positions from the FRI layer at the
-    /// specified index. This also checks if the values are valid against the FRI layer
-    /// commitment sent by the prover.
-    fn read_layer_queries(
-        &self,
-        layer_idx: usize,
+/// Defines an interface for a channel over which a verifier communicates with a prover.
+///
+/// This trait abstracts away implementation specifics of the [FriProof] struct. Thus, instead of
+/// dealing with FRI proofs directly, the verifier can read the data as if it was sent by the
+/// prover via an interactive channel.
+///
+/// Note: that reading removes the data from the channel. Thus, reading duplicated values from
+/// the channel should not be possible.
+pub trait VerifierChannel<E: FieldElement> {
+    /// Hash function used by the prover to commit to polynomial evaluations.
+    type Hasher: ElementHasher<BaseField = E::BaseField>;
+
+    // REQUIRED METHODS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns the number of partitions used during proof generation.
+    fn read_fri_num_partitions(&self) -> usize;
+
+    /// Reads and removes from the channel all FRI layer commitments sent by the prover.
+    ///
+    /// In the interactive version of the protocol, the prover sends layer commitments to the
+    /// verifier one-by-one, and the verifier responds with a value α drawn uniformly at random
+    /// from the entire field after each layer commitment is received. In the non-interactive
+    /// version, the verifier can read all layer commitments at once, and then generate α values
+    /// locally.
+    fn read_fri_layer_commitments(
+        &mut self,
+    ) -> Vec<<<Self as VerifierChannel<E>>::Hasher as Hasher>::Digest>;
+
+    /// Reads and removes from the channel evaluations of the polynomial at the queried positions
+    /// for the next FRI layer.
+    ///
+    /// In the interactive version of the protocol, these evaluations are sent from the prover to
+    /// the verifier during the query phase of the FRI protocol.
+    ///
+    /// It is expected that layer queries and layer proofs at the same FRI layer are consistent.
+    /// That is, query values hash into the leaf nodes of corresponding Merkle authentication
+    /// paths.
+    fn take_next_fri_layer_queries(&mut self) -> Vec<E>;
+
+    /// Reads and removes from the channel Merkle authentication paths for queried evaluations for
+    /// the next FRI layer.
+    ///
+    /// In the interactive version of the protocol, these authentication paths are sent from the
+    /// prover to the verifier during the query phase of the FRI protocol.
+    ///
+    /// It is expected that layer proofs and layer queries at the same FRI layer are consistent.
+    /// That is, query values hash into the leaf nodes of corresponding Merkle authentication
+    /// paths.
+    fn take_next_fri_layer_proof(&mut self) -> BatchMerkleProof<Self::Hasher>;
+
+    /// Reads and removes the remainder (last FRI layer) values from the channel.
+    fn take_fri_remainder(&mut self) -> Vec<E>;
+
+    // PROVIDED METHODS
+    // --------------------------------------------------------------------------------------------
+
+    /// Returns FRI query values at the specified positions from the current FRI layer and advances
+    /// layer pointer by one.
+    ///
+    /// This also checks if the values are valid against the provided FRI layer commitment.
+    ///
+    /// # Errors
+    /// Returns an error if query values did not match layer commitment.
+    fn read_layer_queries<const N: usize>(
+        &mut self,
         positions: &[usize],
-    ) -> Result<Vec<[E; 4]>, VerifierError> {
-        let layer_root = self.fri_layer_commitments()[layer_idx];
-        let layer_proof = &self.fri_layer_proofs()[layer_idx];
-        if !MerkleTree::verify_batch(&layer_root, &positions, &layer_proof, self.hash_fn()) {
-            return Err(VerifierError::LayerCommitmentMismatch(layer_idx));
-        }
+        commitment: &<<Self as VerifierChannel<E>>::Hasher as Hasher>::Digest,
+    ) -> Result<Vec<[E; N]>, VerifierError> {
+        let layer_proof = self.take_next_fri_layer_proof();
+        MerkleTree::<Self::Hasher>::verify_batch(commitment, positions, &layer_proof)
+            .map_err(|_| VerifierError::LayerCommitmentMismatch)?;
 
-        // convert query bytes into field elements of appropriate type
-        let mut queries = Vec::new();
-        for query_bytes in self.fri_layer_queries()[layer_idx].iter() {
-            let query: [E; 4] = read_elements_into_vec(query_bytes)
-                .map_err(|err| {
-                    VerifierError::LayerDeserializationError(layer_idx, err.to_string())
-                })?
-                .try_into()
-                .map_err(|_| {
-                    VerifierError::LayerDeserializationError(
-                        layer_idx,
-                        "failed to convert vec of elements to array of 4 element".to_string(),
-                    )
-                })?;
-            queries.push(query);
-        }
+        // TODO: make sure layer queries hash into leaves of layer proof
 
-        Ok(queries)
+        let layer_queries = self.take_next_fri_layer_queries();
+        Ok(group_vector_elements(layer_queries))
     }
 
-    /// Reads FRI remainder values (last FRI layer). This also checks that the remainder is
-    /// valid against the commitment sent by the prover.
-    fn read_remainder(&self) -> Result<Vec<E>, VerifierError> {
-        // convert remainder bytes into field elements of appropriate type
-        let remainder = read_elements_into_vec(&self.fri_remainder())
-            .map_err(|err| VerifierError::RemainderDeserializationError(err.to_string()))?;
+    /// Returns FRI remainder values (last FRI layer) read from this channel.
+    ///
+    /// This also checks whether the remainder is valid against the provided commitment.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - Remainder values read from the channel cannot be used to construct a fully-balanced
+    ///   Merkle tree.
+    /// - If the root of the Merkle tree constructed from the remainder values does not match
+    ///   the specified `commitment`.
+    fn read_remainder<const N: usize>(
+        &mut self,
+        commitment: &<<Self as VerifierChannel<E>>::Hasher as Hasher>::Digest,
+    ) -> Result<Vec<E>, VerifierError> {
+        let remainder = self.take_fri_remainder();
 
         // build remainder Merkle tree
-        let remainder_values = quartic::transpose(&remainder, 1);
-        let hashed_values = quartic::hash_values(&remainder_values, self.hash_fn());
-        let remainder_tree = MerkleTree::new(hashed_values, self.hash_fn());
+        let remainder_values = transpose_slice(&remainder);
+        let hashed_values = hash_values::<Self::Hasher, E, N>(&remainder_values);
+        let remainder_tree = MerkleTree::<Self::Hasher>::new(hashed_values)
+            .map_err(|err| VerifierError::RemainderTreeConstructionFailed(format!("{}", err)))?;
 
         // make sure the root of the tree matches the committed root of the last layer
-        let committed_root = self.fri_layer_commitments().last().unwrap();
-        if committed_root != remainder_tree.root() {
+        if commitment != remainder_tree.root() {
             return Err(VerifierError::RemainderCommitmentMismatch);
         }
 
         Ok(remainder)
     }
-
-    /// Decomposes FRI proof struct into batch Merkle proofs and query values for each
-    /// FRI layer, as well as remainder (the last FRI layer).
-    fn parse_fri_proof(
-        proof: FriProof,
-        hash_fn: HashFunction,
-    ) -> (Vec<BatchMerkleProof>, Vec<Vec<Vec<u8>>>, Vec<u8>) {
-        let mut fri_queries = Vec::with_capacity(proof.layers.len());
-        let mut fri_proofs = Vec::with_capacity(proof.layers.len());
-        for layer in proof.layers.into_iter() {
-            let mut hashed_values = Vec::new();
-            for value_bytes in layer.values.iter() {
-                let mut buf = [0u8; 32];
-                hash_fn(value_bytes, &mut buf);
-                hashed_values.push(buf);
-            }
-
-            fri_proofs.push(BatchMerkleProof {
-                values: hashed_values,
-                nodes: layer.paths.clone(),
-                depth: layer.depth,
-            });
-            fri_queries.push(layer.values);
-        }
-
-        (fri_proofs, fri_queries, proof.rem_values)
-    }
-
-    fn num_fri_partitions(&self) -> usize {
-        if self.fri_partitioned() {
-            self.fri_remainder().len() / E::ELEMENT_BYTES
-        } else {
-            1
-        }
-    }
-
-    fn fri_layer_proofs(&self) -> &[BatchMerkleProof];
-    fn fri_layer_queries(&self) -> &[Vec<Bytes>];
-    fn fri_remainder(&self) -> &[u8];
-    fn fri_partitioned(&self) -> bool;
 }
 
 // DEFAULT VERIFIER CHANNEL IMPLEMENTATION
 // ================================================================================================
 
-pub struct DefaultVerifierChannel<E: FieldElement> {
-    commitments: Vec<[u8; 32]>,
-    proofs: Vec<BatchMerkleProof>,
-    queries: Vec<Vec<Bytes>>,
-    remainder: Bytes,
-    partitioned: bool,
-    hash_fn: HashFunction,
-    _marker: PhantomData<E>,
+/// Provides a default implementation of the [VerifierChannel] trait.
+///
+/// Default verifier channel can be instantiated directly from a [FriProof] struct.
+///
+/// Though this implementation is primarily intended for testing purposes, it can be used in
+/// production use cases as well.
+pub struct DefaultVerifierChannel<E: FieldElement, H: ElementHasher<BaseField = E::BaseField>> {
+    layer_commitments: Vec<H::Digest>,
+    layer_proofs: Vec<BatchMerkleProof<H>>,
+    layer_queries: Vec<Vec<E>>,
+    remainder: Vec<E>,
+    num_partitions: usize,
 }
 
-impl<E: FieldElement> DefaultVerifierChannel<E> {
-    /// Builds a new verifier channel from the specified parameters.
-    pub fn new(proof: FriProof, commitments: Vec<[u8; 32]>, options: &FriOptions) -> Self {
-        let hash_fn = options.hash_fn();
-        let partitioned = proof.partitioned;
-        let (proofs, queries, remainder) = Self::parse_fri_proof(proof, hash_fn);
+impl<E, H> DefaultVerifierChannel<E, H>
+where
+    E: FieldElement,
+    H: ElementHasher<BaseField = E::BaseField>,
+{
+    /// Builds a new verifier channel from the specified [FriProof].
+    ///
+    /// # Errors
+    /// Returns an error if the specified `proof` could not be parsed correctly.
+    pub fn new(
+        proof: FriProof,
+        layer_commitments: Vec<H::Digest>,
+        domain_size: usize,
+        folding_factor: usize,
+    ) -> Result<Self, DeserializationError> {
+        let num_partitions = proof.num_partitions();
 
-        DefaultVerifierChannel {
-            commitments,
-            proofs,
-            queries,
+        let remainder = proof.parse_remainder()?;
+        let (layer_queries, layer_proofs) =
+            proof.parse_layers::<H, E>(domain_size, folding_factor)?;
+
+        Ok(DefaultVerifierChannel {
+            layer_commitments,
+            layer_proofs,
+            layer_queries,
             remainder,
-            partitioned,
-            hash_fn,
-            _marker: PhantomData,
-        }
+            num_partitions,
+        })
     }
 }
 
-impl<E: FieldElement> VerifierChannel<E> for DefaultVerifierChannel<E> {
-    fn fri_layer_proofs(&self) -> &[BatchMerkleProof] {
-        &self.proofs
+impl<E, H> VerifierChannel<E> for DefaultVerifierChannel<E, H>
+where
+    E: FieldElement,
+    H: ElementHasher<BaseField = E::BaseField>,
+{
+    type Hasher = H;
+
+    fn read_fri_num_partitions(&self) -> usize {
+        self.num_partitions
     }
 
-    fn fri_layer_queries(&self) -> &[Vec<Bytes>] {
-        &self.queries
+    fn read_fri_layer_commitments(&mut self) -> Vec<H::Digest> {
+        self.layer_commitments.drain(..).collect()
     }
 
-    fn fri_remainder(&self) -> &[u8] {
-        &self.remainder
+    fn take_next_fri_layer_proof(&mut self) -> BatchMerkleProof<H> {
+        self.layer_proofs.remove(0)
     }
 
-    fn fri_partitioned(&self) -> bool {
-        self.partitioned
-    }
-}
-
-impl<E: FieldElement> PublicCoin for DefaultVerifierChannel<E> {
-    fn fri_layer_commitments(&self) -> &[[u8; 32]] {
-        &self.commitments
+    fn take_next_fri_layer_queries(&mut self) -> Vec<E> {
+        self.layer_queries.remove(0)
     }
 
-    fn hash_fn(&self) -> HashFunction {
-        self.hash_fn
+    fn take_fri_remainder(&mut self) -> Vec<E> {
+        self.remainder.clone()
     }
 }

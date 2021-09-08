@@ -7,4 +7,4 @@ pub mod snark_keys;
 #[cfg(test)]
 mod tests;
 
-pub use fri::{utils, *};
+pub use fri::utils::hash_values;
