@@ -2,7 +2,11 @@ use std::convert::TryInto;
 
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
-use math::{fft, utils, field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17, StarkField}};
+use math::{
+    fft,
+    field::{BaseElement, FieldElement, SmallFieldElement17, StarkField},
+    utils,
+};
 
 use crate::{indexed_matrix::IndexedMatrix, r1cs::R1CS};
 #[derive(Clone, Debug)]
@@ -17,12 +21,22 @@ pub struct Index<E: StarkField> {
     pub params: IndexParams,
     pub indexed_a: IndexedMatrix<E>,
     pub indexed_b: IndexedMatrix<E>,
-    pub indexed_c: IndexedMatrix<E>
+    pub indexed_c: IndexedMatrix<E>,
 }
 
 impl<E: StarkField> Index<E> {
-    pub fn new(params: IndexParams, indexed_a: IndexedMatrix<E>, indexed_b: IndexedMatrix<E>, indexed_c: IndexedMatrix<E>) -> Self {
-        Index {params, indexed_a: indexed_a, indexed_b: indexed_b, indexed_c: indexed_c}
+    pub fn new(
+        params: IndexParams,
+        indexed_a: IndexedMatrix<E>,
+        indexed_b: IndexedMatrix<E>,
+        indexed_c: IndexedMatrix<E>,
+    ) -> Self {
+        Index {
+            params,
+            indexed_a: indexed_a,
+            indexed_b: indexed_b,
+            indexed_c: indexed_c,
+        }
     }
 }
 
@@ -43,15 +57,14 @@ pub struct IndexDomains<E: FieldElement> {
     pub twiddles_l_elts: Vec<E>,
 }
 
-
 /// ***************  HELPERS *************** \\\
 
-// Currently assuming that 
+// Currently assuming that
 // 1. All the inputs to this function are powers of 2
-// 2. num_input_variables is the number of inputs and num_input_variables + num_witnesses = num_constraints 
+// 2. num_input_variables is the number of inputs and num_input_variables + num_witnesses = num_constraints
 // 3. 2, above implies that the matrices are all square.
-/// QUESTION: This is currently built using BaseField because the trait has no generic function for 
-/// getting generators of a certain order. I think this would require some re-structuring. 
+/// QUESTION: This is currently built using BaseField because the trait has no generic function for
+/// getting generators of a certain order. I think this would require some re-structuring.
 /// Perhaps we can add a function "get_subgroup_of_size" or "get_generator_of_order"
 /// Generators are needed here since we'll need those for FFT-friendly subgroups anyway.
 pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseElement> {
@@ -64,15 +77,15 @@ pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseEl
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = BaseElement::get_root_of_unity(ext_field_size.trailing_zeros());
 
-    let i_field = utils::get_power_series(i_field_base, num_input_variables); 
+    let i_field = utils::get_power_series(i_field_base, num_input_variables);
     let h_field = utils::get_power_series(h_field_base, num_constraints);
-    
+
     // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
     // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
 
     let inv_twiddles_k_elts = fft::get_inv_twiddles::<BaseElement>(num_non_zero);
     let twiddles_l_elts = fft::get_twiddles::<BaseElement>(ext_field_size);
-    
+
     IndexDomains {
         i_field_base,
         h_field_base,
@@ -85,7 +98,6 @@ pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseEl
         inv_twiddles_k_elts,
         twiddles_l_elts,
     }
-
 }
 
 // Same as build_basefield_index_domains but for a prime field of size 17
@@ -93,20 +105,21 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
-    let i_field_base = SmallFieldElement17::get_root_of_unity(num_input_variables.try_into().unwrap());
+    let i_field_base =
+        SmallFieldElement17::get_root_of_unity(num_input_variables.try_into().unwrap());
     let h_field_base = SmallFieldElement17::get_root_of_unity(num_constraints.try_into().unwrap());
     let k_field_base = SmallFieldElement17::get_root_of_unity(num_non_zero.try_into().unwrap());
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = SmallFieldElement17::get_root_of_unity(ext_field_size.try_into().unwrap());
 
-    let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables); 
+    let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables);
     let h_field = SmallFieldElement17::get_power_series(h_field_base, num_constraints);
-    
+
     // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
     // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
     let inv_twiddles_k_elts = SmallFieldElement17::get_inv_twiddles(num_non_zero);
     let twiddles_l_elts = SmallFieldElement17::get_twiddles(ext_field_size);
-    
+
     IndexDomains {
         i_field_base,
         h_field_base,
@@ -119,12 +132,14 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
         inv_twiddles_k_elts,
         twiddles_l_elts,
     }
-
 }
 
 // TODO Update the new function for Index to take an R1CS instance as input.
 
-pub fn create_basefield_index_from_r1cs(params: IndexParams, r1cs_instance: R1CS<BaseElement>) -> Index<BaseElement> {
+pub fn create_basefield_index_from_r1cs(
+    params: IndexParams,
+    r1cs_instance: R1CS<BaseElement>,
+) -> Index<BaseElement> {
     let domains = build_basefield_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
     let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
@@ -132,7 +147,10 @@ pub fn create_basefield_index_from_r1cs(params: IndexParams, r1cs_instance: R1CS
     Index::new(params, indexed_a, indexed_b, indexed_c)
 }
 
-pub fn create_primefield_index_from_r1cs(params: IndexParams, r1cs_instance: R1CS<SmallFieldElement17>) -> Index<SmallFieldElement17> {
+pub fn create_primefield_index_from_r1cs(
+    params: IndexParams,
+    r1cs_instance: R1CS<SmallFieldElement17>,
+) -> Index<SmallFieldElement17> {
     let domains = build_primefield_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
     let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());

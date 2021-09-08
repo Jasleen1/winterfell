@@ -41,7 +41,10 @@ fn test_sub() {
 
     // test underflow
     let expected = SmallFieldElement7::from(SmallFieldElement7::MODULUS - 2);
-    assert_eq!(expected, SmallFieldElement7::from(3u8) - SmallFieldElement7::from(5u8));
+    assert_eq!(
+        expected,
+        SmallFieldElement7::from(3u8) - SmallFieldElement7::from(5u8)
+    );
 }
 
 #[test]
@@ -61,8 +64,14 @@ fn test_mul() {
     let m = SmallFieldElement7::MODULUS;
     let t = SmallFieldElement7::from(m - 1);
     assert_eq!(SmallFieldElement7::ONE, t * t);
-    assert_eq!(SmallFieldElement7::from(m - 2), t * SmallFieldElement7::from(2u8));
-    assert_eq!(SmallFieldElement7::from(m - 4), t * SmallFieldElement7::from(4u8));
+    assert_eq!(
+        SmallFieldElement7::from(m - 2),
+        t * SmallFieldElement7::from(2u8)
+    );
+    assert_eq!(
+        SmallFieldElement7::from(m - 4),
+        t * SmallFieldElement7::from(4u8)
+    );
 
     let t = (m + 1) / 2;
     assert_eq!(
@@ -90,8 +99,14 @@ fn test_mul() {
 #[test]
 fn test_inv() {
     // identity
-    assert_eq!(SmallFieldElement7::ONE, SmallFieldElement7::inv(SmallFieldElement7::ONE));
-    assert_eq!(SmallFieldElement7::ZERO, SmallFieldElement7::inv(SmallFieldElement7::ZERO));
+    assert_eq!(
+        SmallFieldElement7::ONE,
+        SmallFieldElement7::inv(SmallFieldElement7::ONE)
+    );
+    assert_eq!(
+        SmallFieldElement7::ZERO,
+        SmallFieldElement7::inv(SmallFieldElement7::ZERO)
+    );
 
     // test random values
     let x = SmallFieldElement7::prng_vector(build_seed(), 5);
@@ -105,34 +120,23 @@ fn test_inv() {
 #[test]
 fn test_get_root_of_unity() {
     let root_6 = SmallFieldElement7::get_root_of_unity(6);
-    assert_eq!(
-        SmallFieldElement7::from(3u32),
-        root_6
-    );
+    assert_eq!(SmallFieldElement7::from(3u32), root_6);
     println!("root_6 {}", root_6);
     for i in 1..6 {
         println!("root_6 pow {} {}", i, SmallFieldElement7::exp(root_6, i));
     }
-    assert_eq!(
-        SmallFieldElement7::ONE,
-        SmallFieldElement7::exp(root_6, 6)
-    );
+    assert_eq!(SmallFieldElement7::ONE, SmallFieldElement7::exp(root_6, 6));
 
     let root_2 = SmallFieldElement7::get_root_of_unity(2);
     println!("mul_test {}", root_2 * root_2);
     for i in 1..6 {
         println!("root_2 pow {} {}", i, SmallFieldElement7::exp(root_2, i));
     }
-    
+
     let expected = SmallFieldElement7::exp(root_6, 3);
     assert_eq!(expected, root_2);
-    assert_eq!(
-        SmallFieldElement7::ONE,
-        SmallFieldElement7::exp(root_2, 2)
-    );
+    assert_eq!(SmallFieldElement7::ONE, SmallFieldElement7::exp(root_2, 2));
 }
-
-
 
 #[test]
 fn test_array_as_bytes() {

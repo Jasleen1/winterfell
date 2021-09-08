@@ -1,8 +1,8 @@
-use crate::{folding::quartic, folding::quartic::hash_values};
-use crypto::{MerkleTree, HashFunction};
-use math::field::{BaseElement, FieldElement, StarkField};
-use std::{sync::Arc, collections::HashSet};
 use super::QueryResult;
+use crate::{folding::quartic, folding::quartic::hash_values};
+use crypto::{HashFunction, MerkleTree};
+use math::field::{BaseElement, FieldElement, StarkField};
+use std::{collections::HashSet, sync::Arc};
 
 // CONSTANTS
 // ================================================================================================
@@ -57,7 +57,7 @@ impl Partition {
             remainder: BaseElement::ZERO,
             layer_trees: Vec::new(),
             partition_idx,
-            num_partitions
+            num_partitions,
         }
     }
 

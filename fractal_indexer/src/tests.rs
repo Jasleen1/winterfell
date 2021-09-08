@@ -1,10 +1,10 @@
 use std::vec;
 
+use crate::{errors::R1CSError, index::*, r1cs::*, *};
 use indexed_matrix::IndexedMatrix;
-use math::field::{BaseElement, FieldElement, SmallFieldElement13, SmallFieldElement17, StarkField};
-use crate::{*, errors::R1CSError, r1cs::*, index::*};
+use math::field::{BaseElement, FieldElement, SmallFieldElement17, StarkField};
 
-#[test] 
+#[test]
 fn test_construct_matrix_f128() {
     let m: Result<Matrix<BaseElement>, R1CSError> = make_all_ones_matrix_f128("dummy", 1, 1);
     let matrix = m.unwrap();
@@ -18,10 +18,9 @@ fn test_construct_matrix_f128() {
         }
     }
     assert!(matrix.name == "dummy");
-
 }
 
-#[test] 
+#[test]
 fn test_construct_matrix_f17() {
     let m: Result<Matrix<SmallFieldElement17>, R1CSError> = make_all_ones_matrix_f17("dummy", 1, 1);
     let matrix = m.unwrap();
@@ -35,7 +34,6 @@ fn test_construct_matrix_f17() {
         }
     }
     assert!(matrix.name == "dummy");
-
 }
 /// This test should pass
 #[test]
@@ -64,7 +62,11 @@ fn test_indexing() {
     // an immutable reference?
     let r1cs_instance_result = R1CS::new(matrix_a, matrix_b, matrix_c);
     let r1cs_instance = r1cs_instance_result.unwrap();
-    let params = IndexParams {num_input_variables: 2, num_constraints: 2, num_non_zero: 4};
+    let params = IndexParams {
+        num_input_variables: 2,
+        num_constraints: 2,
+        num_non_zero: 4,
+    };
     let domains = build_basefield_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
     let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
@@ -73,10 +75,13 @@ fn test_indexing() {
     println!("Index is {:?}", index);
 }
 
-
 #[test]
 fn test_domain_building_17() {
-    let params = IndexParams {num_input_variables: 2, num_constraints: 2, num_non_zero: 4};
+    let params = IndexParams {
+        num_input_variables: 2,
+        num_constraints: 2,
+        num_non_zero: 4,
+    };
     let domains = build_primefield_index_domains(params.clone());
     let h_field_base = domains.h_field_base;
     let i_field_base = domains.i_field_base;
@@ -86,11 +91,9 @@ fn test_domain_building_17() {
     assert_eq!(i_field_base, SmallFieldElement17::new(16));
     assert_eq!(k_field_base, SmallFieldElement17::new(13));
     assert_eq!(l_field_base, SmallFieldElement17::new(3));
-} 
+}
 
-
-
-#[test] 
+#[test]
 fn test_getting_roots_17() {
     let test_root_16 = SmallFieldElement17::get_root_of_unity(16);
     assert_eq!(test_root_16, SmallFieldElement17::new(3));
@@ -100,13 +103,15 @@ fn test_getting_roots_17() {
     assert_eq!(test_root_2, SmallFieldElement17::new(16));
 }
 
-
-
 #[test]
 fn test_single_indexed_matrix_17() {
     let m1 = make_all_ones_matrix_f17("A", 2, 2);
     let matrix_a = m1.unwrap();
-    let params = IndexParams {num_input_variables: 2, num_constraints: 2, num_non_zero: 4};
+    let params = IndexParams {
+        num_input_variables: 2,
+        num_constraints: 2,
+        num_non_zero: 4,
+    };
     let domains = build_primefield_index_domains(params.clone());
     println!("Domains {:?}", domains);
     let indexed_a = IndexedMatrix::new(matrix_a, domains.clone());
@@ -134,7 +139,11 @@ fn test_indexing_f17() {
     // an immutable reference?
     let r1cs_instance_result = R1CS::new(matrix_a, matrix_b, matrix_c);
     let r1cs_instance = r1cs_instance_result.unwrap();
-    let params = IndexParams {num_input_variables: 2, num_constraints: 2, num_non_zero: 4};
+    let params = IndexParams {
+        num_input_variables: 2,
+        num_constraints: 2,
+        num_non_zero: 4,
+    };
     let domains = build_primefield_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
     let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
@@ -144,7 +153,11 @@ fn test_indexing_f17() {
 }
 
 /// ***************  HELPERS *************** \\\
-fn make_all_ones_matrix_f128(matrix_name: &str, rows: usize, cols: usize) -> Result<Matrix<BaseElement>, R1CSError> {
+fn make_all_ones_matrix_f128(
+    matrix_name: &str,
+    rows: usize,
+    cols: usize,
+) -> Result<Matrix<BaseElement>, R1CSError> {
     let mut mat = Vec::new();
     let ones_row = vec![BaseElement::ONE; cols];
     for _i in 0..rows {
@@ -153,7 +166,11 @@ fn make_all_ones_matrix_f128(matrix_name: &str, rows: usize, cols: usize) -> Res
     Matrix::new(matrix_name, mat)
 }
 
-fn make_all_ones_matrix_f17(matrix_name: &str, rows: usize, cols: usize) -> Result<Matrix<SmallFieldElement17>, R1CSError> {
+fn make_all_ones_matrix_f17(
+    matrix_name: &str,
+    rows: usize,
+    cols: usize,
+) -> Result<Matrix<SmallFieldElement17>, R1CSError> {
     let mut mat = Vec::new();
     let ones_row = vec![SmallFieldElement17::ONE; cols];
     for _i in 0..rows {
@@ -161,4 +178,3 @@ fn make_all_ones_matrix_f17(matrix_name: &str, rows: usize, cols: usize) -> Resu
     }
     Matrix::new(matrix_name, mat)
 }
-

@@ -53,7 +53,6 @@ impl SmallFieldElement7 {
         }
         result
     }
-    
 }
 
 impl FieldElement for SmallFieldElement7 {
@@ -86,25 +85,27 @@ impl FieldElement for SmallFieldElement7 {
     fn prng_vector(seed: [u8; 32], n: usize) -> Vec<Self> {
         let range = Uniform::from(RANGE);
         let g = StdRng::from_seed(seed);
-        g.sample_iter(range).take(n).map(SmallFieldElement7).collect()
+        g.sample_iter(range)
+            .take(n)
+            .map(SmallFieldElement7)
+            .collect()
     }
 
-    fn elements_into_bytes(elements: Vec<Self>) -> Vec<u8> {
-       unimplemented!()
-    }
-
-    fn elements_as_bytes(elements: &[Self]) -> &[u8] {
+    fn elements_into_bytes(_elements: Vec<Self>) -> Vec<u8> {
         unimplemented!()
     }
 
-    unsafe fn bytes_as_elements(bytes: &[u8]) -> Result<&[Self], SerializationError> {
+    fn elements_as_bytes(_elements: &[Self]) -> &[u8] {
         unimplemented!()
     }
 
-    fn zeroed_vector(n: usize) -> Vec<Self> {
+    unsafe fn bytes_as_elements(_bytes: &[u8]) -> Result<&[Self], SerializationError> {
         unimplemented!()
     }
-    
+
+    fn zeroed_vector(_n: usize) -> Vec<Self> {
+        unimplemented!()
+    }
 }
 
 impl StarkField for SmallFieldElement7 {
@@ -143,11 +144,10 @@ impl StarkField for SmallFieldElement7 {
             "Order invalid for field size {}",
             small_field_size
         );
-        let power = small_field_size/n;
+        let power = small_field_size / n;
         Self::exp(Self::GENERATOR, power.into())
     }
 
-    
     fn as_int(&self) -> Self::PositiveInteger {
         self.0
     }
@@ -208,7 +208,6 @@ impl MulAssign for SmallFieldElement7 {
         *self = *self * rhs
     }
 }
-
 
 impl Div for SmallFieldElement7 {
     type Output = SmallFieldElement7;
@@ -351,7 +350,6 @@ fn mul(a: u128, b: u128) -> u128 {
     (a * b) % M
 }
 
-
 /// Computes y such that (x * y) % m = 1 except for when when x = 0; in such a case,
 /// 0 is returned; x is assumed to be a valid field element.
 fn inv(x: u128) -> u128 {
@@ -366,14 +364,12 @@ fn extended_euclidean(x: u128, y: u128) -> (u128, u128) {
     if y == 0 {
         return (1, 0);
     }
-    let (u1, v1) = extended_euclidean(y, x%y);
+    let (u1, v1) = extended_euclidean(y, x % y);
     // let q: i128 = {(u1 - v1 * (x/y)) as i128} + {M as i128};
-    // let q_mod_M = q % {M as i128}; 
-    let subtracting_term = v1*(x/y);
+    // let q_mod_M = q % {M as i128};
+    let subtracting_term = v1 * (x / y);
     let subtracting_term = subtracting_term % M;
     let second_term = (M + u1 - subtracting_term) % M;
     (v1, second_term)
     // (v1, (M + u1) - v1 * (x/y))
 }
-
-

@@ -5,22 +5,24 @@ use thiserror::Error;
 
 /// Represents a generic error type
 #[derive(Debug, Display, Error)]
-pub enum IndexerError {
+pub enum FractalUtilError {
     /// Error produced by the prover
-    R1CS(R1CSError),
+    MATRIX(MatrixError),
 }
 
-impl From<R1CSError> for IndexerError {
-    fn from(e: R1CSError) -> IndexerError {
-        IndexerError::R1CS(e)
+impl From<MatrixError> for FractalUtilError {
+    fn from(e: MatrixError) -> FractalUtilError {
+        FractalUtilError::MATRIX(e)
     }
 }
 
 /// Represents errors in instantiating R1CS types
 #[derive(Debug, Display, Error)]
-pub enum R1CSError {
+pub enum MatrixError {
     /// Matrix should consist of a vector of equal length vectors. Not the case here.
     InvalidMatrix(String),
     /// All matrices in R1CS should have equal dimensions
     MatrixSizeMismatch(String, String),
+    /// Number of cols in the first matrix should equal the number of rows in the second.
+    MatrixMultiplicationSizeErr(String, String),
 }
