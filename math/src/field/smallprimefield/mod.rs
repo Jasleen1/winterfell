@@ -1,3 +1,5 @@
+use crate::fft;
+
 use super::{
     traits::{FieldElement, StarkField},
     QuadExtensionA,
@@ -58,13 +60,36 @@ impl<const M: u64, const G: u64> BaseElement<M, G> {
     }
 
     #[allow(unused)]
-    unsafe fn get_power_series(b: Self, n: usize) -> Vec<Self> {
+    pub unsafe fn get_power_series(b: Self, n: usize) -> Vec<Self> {
         let mut result = utils::uninit_vector(n);
         result[0] = Self::ONE;
         for i in 1..result.len() {
             result[i] = result[i - 1] * b;
         }
         result
+    }
+
+    pub unsafe fn get_twiddles(domain_size: usize) -> Vec<Self> {
+        debug_assert!(
+            domain_size.is_power_of_two(),
+            "domain size must be a power of 2"
+        );
+        let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
+        let mut twiddles = Self::get_power_series(root, domain_size / 2);
+        fft::permute(&mut twiddles);
+        twiddles
+    }
+
+    pub unsafe fn get_inv_twiddles(domain_size: usize) -> Vec<Self> {
+        debug_assert!(
+            domain_size.is_power_of_two(),
+            "domain size must be a power of 2"
+        );
+        let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
+        let inv_root = root.exp((domain_size as u32 - 1).into());
+        let mut inv_twiddles = Self::get_power_series(inv_root, domain_size / 2);
+        fft::permute(&mut inv_twiddles);
+        inv_twiddles
     }
 }
 
