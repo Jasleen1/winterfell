@@ -1,39 +1,39 @@
 use std::convert::TryInto;
 
 use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
-use fri::{FriOptions, FriProof, DefaultProverChannel, PublicCoin};
+use fri::{FriOptions, FriProof, DefaultProverChannel};
 use math::{
     fft,
-    field::{BaseElement, FieldElement, StarkField},
+    FieldElement, StarkField,
     utils,
 };
 
 use fractal_proofs::RowcheckProof;
 
-pub struct RowcheckProver<E: FieldElement + From<BaseElement>> {
-    f_az_evals: Vec<E>, 
+pub struct RowcheckProver<E: StarkField> {
+    f_az_evals: Vec<E>,
     f_bz_evals: Vec<E>,
     f_cz_evals: Vec<E>,
     degree_fs: usize,
     size_subgroup_h: usize,
-    evaluation_domain: Vec<BaseElement>,
+    evaluation_domain: Vec<E>,
     fri_options: FriOptions,
     num_queries: usize,
 }
 
-impl<E: FieldElement + From<BaseElement> + StarkField> RowcheckProver<E> {
+impl<E: StarkField> RowcheckProver<E> {
     pub fn new(
-        f_az_evals: Vec<E>, 
+        f_az_evals: Vec<E>,
         f_bz_evals: Vec<E>,
         f_cz_evals: Vec<E>,
         degree_fs: usize,
         size_subgroup_h: usize,
-        evaluation_domain: Vec<BaseElement>,
+        evaluation_domain: Vec<E>,
         fri_options: FriOptions,
         num_queries: usize,
     ) -> Self {
         RowcheckProver{
-            f_az_evals, 
+            f_az_evals,
             f_bz_evals,
             f_cz_evals,
             degree_fs,
@@ -42,7 +42,7 @@ impl<E: FieldElement + From<BaseElement> + StarkField> RowcheckProver<E> {
             fri_options,
             num_queries,
         }
-    } 
+    }
 
     pub fn generate_proof(&self) -> RowcheckProof<E> {
         let mut s_evals: Vec<E>  = Vec::new();

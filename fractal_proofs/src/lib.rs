@@ -10,7 +10,7 @@ pub use math::{
     fields::f128::BaseElement,
     utils,
 };
-pub struct RowcheckProof<E: FieldElement + From<BaseElement>> {
+pub struct RowcheckProof<E: StarkField> {
     pub options: FriOptions,
     pub num_evaluations: usize,
     pub queried_positions: Vec<usize>,
@@ -20,7 +20,7 @@ pub struct RowcheckProof<E: FieldElement + From<BaseElement>> {
     pub s_max_degree: usize,
 }
 
-pub struct SumcheckProof<E: FieldElement + From<BaseElement>> {
+pub struct SumcheckProof<E: StarkField> {
     pub options: FriOptions,
     pub num_evaluations: usize,
     // Question: is it ok to use the same queried positions for both
@@ -37,7 +37,7 @@ pub struct SumcheckProof<E: FieldElement + From<BaseElement>> {
 }
 
 
-pub struct LincheckProof<E: FieldElement + From<BaseElement>> {
+pub struct LincheckProof<E: StarkField> {
     pub options: FriOptions,
     pub num_evaluations: usize,
     // Question: is it ok to use the same queried positions for both
@@ -54,7 +54,7 @@ pub struct LincheckProof<E: FieldElement + From<BaseElement>> {
 }
 
 
-pub struct MatrixArithProof<E: FieldElement + From<BaseElement>> {
+pub struct MatrixArithProof<E: StarkField> {
     pub options: FriOptions,
     pub num_evaluations: usize,
     pub proof_of_val: SumcheckProof<E>,

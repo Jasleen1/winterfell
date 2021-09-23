@@ -1,15 +1,15 @@
 use math::{
-    field::{BaseElement, FieldElement}
+    StarkField
 };
 
 use fri::{
-    verify, DefaultVerifierChannel, VerifierChannel, VerifierContext, VerifierError,
+    DefaultVerifierChannel, VerifierChannel, VerifierError,
 };
 
 use fractal_proofs::RowcheckProof;
 
 
-pub fn verify_rowcheck_proof<E: FieldElement + From<BaseElement>>(
+pub fn verify_rowcheck_proof<E: StarkField>(
     _proof: RowcheckProof<E>,
 ) -> Result<(), VerifierError> {
     let channel =

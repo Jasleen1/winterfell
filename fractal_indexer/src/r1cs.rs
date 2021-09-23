@@ -1,16 +1,16 @@
-use math::FieldElement;
+use math::{FieldElement, StarkField};
 
 use crate::errors::*;
 
 pub type MatrixDimensions = (usize, usize);
 #[derive(Clone, Debug)]
-pub struct Matrix<E: FieldElement> {
+pub struct Matrix<E: StarkField> {
     pub name: String,
     pub mat: Vec<Vec<E>>,
     pub dims: MatrixDimensions,
 }
 
-pub fn valid_matrix<E: FieldElement>(
+pub fn valid_matrix<E: StarkField>(
     name: &str,
     matrix: Vec<Vec<E>>,
 ) -> Result<Matrix<E>, R1CSError> {
@@ -38,7 +38,7 @@ pub fn valid_matrix<E: FieldElement>(
     }
 }
 
-impl<E: FieldElement> Matrix<E> {
+impl<E: StarkField> Matrix<E> {
     pub fn new(name: &str, matrix: Vec<Vec<E>>) -> Result<Self, R1CSError> {
         let valid = valid_matrix(name, matrix);
         match valid {
@@ -57,14 +57,14 @@ impl<E: FieldElement> Matrix<E> {
 
 // TODO: Should A, B and C come with respective lengths
 #[derive(Clone, Debug)]
-pub struct R1CS<E: FieldElement> {
+pub struct R1CS<E: StarkField> {
     pub A: Matrix<E>,
     pub B: Matrix<E>,
     pub C: Matrix<E>,
 }
 
 // TODO Might want to change this to include checks for A, B and C.
-impl<E: FieldElement> R1CS<E> {
+impl<E: StarkField> R1CS<E> {
     pub fn new(
         matrix_a: Matrix<E>,
         matrix_b: Matrix<E>,
@@ -98,7 +98,7 @@ impl<E: FieldElement> R1CS<E> {
 
 // TODO: Add error here
 
-pub fn valid_r1cs<E: FieldElement>(
+pub fn valid_r1cs<E: StarkField>(
     a: &Matrix<E>,
     b: &Matrix<E>,
     c: &Matrix<E>,

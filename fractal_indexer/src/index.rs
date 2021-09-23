@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use crypto::ElementHasher;
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
 use math::{
@@ -69,15 +70,15 @@ pub struct IndexDomains<E: FieldElement> {
 /// getting generators of a certain order. I think this would require some re-structuring.
 /// Perhaps we can add a function "get_subgroup_of_size" or "get_generator_of_order"
 /// Generators are needed here since we'll need those for FFT-friendly subgroups anyway.
-pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseElement> {
+pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E> {
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
-    let i_field_base = BaseElement::get_root_of_unity(num_input_variables.trailing_zeros());
-    let h_field_base = BaseElement::get_root_of_unity(num_constraints.trailing_zeros());
-    let k_field_base = BaseElement::get_root_of_unity(num_non_zero.trailing_zeros());
+    let i_field_base = E::get_root_of_unity(num_input_variables.trailing_zeros());
+    let h_field_base = E::get_root_of_unity(num_constraints.trailing_zeros());
+    let k_field_base = E::get_root_of_unity(num_non_zero.trailing_zeros());
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
-    let l_field_base = BaseElement::get_root_of_unity(ext_field_size.trailing_zeros());
+    let l_field_base = E::get_root_of_unity(ext_field_size.trailing_zeros());
 
     let i_field = utils::get_power_series(i_field_base, num_input_variables);
     let h_field = utils::get_power_series(h_field_base, num_constraints);
@@ -85,8 +86,8 @@ pub fn build_basefield_index_domains(params: IndexParams) -> IndexDomains<BaseEl
     // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
     // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
 
-    let inv_twiddles_k_elts = fft::get_inv_twiddles::<BaseElement>(num_non_zero);
-    let twiddles_l_elts = fft::get_twiddles::<BaseElement>(ext_field_size);
+    let inv_twiddles_k_elts = fft::get_inv_twiddles::<E>(num_non_zero);
+    let twiddles_l_elts = fft::get_twiddles::<E>(ext_field_size);
 
     IndexDomains {
         i_field_base,
@@ -113,36 +114,37 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
     let k_field_base = SmallFieldElement17::get_root_of_unity(num_non_zero.try_into().unwrap());
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = SmallFieldElement17::get_root_of_unity(ext_field_size.try_into().unwrap());
+    unsafe {
+        let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables);
+        let h_field = SmallFieldElement17::get_power_series(h_field_base, num_constraints);
 
-    let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables);
-    let h_field = SmallFieldElement17::get_power_series(h_field_base, num_constraints);
+        // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
+        // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
+        let inv_twiddles_k_elts = SmallFieldElement17::get_inv_twiddles(num_non_zero);
+        let twiddles_l_elts = SmallFieldElement17::get_twiddles(ext_field_size);
 
-    // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
-    // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
-    let inv_twiddles_k_elts = SmallFieldElement17::get_inv_twiddles(num_non_zero);
-    let twiddles_l_elts = SmallFieldElement17::get_twiddles(ext_field_size);
-
-    IndexDomains {
-        i_field_base,
-        h_field_base,
-        k_field_base,
-        l_field_base,
-        i_field,
-        h_field,
-        k_field_len: num_non_zero,
-        l_field_len: ext_field_size,
-        inv_twiddles_k_elts,
-        twiddles_l_elts,
+        IndexDomains {
+            i_field_base,
+            h_field_base,
+            k_field_base,
+            l_field_base,
+            i_field,
+            h_field,
+            k_field_len: num_non_zero,
+            l_field_len: ext_field_size,
+            inv_twiddles_k_elts,
+            twiddles_l_elts,
+        }
     }
 }
 
 // TODO Update the new function for Index to take an R1CS instance as input.
 
-pub fn create_basefield_index_from_r1cs(
+pub fn create_index_from_r1cs<E: StarkField>(
     params: IndexParams,
-    r1cs_instance: R1CS<BaseElement>,
-) -> Index<BaseElement> {
-    let domains = build_basefield_index_domains(params.clone());
+    r1cs_instance: R1CS<E>,
+) -> Index<E> {
+    let domains = build_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
     let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
     let indexed_c = IndexedMatrix::new(r1cs_instance.C, domains);

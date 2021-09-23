@@ -1,6 +1,5 @@
 use math::{
-    FieldElement,
-    fields::f128::BaseElement,
+    StarkField
 };
 
 use fri::{
@@ -14,7 +13,7 @@ use fractal_proofs::SumcheckProof;
 //     proof: SumcheckProof,
 // }
 
-pub fn verify_sumcheck_proof<E: FieldElement + From<BaseElement>>(
+pub fn verify_sumcheck_proof<E: StarkField>(
     _proof: SumcheckProof<E>,
 ) -> Result<(), VerifierError> {
     let g_channel =

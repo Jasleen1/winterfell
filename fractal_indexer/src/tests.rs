@@ -2,13 +2,13 @@ use std::vec;
 
 use crate::{errors::R1CSError, index::*, r1cs::*, *};
 use indexed_matrix::IndexedMatrix;
-use math::{FieldElement, StarkField, fields::f128::BaseElement};
+use math::{FieldElement, StarkField, fields::f128::{self, BaseElement}};
 
 type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3>;
 
 #[test]
 fn test_construct_matrix_f128() {
-    let m: Result<Matrix<BaseElement>, R1CSError> = make_all_ones_matrix_f128("dummy", 1, 1);
+    let m: Result<Matrix<f128::BaseElement>, R1CSError> = make_all_ones_matrix_f128("dummy", 1, 1);
     let matrix = m.unwrap();
 
     let (r, c) = matrix.dims;
@@ -16,7 +16,7 @@ fn test_construct_matrix_f128() {
     assert!(c == 1);
     for i in 0..1 {
         for j in 0..1 {
-            assert!(matrix.mat[i][j] == BaseElement::ONE);
+            assert!(matrix.mat[i][j] == f128::BaseElement::ONE);
         }
     }
     assert!(matrix.name == "dummy");
@@ -69,7 +69,7 @@ fn test_indexing() {
         num_constraints: 2,
         num_non_zero: 4,
     };
-    let domains = build_basefield_index_domains(params.clone());
+    let domains = build_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
     let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
     let indexed_c = IndexedMatrix::new(r1cs_instance.C, domains);
@@ -114,7 +114,7 @@ fn test_single_indexed_matrix_17() {
         num_constraints: 2,
         num_non_zero: 4,
     };
-    let domains = build_primefield_index_domains(params.clone());
+    let domains = build_index_domains(params.clone());
     println!("Domains {:?}", domains);
     let indexed_a = IndexedMatrix::new(matrix_a, domains.clone());
     println!("Indexed a is {:?}", indexed_a);
