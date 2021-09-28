@@ -2,29 +2,27 @@ use math::{
     StarkField
 };
 
-use fri::{
-    DefaultVerifierChannel, VerifierChannel, VerifierError,
-};
+use fri::{DefaultVerifierChannel, FriVerifier, VerifierChannel, VerifierError};
 
 use fractal_proofs::RowcheckProof;
 
 
 pub fn verify_rowcheck_proof<E: StarkField>(
-    _proof: RowcheckProof<E>,
+    proof: RowcheckProof<E>,
 ) -> Result<(), VerifierError> {
     let channel =
-        DefaultVerifierChannel::new(_proof.s_proof, _proof.s_commitments, &_proof.options);
+        DefaultVerifierChannel::new(proof.s_proof, proof.s_commitments, &proof.options, 4);
     let context = VerifierContext::new(
-        _proof.num_evaluations,
-        _proof.s_max_degree,
+        proof.num_evaluations,
+        proof.s_max_degree,
         channel.num_fri_partitions(),
-        _proof.options.clone(),
+        proof.options.clone(),
     );
-    let s_queried_evals = _proof.s_queried_evals;
-    verify(
-        &context,
+    let s_queried_evals = proof.s_queried_evals;
+    let fri_verifier = FriVerifier::new(&mut channel, &mut )
+    fri_verifier::verify(
         &channel,
         &s_queried_evals,
-        &_proof.queried_positions,
+        &proof.queried_positions,
     )
 }

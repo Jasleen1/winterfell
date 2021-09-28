@@ -1,6 +1,6 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, marker::PhantomData};
 
-use crypto::ElementHasher;
+use crypto::{ElementHasher, Hasher};
 use fractal_indexer::{indexed_matrix::*, snark_keys::*};
 use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
 use fri::{FriOptions, FriProof, DefaultProverChannel};
@@ -13,10 +13,10 @@ use math::{
 use fractal_proofs::{SumcheckProof, LincheckProof, MatrixArithProof};
 
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
-pub struct LincheckProver<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> {
+pub struct LincheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = E>> {
     alpha: E,
     beta: E,
-    prover_matrix_index: ProverMatrixIndex<H, E>,
+    prover_matrix_index: ProverMatrixIndex<H, B>,
     f_1_poly_coeffs: Vec<E>,
     f_2_poly_coeffs: Vec<E>,
     degree_fs: usize,
@@ -26,13 +26,14 @@ pub struct LincheckProver<H: ElementHasher + ElementHasher<BaseField = E>, E: St
     evaluation_domain: Vec<E>,
     fri_options: FriOptions,
     num_queries: usize,
+    _h: PhantomData<H>
 }
 
-impl<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> LincheckProver<H, E> {
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = E>> LincheckProver<B, E, H> {
     pub fn new(
         alpha: E,
         beta: E,
-        prover_matrix_index: ProverMatrixIndex<H, E>,
+        prover_matrix_index: ProverMatrixIndex<H, B>,
         f_1_poly_coeffs: Vec<E>,
         f_2_poly_coeffs: Vec<E>,
         degree_fs: usize,
@@ -56,6 +57,7 @@ impl<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> LincheckPro
             evaluation_domain,
             fri_options,
             num_queries,
+            _h: PhantomData
         }
     }
 
@@ -89,7 +91,7 @@ impl<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> LincheckPro
     }
 
 
-    pub fn generate_lincheck_proof(&self) -> LincheckProof<E> {
+    pub fn generate_lincheck_proof(&self) -> LincheckProof<B, E, H> {
         // Compute t(X, alpha)
         unimplemented!()
 

@@ -4,7 +4,7 @@ use crate::{errors::R1CSError, index::*, r1cs::*, *};
 use indexed_matrix::IndexedMatrix;
 use math::{FieldElement, StarkField, fields::f128::{self, BaseElement}};
 
-type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3>;
+type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 
 #[test]
 fn test_construct_matrix_f128() {

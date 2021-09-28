@@ -1,5 +1,6 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, marker::PhantomData};
 
+use crypto::ElementHasher;
 use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
 use fri::{DefaultProverChannel, FriOptions};
 use math::{
@@ -12,21 +13,22 @@ use fractal_proofs::SumcheckProof;
 #[cfg(test)]
 mod tests;
 
-pub struct SumcheckProver<E: FieldElement + From<BaseElement>> {
+pub struct SumcheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>> {
     summing_poly: Vec<E>,
     sigma: E,
-    summing_domain: Vec<E>,
-    summing_domain_twiddles: Vec<E>,
+    summing_domain: Vec<E::BaseField>,
+    summing_domain_twiddles: Vec<B>,
     evaluation_domain: Vec<E>,
     fri_options: FriOptions,
     num_queries: usize,
+    _h: PhantomData<H>
 }
 
-impl<E: FieldElement + From<BaseElement> + StarkField> SumcheckProver<E> {
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>> SumcheckProver<B, E, H> {
     pub fn new(
         summing_poly: Vec<E>,
         sigma: E,
-        summing_domain: Vec<E>,
+        summing_domain: Vec<E::BaseField>,
         evaluation_domain: Vec<E>,
         fri_options: FriOptions,
         num_queries: usize,
@@ -40,10 +42,11 @@ impl<E: FieldElement + From<BaseElement> + StarkField> SumcheckProver<E> {
             evaluation_domain,
             fri_options,
             num_queries,
+            _h: PhantomData
         }
     }
 
-    pub fn generate_proof(&self) -> SumcheckProof<E> {
+    pub fn generate_proof(&self) -> SumcheckProof<B, E, H> {
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
         let mut fri_prover = fri::FriProver::new(self.fri_options.clone());
         let mut summing_poly_evals = self.summing_poly.clone();
@@ -68,17 +71,16 @@ impl<E: FieldElement + From<BaseElement> + StarkField> SumcheckProver<E> {
             );
             e_summing_domain_evals.push(e_val);
         }
-        let inv_twiddles_summing_domain: Vec<E> =
+        let inv_twiddles_summing_domain: Vec<B> =
             fft::get_inv_twiddles(self.summing_domain.len());
         fft::interpolate_poly(&mut g_summing_domain_evals, &inv_twiddles_summing_domain);
         fft::interpolate_poly(&mut e_summing_domain_evals, &inv_twiddles_summing_domain);
 
-        let twiddles_evaluation_domain: Vec<E> =
+        let twiddles_evaluation_domain: Vec<B> =
             fft::get_twiddles(self.evaluation_domain.len());
         fft::evaluate_poly(&mut g_summing_domain_evals, &twiddles_evaluation_domain);
         fft::evaluate_poly(&mut e_summing_domain_evals, &twiddles_evaluation_domain);
         let mut channel = DefaultProverChannel::new(
-            self.fri_options.clone(),
             self.evaluation_domain.len(),
             self.num_queries,
         );
@@ -86,11 +88,7 @@ impl<E: FieldElement + From<BaseElement> + StarkField> SumcheckProver<E> {
         let queried_positions = query_positions.clone();
 
         // Build proofs for the polynomial g
-        fri_prover.build_layers(
-            &mut channel,
-            g_summing_domain_evals.clone(),
-            &self.summing_domain,
-        );
+        let mut fri_prover = fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
         let fri_proof_g = fri_prover.build_proof(&query_positions);
         let g_queried_evaluations = query_positions
             .iter()
@@ -102,8 +100,7 @@ impl<E: FieldElement + From<BaseElement> + StarkField> SumcheckProver<E> {
         fri_prover.reset();
         fri_prover.build_layers(
             &mut channel,
-            e_summing_domain_evals.clone(),
-            &self.summing_domain,
+            e_summing_domain_evals.clone()
         );
         let fri_proof_e = fri_prover.build_proof(&query_positions);
         let e_queried_evaluations = query_positions
@@ -115,7 +112,7 @@ impl<E: FieldElement + From<BaseElement> + StarkField> SumcheckProver<E> {
         SumcheckProof {
             options: self.fri_options.clone(),
             num_evaluations: self.evaluation_domain.len(),
-            queried_positions: queried_positions,
+            queried_positions,
             g_proof: fri_proof_g,
             g_queried_evals: g_queried_evaluations,
             g_commitments,

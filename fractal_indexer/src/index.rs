@@ -9,7 +9,7 @@ use math::{
     utils,
 };
 
-type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3>;
+type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 
 use crate::{indexed_matrix::IndexedMatrix, r1cs::R1CS};
 #[derive(Clone, Debug)]

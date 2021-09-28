@@ -1,51 +1,57 @@
+use crypto::Hasher;
 use math::{
     StarkField
 };
 
-use fri::{
-    DefaultVerifierChannel, VerifierChannel, VerifierError,
-};
+use fri::{DefaultVerifierChannel, FriVerifier, VerifierChannel, VerifierError};
 
-use fractal_proofs::SumcheckProof;
+use fractal_proofs::{FieldElement, SumcheckProof};
+use fractal_utils::*;
 
 // pub struct SumcheckVerifier<E>  {
 //     context: VerifierContext,
 //     proof: SumcheckProof,
 // }
 
-pub fn verify_sumcheck_proof<E: StarkField>(
-    _proof: SumcheckProof<E>,
+pub fn verify_sumcheck_proof<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher>(
+    proof: SumcheckProof<B, E, H>,
 ) -> Result<(), VerifierError> {
     let g_channel =
-        DefaultVerifierChannel::new(_proof.g_proof, _proof.g_commitments, &_proof.options);
-    let g_context = VerifierContext::new(
-        _proof.num_evaluations,
-        _proof.g_max_degree,
-        g_channel.num_fri_partitions(),
-        _proof.options.clone(),
+        DefaultVerifierChannel::new(proof.g_proof, proof.g_commitments, &proof.options);
+    // let g_context = VerifierContext::new(
+    //     proof.num_evaluations,
+    //     proof.g_max_degree,
+    //     g_channel.num_fri_partitions(),
+    //     proof.options.clone(),
+    // );
+    let g_verifier = FriVerifier::<B, E, DefaultVerifierChannel<E, H>, H>::new(
+        g_channel, g_channel.public_coin(),
+        proof.options.clone(), proof.g_max_degree
     );
-    let g_queried_evals = _proof.g_queried_evals;
-    let g_verifies = verify(
-        &g_context,
+    let g_queried_evals = proof.g_queried_evals;
+    let g_verifies = g_verifier.verify(
         &g_channel,
         &g_queried_evals,
-        &_proof.queried_positions,
-    );
+        &proof.queried_positions,
+    )?;
     if g_verifies.is_ok() {
         let e_channel =
-            DefaultVerifierChannel::new(_proof.e_proof, _proof.e_commitments, &_proof.options);
-        let e_context = VerifierContext::new(
-            _proof.num_evaluations,
-            _proof.e_max_degree,
-            e_channel.num_fri_partitions(),
-            _proof.options.clone(),
+            DefaultVerifierChannel::new(proof.e_proof, proof.e_commitments, &proof.options);
+        // let e_context = VerifierContext::new(
+        //     proof.num_evaluations,
+        //     proof.e_max_degree,
+        //     e_channel.num_fri_partitions(),
+        //     proof.options.clone(),
+        // );
+        let e_verifier = FriVerifier::<B, E, DefaultVerifierChannel<E, H>, H>::new(
+            e_channel, e_channel.public_coin(),
+            proof.options.clone(), proof.e_max_degree
         );
-        let _e_queried_evals = _proof.e_queried_evals;
-        verify(
-            &e_context,
+        let e_queried_evals = proof.e_queried_evals;
+        e_verifier.verify(
             &e_channel,
-            &g_queried_evals,
-            &_proof.queried_positions,
+            &e_queried_evals,
+            &proof.queried_positions,
         )
     } else {
         g_verifies
