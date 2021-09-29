@@ -1,15 +1,15 @@
 //! A list of error types which are produced during an execution of the protocol
 
+use crypto::MerkleTreeError;
 use displaydoc::Display;
 use thiserror::Error;
-use crypto::MerkleTreeError;
 /// Represents a generic error type
 #[derive(Debug, Display, Error)]
 pub enum IndexerError {
     /// Error produced by the prover
     R1CS(R1CSError),
     /// If the Merkle Tree leads to an error
-    MerkleTreeErr(MerkleTreeError)
+    MerkleTreeErr(MerkleTreeError),
 }
 
 impl From<R1CSError> for IndexerError {

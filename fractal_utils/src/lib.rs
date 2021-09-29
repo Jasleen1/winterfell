@@ -7,3 +7,4 @@ pub type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3,
 pub type SmallFieldElement13 = math::fields::smallprimefield::BaseElement<13, 2, 2>;
 
 pub static BLOWUP_FACTOR: usize = 8;
+pub static FOLDING_FACTOR: usize = 4;

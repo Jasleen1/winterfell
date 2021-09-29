@@ -2,7 +2,10 @@ use std::vec;
 
 use crate::{errors::R1CSError, index::*, r1cs::*, *};
 use indexed_matrix::IndexedMatrix;
-use math::{FieldElement, StarkField, fields::f128::{self, BaseElement}};
+use math::{
+    fields::f128::{self, BaseElement},
+    FieldElement, StarkField,
+};
 
 type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 

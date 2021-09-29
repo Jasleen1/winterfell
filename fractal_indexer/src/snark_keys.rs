@@ -1,8 +1,13 @@
-use crate::{index::{create_index_from_r1cs, Index, IndexParams}, indexed_matrix::IndexedMatrix, r1cs::{Matrix, R1CS}, errors::*};
+use crate::{
+    errors::*,
+    index::{create_index_from_r1cs, Index, IndexParams},
+    indexed_matrix::IndexedMatrix,
+    r1cs::{Matrix, R1CS},
+};
 use crypto::{ElementHasher, MerkleTree};
-use utils::transpose_slice;
-use math::{FieldElement, StarkField};
 use fri::utils::hash_values;
+use math::{FieldElement, StarkField};
+use utils::transpose_slice;
 #[derive(Debug)]
 pub struct ProverIndexPolynomial<H: ElementHasher + ElementHasher<BaseField = E>, E: FieldElement> {
     polynomial: Vec<E>,
@@ -17,7 +22,7 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndex
         self.evaluations[index]
     }
 
-    pub fn get_eval_at_point(&self, point: B) -> B {
+    pub fn get_eval_at_point(&self, _point: B) -> B {
         unimplemented!()
     }
 }
@@ -51,7 +56,6 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverMatri
     pub fn get_row_eval_at_index(&self, index: usize) -> B {
         self.row_poly.get_eval_at_index(index)
     }
-
 }
 
 #[derive(Debug)]
@@ -79,16 +83,24 @@ pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = E>, E: Stark
 
 // QUESTION: Currently using the utils hash_values function which uses quartic folding.
 // Is there any drawback to doing this here, where there's no layering?
-pub fn commit_polynomial_evaluations<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField, const N: usize>(
-    evaluations: &Vec<E>
+pub fn commit_polynomial_evaluations<
+    H: ElementHasher + ElementHasher<BaseField = E>,
+    E: StarkField,
+    const N: usize,
+>(
+    evaluations: &Vec<E>,
 ) -> Result<MerkleTree<H>, IndexerError> {
     let transposed_evaluations = transpose_slice(evaluations);
     let hashed_evaluations = hash_values::<H, E, N>(&transposed_evaluations);
     Ok(MerkleTree::<H>::new(hashed_evaluations)?)
 }
 
-pub fn generate_prover_and_verifier_matrix_index<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField, const N: usize>(
-    indexed: IndexedMatrix<E>
+pub fn generate_prover_and_verifier_matrix_index<
+    H: ElementHasher + ElementHasher<BaseField = E>,
+    E: StarkField,
+    const N: usize,
+>(
+    indexed: IndexedMatrix<E>,
 ) -> Result<(ProverMatrixIndex<H, E>, VerifierMatrixIndex<H, E>), IndexerError> {
     let matrix = indexed.matrix;
     let row_polynomial = indexed.row_poly;
@@ -133,7 +145,11 @@ pub fn generate_prover_and_verifier_matrix_index<H: ElementHasher + ElementHashe
     Ok((prover_matrix_index, verifier_matrix_index))
 }
 
-pub fn generate_prover_and_verifier_keys<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField, const N: usize>(
+pub fn generate_prover_and_verifier_keys<
+    H: ElementHasher + ElementHasher<BaseField = E>,
+    E: StarkField,
+    const N: usize,
+>(
     Index {
         params,
         indexed_a,
@@ -163,7 +179,11 @@ pub fn generate_prover_and_verifier_keys<H: ElementHasher + ElementHasher<BaseFi
     ))
 }
 
-pub fn generate_basefield_keys<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField, const N: usize>(
+pub fn generate_basefield_keys<
+    H: ElementHasher + ElementHasher<BaseField = E>,
+    E: StarkField,
+    const N: usize,
+>(
     params: IndexParams,
     r1cs_instance: R1CS<E>,
 ) -> Result<(ProverKey<H, E>, VerifierKey<H, E>), IndexerError> {

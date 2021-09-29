@@ -1,4 +1,4 @@
-use math::{FieldElement, StarkField};
+use math::StarkField;
 
 use crate::errors::*;
 

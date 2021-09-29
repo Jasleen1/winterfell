@@ -1,13 +1,8 @@
 use std::convert::TryInto;
 
-use crypto::ElementHasher;
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
-use math::{
-    fft,
-    FieldElement, fields::f128::BaseElement, StarkField,
-    utils,
-};
+use math::{fft, utils, FieldElement, StarkField};
 
 type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 

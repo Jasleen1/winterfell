@@ -1,11 +1,5 @@
-use crate::{SmallFieldElement17, errors::MatrixError, matrix_utils::*};
-use math::{
-    fft,
-    FieldElement, StarkField,
-    utils,
-};
-
-
+use crate::{errors::MatrixError, matrix_utils::*, SmallFieldElement17};
+use math::{FieldElement, StarkField};
 
 #[test]
 fn test_matrix_star() {
@@ -24,7 +18,6 @@ fn test_matrix_star() {
             }
         }
     }
-
 }
 
 fn make_all_ones_matrix_f17(

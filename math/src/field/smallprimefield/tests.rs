@@ -11,9 +11,12 @@ type SmallFieldElement37 = BaseElement<37, 2, 2>;
 
 #[test]
 fn test_two_adicity_17() {
-    assert!(4 == SmallFieldElement17::TWO_ADICITY, "Two-adicity of SmallFieldElement17 = {}", SmallFieldElement17::TWO_ADICITY);
+    assert!(
+        4 == SmallFieldElement17::TWO_ADICITY,
+        "Two-adicity of SmallFieldElement17 = {}",
+        SmallFieldElement17::TWO_ADICITY
+    );
 }
-
 
 #[test]
 fn test_add_17() {

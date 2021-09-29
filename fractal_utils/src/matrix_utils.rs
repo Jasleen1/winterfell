@@ -1,9 +1,6 @@
 use crate::errors::*;
 use crate::polynomial_utils;
-use math::{
-    fft,
-    FieldElement, StarkField,
-};
+use math::FieldElement;
 use std::convert::TryInto;
 
 // TODO: Add error checking and throwing
@@ -85,10 +82,10 @@ impl<E: FieldElement> Matrix<E> {
             }
             new_mat.push(new_mat_row);
         }
-        Matrix{
+        Matrix {
             name: String::from(transpose_name),
             mat: new_mat,
-            dims: (new_rows, new_cols)
+            dims: (new_rows, new_cols),
         }
     }
 

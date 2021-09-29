@@ -1,19 +1,19 @@
 use std::{convert::TryInto, marker::PhantomData};
 
 use crypto::ElementHasher;
-use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
+use fractal_utils::polynomial_utils::*;
 use fri::{DefaultProverChannel, FriOptions};
-use math::{
-    fft,
-    FieldElement, StarkField,
-    fields::f128::BaseElement,
-};
+use math::{fft, FieldElement, StarkField};
 
 use fractal_proofs::SumcheckProof;
 #[cfg(test)]
 mod tests;
 
-pub struct SumcheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>> {
+pub struct SumcheckProver<
+    B: StarkField,
+    E: FieldElement<BaseField = B>,
+    H: ElementHasher<BaseField = B>,
+> {
     summing_poly: Vec<E>,
     sigma: E,
     summing_domain: Vec<E::BaseField>,
@@ -21,10 +21,12 @@ pub struct SumcheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: Elem
     evaluation_domain: Vec<E>,
     fri_options: FriOptions,
     num_queries: usize,
-    _h: PhantomData<H>
+    _h: PhantomData<H>,
 }
 
-impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>> SumcheckProver<B, E, H> {
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>>
+    SumcheckProver<B, E, H>
+{
     pub fn new(
         summing_poly: Vec<E>,
         sigma: E,
@@ -42,22 +44,18 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             evaluation_domain,
             fri_options,
             num_queries,
-            _h: PhantomData
+            _h: PhantomData,
         }
     }
 
-    pub fn generate_proof(&self) -> SumcheckProof<B, E, H> {
+    pub fn generate_proof(&mut self) -> SumcheckProof<B, E, H> {
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
-        let mut channel = DefaultProverChannel::<B, E, H>::new(
-            self.evaluation_domain.len(),
-            self.num_queries,
-        );
-        let mut fri_prover = fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
+        let _channel =
+            DefaultProverChannel::<B, E, H>::new(self.evaluation_domain.len(), self.num_queries);
+        let _fri_prover =
+            fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
         let mut summing_poly_evals = self.summing_poly.clone();
-        fft::evaluate_poly(
-            &mut summing_poly_evals,
-            &mut self.summing_domain_twiddles,
-        );
+        fft::evaluate_poly(&mut summing_poly_evals, &mut self.summing_domain_twiddles);
 
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
         // compute the polynomial e such that e = (Sigma(g, sigma) - summing_poly)/v_H over the summing domain H.
@@ -75,24 +73,20 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             );
             e_summing_domain_evals.push(e_val);
         }
-        let inv_twiddles_summing_domain: Vec<B> =
-            fft::get_inv_twiddles(self.summing_domain.len());
+        let inv_twiddles_summing_domain: Vec<B> = fft::get_inv_twiddles(self.summing_domain.len());
         fft::interpolate_poly(&mut g_summing_domain_evals, &inv_twiddles_summing_domain);
         fft::interpolate_poly(&mut e_summing_domain_evals, &inv_twiddles_summing_domain);
 
-        let twiddles_evaluation_domain: Vec<B> =
-            fft::get_twiddles(self.evaluation_domain.len());
+        let twiddles_evaluation_domain: Vec<B> = fft::get_twiddles(self.evaluation_domain.len());
         fft::evaluate_poly(&mut g_summing_domain_evals, &twiddles_evaluation_domain);
         fft::evaluate_poly(&mut e_summing_domain_evals, &twiddles_evaluation_domain);
-        let mut channel = DefaultProverChannel::new(
-            self.evaluation_domain.len(),
-            self.num_queries,
-        );
+        let mut channel = DefaultProverChannel::new(self.evaluation_domain.len(), self.num_queries);
         let query_positions = channel.draw_query_positions();
         let queried_positions = query_positions.clone();
 
         // Build proofs for the polynomial g
-        let mut fri_prover = fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
+        let mut fri_prover =
+            fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
         let fri_proof_g = fri_prover.build_proof(&query_positions);
         let g_queried_evaluations = query_positions
             .iter()
@@ -102,10 +96,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
 
         // reset to build proofs for the polynomial e
         fri_prover.reset();
-        fri_prover.build_layers(
-            &mut channel,
-            e_summing_domain_evals.clone()
-        );
+        fri_prover.build_layers(&mut channel, e_summing_domain_evals.clone());
         let fri_proof_e = fri_prover.build_proof(&query_positions);
         let e_queried_evaluations = query_positions
             .iter()

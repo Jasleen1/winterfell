@@ -1,19 +1,19 @@
-use std::{convert::TryInto, marker::PhantomData};
+use std::marker::PhantomData;
 
-use crypto::{ElementHasher, Hasher};
-use fractal_indexer::{indexed_matrix::*, snark_keys::*};
-use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
-use fri::{FriOptions, FriProof, DefaultProverChannel};
-use math::{
-    fft,
-    FieldElement, StarkField,
-    utils,
-};
+use crypto::ElementHasher;
+use fractal_indexer::snark_keys::*;
+use fractal_utils::polynomial_utils::*;
+use fri::FriOptions;
+use math::{FieldElement, StarkField};
 
-use fractal_proofs::{SumcheckProof, LincheckProof, MatrixArithProof};
+use fractal_proofs::LincheckProof;
 
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
-pub struct LincheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = B>> {
+pub struct LincheckProver<
+    B: StarkField,
+    E: FieldElement<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B>,
+> {
     alpha: B,
     beta: B,
     prover_matrix_index: ProverMatrixIndex<H, B>,
@@ -26,10 +26,15 @@ pub struct LincheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: Elem
     evaluation_domain: Vec<B>,
     fri_options: FriOptions,
     num_queries: usize,
-    _h: PhantomData<H>
+    _h: PhantomData<H>,
 }
 
-impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = B>> LincheckProver<B, E, H> {
+impl<
+        B: StarkField,
+        E: FieldElement<BaseField = B>,
+        H: ElementHasher + ElementHasher<BaseField = B>,
+    > LincheckProver<B, E, H>
+{
     pub fn new(
         alpha: B,
         beta: B,
@@ -44,7 +49,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHa
         fri_options: FriOptions,
         num_queries: usize,
     ) -> Self {
-        LincheckProver{
+        LincheckProver {
             alpha,
             beta,
             prover_matrix_index,
@@ -57,7 +62,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHa
             evaluation_domain,
             fri_options,
             num_queries,
-            _h: PhantomData
+            _h: PhantomData,
         }
     }
 
@@ -87,13 +92,10 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHa
             t_evals.push(sum_with_vs);
         }
         t_evals
-
     }
-
 
     pub fn generate_lincheck_proof(&self) -> LincheckProof<B, E, H> {
         // Compute t(X, alpha)
         unimplemented!()
-
     }
 }

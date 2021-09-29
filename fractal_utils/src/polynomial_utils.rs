@@ -1,9 +1,6 @@
-use math::{
-    fft,
-    FieldElement, StarkField,
-};
-use std::convert::TryInto;
 use crate::matrix_utils::*;
+use math::FieldElement;
+use std::convert::TryInto;
 // TODO: Add error checking and throwing
 /**
  * This is equivalent to computing v_H(X) for a multiplicative coset
@@ -40,8 +37,7 @@ pub fn compute_derivative_on_single_val<E: FieldElement>(x: E, dom_size: u128) -
 
 // Represents a binomial, i.e. a polynomial in two variables X and Y.
 // The (i, j)th element of this binomial is the coefficient of X^i * Y^j
-pub type BivariatePoly<E: FieldElement> = Vec<Vec<E>>;
-
+pub type BivariatePoly<E> = Vec<Vec<E>>;
 
 pub fn compute_binomial_on_x<E: FieldElement>(bivariate: BivariatePoly<E>, x_val: E) -> Vec<E> {
     // Given a BivariatePoly, computes a monomial in Y, obtained by evaluating bivariate(x_val, Y)
