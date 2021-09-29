@@ -13,34 +13,34 @@ use math::{
 use fractal_proofs::{SumcheckProof, LincheckProof, MatrixArithProof};
 
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
-pub struct LincheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = E>> {
-    alpha: E,
-    beta: E,
+pub struct LincheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = B>> {
+    alpha: B,
+    beta: B,
     prover_matrix_index: ProverMatrixIndex<H, B>,
     f_1_poly_coeffs: Vec<E>,
     f_2_poly_coeffs: Vec<E>,
     degree_fs: usize,
     size_subgroup_h: u128,
     size_subgroup_k: u128,
-    summing_domain: Vec<E>,
-    evaluation_domain: Vec<E>,
+    summing_domain: Vec<B>,
+    evaluation_domain: Vec<B>,
     fri_options: FriOptions,
     num_queries: usize,
     _h: PhantomData<H>
 }
 
-impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = E>> LincheckProver<B, E, H> {
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHasher<BaseField = B>> LincheckProver<B, E, H> {
     pub fn new(
-        alpha: E,
-        beta: E,
+        alpha: B,
+        beta: B,
         prover_matrix_index: ProverMatrixIndex<H, B>,
         f_1_poly_coeffs: Vec<E>,
         f_2_poly_coeffs: Vec<E>,
         degree_fs: usize,
         size_subgroup_h: u128,
         size_subgroup_k: u128,
-        summing_domain: Vec<E>,
-        evaluation_domain: Vec<E>,
+        summing_domain: Vec<B>,
+        evaluation_domain: Vec<B>,
         fri_options: FriOptions,
         num_queries: usize,
     ) -> Self {
@@ -61,11 +61,11 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHa
         }
     }
 
-    pub fn generate_t_alpha(&self) -> Vec<E> {
+    pub fn generate_t_alpha(&self) -> Vec<B> {
         let v_h_alpha = vanishing_poly_for_mult_subgroup(self.alpha, self.size_subgroup_h);
         let mut coefficient_values = Vec::new();
         for id in 0..self.summing_domain.len() {
-            let summing_elt = E::from(self.summing_domain[id]);
+            let summing_elt = self.summing_domain[id];
             let denom_term = self.alpha - self.prover_matrix_index.get_col_eval(summing_elt);
             let k_term_factor = denom_term.inv();
             let k_term = self.prover_matrix_index.get_val_eval(summing_elt) * k_term_factor;
@@ -73,13 +73,13 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher + ElementHa
         }
         let mut t_evals = Vec::new();
         for x_val_id in 0..self.evaluation_domain.len() {
-            let x_val = E::from(self.evaluation_domain[x_val_id]);
+            let x_val = self.evaluation_domain[x_val_id];
             let v_h_x = vanishing_poly_for_mult_subgroup(x_val, self.size_subgroup_h);
 
-            let mut sum_without_vs = E::ZERO;
+            let mut sum_without_vs = B::ZERO;
             for id in 0..self.summing_domain.len() {
-                let summing_elt = E::from(self.summing_domain[id]);
-                let denom_term: E = x_val - self.prover_matrix_index.get_row_eval(summing_elt);
+                let summing_elt = self.summing_domain[id];
+                let denom_term = x_val - self.prover_matrix_index.get_row_eval(summing_elt);
                 let prod_term = coefficient_values[id] * denom_term.inv();
                 sum_without_vs = sum_without_vs + prod_term;
             }

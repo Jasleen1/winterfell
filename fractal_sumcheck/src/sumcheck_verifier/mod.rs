@@ -1,4 +1,4 @@
-use crypto::Hasher;
+use crypto::{ElementHasher, Hasher};
 use math::{
     StarkField
 };
@@ -13,11 +13,11 @@ use fractal_utils::*;
 //     proof: SumcheckProof,
 // }
 
-pub fn verify_sumcheck_proof<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher>(
+pub fn verify_sumcheck_proof<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>>(
     proof: SumcheckProof<B, E, H>,
 ) -> Result<(), VerifierError> {
     let g_channel =
-        DefaultVerifierChannel::new(proof.g_proof, proof.g_commitments, &proof.options);
+        DefaultVerifierChannel::<E, H>::new(proof.g_proof, proof.g_commitments, proof.g_max_degree, proof.options.folding_factor())?;
     // let g_context = VerifierContext::new(
     //     proof.num_evaluations,
     //     proof.g_max_degree,
@@ -25,7 +25,7 @@ pub fn verify_sumcheck_proof<B: StarkField, E: FieldElement<BaseField = B>, H: H
     //     proof.options.clone(),
     // );
     let g_verifier = FriVerifier::<B, E, DefaultVerifierChannel<E, H>, H>::new(
-        g_channel, g_channel.public_coin(),
+        &mut g_channel, g_channel.public_coin(),
         proof.options.clone(), proof.g_max_degree
     );
     let g_queried_evals = proof.g_queried_evals;

@@ -48,7 +48,11 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
 
     pub fn generate_proof(&self) -> SumcheckProof<B, E, H> {
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
-        let mut fri_prover = fri::FriProver::new(self.fri_options.clone());
+        let mut channel = DefaultProverChannel::<B, E, H>::new(
+            self.evaluation_domain.len(),
+            self.num_queries,
+        );
+        let mut fri_prover = fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
         let mut summing_poly_evals = self.summing_poly.clone();
         fft::evaluate_poly(
             &mut summing_poly_evals,

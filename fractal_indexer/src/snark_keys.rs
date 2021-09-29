@@ -10,45 +10,45 @@ pub struct ProverIndexPolynomial<H: ElementHasher + ElementHasher<BaseField = E>
     tree: MerkleTree<H>,
 }
 
-impl<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> ProverIndexPolynomial<H, E> {
+impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndexPolynomial<H, B> {
     // TODO Add error checking, currently assumes index is
     // within range.
-    pub fn get_eval_at_index(&self, index: usize) -> E {
+    pub fn get_eval_at_index(&self, index: usize) -> B {
         self.evaluations[index]
     }
 
-    pub fn get_eval_at_point(&self, point: E) -> E {
+    pub fn get_eval_at_point(&self, point: B) -> B {
         unimplemented!()
     }
 }
 
 #[derive(Debug)]
-pub struct ProverMatrixIndex<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> {
-    pub matrix: Matrix<E>,
-    pub row_poly: ProverIndexPolynomial<H, E>,
-    pub col_poly: ProverIndexPolynomial<H, E>,
-    pub val_poly: ProverIndexPolynomial<H, E>,
+pub struct ProverMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
+    pub matrix: Matrix<B>,
+    pub row_poly: ProverIndexPolynomial<H, B>,
+    pub col_poly: ProverIndexPolynomial<H, B>,
+    pub val_poly: ProverIndexPolynomial<H, B>,
 }
 
-impl<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> ProverMatrixIndex<H, E> {
-    pub fn get_val_eval(&self, point: E) -> E {
+impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverMatrixIndex<H, B> {
+    pub fn get_val_eval(&self, point: B) -> B {
         self.val_poly.get_eval_at_point(point)
     }
-    pub fn get_val_eval_at_index(&self, index: usize) -> E {
+    pub fn get_val_eval_at_index(&self, index: usize) -> B {
         self.val_poly.get_eval_at_index(index)
     }
 
-    pub fn get_col_eval(&self, point: E) -> E {
+    pub fn get_col_eval(&self, point: B) -> B {
         self.col_poly.get_eval_at_point(point)
     }
-    pub fn get_col_eval_at_index(&self, index: usize) -> E {
+    pub fn get_col_eval_at_index(&self, index: usize) -> B {
         self.col_poly.get_eval_at_index(index)
     }
 
-    pub fn get_row_eval(&self, point: E) -> E {
+    pub fn get_row_eval(&self, point: B) -> B {
         self.row_poly.get_eval_at_point(point)
     }
-    pub fn get_row_eval_at_index(&self, index: usize) -> E {
+    pub fn get_row_eval_at_index(&self, index: usize) -> B {
         self.row_poly.get_eval_at_index(index)
     }
 
