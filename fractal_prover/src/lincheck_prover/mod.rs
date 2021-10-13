@@ -6,7 +6,9 @@ use fractal_utils::polynomial_utils::*;
 use fri::FriOptions;
 use math::{FieldElement, StarkField};
 
-use fractal_proofs::LincheckProof;
+use fractal_sumcheck::sumcheck_prover::*;
+
+use fractal_proofs::{LincheckProof, SumcheckProof, TryInto, fft};
 
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
 pub struct LincheckProver<
@@ -24,6 +26,7 @@ pub struct LincheckProver<
     size_subgroup_k: u128,
     summing_domain: Vec<B>,
     evaluation_domain: Vec<B>,
+    h_domain: Vec<B>,
     fri_options: FriOptions,
     num_queries: usize,
     _h: PhantomData<H>,
@@ -46,6 +49,7 @@ impl<
         size_subgroup_k: u128,
         summing_domain: Vec<B>,
         evaluation_domain: Vec<B>,
+        h_domain: Vec<B>,
         fri_options: FriOptions,
         num_queries: usize,
     ) -> Self {
@@ -60,13 +64,14 @@ impl<
             size_subgroup_k,
             summing_domain,
             evaluation_domain,
+            h_domain,
             fri_options,
             num_queries,
             _h: PhantomData,
         }
     }
 
-    pub fn generate_t_alpha(&self) -> Vec<B> {
+    pub fn generate_t_alpha_evals(&self) -> Vec<B> {
         let v_h_alpha = vanishing_poly_for_mult_subgroup(self.alpha, self.size_subgroup_h);
         let mut coefficient_values = Vec::new();
         for id in 0..self.summing_domain.len() {
@@ -94,8 +99,31 @@ impl<
         t_evals
     }
 
+    pub fn generate_t_alpha(&self, t_evals: Vec<B>) -> Vec<B> {
+        let mut t_alpha_eval_domain_poly: Vec<B> = t_evals.clone();
+        let twiddles_evaluation_domain: Vec<B> = fft::get_twiddles(self.evaluation_domain.len());
+        fft::interpolate_poly(&mut t_alpha_eval_domain_poly, &twiddles_evaluation_domain);
+        t_alpha_eval_domain_poly
+    }
+
+    pub fn generate_poly_beta(&self, t_alpha_eval_domain_poly: Vec<B>) -> Vec<B> {
+        // This function needs to compute the polynomial
+        // u_H(X, alpha)*f_1 - t_alpha*f_2
+        // here are the steps to this:
+        // 1. find out how polynomials are represented and get u_H(X, alpha) = X^|H| - alpha
+        // 2. Polynom includes a mul and a sub function, use these to the respective ops
+        unimplemented!()
+    }
+
     pub fn generate_lincheck_proof(&self) -> LincheckProof<B, E, H> {
-        // Compute t(X, alpha)
+        let t_alpha_evals = self.generate_t_alpha_evals();
+        let t_alpha = self.generate_t_alpha(t_alpha_evals);
+        let poly_beta = self.generate_poly_beta(t_alpha);
+        // Next use poly_beta in a sumcheck proof but
+        // the sumcheck domain is H, which isn't included here
+        // Use that to produce the sumcheck proof.
+        let sumcheck_prover = SumcheckProver::<B, E, H>::new(poly_beta, E::ZERO, self.h_domain.clone(),  self.evaluation_domain.clone(), self.fri_options.clone(), self.num_queries);
+
         unimplemented!()
     }
 }

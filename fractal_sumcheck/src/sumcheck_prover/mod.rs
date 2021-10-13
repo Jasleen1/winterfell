@@ -14,11 +14,11 @@ pub struct SumcheckProver<
     E: FieldElement<BaseField = B>,
     H: ElementHasher<BaseField = B>,
 > {
-    summing_poly: Vec<E>,
+    summing_poly: Vec<E::BaseField>,
     sigma: E,
     summing_domain: Vec<E::BaseField>,
     summing_domain_twiddles: Vec<B>,
-    evaluation_domain: Vec<E>,
+    evaluation_domain: Vec<E::BaseField>,
     fri_options: FriOptions,
     num_queries: usize,
     _h: PhantomData<H>,
@@ -28,10 +28,10 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
     SumcheckProver<B, E, H>
 {
     pub fn new(
-        summing_poly: Vec<E>,
+        summing_poly: Vec<B>,
         sigma: E,
-        summing_domain: Vec<E::BaseField>,
-        evaluation_domain: Vec<E>,
+        summing_domain: Vec<B>,
+        evaluation_domain: Vec<B>,
         fri_options: FriOptions,
         num_queries: usize,
     ) -> Self {
@@ -50,10 +50,6 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
 
     pub fn generate_proof(&mut self) -> SumcheckProof<B, E, H> {
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
-        let _channel =
-            DefaultProverChannel::<B, E, H>::new(self.evaluation_domain.len(), self.num_queries);
-        let _fri_prover =
-            fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
         let mut summing_poly_evals = self.summing_poly.clone();
         fft::evaluate_poly(&mut summing_poly_evals, &mut self.summing_domain_twiddles);
 
@@ -64,12 +60,12 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
         let _sigma_inv = self.sigma.inv();
         for i in 0..self.summing_poly.len() {
             let g_val =
-                self.compute_g_poly_on_val(E::from(self.summing_domain[i]), summing_poly_evals[i]);
+                self.compute_g_poly_on_val(E::from(self.summing_domain[i]), E::from(summing_poly_evals[i]));
             g_summing_domain_evals.push(g_val);
             let e_val = self.compute_e_poly_on_val(
                 E::from(self.summing_domain[i]),
                 g_val,
-                summing_poly_evals[i],
+                E::from(summing_poly_evals[i]),
             );
             e_summing_domain_evals.push(e_val);
         }
