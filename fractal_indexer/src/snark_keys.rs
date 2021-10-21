@@ -10,9 +10,9 @@ use math::{FieldElement, StarkField};
 use utils::transpose_slice;
 #[derive(Debug)]
 pub struct ProverIndexPolynomial<H: ElementHasher + ElementHasher<BaseField = E>, E: FieldElement> {
-    polynomial: Vec<E>,
-    evaluations: Vec<E>,
-    tree: MerkleTree<H>,
+    pub polynomial: Vec<E>,
+    pub evaluations: Vec<E>,
+    pub tree: MerkleTree<H>,
 }
 
 impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndexPolynomial<H, B> {

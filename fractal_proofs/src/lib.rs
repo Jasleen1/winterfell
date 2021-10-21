@@ -1,6 +1,7 @@
 mod tests;
 
 pub use std::convert::TryInto;
+use std::{marker::PhantomData, usize};
 
 use crypto::Hasher;
 pub use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
@@ -44,12 +45,10 @@ pub struct SumcheckProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hashe
     // g and e of different degrees?
     pub queried_positions: Vec<usize>,
     pub g_proof: FriProof,
-    pub g_queried_evals: Vec<E>,
-    pub g_commitments: Vec<<H>::Digest>,
+    pub g_queried: OracleQueries<B, E, H>,
     pub g_max_degree: usize,
     pub e_proof: FriProof,
-    pub e_queried_evals: Vec<E>,
-    pub e_commitments: Vec<<H>::Digest>,
+    pub e_queried: OracleQueries<B, E, H>,
     pub e_max_degree: usize,
 }
 
@@ -64,13 +63,11 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> Serializable
             target.write_u8(self.queried_positions[pos] as u8);
         }
         self.g_proof.write_into(target);
-        self.g_queried_evals.write_into(target);
-        self.g_commitments.write_into(target);
+        self.g_queried.write_into(target);
         target.write_u8(self.g_max_degree as u8);
 
         self.e_proof.write_into(target);
-        self.e_queried_evals.write_into(target);
-        self.e_commitments.write_into(target);
+        self.e_queried.write_into(target);
         target.write_u8(self.e_max_degree as u8);
     }
 }
@@ -78,21 +75,40 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> Serializable
 pub struct LincheckProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
     pub options: FriOptions,
     pub num_evaluations: usize,
-    // Question: is it ok to use the same queried positions for both
-    // g and e of different degrees?
-    pub queried_positions: Vec<usize>,
-    pub g_proof: FriProof,
-    pub g_queried_evals: Vec<E>,
-    pub g_commitments: Vec<<H>::Digest>,
-    pub g_max_degree: usize,
-    pub e_proof: FriProof,
-    pub e_queried_evals: Vec<E>,
-    pub e_commitments: Vec<<H>::Digest>,
-    pub e_max_degree: usize,
+    pub alpha: B,
+    pub beta: B,
+    pub t_alpha_commitment: H::Digest,
+    pub t_alpha_queried: OracleQueries<B, E, H>,
+    pub products_sumcheck_proof: SumcheckProof<B, E, H>,
+    pub gamma: B,
+    pub row_queried: OracleQueries<B, E, H>,
+    pub col_queried: OracleQueries<B, E, H>,
+    pub val_queried: OracleQueries<B, E, H>,
+    pub matrix_sumcheck_proof: SumcheckProof<B, E, H>,
+    pub _e: PhantomData<E>,
 }
 
-pub struct MatrixArithProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
-    pub options: FriOptions,
-    pub num_evaluations: usize,
-    pub proof_of_val: SumcheckProof<B, E, H>,
+pub struct OracleQueries<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
+    pub queried_evals: Vec<E>,
+    pub queried_proofs: Vec<Vec<H::Digest>>,
+}
+
+// FIXME: change this to return a Result and throw an error if qeuried_evals.len() != queried_proofs.len()
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> OracleQueries<B, E, H> {
+    pub fn new(queried_evals: Vec<E>, queried_proofs: Vec<Vec<H::Digest>>) -> Self {
+        OracleQueries {
+            queried_evals,
+            queried_proofs,
+        }
+    }
+}
+
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> Serializable
+    for OracleQueries<B, E, H>
+{
+    /// Serializes `self` and writes the resulting bytes into the `target` writer.
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        self.queried_evals.write_into(target);
+        self.queried_proofs.write_into(target);
+    }
 }

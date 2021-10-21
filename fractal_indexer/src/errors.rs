@@ -1,4 +1,4 @@
-//! A list of error types which are produced during an execution of the protocol
+//! A list of error types which are produced during an execution of the indexing protocol
 
 use crypto::MerkleTreeError;
 use displaydoc::Display;

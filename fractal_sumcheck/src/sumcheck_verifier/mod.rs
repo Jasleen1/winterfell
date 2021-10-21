@@ -23,7 +23,7 @@ pub fn verify_sumcheck_proof<
 
     let mut g_channel = DefaultVerifierChannel::<E, H>::new(
         proof.g_proof,
-        proof.g_commitments,
+        proof.g_queried.queried_proofs[0].clone(),
         proof.g_max_degree,
         proof.options.folding_factor(),
     )
@@ -34,12 +34,12 @@ pub fn verify_sumcheck_proof<
         proof.options.clone(),
         proof.g_max_degree,
     )?;
-    let g_queried_evals = proof.g_queried_evals;
+    let g_queried_evals = proof.g_queried.queried_evals;
     g_verifier.verify(&mut g_channel, &g_queried_evals, &proof.queried_positions)?;
 
     let mut e_channel = DefaultVerifierChannel::<E, H>::new(
         proof.e_proof,
-        proof.e_commitments,
+        proof.e_queried.queried_proofs[0].clone(),
         proof.e_max_degree,
         proof.options.folding_factor(),
     )
@@ -51,6 +51,6 @@ pub fn verify_sumcheck_proof<
         proof.e_max_degree,
     )?;
 
-    let e_queried_evals = proof.e_queried_evals;
+    let e_queried_evals = proof.e_queried.queried_evals;
     e_verifier.verify(&mut e_channel, &e_queried_evals, &proof.queried_positions)
 }
