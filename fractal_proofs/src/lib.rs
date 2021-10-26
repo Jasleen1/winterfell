@@ -11,6 +11,25 @@ pub use winter_utils::{
     ByteReader, ByteWriter, Deserializable, DeserializationError, Serializable,
 };
 
+pub struct FractalProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
+    pub rowcheck_proof: RowcheckProof<B, E, H>,
+    pub lincheck_a: LincheckProof<B, E, H>,
+    pub lincheck_b: LincheckProof<B, E, H>,
+    pub lincheck_c: LincheckProof<B, E, H>,
+}
+
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> Serializable
+    for FractalProof<B, E, H>
+{
+    /// Serializes `self` and writes the resulting bytes into the `target` writer.
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        self.rowcheck_proof.write_into(target);
+        self.lincheck_a.write_into(target);
+        self.lincheck_b.write_into(target);
+        self.lincheck_c.write_into(target);
+    }
+}
+
 pub struct RowcheckProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
     pub options: FriOptions,
     pub num_evaluations: usize,
@@ -86,6 +105,25 @@ pub struct LincheckProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hashe
     pub val_queried: OracleQueries<B, E, H>,
     pub matrix_sumcheck_proof: SumcheckProof<B, E, H>,
     pub _e: PhantomData<E>,
+}
+
+impl<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> Serializable
+    for LincheckProof<B, E, H>
+{
+    /// Serializes `self` and writes the resulting bytes into the `target` writer.
+    fn write_into<W: ByteWriter>(&self, target: &mut W) {
+        target.write_u8(self.num_evaluations as u8);
+        self.alpha.write_into(target);
+        self.beta.write_into(target);
+        self.t_alpha_commitment.write_into(target);
+        self.t_alpha_queried.write_into(target);
+        self.products_sumcheck_proof.write_into(target);
+        self.gamma.write_into(target);
+        self.row_queried.write_into(target);
+        self.col_queried.write_into(target);
+        self.val_queried.write_into(target);
+        self.matrix_sumcheck_proof.write_into(target);
+    }
 }
 
 pub struct OracleQueries<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {

@@ -38,8 +38,8 @@ pub fn valid_matrix<E: StarkField>(
     }
 }
 
-impl<E: StarkField> Matrix<E> {
-    pub fn new(name: &str, matrix: Vec<Vec<E>>) -> Result<Self, R1CSError> {
+impl<B: StarkField> Matrix<B> {
+    pub fn new(name: &str, matrix: Vec<Vec<B>>) -> Result<Self, R1CSError> {
         let valid = valid_matrix(name, matrix);
         match valid {
             Ok(m) => Ok(m),
@@ -52,6 +52,18 @@ impl<E: StarkField> Matrix<E> {
         let cols = self.dims.1;
         let total_size = rows + cols;
         return total_size;
+    }
+
+    pub fn dot(&self, vec: Vec<B>) -> Vec<B> {
+        self.mat
+            .iter()
+            .map(|a| {
+                a.iter()
+                    .zip(vec.iter())
+                    .map(|(x, y)| x.mul(*y))
+                    .fold(B::ZERO, |sum, i| sum.add(i))
+            })
+            .collect()
     }
 }
 

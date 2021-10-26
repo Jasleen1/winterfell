@@ -3,7 +3,7 @@ use std::{marker::PhantomData, usize};
 use crypto::{ElementHasher, MerkleTree};
 use fractal_indexer::{hash_values, snark_keys::*};
 use fractal_utils::polynomial_utils::*;
-use fri::{FriOptions, ProverChannel};
+use fri::ProverChannel;
 use math::{FieldElement, StarkField};
 
 use fractal_sumcheck::sumcheck_prover::*;
@@ -11,7 +11,7 @@ use fractal_sumcheck::sumcheck_prover::*;
 use fractal_proofs::{fft, polynom, LincheckProof, OracleQueries, TryInto};
 use utils::transpose_slice;
 
-use crate::errors::LincheckError;
+use crate::{errors::LincheckError, FractalOptions};
 
 const n: usize = 1;
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
@@ -24,14 +24,7 @@ pub struct LincheckProver<
     prover_matrix_index: ProverMatrixIndex<H, B>,
     f_1_poly_coeffs: Vec<B>,
     f_2_poly_coeffs: Vec<B>,
-    degree_fs: usize,
-    size_subgroup_h: u128,
-    size_subgroup_k: u128,
-    summing_domain: Vec<B>,
-    evaluation_domain: Vec<B>,
-    h_domain: Vec<B>,
-    fri_options: FriOptions,
-    num_queries: usize,
+    options: FractalOptions<B>,
     _h: PhantomData<H>,
     _e: PhantomData<E>,
 }
@@ -47,51 +40,37 @@ impl<
         prover_matrix_index: ProverMatrixIndex<H, B>,
         f_1_poly_coeffs: Vec<B>,
         f_2_poly_coeffs: Vec<B>,
-        degree_fs: usize,
-        size_subgroup_h: u128,
-        size_subgroup_k: u128,
-        summing_domain: Vec<B>,
-        evaluation_domain: Vec<B>,
-        h_domain: Vec<B>,
-        fri_options: FriOptions,
-        num_queries: usize,
+        options: FractalOptions<B>,
     ) -> Self {
         LincheckProver {
             alpha,
             prover_matrix_index,
             f_1_poly_coeffs,
             f_2_poly_coeffs,
-            degree_fs,
-            size_subgroup_h,
-            size_subgroup_k,
-            summing_domain,
-            evaluation_domain,
-            h_domain,
-            fri_options,
-            num_queries,
+            options,
             _h: PhantomData,
             _e: PhantomData,
         }
     }
 
     pub fn generate_t_alpha_evals(&self) -> Vec<B> {
-        let v_h_alpha = vanishing_poly_for_mult_subgroup(self.alpha, self.size_subgroup_h);
+        let v_h_alpha = vanishing_poly_for_mult_subgroup(self.alpha, self.options.size_subgroup_h);
         let mut coefficient_values = Vec::new();
-        for id in 0..self.summing_domain.len() {
-            let summing_elt = self.summing_domain[id];
+        for id in 0..self.options.summing_domain.len() {
+            let summing_elt = self.options.summing_domain[id];
             let denom_term = self.alpha - self.prover_matrix_index.get_col_eval(summing_elt);
             let k_term_factor = denom_term.inv();
             let k_term = self.prover_matrix_index.get_val_eval(summing_elt) * k_term_factor;
             coefficient_values.push(k_term)
         }
         let mut t_evals = Vec::new();
-        for x_val_id in 0..self.evaluation_domain.len() {
-            let x_val = self.evaluation_domain[x_val_id];
-            let v_h_x = vanishing_poly_for_mult_subgroup(x_val, self.size_subgroup_h);
+        for x_val_id in 0..self.options.evaluation_domain.len() {
+            let x_val = self.options.evaluation_domain[x_val_id];
+            let v_h_x = vanishing_poly_for_mult_subgroup(x_val, self.options.size_subgroup_h);
 
             let mut sum_without_vs = B::ZERO;
-            for id in 0..self.summing_domain.len() {
-                let summing_elt = self.summing_domain[id];
+            for id in 0..self.options.summing_domain.len() {
+                let summing_elt = self.options.summing_domain[id];
                 let denom_term = x_val - self.prover_matrix_index.get_row_eval(summing_elt);
                 let prod_term = coefficient_values[id] * denom_term.inv();
                 sum_without_vs = sum_without_vs + prod_term;
@@ -104,7 +83,8 @@ impl<
 
     pub fn generate_t_alpha(&self, t_evals: Vec<B>) -> Vec<B> {
         let mut t_alpha_eval_domain_poly: Vec<B> = t_evals.clone();
-        let twiddles_evaluation_domain: Vec<B> = fft::get_twiddles(self.evaluation_domain.len());
+        let twiddles_evaluation_domain: Vec<B> =
+            fft::get_twiddles(self.options.evaluation_domain.len());
         fft::interpolate_poly(&mut t_alpha_eval_domain_poly, &twiddles_evaluation_domain);
         t_alpha_eval_domain_poly
     }
@@ -115,7 +95,7 @@ impl<
         // here are the steps to this:
         // 1. find out how polynomials are represented and get u_H(X, alpha) = (X^|H| - alpha)/(X - alpha)
         // 2. Polynom includes a mul and a sub function, use these to do the respective ops
-        let mut u_numerator = vec![B::ZERO; (self.size_subgroup_h).try_into().unwrap()];
+        let mut u_numerator = vec![B::ZERO; (self.options.size_subgroup_h).try_into().unwrap()];
         u_numerator[0] = self.alpha;
         u_numerator.push(B::ONE);
         let u_denominator = vec![self.alpha, B::ONE];
@@ -133,23 +113,23 @@ impl<
         // Next use poly_beta in a sumcheck proof but
         // the sumcheck domain is H, which isn't included here
         // Use that to produce the sumcheck proof.
-        let mut sumcheck_prover = SumcheckProver::<B, E, H>::new(
+        let mut product_sumcheck_prover = SumcheckProver::<B, E, H>::new(
             poly_prod,
             vec![B::ONE],
             E::ZERO,
-            self.h_domain.clone(),
-            self.evaluation_domain.clone(),
-            self.fri_options.clone(),
-            self.num_queries,
+            self.options.h_domain.clone(),
+            self.options.evaluation_domain.clone(),
+            self.options.fri_options.clone(),
+            self.options.num_queries,
         );
-        let products_sumcheck_proof = sumcheck_prover.generate_proof();
-        let beta = FieldElement::as_base_elements(&[sumcheck_prover.channel.draw_fri_alpha()])[0];
-
+        let products_sumcheck_proof = product_sumcheck_prover.generate_proof();
+        let beta =
+            FieldElement::as_base_elements(&[product_sumcheck_prover.channel.draw_fri_alpha()])[0];
         let gamma = polynom::eval(&t_alpha, beta);
         let matrix_proof_numerator = polynom::mul_by_scalar(
             &self.prover_matrix_index.val_poly.polynomial,
-            compute_vanishing_poly(self.alpha, B::ONE, self.size_subgroup_h)
-                * compute_vanishing_poly(beta, B::ONE, self.size_subgroup_h),
+            compute_vanishing_poly(self.alpha, B::ONE, self.options.size_subgroup_h)
+                * compute_vanishing_poly(beta, B::ONE, self.options.size_subgroup_h),
         );
         let mut alpha_minus_row =
             polynom::mul_by_scalar(&self.prover_matrix_index.row_poly.polynomial, -B::ONE);
@@ -162,10 +142,10 @@ impl<
             matrix_proof_numerator,
             matrix_proof_denominator,
             E::from(gamma),
-            self.summing_domain.clone(),
-            self.evaluation_domain.clone(),
-            self.fri_options.clone(),
-            self.num_queries,
+            self.options.summing_domain.clone(),
+            self.options.evaluation_domain.clone(),
+            self.options.fri_options.clone(),
+            self.options.num_queries,
         );
         let matrix_sumcheck_proof = matrix_sumcheck_prover.generate_proof();
 
@@ -232,8 +212,8 @@ impl<
         let t_alpha_queried =
             OracleQueries::<B, E, H>::new(t_alpha_queried_evaluations, t_alpha_proofs);
         Ok(LincheckProof::<B, E, H> {
-            options: self.fri_options.clone(),
-            num_evaluations: self.evaluation_domain.len(),
+            options: self.options.fri_options.clone(),
+            num_evaluations: self.options.evaluation_domain.len(),
             alpha: self.alpha,
             beta,
             t_alpha_commitment,

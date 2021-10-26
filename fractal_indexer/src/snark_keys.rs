@@ -8,7 +8,8 @@ use crypto::{ElementHasher, MerkleTree};
 use fri::utils::hash_values;
 use math::{FieldElement, StarkField};
 use utils::transpose_slice;
-#[derive(Debug)]
+
+#[derive(Debug, Clone)]
 pub struct ProverIndexPolynomial<H: ElementHasher + ElementHasher<BaseField = E>, E: FieldElement> {
     pub polynomial: Vec<E>,
     pub evaluations: Vec<E>,
@@ -27,7 +28,7 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndex
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ProverMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
     pub matrix: Matrix<B>,
     pub row_poly: ProverIndexPolynomial<H, B>,
@@ -58,50 +59,50 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverMatri
     }
 }
 
-#[derive(Debug)]
-pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> {
-    params: IndexParams,
-    matrix_a_index: ProverMatrixIndex<H, E>,
-    matrix_b_index: ProverMatrixIndex<H, E>,
-    matrix_c_index: ProverMatrixIndex<H, E>,
+#[derive(Debug, Clone)]
+pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
+    pub params: IndexParams,
+    pub matrix_a_index: ProverMatrixIndex<H, B>,
+    pub matrix_b_index: ProverMatrixIndex<H, B>,
+    pub matrix_c_index: ProverMatrixIndex<H, B>,
 }
 
 #[derive(Debug)]
-pub struct VerifierMatrixIndex<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> {
+pub struct VerifierMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
     row_poly_commitment: H::Digest,
     col_poly_commitment: H::Digest,
     val_poly_commitment: H::Digest,
 }
 
 #[derive(Debug)]
-pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = E>, E: StarkField> {
+pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
     params: IndexParams,
-    matrix_a_commitments: VerifierMatrixIndex<H, E>,
-    matrix_b_commitments: VerifierMatrixIndex<H, E>,
-    matrix_c_commitments: VerifierMatrixIndex<H, E>,
+    matrix_a_commitments: VerifierMatrixIndex<H, B>,
+    matrix_b_commitments: VerifierMatrixIndex<H, B>,
+    matrix_c_commitments: VerifierMatrixIndex<H, B>,
 }
 
 // QUESTION: Currently using the utils hash_values function which uses quartic folding.
 // Is there any drawback to doing this here, where there's no layering?
 pub fn commit_polynomial_evaluations<
-    H: ElementHasher + ElementHasher<BaseField = E>,
-    E: StarkField,
+    H: ElementHasher + ElementHasher<BaseField = B>,
+    B: StarkField,
     const N: usize,
 >(
-    evaluations: &Vec<E>,
+    evaluations: &Vec<B>,
 ) -> Result<MerkleTree<H>, IndexerError> {
     let transposed_evaluations = transpose_slice(evaluations);
-    let hashed_evaluations = hash_values::<H, E, N>(&transposed_evaluations);
+    let hashed_evaluations = hash_values::<H, B, N>(&transposed_evaluations);
     Ok(MerkleTree::<H>::new(hashed_evaluations)?)
 }
 
 pub fn generate_prover_and_verifier_matrix_index<
-    H: ElementHasher + ElementHasher<BaseField = E>,
-    E: StarkField,
+    H: ElementHasher + ElementHasher<BaseField = B>,
+    B: StarkField,
     const N: usize,
 >(
-    indexed: IndexedMatrix<E>,
-) -> Result<(ProverMatrixIndex<H, E>, VerifierMatrixIndex<H, E>), IndexerError> {
+    indexed: IndexedMatrix<B>,
+) -> Result<(ProverMatrixIndex<H, B>, VerifierMatrixIndex<H, B>), IndexerError> {
     let matrix = indexed.matrix;
     let row_polynomial = indexed.row_poly;
     let col_polynomial = indexed.col_poly;
@@ -109,9 +110,9 @@ pub fn generate_prover_and_verifier_matrix_index<
     let row_evals = indexed.row_evals_on_l;
     let col_evals = indexed.col_evals_on_l;
     let val_evals = indexed.val_evals_on_l;
-    let row_tree = commit_polynomial_evaluations::<H, E, N>(&row_evals)?;
-    let col_tree = commit_polynomial_evaluations::<H, E, N>(&col_evals)?;
-    let val_tree = commit_polynomial_evaluations::<H, E, N>(&val_evals)?;
+    let row_tree = commit_polynomial_evaluations::<H, B, N>(&row_evals)?;
+    let col_tree = commit_polynomial_evaluations::<H, B, N>(&col_evals)?;
+    let val_tree = commit_polynomial_evaluations::<H, B, N>(&val_evals)?;
     let row_poly_commitment = *row_tree.root();
     let col_poly_commitment = *col_tree.root();
     let val_poly_commitment = *val_tree.root();
@@ -146,8 +147,8 @@ pub fn generate_prover_and_verifier_matrix_index<
 }
 
 pub fn generate_prover_and_verifier_keys<
-    H: ElementHasher + ElementHasher<BaseField = E>,
-    E: StarkField,
+    H: ElementHasher + ElementHasher<BaseField = B>,
+    B: StarkField,
     const N: usize,
 >(
     Index {
@@ -155,14 +156,14 @@ pub fn generate_prover_and_verifier_keys<
         indexed_a,
         indexed_b,
         indexed_c,
-    }: Index<E>,
-) -> Result<(ProverKey<H, E>, VerifierKey<H, E>), IndexerError> {
+    }: Index<B>,
+) -> Result<(ProverKey<H, B>, VerifierKey<H, B>), IndexerError> {
     let (matrix_a_index, matrix_a_commitments) =
-        generate_prover_and_verifier_matrix_index::<H, E, N>(indexed_a)?;
+        generate_prover_and_verifier_matrix_index::<H, B, N>(indexed_a)?;
     let (matrix_b_index, matrix_b_commitments) =
-        generate_prover_and_verifier_matrix_index::<H, E, N>(indexed_b)?;
+        generate_prover_and_verifier_matrix_index::<H, B, N>(indexed_b)?;
     let (matrix_c_index, matrix_c_commitments) =
-        generate_prover_and_verifier_matrix_index::<H, E, N>(indexed_c)?;
+        generate_prover_and_verifier_matrix_index::<H, B, N>(indexed_c)?;
     Ok((
         ProverKey {
             params: params.clone(),
@@ -180,13 +181,13 @@ pub fn generate_prover_and_verifier_keys<
 }
 
 pub fn generate_basefield_keys<
-    H: ElementHasher + ElementHasher<BaseField = E>,
-    E: StarkField,
+    H: ElementHasher + ElementHasher<BaseField = B>,
+    B: StarkField,
     const N: usize,
 >(
     params: IndexParams,
-    r1cs_instance: R1CS<E>,
-) -> Result<(ProverKey<H, E>, VerifierKey<H, E>), IndexerError> {
+    r1cs_instance: R1CS<B>,
+) -> Result<(ProverKey<H, B>, VerifierKey<H, B>), IndexerError> {
     let index = create_index_from_r1cs(params, r1cs_instance);
-    generate_prover_and_verifier_keys::<H, E, N>(index)
+    generate_prover_and_verifier_keys::<H, B, N>(index)
 }

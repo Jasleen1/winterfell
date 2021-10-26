@@ -7,28 +7,31 @@ use math::{FieldElement, StarkField};
 
 use fractal_proofs::RowcheckProof;
 
+use crate::errors::ProverError;
+
 pub struct RowcheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
-    f_az_evals: Vec<E>,
-    f_bz_evals: Vec<E>,
-    f_cz_evals: Vec<E>,
+    f_az_evals: Vec<B>,
+    f_bz_evals: Vec<B>,
+    f_cz_evals: Vec<B>,
     degree_fs: usize,
     size_subgroup_h: usize,
-    evaluation_domain: Vec<E>,
+    evaluation_domain: Vec<B>,
     fri_options: FriOptions,
     num_queries: usize,
     _h: PhantomData<H>,
+    _e: PhantomData<E>,
 }
 
 impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>>
     RowcheckProver<B, E, H>
 {
     pub fn new(
-        f_az_evals: Vec<E>,
-        f_bz_evals: Vec<E>,
-        f_cz_evals: Vec<E>,
+        f_az_evals: Vec<B>,
+        f_bz_evals: Vec<B>,
+        f_cz_evals: Vec<B>,
         degree_fs: usize,
         size_subgroup_h: usize,
-        evaluation_domain: Vec<E>,
+        evaluation_domain: Vec<B>,
         fri_options: FriOptions,
         num_queries: usize,
     ) -> Self {
@@ -42,18 +45,20 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             fri_options,
             num_queries,
             _h: PhantomData,
+            _e: PhantomData,
         }
     }
 
-    pub fn generate_proof(&self) -> RowcheckProof<B, E, H> {
+    pub fn generate_proof(&self) -> Result<RowcheckProof<B, E, H>, ProverError> {
         let mut s_evals: Vec<E> = Vec::new();
         for i in 0..self.evaluation_domain.len() {
-            let s_val_numerator = self.f_az_evals[i] * self.f_bz_evals[i] - self.f_cz_evals[i];
+            let s_val_numerator =
+                E::from(self.f_az_evals[i] * self.f_bz_evals[i] - self.f_cz_evals[i]);
             let s_val_denominator = E::from(vanishing_poly_for_mult_subgroup(
                 self.evaluation_domain[i],
                 self.size_subgroup_h.try_into().unwrap(),
             ));
-            s_evals[i] = s_val_numerator / s_val_denominator; // TODO divide by v_H(X)
+            s_evals[i] = s_val_numerator / s_val_denominator;
         }
         let mut channel = DefaultProverChannel::new(self.evaluation_domain.len(), self.num_queries);
         let mut fri_prover =
@@ -69,7 +74,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             .map(|&p| s_evals[p])
             .collect::<Vec<_>>();
         let s_commitments = channel.layer_commitments().to_vec();
-        RowcheckProof {
+        Ok(RowcheckProof {
             options: self.fri_options.clone(),
             num_evaluations: self.evaluation_domain.len(),
             queried_positions,
@@ -77,6 +82,6 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             s_queried_evals,
             s_commitments,
             s_max_degree: self.degree_fs - 1,
-        }
+        })
     }
 }

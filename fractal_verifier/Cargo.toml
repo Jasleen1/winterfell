@@ -15,5 +15,6 @@ math = { version = "0.2", path = "../math", package = "winter-math", default-fea
 utils = { version = "0.2", path = "../utils/core", package = "winter-utils", default-features = false }
 fractal_utils = { path = "../fractal_utils" }
 fractal_proofs = {path = "../fractal_proofs"}
+fractal_sumcheck = {path = "../fractal_sumcheck"}
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"
