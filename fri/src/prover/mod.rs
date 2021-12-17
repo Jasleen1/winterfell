@@ -100,7 +100,6 @@ where
 struct FriLayer<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
     tree: MerkleTree<H>,
     evaluations: Vec<E>,
-    _base_field: PhantomData<B>,
 }
 
 // PROVER IMPLEMENTATION
@@ -212,7 +211,6 @@ where
         self.layers.push(FriLayer {
             tree: evaluation_tree,
             evaluations: flatten_vector_elements(transposed_evaluations),
-            _base_field: PhantomData,
         });
     }
 
