@@ -3,7 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-//! An implementation of a 128-bit STARK-friendly prime field with modulus 2^128 - 45 * 2^40 + 1.
+//! An implementation of a 128-bit STARK-friendly prime field with modulus $2^{128} - 45 \cdot 2^{40} + 1$.
 //!
 //! Operations in this field are implemented using Barret reduction and are stored in their
 //! canonical form using `u128` as the backing type. However, this field was not chosen with any
@@ -12,7 +12,7 @@
 
 use super::{
     traits::{FieldElement, StarkField},
-    QuadExtensionA,
+    ExtensibleField,
 };
 use core::{
     convert::{TryFrom, TryInto},
@@ -55,7 +55,7 @@ pub struct BaseElement(u128);
 
 impl BaseElement {
     /// Creates a new field element from a u128 value. If the value is greater than or equal to
-    /// the field modulus, modular reduction is silently preformed. This function can also be used
+    /// the field modulus, modular reduction is silently performed. This function can also be used
     /// to initialize constants.
     pub const fn new(value: u128) -> Self {
         BaseElement(if value < M { value } else { value - M })
@@ -130,8 +130,6 @@ impl FieldElement for BaseElement {
 }
 
 impl StarkField for BaseElement {
-    type QuadExtension = QuadExtensionA<Self>;
-
     /// sage: MODULUS = 2^128 - 45 * 2^40 + 1 \
     /// sage: GF(MODULUS).is_prime_field() \
     /// True \
@@ -157,6 +155,7 @@ impl StarkField for BaseElement {
         Self::MODULUS.to_le_bytes().to_vec()
     }
 
+    #[inline]
     fn as_int(&self) -> Self::PositiveInteger {
         self.0
     }
@@ -243,40 +242,79 @@ impl Neg for BaseElement {
     }
 }
 
+// QUADRATIC EXTENSION
+// ================================================================================================
+
+/// Defines a quadratic extension of the base field over an irreducible polynomial x<sup>2</sup> -
+/// x - 1. Thus, an extension element is defined as α + β * φ, where φ is a root of this polynomial,
+/// and α and β are base field elements.
+impl ExtensibleField<2> for BaseElement {
+    #[inline(always)]
+    fn mul(a: [Self; 2], b: [Self; 2]) -> [Self; 2] {
+        let z = a[0] * b[0];
+        [z + a[1] * b[1], (a[0] + a[1]) * (b[0] + b[1]) - z]
+    }
+
+    #[inline(always)]
+    fn frobenius(x: [Self; 2]) -> [Self; 2] {
+        [x[0] + x[1], Self::ZERO - x[1]]
+    }
+}
+
+// CUBIC EXTENSION
+// ================================================================================================
+
+/// Cubic extension for this field is not implemented as quadratic extension already provides
+/// sufficient security level.
+impl ExtensibleField<3> for BaseElement {
+    fn mul(_a: [Self; 3], _b: [Self; 3]) -> [Self; 3] {
+        unimplemented!()
+    }
+
+    #[inline(always)]
+    fn frobenius(_x: [Self; 3]) -> [Self; 3] {
+        unimplemented!()
+    }
+
+    fn is_supported() -> bool {
+        false
+    }
+}
+
 // TYPE CONVERSIONS
 // ================================================================================================
 
 impl From<u128> for BaseElement {
-    /// Converts a 128-bit value into a filed element. If the value is greater than or equal to
-    /// the field modulus, modular reduction is silently preformed.
+    /// Converts a 128-bit value into a field element. If the value is greater than or equal to
+    /// the field modulus, modular reduction is silently performed.
     fn from(value: u128) -> Self {
         BaseElement::new(value)
     }
 }
 
 impl From<u64> for BaseElement {
-    /// Converts a 64-bit value into a filed element.
+    /// Converts a 64-bit value into a field element.
     fn from(value: u64) -> Self {
         BaseElement(value as u128)
     }
 }
 
 impl From<u32> for BaseElement {
-    /// Converts a 32-bit value into a filed element.
+    /// Converts a 32-bit value into a field element.
     fn from(value: u32) -> Self {
         BaseElement(value as u128)
     }
 }
 
 impl From<u16> for BaseElement {
-    /// Converts a 16-bit value into a filed element.
+    /// Converts a 16-bit value into a field element.
     fn from(value: u16) -> Self {
         BaseElement(value as u128)
     }
 }
 
 impl From<u8> for BaseElement {
-    /// Converts an 8-bit value into a filed element.
+    /// Converts an 8-bit value into a field element.
     fn from(value: u8) -> Self {
         BaseElement(value as u128)
     }
@@ -285,7 +323,7 @@ impl From<u8> for BaseElement {
 impl From<[u8; 16]> for BaseElement {
     /// Converts the value encoded in an array of 16 bytes into a field element. The bytes
     /// are assumed to be in little-endian byte order. If the value is greater than or equal
-    /// to the field modulus, modular reduction is silently preformed.
+    /// to the field modulus, modular reduction is silently performed.
     fn from(bytes: [u8; 16]) -> Self {
         let value = u128::from_le_bytes(bytes);
         BaseElement::from(value)
