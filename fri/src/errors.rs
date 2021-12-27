@@ -4,7 +4,7 @@
 // LICENSE file in the root directory of this source tree.
 
 use core::fmt;
-use utils::string::String;
+use utils::{string::String, DeserializationError};
 
 use crypto::RandomCoinError;
 
@@ -37,6 +37,7 @@ pub enum VerifierError {
     RemainderDegreeMismatch(usize),
     /// Polynomial degree at one of the FRI layers could not be divided evenly by the folding factor.
     DegreeTruncation(usize, usize, usize),
+    DeserializationErr(DeserializationError),
 }
 
 impl fmt::Display for VerifierError {
@@ -76,6 +77,9 @@ impl fmt::Display for VerifierError {
             }
             Self::DegreeTruncation(degree, folding, layer) => {
                 write!(f, "degree reduction from {} by {} at layer {} results in degree truncation", degree, folding, layer)
+            }
+            Self::DeserializationErr(err) => {
+                write!(f, "failed to deserialize something in verifier: {}", err)
             }
         }
     }

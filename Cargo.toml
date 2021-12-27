@@ -9,7 +9,13 @@ members = [
   "prover",
   "verifier",
   "winterfell",
-  "examples"
+  "examples",
+  "fractal_indexer",
+  "fractal_prover",
+  "fractal_verifier",
+  "fractal_utils",
+  "fractal_sumcheck",
+  "fractal_proofs",
 ]
 
 [profile.release]
