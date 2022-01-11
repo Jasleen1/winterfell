@@ -32,3 +32,5 @@ pub enum R1CSError {
     /// All matrices in R1CS should have equal dimensions
     MatrixSizeMismatch(String, String),
 }
+
+pub enum ParserError {}

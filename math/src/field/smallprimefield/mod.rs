@@ -1,9 +1,6 @@
 use crate::fft;
 
-use super::{
-    traits::{FieldElement, StarkField},
-    QuadExtensionA,
-};
+use super::traits::{FieldElement, StarkField};
 use core::{
     convert::{TryFrom, TryInto},
     fmt::{Debug, Display, Formatter},
@@ -196,7 +193,6 @@ impl<const M: u64, const G: u64, const T: u32> FieldElement for BaseElement<M, G
 }
 
 impl<const M: u64, const G: u64, const T: u32> StarkField for BaseElement<M, G, T> {
-    type QuadExtension = QuadExtensionA<Self>;
     const MODULUS: Self::PositiveInteger = M;
     const MODULUS_BITS: u32 = Self::get_modulus_bits();
 

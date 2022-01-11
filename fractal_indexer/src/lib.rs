@@ -1,3 +1,4 @@
+pub mod arith_reader;
 pub mod errors;
 pub mod index;
 pub mod indexed_matrix;

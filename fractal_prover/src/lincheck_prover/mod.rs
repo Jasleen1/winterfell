@@ -13,7 +13,7 @@ use utils::transpose_slice;
 
 use crate::{errors::LincheckError, FractalOptions};
 
-const n: usize = 1;
+const N: usize = 1;
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
 pub struct LincheckProver<
     B: StarkField,
@@ -193,8 +193,8 @@ impl<
         }
         let val_queried = OracleQueries::<B, E, H>::new(val_queried_evaluations, val_proofs);
 
-        let t_alpha_transposed_evaluations = transpose_slice::<_, { n }>(&t_alpha_evals.clone());
-        let hashed_evaluations = hash_values::<H, B, { n }>(&t_alpha_transposed_evaluations);
+        let t_alpha_transposed_evaluations = transpose_slice::<_, { N }>(&t_alpha_evals.clone());
+        let hashed_evaluations = hash_values::<H, B, { N }>(&t_alpha_transposed_evaluations);
         let t_alpha_tree = MerkleTree::<H>::new(hashed_evaluations)?;
         let t_alpha_commitment = *t_alpha_tree.root();
         let t_alpha_queried_evaluations = queried_positions
