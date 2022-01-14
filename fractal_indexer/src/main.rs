@@ -51,6 +51,8 @@ fn main() {
             }
         }
     }
+
+    println!("{:?}", arith_parser.return_r1cs());
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>

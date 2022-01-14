@@ -29,6 +29,10 @@ impl<E: StarkField> ArithParser<E> {
         })
     }
 
+    pub fn return_r1cs(&self) -> R1CS<E> {
+        self.r1cs_instance.clone()
+    }
+
     // Handlers.
     fn handle_total(&mut self, total: u32) {
         println!("NOTIMPL TOTAL: {}", total);
