@@ -66,7 +66,7 @@ impl<E: StarkField> ArithParser<E> {
     
     }
 
-    fn handle_const_add(&mut self, in_args: Vec<u32>, out_args: Vec<u32>) {
+    fn handle_const_add(&mut self, in_args: Vec<u32>, out_args: Vec<u32>, negation: bool) {
         println!("NOTIMPL CONST ADD: {:?} {:?}", in_args, out_args);
         let mut new_row_a = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
         let mut new_row_b = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
@@ -76,6 +76,9 @@ impl<E: StarkField> ArithParser<E> {
         let c_pos: usize = out_args[0].try_into().unwrap();
         new_row_a[a_pos_1] = E::ONE;
         new_row_a[0] = E::from(a_val_2);
+        if negation {   
+            new_row_a[0] = E::from(a_val_2).neg();
+        }
         new_row_b[0] = E::ONE;
         new_row_c[c_pos] = E::ONE;
         self.r1cs_instance.A.add_row(new_row_a);
@@ -84,7 +87,7 @@ impl<E: StarkField> ArithParser<E> {
     
     }
 
-    fn handle_mul(&mut self, coeff: i32, in_args: Vec<u32>, out_args: Vec<u32>) {
+    fn handle_mul(&mut self, coeff: i32, in_args: Vec<u32>, out_args: Vec<u32>, negation: bool) {
         println!("NOTIMPL MUL: {} {:?} {:?}", coeff, in_args, out_args);
         
         let mut new_row_a = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
@@ -95,6 +98,9 @@ impl<E: StarkField> ArithParser<E> {
         let c_pos: usize = out_args[0].try_into().unwrap();
         let coeff_u64: u64 = coeff.try_into().unwrap();
         new_row_a[a_pos] = E::from(coeff_u64);
+        if negation {
+            new_row_a[a_pos] = E::from(coeff_u64).neg();
+        }
         if in_args.len() > 1 {
             let b_pos: usize = in_args[1].try_into().unwrap();
             new_row_b[b_pos] = E::ONE; 
@@ -160,18 +166,18 @@ impl<E: StarkField> ArithParser<E> {
         let mut out_vals = self.parse_index_vector(&out_args);
 
         // Commands with implicit coefficients (part of the command name itself): MULTIPLICATION
-        match scanf!(raw_cmd, "const-mul-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals); return }, None => {}, }
-        match scanf!(raw_cmd, "const-mul-neg-{x}", i32) { Some(coeff) => { self.handle_mul(-coeff, in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-mul-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals, false); return }, None => {}, }
+        match scanf!(raw_cmd, "const-mul-neg-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals, true); return }, None => {}, }
 
         // FIXME: Need to deal with adding constants
         // // Commands with implicit coefficients (part of the command name itself): ADDITION
-        match scanf!(raw_cmd, "const-add-{x}", i32) { Some(coeff) => { in_vals.push(coeff.try_into().unwrap()); self.handle_const_add(in_vals, out_vals); return }, None => {}, }
-        match scanf!(raw_cmd, "const-add-neg-{x}", i32) { Some(coeff) => { in_vals.push((-1 * coeff).try_into().unwrap()); self.handle_const_add(in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-add-{x}", i32) { Some(coeff) => { in_vals.push(coeff.try_into().unwrap()); self.handle_const_add(in_vals, out_vals, false); return }, None => {}, }
+        match scanf!(raw_cmd, "const-add-neg-{x}", i32) { Some(coeff) => { in_vals.push((coeff).try_into().unwrap()); self.handle_const_add(in_vals, out_vals, true); return }, None => {}, }
 
         // Commands with lots of inputs and outputs.
         match raw_cmd.as_str() {
             "add" => self.handle_add(in_vals, out_vals),
-            "mul" => self.handle_mul(elementOne, in_vals, out_vals),
+            "mul" => self.handle_mul(elementOne, in_vals, out_vals, false),
             "xor" => self.handle_xor(in_vals, out_vals),
             "or" => self.handle_or(in_vals, out_vals),
             "zerop" => self.handle_nonzero(in_vals, out_vals),
