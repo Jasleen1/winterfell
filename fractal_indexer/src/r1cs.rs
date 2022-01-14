@@ -79,6 +79,51 @@ impl<E: StarkField> Matrix<E> {
         self.mat.push(new_row.clone());
         self.dims.0 = self.dims.0 + 1;
     }
+
+    pub fn debug_print(&mut self) {
+        println!("{}", self.name);
+        for row in &self.mat {
+            for elt in row {
+                if elt == &E::ZERO {
+                    print!("0 ");
+                } else if elt == &E::ONE {
+                    print!("1 ");
+                } else {
+                    print!("{:?}", elt);
+                }
+            }
+            println!("");
+        }
+    }
+
+    /// Print row as ...1..1.1...*...1.. with no newline.
+    pub fn debug_print_row_bits(&mut self, row_idx: usize) {
+        for elt in &self.mat[row_idx] {
+            if elt == &E::ZERO {
+                print!(".");
+            } else if elt == &E::ONE {
+                print!("1");
+            } else {
+                print!("*");
+            }
+        }
+    }
+
+    pub fn debug_print_bits(&mut self) {
+        println!("{}", self.name);
+        for row in &self.mat {
+            for elt in row {
+                if elt == &E::ZERO {
+                    print!(".");
+                } else if elt == &E::ONE {
+                    print!("1");
+                } else {
+                    print!("*");
+                }
+            }
+            println!("");
+        }
+    }
 }
 
 pub(crate) fn create_empty_matrix<E: StarkField>(name: String) -> Matrix<E> {
@@ -98,9 +143,13 @@ pub(crate) fn create_empty_r1cs<E: StarkField>() -> Result<R1CS<E>, R1CSError> {
 
 // TODO: Should A, B and C come with respective lengths
 #[derive(Clone, Debug)]
+#[allow(non_snake_case)]
 pub struct R1CS<E: StarkField> {
+    #[allow(non_snake_case)]
     pub A: Matrix<E>,
+    #[allow(non_snake_case)]
     pub B: Matrix<E>,
+    #[allow(non_snake_case)]
     pub C: Matrix<E>,
 }
 
@@ -144,6 +193,37 @@ impl<E: StarkField> R1CS<E> {
         self.C.define_cols(num_cols);
     }
 
+    pub fn add_rows(&mut self, new_row_a: Vec<E>, new_row_b: Vec<E>, new_row_c: Vec<E>) {
+        self.A.add_row(new_row_a);
+        self.B.add_row(new_row_b);
+        self.C.add_row(new_row_c);
+    }
+
+    pub fn debug_print(&mut self) {
+        println!("Dimensions: {} {}", self.A.dims.0, self.A.dims.1);
+        self.A.debug_print();
+        self.B.debug_print();
+        self.C.debug_print();
+    }
+
+    pub fn debug_print_bits(&mut self) {
+        println!("Dimensions: {} {}", self.A.dims.0, self.A.dims.1);
+        self.A.debug_print_bits();
+        self.B.debug_print_bits();
+        self.C.debug_print_bits();
+    }
+
+    pub fn debug_print_bits_horizontal(&mut self) {
+        let num_rows = self.A.dims.0;
+        for row_idx in 0..num_rows-1 {
+            self.A.debug_print_row_bits(row_idx);
+            print!("  ");
+            self.B.debug_print_row_bits(row_idx);
+            print!("  ");
+            self.C.debug_print_row_bits(row_idx);
+            println!("");
+        }
+    }
 }
 
 // TODO: indexed R1CS consisting of 3 indexed matrices
