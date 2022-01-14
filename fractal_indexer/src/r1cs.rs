@@ -250,6 +250,10 @@ impl<E: StarkField> R1CS<E> {
                 }
             }
         }
+        if first {
+            // Never encountered a nonzero. So the sum itself is 0.
+            print!("0");
+        }
     }
 
     pub fn debug_print_symbolic(&mut self) {
