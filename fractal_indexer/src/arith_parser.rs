@@ -78,6 +78,9 @@ impl<E: StarkField> ArithParser<E> {
 
         new_row_a[a_pos_1] = E::ONE;
         new_row_a[0] = E::from(a_val_2);
+//        if negation {   
+//            new_row_a[0] = E::from(a_val_2).neg();
+//        }
         new_row_b[0] = E::ONE;
         new_row_c[c_pos] = E::ONE;
 
@@ -95,6 +98,9 @@ impl<E: StarkField> ArithParser<E> {
         let c_pos: usize = out_args[0].try_into().unwrap();
         let coeff_u64: u64 = coeff.try_into().unwrap();
         new_row_a[a_pos] = E::from(coeff_u64);
+//        if negation {
+//            new_row_a[a_pos] = E::from(coeff_u64).neg();
+//        }
         if in_args.len() > 1 {
             let b_pos: usize = in_args[1].try_into().unwrap();
             new_row_b[b_pos] = E::ONE; 
@@ -158,7 +164,7 @@ impl<E: StarkField> ArithParser<E> {
 
         // Commands with implicit coefficients (part of the command name itself): MULTIPLICATION
         match scanf!(raw_cmd, "const-mul-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals); return }, None => {}, }
-        match scanf!(raw_cmd, "const-mul-neg-{x}", i32) { Some(coeff) => { self.handle_mul(-coeff, in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-mul-neg-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals); return }, None => {}, }
 
         // Commands with implicit coefficients (part of the command name itself): ADDITION
         match scanf!(raw_cmd, "const-add-{x}", i32) { Some(coeff) => { self.handle_const_add(coeff, in_vals, out_vals); return }, None => {}, }
