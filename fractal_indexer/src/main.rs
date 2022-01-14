@@ -57,7 +57,7 @@ fn main() {
     if let Ok(lines) = read_lines(input_file) {
         for line in lines {
             if let Ok(ip) = line {
-                println!("{}", ip);
+                //println!("{}", ip);
                 arith_parser.process_line(ip);
             }
         }

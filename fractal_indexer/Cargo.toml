@@ -16,3 +16,6 @@ math = { version = "0.2", path = "../math", package = "winter-math", default-fea
 utils = { version = "0.2", path = "../utils/core", package = "winter-utils", default-features = false }
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"
+regex = "1"
+lazy_static = "1.4.0"
+sscanf = "0.1.4"
