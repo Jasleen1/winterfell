@@ -224,6 +224,42 @@ impl<E: StarkField> R1CS<E> {
             println!("");
         }
     }
+
+    fn debug_print_row_symbolic(&self, row: &Vec<E>) {
+        let mut first = true;
+        for col_idx in 0..row.len() {
+            let elt = row[col_idx];
+            if elt != E::ZERO {
+                if first {
+                    first = false;
+                } else {
+                    print!(" + ");
+                }
+                if col_idx == 0 {
+                    print!("{}", elt);
+                } else {
+                    if elt == E::ONE {
+                        print!("v{}", col_idx)
+                    } else {
+                        print!("{} v{}", elt, col_idx)
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn debug_print_symbolic(&mut self) {
+        let num_rows = self.A.dims.0;
+        for row_idx in 0..num_rows-1 {
+            print!("(");
+            self.debug_print_row_symbolic(&self.A.mat[row_idx]);
+            print!(")  (");
+            self.debug_print_row_symbolic(&self.B.mat[row_idx]);
+            print!(") == ");
+            self.debug_print_row_symbolic(&self.C.mat[row_idx]);
+            println!("");
+        }
+    }
 }
 
 // TODO: indexed R1CS consisting of 3 indexed matrices

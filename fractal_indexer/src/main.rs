@@ -37,6 +37,7 @@ fn main() {
     if arith_parser.verbose {
         let mut r1cs = arith_parser.return_r1cs();
         r1cs.debug_print_bits_horizontal();
+        r1cs.debug_print_symbolic();
     }
 }
 
