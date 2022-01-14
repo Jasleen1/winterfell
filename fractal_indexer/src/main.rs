@@ -14,7 +14,7 @@ use math::fields::f128::BaseElement;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    let mut input_file = "sample.arith";
+    let mut input_file = "fibonacciexample.arith";
     if args.len() > 1 {
         input_file = &args[1];
     }

@@ -67,17 +67,16 @@ impl<E: StarkField> ArithParser<E> {
         self.r1cs_instance.add_rows(new_row_a, new_row_b, new_row_c);
     }
 
-    fn handle_const_add(&mut self, coeff: i32, in_args: Vec<u32>, out_args: Vec<u32>) {
+    fn handle_const_add(&mut self, coeff: E, in_args: Vec<u32>, out_args: Vec<u32>) {
         if self.verbose { println!("CONST ADD: {} {:?} {:?}", coeff, in_args, out_args) };
         let mut new_row_a = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
         let mut new_row_b = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
         let mut new_row_c = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
-        let a_pos_1: usize = coeff.try_into().unwrap();
-        let a_val_2: u64 = in_args[0].try_into().unwrap();
+        let a_pos: usize = in_args[0].try_into().unwrap();
         let c_pos: usize = out_args[0].try_into().unwrap();
 
-        new_row_a[a_pos_1] = E::ONE;
-        new_row_a[0] = E::from(a_val_2);
+        new_row_a[a_pos] = E::ONE;
+        new_row_a[0] = coeff;
 //        if negation {   
 //            new_row_a[0] = E::from(a_val_2).neg();
 //        }
@@ -87,7 +86,7 @@ impl<E: StarkField> ArithParser<E> {
         self.r1cs_instance.add_rows(new_row_a, new_row_b, new_row_c);
     }
 
-    fn handle_mul(&mut self, coeff: i32, in_args: Vec<u32>, out_args: Vec<u32>) {
+    fn handle_mul(&mut self, coeff: E, in_args: Vec<u32>, out_args: Vec<u32>) {
         if self.verbose { println!("MUL: {} {:?} {:?}", coeff, in_args, out_args) };
         
         let mut new_row_a = vec![E::ZERO; self.r1cs_instance.get_num_cols()];
@@ -96,8 +95,7 @@ impl<E: StarkField> ArithParser<E> {
         let a_pos: usize = in_args[0].try_into().unwrap();
         
         let c_pos: usize = out_args[0].try_into().unwrap();
-        let coeff_u64: u64 = coeff.try_into().unwrap();
-        new_row_a[a_pos] = E::from(coeff_u64);
+        new_row_a[a_pos] = E::from(coeff);
 //        if negation {
 //            new_row_a[a_pos] = E::from(coeff_u64).neg();
 //        }
@@ -157,23 +155,22 @@ impl<E: StarkField> ArithParser<E> {
 
     // An extended command.
     fn handle_extended(&mut self, raw_cmd: String, in_args: String, out_args: String) {
-        let element_one = 1;  // for now, i32, but will want to use field elements.
 
         let in_vals = self.parse_index_vector(&in_args);
         let out_vals = self.parse_index_vector(&out_args);
-
+        let handle_coeff = {|x: i32| if x > 0 { let x_64: u64 = x.try_into().unwrap(); E::from(x_64)} else { let x_64: u64 = (-1 * x).try_into().unwrap();  E::from(x_64).neg()}};
         // Commands with implicit coefficients (part of the command name itself): MULTIPLICATION
-        match scanf!(raw_cmd, "const-mul-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals); return }, None => {}, }
-        match scanf!(raw_cmd, "const-mul-neg-{x}", i32) { Some(coeff) => { self.handle_mul(coeff, in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-mul-{x}", i32) { Some(coeff) => { self.handle_mul(handle_coeff(coeff), in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-mul-neg-{x}", i32) { Some(coeff) => { self.handle_mul(handle_coeff(- coeff), in_vals, out_vals); return }, None => {}, }
 
         // Commands with implicit coefficients (part of the command name itself): ADDITION
-        match scanf!(raw_cmd, "const-add-{x}", i32) { Some(coeff) => { self.handle_const_add(coeff, in_vals, out_vals); return }, None => {}, }
-        match scanf!(raw_cmd, "const-add-neg-{x}", i32) { Some(coeff) => { self.handle_const_add(-coeff, in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-add-{x}", i32) { Some(coeff) => { self.handle_const_add(handle_coeff(coeff), in_vals, out_vals); return }, None => {}, }
+        match scanf!(raw_cmd, "const-add-neg-{x}", i32) { Some(coeff) => { self.handle_const_add(handle_coeff(-coeff), in_vals, out_vals); return }, None => {}, }
 
         // Commands with lots of inputs and outputs.
         match raw_cmd.as_str() {
             "add" => self.handle_add(in_vals, out_vals),
-            "mul" => self.handle_mul(element_one, in_vals, out_vals),
+            "mul" => self.handle_mul(E::ONE, in_vals, out_vals),
             "xor" => self.handle_xor(in_vals, out_vals),
             "or" => self.handle_or(in_vals, out_vals),
             "zerop" => self.handle_nonzero(in_vals, out_vals),

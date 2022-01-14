@@ -215,6 +215,10 @@ impl<E: StarkField> R1CS<E> {
 
     pub fn debug_print_bits_horizontal(&mut self) {
         let num_rows = self.A.dims.0;
+        if num_rows == 0 {
+            println!("No rows in the matrix!");
+            return
+        }
         for row_idx in 0..num_rows-1 {
             self.A.debug_print_row_bits(row_idx);
             print!("  ");
@@ -250,6 +254,10 @@ impl<E: StarkField> R1CS<E> {
 
     pub fn debug_print_symbolic(&mut self) {
         let num_rows = self.A.dims.0;
+        if num_rows == 0 {
+            println!("No rows in the matrix!");
+            return
+        }
         for row_idx in 0..num_rows-1 {
             print!("(");
             self.debug_print_row_symbolic(&self.A.mat[row_idx]);
