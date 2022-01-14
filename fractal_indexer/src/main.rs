@@ -19,6 +19,7 @@ use std::path::Path;
 // use std::vec;
 
 use fractal_indexer::arith_parser::{ArithParser, LineProcessor};
+use math::fields::f128::BaseElement;
 
 
 // use errors::R1CSError;
@@ -31,22 +32,21 @@ use fractal_indexer::arith_parser::{ArithParser, LineProcessor};
 // type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 
 fn main() {
-    println!("Fractal Indexer");
     let args: Vec<String> = env::args().collect();
 
-    let mut input_file = "sample.arith";
+    let mut input_file = "fibonacciexample.arith";
     if args.len() > 1 {
         input_file = &args[1];
     }
     println!("Parse file {}", input_file);
 
     // let mut arith_parser: arith_parser::ArithParser = arith_parser::LineProcessor::new();
-    let mut arith_parser: ArithParser = ArithParser::new();
+    let mut arith_parser = ArithParser::<BaseElement>::new().unwrap();
 
     if let Ok(lines) = read_lines(input_file) {
         for line in lines {
             if let Ok(ip) = line {
-                //println!("{}", ip);
+                println!("{}", ip);
                 arith_parser.process_line(ip);
             }
         }

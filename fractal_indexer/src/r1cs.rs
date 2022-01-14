@@ -1,3 +1,5 @@
+use core::num;
+
 use math::StarkField;
 
 use crate::errors::*;
@@ -38,8 +40,8 @@ pub fn valid_matrix<E: StarkField>(
     }
 }
 
-impl<B: StarkField> Matrix<B> {
-    pub fn new(name: &str, matrix: Vec<Vec<B>>) -> Result<Self, R1CSError> {
+impl<E: StarkField> Matrix<E> {
+    pub fn new(name: &str, matrix: Vec<Vec<E>>) -> Result<Self, R1CSError> {
         let valid = valid_matrix(name, matrix);
         match valid {
             Ok(m) => Ok(m),
@@ -54,17 +56,44 @@ impl<B: StarkField> Matrix<B> {
         return total_size;
     }
 
-    pub fn dot(&self, vec: Vec<B>) -> Vec<B> {
+    pub fn dot(&self, vec: Vec<E>) -> Vec<E> {
         self.mat
             .iter()
             .map(|a| {
                 a.iter()
                     .zip(vec.iter())
                     .map(|(x, y)| x.mul(*y))
-                    .fold(B::ZERO, |sum, i| sum.add(i))
+                    .fold(E::ZERO, |sum, i| sum.add(i))
             })
             .collect()
     }
+
+    pub fn define_cols(&mut self, num_cols: usize) {
+        self.dims.1 = num_cols;
+    }
+
+    pub fn add_row(&mut self, new_row: Vec<E>) {
+        if new_row.len() != self.dims.1 {
+           // FIXME: add error handling 
+        }
+        self.mat.push(new_row.clone());
+        self.dims.0 = self.dims.0 + 1;
+    }
+}
+
+pub(crate) fn create_empty_matrix<E: StarkField>(name: String) -> Matrix<E> {
+    Matrix {
+        name, 
+        mat: Vec::<Vec<E>>::new(),
+        dims: (0, 0),
+    }
+}
+
+pub(crate) fn create_empty_r1cs<E: StarkField>() -> Result<R1CS<E>, R1CSError> {
+    let matrix_a = create_empty_matrix("A".to_string());
+    let matrix_b = create_empty_matrix("B".to_string());
+    let matrix_c = create_empty_matrix("C".to_string());
+    R1CS::new(matrix_a, matrix_b, matrix_c)
 }
 
 // TODO: Should A, B and C come with respective lengths
@@ -93,6 +122,10 @@ impl<E: StarkField> R1CS<E> {
         }
     }
 
+    pub fn get_num_cols(&self) -> usize {
+        self.A.dims.1
+    }
+
     pub fn get_a(&mut self) -> &mut Matrix<E> {
         &mut self.A
     }
@@ -104,6 +137,13 @@ impl<E: StarkField> R1CS<E> {
     pub fn get_c(&mut self) -> &mut Matrix<E> {
         &mut self.C
     }
+
+    pub fn set_cols(&mut self, num_cols: usize) {
+        self.A.define_cols(num_cols);
+        self.B.define_cols(num_cols);
+        self.C.define_cols(num_cols);
+    }
+
 }
 
 // TODO: indexed R1CS consisting of 3 indexed matrices
