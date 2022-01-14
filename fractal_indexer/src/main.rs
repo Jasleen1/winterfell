@@ -18,8 +18,7 @@ use std::path::Path;
 
 // use std::vec;
 
-use fractal_indexer::arith_parser;
-use fractal_indexer::arith_parser::ArithHandler;
+use fractal_indexer::arith_parser::{ArithParser, LineProcessor};
 
 
 // use errors::R1CSError;
@@ -41,18 +40,8 @@ fn main() {
     }
     println!("Parse file {}", input_file);
 
-    // let mata = make_all_zeros_matrix_f17("AAA", 10, 10).unwrap();
-    // let matb = make_all_zeros_matrix_f17("BBB", 10, 10).unwrap();
-    // let matc = make_all_zeros_matrix_f17("CCC", 10, 10).unwrap();
-
-    // let mut arith_parser = arith_parser::ArithParser {
-    //     A: mata,
-    //     B: matb,
-    //     C: matc
-    // };
-
-    let mut arith_parser: arith_parser::ArithParser = arith_parser::ArithHandler::new();
-    // let mut arith_parser = arith_parser::ArithParser {};
+    // let mut arith_parser: arith_parser::ArithParser = arith_parser::LineProcessor::new();
+    let mut arith_parser: ArithParser = ArithParser::new();
 
     if let Ok(lines) = read_lines(input_file) {
         for line in lines {
