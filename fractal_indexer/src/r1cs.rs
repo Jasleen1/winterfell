@@ -103,6 +103,10 @@ impl<E: StarkField> Matrix<E> {
                 print!(".");
             } else if elt == &E::ONE {
                 print!("1");
+            } else if elt == &E::ONE.neg() {
+                print!("-");
+            } else if elt == &E::from(2u64) {
+                print!("2");
             } else {
                 print!("*");
             }
@@ -243,9 +247,11 @@ impl<E: StarkField> R1CS<E> {
                     print!("{}", elt);
                 } else {
                     if elt == E::ONE {
-                        print!("v{}", col_idx)
+                        print!("v{}", col_idx);
+                    } else if elt == E::ONE.neg() {
+                        print!("-v{}", col_idx);
                     } else {
-                        print!("{} v{}", elt, col_idx)
+                        print!("{} v{}", elt, col_idx);
                     }
                 }
             }
