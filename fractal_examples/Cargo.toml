@@ -1,0 +1,28 @@
+[package]
+name = "fractal_examples"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+bench = false
+
+[[bin]]
+name = "arith-parser"
+path = "src/arith_parser_main.rs"
+bench = false
+doc = false
+
+[dependencies]
+displaydoc = "0.1.7"
+crypto = { version = "0.2", path = "../crypto", package = "winter-crypto", default-features = false }
+fractal_indexer = { version = "0.1.0", path = "../fractal_indexer", package = "fractal_indexer", default-features = false }
+fri = { version = "0.2", path = '../fri', package = "winter-fri", default-features = false }
+log = { version = "0.4", default-features = false }
+math = { version = "0.2", path = "../math", package = "winter-math", default-features = false }
+utils = { version = "0.2", path = "../utils/core", package = "winter-utils", default-features = false }
+serde = { version = "1.0.117", features = ["derive"] }
+thiserror = "1.0.22"
+regex = "1"
+lazy_static = "1.4.0"
+sscanf = "0.1.4"
