@@ -33,7 +33,7 @@ mod tests;
 /// The prover is parametrized with the following types:
 ///
 /// * `B` specifies the base field of the STARK protocol.
-/// * `E` specifies the filed in which the FRI protocol is executed. This can be the same as the
+/// * `E` specifies the field in which the FRI protocol is executed. This can be the same as the
 ///   base field `B`, but it can also be an extension of the base field in cases when the base
 ///   field is too small to provide desired security level for the FRI protocol.
 /// * `C` specifies the type used to simulate prover-verifier interaction.
@@ -100,7 +100,6 @@ where
 struct FriLayer<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
     tree: MerkleTree<H>,
     evaluations: Vec<E>,
-    _base_field: PhantomData<B>,
 }
 
 // PROVER IMPLEMENTATION
@@ -212,7 +211,6 @@ where
         self.layers.push(FriLayer {
             tree: evaluation_tree,
             evaluations: flatten_vector_elements(transposed_evaluations),
-            _base_field: PhantomData,
         });
     }
 
