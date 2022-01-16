@@ -1,6 +1,9 @@
 use lazy_static::lazy_static;
 use math::StarkField;
 use regex::Regex;
+use std::fs::File;
+use std::io::{self, BufRead};
+use std::path::Path;
 use sscanf::scanf;
 
 use crate::errors::*;
@@ -270,5 +273,56 @@ impl<E: StarkField> LineProcessor for R1CSArithParser<E> {
         }
 
         println!("FAILED: {}", line);
+    }
+}
+
+pub struct R1CSArithReaderParser<E: StarkField> {
+    pub r1cs_instance: R1CS<E>,
+}
+
+impl<E: StarkField> R1CSArithReaderParser<E> {
+
+    pub fn new() -> Result<Self, R1CSError> {
+        Ok(R1CSArithReaderParser {
+            r1cs_instance: create_empty_r1cs()?,
+        })
+    }
+
+    pub fn parse_file(&mut self, input_file: &str, verbose: bool) {
+        if verbose {
+            println!("Parse file {}", input_file);
+        }
+
+        // let mut arith_parser: arith_parser::ArithParser = arith_parser::LineProcessor::new();
+        let mut arith_parser = R1CSArithParser::<E>::new().unwrap();
+        arith_parser.verbose = verbose;
+
+        if let Ok(lines) = self.read_lines(input_file) {
+            for line in lines {
+                match line {
+                    Ok(ip) => {
+                        arith_parser.process_line(ip);
+                    }
+                    Err(e) => println!("{:?}", e),
+                }
+            }
+        }
+
+        self.r1cs_instance = arith_parser.return_r1cs();
+        // println!("{:?}", arith_parser.return_r1cs());
+        if arith_parser.verbose {
+            self.r1cs_instance.debug_print_bits_horizontal();
+            self.r1cs_instance.debug_print_symbolic();
+        }
+    }
+
+    fn read_lines<P>(&self, filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+        where P: AsRef<Path>,
+    {
+        let file = match File::open(filename) {
+            Err(why) => panic!("Cannot open file: {}", why),
+            Ok(file) => file,
+        };
+        Ok(io::BufReader::new(file).lines())
     }
 }

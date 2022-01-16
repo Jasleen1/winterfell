@@ -71,14 +71,23 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
+
+    // Validate inputs.
+    let ntpow2 = {|x: usize| x > 1 && (x & (x-1) == 0) };
+    assert!(ntpow2(num_input_variables), "num_input_variables {} must be nontriv power of two", num_input_variables);
+    assert!(ntpow2(num_constraints), "num_constraints {} must be nontriv power of two", num_constraints);
+    assert!(ntpow2(num_non_zero), "num_non_zero {} must be nontriv power of two", num_non_zero);
+
+    // Set up the needed field elements.
     let i_field_base = E::get_root_of_unity(num_input_variables.trailing_zeros());
     let h_field_base = E::get_root_of_unity(num_constraints.trailing_zeros());
     let k_field_base = E::get_root_of_unity(num_non_zero.trailing_zeros());
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = E::get_root_of_unity(ext_field_size.trailing_zeros());
-
     let i_field = utils::get_power_series(i_field_base, num_input_variables);
     let h_field = utils::get_power_series(h_field_base, num_constraints);
+
+    // Prepare the FFT coefficients (twiddles).
 
     // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
     // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);

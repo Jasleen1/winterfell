@@ -78,7 +78,7 @@ impl<E: StarkField> Matrix<E> {
         self.dims.0 = self.dims.0 + 1;
     }
 
-    pub fn debug_print(&mut self) {
+    pub fn debug_print(&self) {
         println!("{}", self.name);
         for row in &self.mat {
             for elt in row {
@@ -95,7 +95,7 @@ impl<E: StarkField> Matrix<E> {
     }
 
     /// Print row as ...1..1.1...*...1.. with no newline.
-    pub fn debug_print_row_bits(&mut self, row_idx: usize) {
+    pub fn debug_print_row_bits(&self, row_idx: usize) {
         for elt in &self.mat[row_idx] {
             if elt == &E::ZERO {
                 print!(".");
@@ -111,7 +111,7 @@ impl<E: StarkField> Matrix<E> {
         }
     }
 
-    pub fn debug_print_bits(&mut self) {
+    pub fn debug_print_bits(&self) {
         println!("{}", self.name);
         for row in &self.mat {
             for elt in row {
@@ -201,21 +201,21 @@ impl<E: StarkField> R1CS<E> {
         self.C.add_row(new_row_c);
     }
 
-    pub fn debug_print(&mut self) {
+    pub fn debug_print(&self) {
         println!("Dimensions: {} {}", self.A.dims.0, self.A.dims.1);
         self.A.debug_print();
         self.B.debug_print();
         self.C.debug_print();
     }
 
-    pub fn debug_print_bits(&mut self) {
+    pub fn debug_print_bits(&self) {
         println!("Dimensions: {} {}", self.A.dims.0, self.A.dims.1);
         self.A.debug_print_bits();
         self.B.debug_print_bits();
         self.C.debug_print_bits();
     }
 
-    pub fn debug_print_bits_horizontal(&mut self) {
+    pub fn debug_print_bits_horizontal(&self) {
         let num_rows = self.A.dims.0;
         if num_rows == 0 {
             println!("No rows in the matrix!");
@@ -260,7 +260,7 @@ impl<E: StarkField> R1CS<E> {
         }
     }
 
-    pub fn debug_print_symbolic(&mut self) {
+    pub fn debug_print_symbolic(&self) {
         let num_rows = self.A.dims.0;
         if num_rows == 0 {
             println!("No rows in the matrix!");
