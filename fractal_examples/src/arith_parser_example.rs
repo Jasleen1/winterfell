@@ -3,26 +3,33 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-use math::fields::f128::BaseElement;
-use models::arith_parser::{ArithParser, LineProcessor};
+use math::StarkField;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+use models::arith_parser::{LineProcessor, R1CSArithParser};
+use models::r1cs::R1CS;
 
-    let mut input_file = "sample.arith";
-    if args.len() > 1 {
-        input_file = &args[1];
-    }
+pub(crate) fn reading_arith<E: StarkField>(input_file: &str, _verbose: bool) -> R1CS<E> {
+    // Use the below commented code if you want to read a
+    // specific file, provided as a command-line arg
+    // let args: Vec<String> = env::args().collect();
+    // let current_path = env::current_dir().unwrap();
+    // println!("in: {:?}", current_path);
+    // let mut input_file = "./src/sample.arith";
+    // if args.len() > 1 {
+    //     input_file = &args[1];
+    // }
+
+    // let input_file = "./src/sample.arith";
+
     let verbose = true;
     println!("Parse file {}", input_file);
 
     // let mut arith_parser: arith_parser::ArithParser = arith_parser::LineProcessor::new();
-    let mut arith_parser = ArithParser::<BaseElement>::new().unwrap();
+    let mut arith_parser = R1CSArithParser::<E>::new().unwrap();
     arith_parser.verbose = verbose;
 
     if let Ok(lines) = read_lines(input_file) {
@@ -35,13 +42,13 @@ fn main() {
             }
         }
     }
-
+    let mut r1cs = arith_parser.return_r1cs();
     // println!("{:?}", arith_parser.return_r1cs());
     if arith_parser.verbose {
-        let mut r1cs = arith_parser.return_r1cs();
         r1cs.debug_print_bits_horizontal();
         r1cs.debug_print_symbolic();
     }
+    r1cs
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>

@@ -7,7 +7,7 @@ use crate::errors::*;
 use crate::r1cs::*;
 
 #[derive(Clone, Debug)]
-pub struct ArithParser<E: StarkField> {
+pub struct R1CSArithParser<E: StarkField> {
     pub verbose: bool,
     r1cs_instance: R1CS<E>,
 }
@@ -16,9 +16,9 @@ pub trait LineProcessor {
     fn process_line(&mut self, line: String);
 }
 
-impl<E: StarkField> ArithParser<E> {
+impl<E: StarkField> R1CSArithParser<E> {
     pub fn new() -> Result<Self, R1CSError> {
-        Ok(ArithParser {
+        Ok(R1CSArithParser {
             verbose: false,
             r1cs_instance: create_empty_r1cs()?,
         })
@@ -208,7 +208,7 @@ impl<E: StarkField> ArithParser<E> {
     }
 }
 
-impl<E: StarkField> LineProcessor for ArithParser<E> {
+impl<E: StarkField> LineProcessor for R1CSArithParser<E> {
     fn process_line(&mut self, line: String) {
         if self.verbose {
             println!("{}", line);
