@@ -107,11 +107,12 @@ pub mod fields {
     pub use super::field::f128;
     pub use super::field::f62;
     pub use super::field::f64;
+    pub use super::field::smallprimefield;
     pub use super::field::CubeExtension;
     pub use super::field::QuadExtension;
 }
 
-mod utils;
+pub mod utils;
 pub use crate::utils::{
     add_in_place, batch_inversion, get_power_series, get_power_series_with_offset, log2, mul_acc,
 };
