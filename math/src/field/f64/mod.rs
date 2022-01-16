@@ -8,7 +8,7 @@
 //! This field supports very fast modular arithmetic and has a number of other attractive
 //! properties, including:
 //! * Multiplication of two 32-bit values does not overflow field modulus.
-//! * Filed arithmetic in this field can be implemented using a few 32-bit addition, subtractions,
+//! * Field arithmetic in this field can be implemented using a few 32-bit addition, subtractions,
 //!   and shifts.
 //! * $8$ is the 64th root of unity which opens up potential for optimized FFT implementations.
 //!
