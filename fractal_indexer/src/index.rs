@@ -6,7 +6,7 @@ use math::{fft, utils, FieldElement, StarkField};
 
 type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 
-use crate::{indexed_matrix::IndexedMatrix};
+use crate::indexed_matrix::IndexedMatrix;
 use models::r1cs::R1CS;
 
 #[derive(Clone, Debug)]

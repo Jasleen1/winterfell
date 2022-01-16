@@ -1,9 +1,6 @@
-use std::convert::TryInto;
-use std::marker::PhantomData;
-
+use lazy_static::lazy_static;
 use math::StarkField;
 use regex::Regex;
-use lazy_static::lazy_static;
 use sscanf::scanf;
 
 use crate::errors::*;
@@ -20,11 +17,10 @@ pub trait LineProcessor {
 }
 
 impl<E: StarkField> ArithParser<E> {
-
     pub fn new() -> Result<Self, R1CSError> {
         Ok(ArithParser {
             verbose: false,
-            r1cs_instance: create_empty_r1cs()?
+            r1cs_instance: create_empty_r1cs()?,
         })
     }
 
@@ -34,7 +30,9 @@ impl<E: StarkField> ArithParser<E> {
 
     // Handlers.
     fn handle_total(&mut self, total: usize) {
-        if self.verbose { println!("TOTAL: {}", total) };
+        if self.verbose {
+            println!("TOTAL: {}", total)
+        };
         self.r1cs_instance.set_cols(total);
     }
 
@@ -51,7 +49,9 @@ impl<E: StarkField> ArithParser<E> {
     }
 
     fn handle_add(&mut self, coeff: E, in_args: Vec<usize>, out_args: Vec<usize>) {
-        if self.verbose { println!("CONST ADD: {} {:?} {:?}", coeff, in_args, out_args) };
+        if self.verbose {
+            println!("CONST ADD: {} {:?} {:?}", coeff, in_args, out_args)
+        };
 
         let numcols = self.r1cs_instance.get_num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
@@ -71,7 +71,9 @@ impl<E: StarkField> ArithParser<E> {
     }
 
     fn handle_mul(&mut self, coeff: E, in_args: Vec<usize>, out_args: Vec<usize>) {
-        if self.verbose { println!("MUL: {} {:?} {:?}", coeff, in_args, out_args) };
+        if self.verbose {
+            println!("MUL: {} {:?} {:?}", coeff, in_args, out_args)
+        };
 
         let numcols = self.r1cs_instance.get_num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
@@ -84,9 +86,8 @@ impl<E: StarkField> ArithParser<E> {
         new_row_a[a_pos] = E::from(coeff);
         if in_args.len() > 1 {
             let b_pos = in_args[1];
-            new_row_b[b_pos] = E::ONE; 
-        }
-        else {
+            new_row_b[b_pos] = E::ONE;
+        } else {
             new_row_b[0] = E::ONE;
         }
         new_row_c[c_pos] = E::ONE;
@@ -95,7 +96,9 @@ impl<E: StarkField> ArithParser<E> {
     }
 
     fn handle_xor(&mut self, in_args: Vec<usize>, out_args: Vec<usize>) {
-        if self.verbose { println!("XOR: {:?} {:?}", in_args, out_args) };
+        if self.verbose {
+            println!("XOR: {:?} {:?}", in_args, out_args)
+        };
 
         let numcols = self.r1cs_instance.get_num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
@@ -106,7 +109,7 @@ impl<E: StarkField> ArithParser<E> {
         let b_pos = in_args[1];
         let c_pos = out_args[0];
 
-        // a + b - 2*ab = a XOR b so, 2a*b = a + b - a XOR b. 
+        // a + b - 2*ab = a XOR b so, 2a*b = a + b - a XOR b.
         new_row_a[a_pos] = E::from(2u64);
         new_row_b[b_pos] = E::ONE;
         new_row_c[a_pos] = E::ONE;
@@ -117,7 +120,9 @@ impl<E: StarkField> ArithParser<E> {
     }
 
     fn handle_or(&mut self, in_args: Vec<usize>, out_args: Vec<usize>) {
-        if self.verbose { println!("OR: {:?} {:?}", in_args, out_args) } ;
+        if self.verbose {
+            println!("OR: {:?} {:?}", in_args, out_args)
+        };
 
         let numcols = self.r1cs_instance.get_num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
@@ -128,7 +133,7 @@ impl<E: StarkField> ArithParser<E> {
         let b_pos = in_args[1];
         let c_pos = out_args[0];
 
-        // a + b - ab = a OR b so, a*b = a + b - a OR b. 
+        // a + b - ab = a OR b so, a*b = a + b - a OR b.
         new_row_a[a_pos] = E::ONE;
         new_row_b[b_pos] = E::ONE;
         new_row_c[a_pos] = E::ONE;
@@ -144,28 +149,39 @@ impl<E: StarkField> ArithParser<E> {
 
     // An extended command.
     fn handle_extended(&mut self, raw_cmd: String, in_args: String, out_args: String) {
-
         let in_vals = self.parse_index_vector(&in_args);
         let out_vals = self.parse_index_vector(&out_args);
 
         // Commands with implicit coefficients (part of the command name itself): MULTIPLICATION
         match scanf!(raw_cmd, "const-mul-{x}", u64) {
-            Some(coeff) => { self.handle_mul(E::from(coeff), in_vals, out_vals); return },
-            None => {},
+            Some(coeff) => {
+                self.handle_mul(E::from(coeff), in_vals, out_vals);
+                return;
+            }
+            None => {}
         }
         match scanf!(raw_cmd, "const-mul-neg-{x}", u64) {
-            Some(coeff) => { self.handle_mul(E::from(coeff).neg(), in_vals, out_vals); return },
-            None => {},
+            Some(coeff) => {
+                self.handle_mul(E::from(coeff).neg(), in_vals, out_vals);
+                return;
+            }
+            None => {}
         }
 
         // Commands with implicit coefficients (part of the command name itself): ADDITION
         match scanf!(raw_cmd, "const-add-{x}", u64) {
-            Some(coeff) => { self.handle_add(E::from(coeff), in_vals, out_vals); return },
-            None => {},
+            Some(coeff) => {
+                self.handle_add(E::from(coeff), in_vals, out_vals);
+                return;
+            }
+            None => {}
         }
         match scanf!(raw_cmd, "const-add-neg-{x}", u64) {
-            Some(coeff) => { self.handle_add(E::from(coeff).neg(), in_vals, out_vals); return },
-            None => {},
+            Some(coeff) => {
+                self.handle_add(E::from(coeff).neg(), in_vals, out_vals);
+                return;
+            }
+            None => {}
         }
 
         // Commands with lots of inputs and outputs.
@@ -197,7 +213,9 @@ impl<E: StarkField> LineProcessor for ArithParser<E> {
         if self.verbose {
             println!("{}", line);
         }
-        if line.starts_with("#") { return }
+        if line.starts_with("#") {
+            return;
+        }
 
         // Remove comments and trim end-whitespace.
         let mut parts = line.split("#");
@@ -205,15 +223,50 @@ impl<E: StarkField> LineProcessor for ArithParser<E> {
         buf = buf.trim();
 
         // Arity 1 commands:
-        match scanf!(buf, "total {}", usize) { Some(total) => { self.handle_total(total); return }, None => {}, }
-        match scanf!(buf, "input {}", usize) { Some(wire_id) => { self.handle_input(wire_id); return }, None => {}, }
-        match scanf!(buf, "nizkinput {}", usize) { Some(wire_id) => { self.handle_nizkinput(wire_id); return }, None => {}, }
-        match scanf!(buf, "output {}", usize) { Some(wire_id) => { self.handle_output(wire_id); return }, None => {}, }
+        match scanf!(buf, "total {}", usize) {
+            Some(total) => {
+                self.handle_total(total);
+                return;
+            }
+            None => {}
+        }
+        match scanf!(buf, "input {}", usize) {
+            Some(wire_id) => {
+                self.handle_input(wire_id);
+                return;
+            }
+            None => {}
+        }
+        match scanf!(buf, "nizkinput {}", usize) {
+            Some(wire_id) => {
+                self.handle_nizkinput(wire_id);
+                return;
+            }
+            None => {}
+        }
+        match scanf!(buf, "output {}", usize) {
+            Some(wire_id) => {
+                self.handle_output(wire_id);
+                return;
+            }
+            None => {}
+        }
 
         // Extended commands, including with implicit inputs (coefficients):
-        match scanf!(buf, "{} in {} <{}> out {} <{}>", String, u32, String, u32, String) {
-            Some((raw_cmd, _in_arity, in_args, _out_arity, out_args)) => { self.handle_extended(raw_cmd, in_args, out_args); return },
-            None => {},
+        match scanf!(
+            buf,
+            "{} in {} <{}> out {} <{}>",
+            String,
+            u32,
+            String,
+            u32,
+            String
+        ) {
+            Some((raw_cmd, _in_arity, in_args, _out_arity, out_args)) => {
+                self.handle_extended(raw_cmd, in_args, out_args);
+                return;
+            }
+            None => {}
         }
 
         println!("FAILED: {}", line);

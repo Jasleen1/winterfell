@@ -8,8 +8,8 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-use models::arith_parser::{ArithParser, LineProcessor};
 use math::fields::f128::BaseElement;
+use models::arith_parser::{ArithParser, LineProcessor};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -30,7 +30,7 @@ fn main() {
             match line {
                 Ok(ip) => {
                     arith_parser.process_line(ip);
-                },
+                }
                 Err(e) => println!("{:?}", e),
             }
         }
@@ -45,7 +45,9 @@ fn main() {
 }
 
 fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where P: AsRef<Path>, {
+where
+    P: AsRef<Path>,
+{
     let file = match File::open(filename) {
         Err(why) => panic!("Cannot open file: {}", why),
         Ok(file) => file,

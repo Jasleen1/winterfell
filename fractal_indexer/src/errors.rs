@@ -2,8 +2,8 @@
 
 use crypto::MerkleTreeError;
 use displaydoc::Display;
-use thiserror::Error;
 use models::errors::R1CSError;
+use thiserror::Error;
 
 /// Represents a generic error type
 #[derive(Debug, Display, Error)]

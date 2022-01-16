@@ -1,5 +1,3 @@
-use core::num;
-
 use math::StarkField;
 
 use crate::errors::*;
@@ -74,7 +72,7 @@ impl<E: StarkField> Matrix<E> {
 
     pub fn add_row(&mut self, new_row: Vec<E>) {
         if new_row.len() != self.dims.1 {
-           // FIXME: add error handling 
+            // FIXME: add error handling
         }
         self.mat.push(new_row.clone());
         self.dims.0 = self.dims.0 + 1;
@@ -132,7 +130,7 @@ impl<E: StarkField> Matrix<E> {
 
 pub(crate) fn create_empty_matrix<E: StarkField>(name: String) -> Matrix<E> {
     Matrix {
-        name, 
+        name,
         mat: Vec::<Vec<E>>::new(),
         dims: (0, 0),
     }
@@ -221,9 +219,9 @@ impl<E: StarkField> R1CS<E> {
         let num_rows = self.A.dims.0;
         if num_rows == 0 {
             println!("No rows in the matrix!");
-            return
+            return;
         }
-        for row_idx in 0..num_rows-1 {
+        for row_idx in 0..num_rows - 1 {
             self.A.debug_print_row_bits(row_idx);
             print!("  ");
             self.B.debug_print_row_bits(row_idx);
@@ -266,9 +264,9 @@ impl<E: StarkField> R1CS<E> {
         let num_rows = self.A.dims.0;
         if num_rows == 0 {
             println!("No rows in the matrix!");
-            return
+            return;
         }
-        for row_idx in 0..num_rows-1 {
+        for row_idx in 0..num_rows - 1 {
             print!("(");
             self.debug_print_row_symbolic(&self.A.mat[row_idx]);
             print!(")  (");

@@ -4,8 +4,8 @@ use std::convert::TryInto;
 
 // TODO: This implementation assumes all matrices are square and all inputs are public, ie no witness. Update to accomodate this.
 use crate::index::*;
-use models::r1cs::*;
 use math::{fft, FieldElement, StarkField};
+use models::r1cs::*;
 
 #[derive(Clone, Debug)]
 pub struct IndexedMatrix<E: StarkField> {

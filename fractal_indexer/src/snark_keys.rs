@@ -3,10 +3,10 @@ use crate::{
     index::{create_index_from_r1cs, Index, IndexParams},
     indexed_matrix::IndexedMatrix,
 };
-use models::r1cs::{Matrix, R1CS};
 use crypto::{ElementHasher, MerkleTree};
 use fri::utils::hash_values;
 use math::{FieldElement, StarkField};
+use models::r1cs::{Matrix, R1CS};
 use utils::transpose_slice;
 
 #[derive(Debug, Clone)]
