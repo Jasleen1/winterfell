@@ -8,7 +8,7 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 
-use fractal_indexer::arith_parser::{ArithParser, LineProcessor};
+use models::arith_parser::{ArithParser, LineProcessor};
 use math::fields::f128::BaseElement;
 
 fn main() {

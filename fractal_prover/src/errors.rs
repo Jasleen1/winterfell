@@ -4,7 +4,7 @@ use core::fmt;
 
 use crypto::MerkleTreeError;
 use displaydoc::Display;
-use fractal_indexer::errors::R1CSError;
+use models::errors::R1CSError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

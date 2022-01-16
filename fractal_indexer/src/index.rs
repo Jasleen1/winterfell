@@ -6,7 +6,9 @@ use math::{fft, utils, FieldElement, StarkField};
 
 type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
 
-use crate::{indexed_matrix::IndexedMatrix, r1cs::R1CS};
+use crate::{indexed_matrix::IndexedMatrix};
+use models::r1cs::R1CS;
+
 #[derive(Clone, Debug)]
 pub struct IndexParams {
     pub num_input_variables: usize,

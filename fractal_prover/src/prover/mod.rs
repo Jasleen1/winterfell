@@ -1,7 +1,8 @@
 use std::marker::PhantomData;
 
 use crypto::{ElementHasher, RandomCoin};
-use fractal_indexer::{r1cs::Matrix, snark_keys::*};
+use fractal_indexer::snark_keys::*;
+use models::r1cs::Matrix;
 
 use math::{FieldElement, StarkField};
 

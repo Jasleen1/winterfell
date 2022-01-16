@@ -3,6 +3,8 @@
 use crypto::MerkleTreeError;
 use displaydoc::Display;
 use thiserror::Error;
+use models::errors::R1CSError;
+
 /// Represents a generic error type
 #[derive(Debug, Display, Error)]
 pub enum IndexerError {
@@ -22,13 +24,4 @@ impl From<MerkleTreeError> for IndexerError {
     fn from(e: MerkleTreeError) -> IndexerError {
         IndexerError::MerkleTreeErr(e)
     }
-}
-
-/// Represents errors in instantiating R1CS types
-#[derive(Debug, Display, Error)]
-pub enum R1CSError {
-    /// Matrix should consist of a vector of equal length vectors. Not the case here.
-    InvalidMatrix(String),
-    /// All matrices in R1CS should have equal dimensions
-    MatrixSizeMismatch(String, String),
 }
