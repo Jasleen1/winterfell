@@ -434,7 +434,8 @@ impl<const N: usize> AsBytes for [[u8; N]] {
 /// # Safety
 /// Using values from the returned vector before initializing them will lead to undefined behavior.
 pub unsafe fn uninit_vector<T>(length: usize) -> Vec<T> {
-    let vector = Vec::with_capacity(length);
+    let mut vector = Vec::with_capacity(length);
+    vector.set_len(length);
     vector
 }
 
