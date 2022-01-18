@@ -39,7 +39,7 @@ pub struct BaseElement<const M: u64, const G: u64, const T: u32> {
 
 impl<const M: u64, const G: u64, const T: u32> BaseElement<M, G, T> {
     const fn get_twoadic_root() -> Self {
-        let g_pow = div_by_power_of_two(M, Self::TWO_ADICITY);
+        let g_pow = M >> Self::TWO_ADICITY;
         let pow_val = G ^ g_pow;
         Self::new(pow_val)
     }
@@ -472,18 +472,4 @@ pub fn get_prime_field_root_of_unity<E: StarkField>(n: u32, modulus: u64) -> E {
     );
     let power = small_field_size / n;
     E::exp(E::GENERATOR, power.into())
-}
-
-const fn get_two_adicity(n: u64) -> u32 {
-    let mut two_adicity = 0;
-    let mut quotient = n - 1;
-    while quotient % 2 == 0 {
-        two_adicity = two_adicity + 1;
-        quotient = quotient + 2;
-    }
-    two_adicity
-}
-
-const fn div_by_power_of_two(dividend: u64, pow: u32) -> u64 {
-    dividend / (1u64 << pow)
 }
