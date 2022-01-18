@@ -54,11 +54,11 @@ fn test_domain_building_17() {
 
 #[test]
 fn test_getting_roots_17() {
-    let test_root_16 = SmallFieldElement17::get_root_of_unity(16);
+    let test_root_16 = SmallFieldElement17::get_root_of_unity(4);
     assert_eq!(test_root_16, SmallFieldElement17::new(3));
-    let test_root_8 = SmallFieldElement17::get_root_of_unity(8);
+    let test_root_8 = SmallFieldElement17::get_root_of_unity(3);
     assert_eq!(test_root_8, SmallFieldElement17::new(9));
-    let test_root_2 = SmallFieldElement17::get_root_of_unity(2);
+    let test_root_2 = SmallFieldElement17::get_root_of_unity(1);
     assert_eq!(test_root_2, SmallFieldElement17::new(16));
 }
 
@@ -75,6 +75,7 @@ fn test_single_indexed_matrix_17() {
     println!("Domains {:?}", domains);
     let indexed_a = IndexedMatrix::new(&matrix_a, &domains);
     println!("Indexed a is {:?}", indexed_a);
+
     let row_poly = indexed_a.row_poly;
     let col_poly = indexed_a.col_poly;
     let expected_row_poly = vec![0, 0, 1, 0];

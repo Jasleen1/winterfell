@@ -126,12 +126,11 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
-    let i_field_base =
-        SmallFieldElement17::get_root_of_unity(num_input_variables.try_into().unwrap());
-    let h_field_base = SmallFieldElement17::get_root_of_unity(num_constraints.try_into().unwrap());
-    let k_field_base = SmallFieldElement17::get_root_of_unity(num_non_zero.try_into().unwrap());
+    let i_field_base = SmallFieldElement17::get_root_of_unity((num_input_variables as u32).trailing_zeros());
+    let h_field_base = SmallFieldElement17::get_root_of_unity((num_constraints as u32).trailing_zeros());
+    let k_field_base = SmallFieldElement17::get_root_of_unity((num_non_zero as u32).trailing_zeros());
     let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
-    let l_field_base = SmallFieldElement17::get_root_of_unity(ext_field_size.try_into().unwrap());
+    let l_field_base = SmallFieldElement17::get_root_of_unity(ext_field_size.trailing_zeros());
     unsafe {
         let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables);
         let h_field = SmallFieldElement17::get_power_series(h_field_base, num_constraints);

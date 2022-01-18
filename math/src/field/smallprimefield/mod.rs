@@ -71,7 +71,7 @@ impl<const M: u64, const G: u64, const T: u32> BaseElement<M, G, T> {
             domain_size.is_power_of_two(),
             "domain size must be a power of 2"
         );
-        let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
+        let root = Self::get_root_of_unity((domain_size as u32).trailing_zeros());
         let mut twiddles = Self::get_power_series(root, domain_size / 2);
         fft::permute(&mut twiddles);
         twiddles
@@ -82,7 +82,7 @@ impl<const M: u64, const G: u64, const T: u32> BaseElement<M, G, T> {
             domain_size.is_power_of_two(),
             "domain size must be a power of 2"
         );
-        let root = Self::get_root_of_unity(domain_size.try_into().unwrap());
+        let root = Self::get_root_of_unity((domain_size as u32).trailing_zeros());
         let inv_root = root.exp((domain_size as u32 - 1).into());
         let mut inv_twiddles = Self::get_power_series(inv_root, domain_size / 2);
         fft::permute(&mut inv_twiddles);
@@ -207,7 +207,7 @@ impl<const M: u64, const G: u64, const T: u32> StarkField for BaseElement<M, G, 
     /// Note that this is actually the nth root, not the
     /// 2^n-th root, unlike the generic function under Starkfield.
     fn get_root_of_unity(n: u32) -> Self {
-        get_prime_field_root_of_unity(n, Self::MODULUS)
+        get_prime_field_root_of_unity(1 << n, Self::MODULUS)
     }
 
     fn get_modulus_le_bytes() -> Vec<u8> {
