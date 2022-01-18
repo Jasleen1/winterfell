@@ -2,7 +2,7 @@ use fractal_proofs::{FriOptions, StarkField};
 
 mod errors;
 mod lincheck_prover;
-mod prover;
+pub mod prover;
 mod rowcheck_prover;
 #[cfg(test)]
 mod tests;

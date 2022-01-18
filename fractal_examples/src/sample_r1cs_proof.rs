@@ -19,6 +19,9 @@ use fractal_indexer::{
     snark_keys::*,
 };
 
+use fractal_prover::prover::FractalProver;
+use fractal_prover::FractalOptions;
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut input_file = "./src/sample.arith";
@@ -60,11 +63,24 @@ pub(crate) fn orchestrate_r1cs_example<
 
     let (_prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
 
-    // TODO
-    // NEXT STEPS
-    // 2. Get the prover arguments
-    // let mut prover = FractalProver::<B, E, H>(
-    //     prover_key,
+    // TODO: create FractalProver
 
-    // )
+    // let options: FractalOptions<BaseElement> = FractalOptions::<BaseElement> {
+    //     degree_fs,
+    //     size_subgroup_h,
+    //     size_subgroup_k,
+    //     summing_domain,
+    //     evaluation_domain,
+    //     h_domain,
+    //     fri_options,
+    //     num_queries,
+    // };
+
+    // let mut prover = FractalProver::<BaseElement, BaseElement, Rp64_256>::new(
+    //     prover_key,
+    //     options,
+    //     witness,
+    //     variable_assignment,
+    //     pub_inputs_byptes
+    // );
 }
