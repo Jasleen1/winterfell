@@ -7,8 +7,9 @@ use std::env;
 
 use crypto::ElementHasher;
 use crypto::hashers::Rp64_256;
+use math::FieldElement;
 use math::StarkField;
-use math::fields::f128::BaseElement;
+use math::fields::f64::BaseElement;
 
 use models::arith_parser::R1CSArithReaderParser;
 
@@ -17,7 +18,6 @@ use fractal_indexer::{
     indexed_matrix::index_matrix,
     snark_keys::*,
 };
-use fractal_proofs::FieldElement;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -32,13 +32,13 @@ fn main() {
     }
 
     // call orchestrate_r1cs_example
-    orchestrate_r1cs_example::<BaseElement, 4>(input_file, verbose);
+    orchestrate_r1cs_example::<BaseElement, BaseElement, Rp64_256, 16>(input_file, verbose);
 }
 
 pub(crate) fn orchestrate_r1cs_example<
     B: StarkField,
-    // E: FieldElement<BaseField = B>,
-    // H: ElementHasher + ElementHasher<BaseField = B>,
+    E: FieldElement<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B>,
     const N: usize,
 >(
     input_file: &str,
@@ -58,7 +58,7 @@ pub(crate) fn orchestrate_r1cs_example<
     // This is the index i.e. the pre-processed data for this r1cs
     let index = Index::new(index_params, indexed_a, indexed_b, indexed_c);
 
-    //let (_prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
+    let (_prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
 
     // TODO
     // NEXT STEPS
