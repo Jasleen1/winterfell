@@ -30,7 +30,7 @@ pub struct IndexedMatrix<E: StarkField> {
 // TODO: Implement commitment for the index to be used as part of the verifier key
 // TODO: Add error checking
 impl<E: StarkField> IndexedMatrix<E> {
-    pub fn new(mat: Matrix<E>, domains: IndexDomains<E>) -> Self {
+    pub fn new(mat: &Matrix<E>, domains: &IndexDomains<E>) -> Self {
         index_matrix(mat, domains)
     }
 }
@@ -40,13 +40,13 @@ impl<E: StarkField> IndexedMatrix<E> {
 // function for Indexed Matrix?
 // QUESTION: Should the IndexDomain struct also depend on E?
 pub fn index_matrix<E: StarkField>(
-    mat: Matrix<E>,
-    index_domains: IndexDomains<E>,
+    mat: &Matrix<E>,
+    index_domains: &IndexDomains<E>,
 ) -> IndexedMatrix<E> {
     let h_size = index_domains.h_field.len().try_into().unwrap();
     let l_size = index_domains.l_field_len;
     let total_size = mat.get_total_size();
-    let h_field = index_domains.h_field;
+    let h_field = index_domains.h_field.clone();
     let num_rows = mat.dims.0;
     let num_cols = mat.dims.1;
     let mut row_elts = vec![h_field[0]; total_size];
@@ -67,7 +67,7 @@ pub fn index_matrix<E: StarkField>(
         }
     }
 
-    let inv_twiddles_k_elts = index_domains.inv_twiddles_k_elts;
+    let inv_twiddles_k_elts = index_domains.inv_twiddles_k_elts.clone();
 
     // interpolate row_elts into a polynomial
     fft::interpolate_poly(&mut row_elts, &inv_twiddles_k_elts);
@@ -78,7 +78,7 @@ pub fn index_matrix<E: StarkField>(
     // interpolate val_elts into a polynomial
     fft::interpolate_poly(&mut val_elts, &inv_twiddles_k_elts);
 
-    let twiddles_l_elts = index_domains.twiddles_l_elts;
+    let twiddles_l_elts = index_domains.twiddles_l_elts.clone();
 
     // evaluate row_elts polynomial over l
     let mut row_evaluations = vec![E::ZERO; l_size];
@@ -96,7 +96,7 @@ pub fn index_matrix<E: StarkField>(
     fft::evaluate_poly(&mut val_evaluations, &twiddles_l_elts);
 
     IndexedMatrix {
-        matrix: mat,
+        matrix: mat.clone(),
         row_poly: row_elts,
         col_poly: col_elts,
         val_poly: val_elts,

@@ -13,7 +13,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let mut input_file = "./src/sample.arith";
     if args.len() > 1 {
-         input_file = &args[1];
+        input_file = &args[1];
     }
 
     let verbose = true;

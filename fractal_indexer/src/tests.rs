@@ -27,9 +27,9 @@ fn test_indexing() {
         num_non_zero: 4,
     };
     let domains = build_index_domains(params.clone());
-    let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
-    let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
-    let indexed_c = IndexedMatrix::new(r1cs_instance.C, domains);
+    let indexed_a = IndexedMatrix::new(&r1cs_instance.A, &domains);
+    let indexed_b = IndexedMatrix::new(&r1cs_instance.B, &domains);
+    let indexed_c = IndexedMatrix::new(&r1cs_instance.C, &domains);
     let index = Index::new(params, indexed_a, indexed_b, indexed_c);
     println!("Index is {:?}", index);
 }
@@ -73,12 +73,14 @@ fn test_single_indexed_matrix_17() {
     };
     let domains = build_index_domains(params.clone());
     println!("Domains {:?}", domains);
-    let indexed_a = IndexedMatrix::new(matrix_a, domains.clone());
+    let indexed_a = IndexedMatrix::new(&matrix_a, &domains);
     println!("Indexed a is {:?}", indexed_a);
     let row_poly = indexed_a.row_poly;
     let col_poly = indexed_a.col_poly;
     let expected_row_poly = vec![0, 0, 1, 0];
     let expected_col_poly = vec![0, 11, 0, 7];
+    println!("Row computed: {:?}", row_poly);
+    println!("Col computed: {:?}", col_poly);
     for i in 0..4 {
         assert_eq!(row_poly[i], SmallFieldElement17::new(expected_row_poly[i]));
         assert_eq!(col_poly[i], SmallFieldElement17::new(expected_col_poly[i]));
@@ -104,9 +106,9 @@ fn test_indexing_f17() {
         num_non_zero: 4,
     };
     let domains = build_primefield_index_domains(params.clone());
-    let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
-    let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
-    let indexed_c = IndexedMatrix::new(r1cs_instance.C, domains);
+    let indexed_a = IndexedMatrix::new(&r1cs_instance.A, &domains);
+    let indexed_b = IndexedMatrix::new(&r1cs_instance.B, &domains);
+    let indexed_c = IndexedMatrix::new(&r1cs_instance.C, &domains);
     let index = Index::new(params, indexed_a, indexed_b, indexed_c);
     println!("Index is {:?}", index);
 }

@@ -73,10 +73,22 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E
     let num_non_zero = params.num_non_zero;
 
     // Validate inputs.
-    let ntpow2 = {|x: usize| x > 1 && (x & (x-1) == 0) };
-    assert!(ntpow2(num_input_variables), "num_input_variables {} must be nontriv power of two", num_input_variables);
-    assert!(ntpow2(num_constraints), "num_constraints {} must be nontriv power of two", num_constraints);
-    assert!(ntpow2(num_non_zero), "num_non_zero {} must be nontriv power of two", num_non_zero);
+    let ntpow2 = { |x: usize| x > 1 && (x & (x - 1) == 0) };
+    assert!(
+        ntpow2(num_input_variables),
+        "num_input_variables {} must be nontriv power of two",
+        num_input_variables
+    );
+    assert!(
+        ntpow2(num_constraints),
+        "num_constraints {} must be nontriv power of two",
+        num_constraints
+    );
+    assert!(
+        ntpow2(num_non_zero),
+        "num_non_zero {} must be nontriv power of two",
+        num_non_zero
+    );
 
     // Set up the needed field elements.
     let i_field_base = E::get_root_of_unity(num_input_variables.trailing_zeros());
@@ -151,9 +163,9 @@ pub fn create_index_from_r1cs<E: StarkField>(
     r1cs_instance: R1CS<E>,
 ) -> Index<E> {
     let domains = build_index_domains(params.clone());
-    let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
-    let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
-    let indexed_c = IndexedMatrix::new(r1cs_instance.C, domains);
+    let indexed_a = IndexedMatrix::new(&r1cs_instance.A, &domains);
+    let indexed_b = IndexedMatrix::new(&r1cs_instance.B, &domains);
+    let indexed_c = IndexedMatrix::new(&r1cs_instance.C, &domains);
     Index::new(params, indexed_a, indexed_b, indexed_c)
 }
 
@@ -162,8 +174,8 @@ pub fn create_primefield_index_from_r1cs(
     r1cs_instance: R1CS<SmallFieldElement17>,
 ) -> Index<SmallFieldElement17> {
     let domains = build_primefield_index_domains(params.clone());
-    let indexed_a = IndexedMatrix::new(r1cs_instance.A, domains.clone());
-    let indexed_b = IndexedMatrix::new(r1cs_instance.B, domains.clone());
-    let indexed_c = IndexedMatrix::new(r1cs_instance.C, domains);
+    let indexed_a = IndexedMatrix::new(&r1cs_instance.A, &domains);
+    let indexed_b = IndexedMatrix::new(&r1cs_instance.B, &domains);
+    let indexed_c = IndexedMatrix::new(&r1cs_instance.C, &domains);
     Index::new(params, indexed_a, indexed_b, indexed_c)
 }

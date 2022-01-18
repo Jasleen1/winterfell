@@ -5,11 +5,12 @@
 
 use std::env;
 
-use crypto::ElementHasher;
 use crypto::hashers::Rp64_256;
+use crypto::ElementHasher;
+use fractal_proofs::log2;
+use math::fields::f64::BaseElement;
 use math::FieldElement;
 use math::StarkField;
-use math::fields::f64::BaseElement;
 
 use models::arith_parser::R1CSArithReaderParser;
 
@@ -19,14 +20,11 @@ use fractal_indexer::{
     snark_keys::*,
 };
 
-use fractal_prover::prover::FractalProver;
-use fractal_prover::FractalOptions;
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut input_file = "./src/sample.arith";
     if args.len() > 1 {
-         input_file = &args[1];
+        input_file = &args[1];
     }
 
     let verbose = true;
@@ -49,21 +47,30 @@ pub(crate) fn orchestrate_r1cs_example<
 ) {
     let mut arith_parser = R1CSArithReaderParser::<B>::new().unwrap();
     arith_parser.parse_file(input_file, verbose);
-    let r1cs = arith_parser.r1cs_instance;
+    let r1cs = arith_parser.r1cs_instance.clone();
 
     // 1. Index this R1CS
-    let index_params = IndexParams { num_input_variables: 16, num_constraints: 16, num_non_zero: 8 };
+    let index_params = IndexParams {
+        num_input_variables: 16,
+        num_constraints: 16,
+        num_non_zero: 8,
+    };
 
     let index_domains = build_index_domains::<B>(index_params.clone());
-    let indexed_a = index_matrix::<B>(r1cs.A, index_domains.clone());
-    let indexed_b = index_matrix::<B>(r1cs.B, index_domains.clone());
-    let indexed_c = index_matrix::<B>(r1cs.C, index_domains.clone());
+    let indexed_a = index_matrix::<B>(&r1cs.A, &index_domains);
+    let indexed_b = index_matrix::<B>(&r1cs.B, &index_domains);
+    let indexed_c = index_matrix::<B>(&r1cs.C, &index_domains);
     // This is the index i.e. the pre-processed data for this r1cs
     let index = Index::new(index_params, indexed_a, indexed_b, indexed_c);
 
     let (_prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
 
     // TODO: create FractalProver
+    let degree_fs = r1cs.clone().get_num_cols();
+    let log_size_subgroup_h = log2(degree_fs) + 1u32;
+    let log_size_subgroup_k = 2 * log_size_subgroup_h;
+    let _size_subgroup_h = 1 << log_size_subgroup_h;
+    let _size_subgroup_k = 1 << log_size_subgroup_k;
 
     // let options: FractalOptions<BaseElement> = FractalOptions::<BaseElement> {
     //     degree_fs,

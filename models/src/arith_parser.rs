@@ -1,10 +1,10 @@
 use lazy_static::lazy_static;
 use math::StarkField;
 use regex::Regex;
+use sscanf::scanf;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
-use sscanf::scanf;
 
 use crate::errors::*;
 use crate::r1cs::*;
@@ -281,7 +281,6 @@ pub struct R1CSArithReaderParser<E: StarkField> {
 }
 
 impl<E: StarkField> R1CSArithReaderParser<E> {
-
     pub fn new() -> Result<Self, R1CSError> {
         Ok(R1CSArithReaderParser {
             r1cs_instance: create_empty_r1cs()?,
@@ -317,7 +316,8 @@ impl<E: StarkField> R1CSArithReaderParser<E> {
     }
 
     fn read_lines<P>(&self, filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-        where P: AsRef<Path>,
+    where
+        P: AsRef<Path>,
     {
         let file = match File::open(filename) {
             Err(why) => panic!("Cannot open file: {}", why),

@@ -143,7 +143,6 @@ pub(crate) fn create_empty_r1cs<E: StarkField>() -> Result<R1CS<E>, R1CSError> {
     R1CS::new(matrix_a, matrix_b, matrix_c)
 }
 
-// TODO: Should A, B and C come with respective lengths
 #[derive(Clone, Debug)]
 #[allow(non_snake_case)]
 pub struct R1CS<E: StarkField> {
