@@ -26,12 +26,15 @@ pub fn vanishing_poly_for_mult_subgroup<E: FieldElement>(x: E, dom_size: u128) -
     compute_vanishing_poly(x, E::ONE, dom_size)
 }
 
+// The derivative is calculated as |H| x^{|H|-1}.
 // This is equivalent to computing u_H(X, X) for a multiplicative coset H
 // of order dom_size = |H|.
 pub fn compute_derivative_on_single_val<E: FieldElement>(x: E, dom_size: u128) -> E {
     let dom_size_coeff = E::from(dom_size);
     let power_u64: u64 = (dom_size - 1).try_into().unwrap();
     let power = E::PositiveInteger::from(power_u64);
+    // println!("   deriv: {}    = h: {}   x: {:?}  ** h1: {:?}",
+    //     dom_size_coeff * x.exp(power), dom_size_coeff, x, power);
     dom_size_coeff * x.exp(power)
 }
 

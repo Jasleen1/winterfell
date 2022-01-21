@@ -4,11 +4,11 @@ use math::{FieldElement, StarkField};
 #[test]
 fn test_matrix_star() {
     let original_matrix = make_all_ones_matrix_f17("test", 2, 2).unwrap();
-    let h_field_base = SmallFieldElement17::get_root_of_unity(2);
+    let field_base = SmallFieldElement17::get_root_of_unity(2);
     unsafe {
-        let h_field = SmallFieldElement17::get_power_series(h_field_base, 2);
-        let matrix_star = original_matrix.get_matrix_star(h_field.clone()).unwrap();
-        let expected = vec![vec![2, 15], vec![2, 15]];
+        let field = SmallFieldElement17::get_power_series(field_base, 2);
+        let matrix_star = original_matrix.get_matrix_star(field.clone()).unwrap();
+        let expected = vec![vec![2, 9], vec![2, 9]];
         for i in 0..2 {
             for j in 0..2 {
                 assert_eq!(

@@ -92,11 +92,11 @@ impl<E: FieldElement> Matrix<E> {
     pub fn get_matrix_star(&self, index_field: Vec<E>) -> Result<Self, MatrixError> {
         let mut mat_star = Vec::new();
         let dom_size = index_field.len().try_into().unwrap();
-        for _i in 0..self.get_rows() {
+        for i in 0..self.get_rows() {
             let mut new_row: Vec<E> = Vec::new();
-            for _j in 0..self.get_cols() {
-                let new_elt = self.mat[_j][_i]
-                    * polynomial_utils::compute_derivative_on_single_val(index_field[_j], dom_size);
+            for j in 0..self.get_cols() {
+                let new_elt = self.mat[j][i]
+                    * polynomial_utils::compute_derivative_on_single_val(index_field[j], dom_size);
                 new_row.push(new_elt);
             }
             mat_star.push(new_row);
