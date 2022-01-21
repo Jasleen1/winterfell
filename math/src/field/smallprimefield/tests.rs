@@ -254,7 +254,7 @@ fn test_inv_37() {
 
 #[test]
 fn test_get_root_of_unity_17() {
-    let root_16 = SmallFieldElement17::get_root_of_unity(16);
+    let root_16 = SmallFieldElement17::get_root_of_unity(4);
     assert_eq!(SmallFieldElement17::from(3u32), root_16);
 
     let powers: Vec<u32> = vec![3, 9, 10, 13, 5, 15, 11, 16, 14, 8, 7, 4, 12, 2, 6];
@@ -265,7 +265,7 @@ fn test_get_root_of_unity_17() {
         );
     }
 
-    let root_2 = SmallFieldElement17::get_root_of_unity(2);
+    let root_2 = SmallFieldElement17::get_root_of_unity(1);
 
     let expected = SmallFieldElement17::exp(root_16, 8);
     assert_eq!(expected, root_2);
@@ -277,27 +277,18 @@ fn test_get_root_of_unity_17() {
 
 #[test]
 fn test_get_root_of_unity_37() {
-    let root_36 = SmallFieldElement37::get_root_of_unity(36);
-    assert_eq!(SmallFieldElement37::from(2u32), root_36);
+    // 36 = 100100, have 2-adic order of 2.
+    let root_4 = SmallFieldElement37::get_root_of_unity(2);
+    assert_eq!(SmallFieldElement37::from(31u32), root_4);
 
     let powers: Vec<u32> = vec![
         2, 4, 8, 16, 32, 27, 17, 34, 31, 25, 13, 26, 15, 30, 23, 9, 18, 36, 35, 33, 29, 21, 5, 10,
         20, 3, 6, 12, 24, 11, 22, 7, 14, 28, 19, 1,
     ];
-    for i in 1..36 {
-        assert_eq!(
-            SmallFieldElement37::from(powers[i - 1]),
-            SmallFieldElement37::exp(root_36, i as u64)
-        );
-    }
 
-    let root_2 = SmallFieldElement37::get_root_of_unity(2);
-
-    let expected = SmallFieldElement37::exp(root_36, 18);
-    assert_eq!(expected, root_2);
     assert_eq!(
         SmallFieldElement37::ONE,
-        SmallFieldElement37::exp(root_2, 2)
+        SmallFieldElement37::exp(root_4, 4)
     );
 }
 

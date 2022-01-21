@@ -45,20 +45,31 @@ pub fn index_matrix<E: StarkField>(
 ) -> IndexedMatrix<E> {
     let h_size = index_domains.h_field.len().try_into().unwrap();
     let l_size = index_domains.l_field_len;
-    let total_size = mat.get_total_size();
     let h_field = index_domains.h_field.clone();
     let num_rows = mat.dims.0;
     let num_cols = mat.dims.1;
-    let mut row_elts = vec![h_field[0]; total_size];
-    let mut col_elts = vec![h_field[0]; total_size];
-    let mut val_elts = vec![E::ZERO; total_size];
+
+    let k_field_size = index_domains.k_field_len;
+
+    // K is chosen large enough to enumerate the nonzero elements of M.
+    // H is chosen large enough to enumerate the rows (or cols) of M.
+    // index : K -> H x H x L
+    // We need up to k_field_size entries.
+    let mut row_elts = vec![h_field[0]; k_field_size];
+    let mut col_elts = vec![h_field[0]; k_field_size];
+    let mut val_elts = vec![E::ZERO; k_field_size];
 
     let mut count = 0;
 
+    //println!("loop start:  {} x {}", num_rows, num_cols);
     for r_int in 0..num_rows {
         for c_int in 0..num_cols {
+            if mat.mat[r_int][c_int] == E::ZERO {
+                continue
+            }
             let c = h_field[c_int];
             let r = h_field[r_int];
+            //println!("loop at nonzero: count={}    rc_int=({}, {})   cr=({},{})", count, r_int, c_int, r, c);
             row_elts[count] = c;
             col_elts[count] = r;
             val_elts[count] = mat.mat[r_int][c_int]
@@ -82,17 +93,17 @@ pub fn index_matrix<E: StarkField>(
 
     // evaluate row_elts polynomial over l
     let mut row_evaluations = vec![E::ZERO; l_size];
-    row_evaluations[..total_size].copy_from_slice(&row_elts);
+    row_evaluations[..k_field_size].copy_from_slice(&row_elts);
     fft::evaluate_poly(&mut row_evaluations, &twiddles_l_elts);
 
     // evaluate col_elts polynomial over l
     let mut col_evaluations = vec![E::ZERO; l_size];
-    col_evaluations[..total_size].copy_from_slice(&col_elts);
+    col_evaluations[..k_field_size].copy_from_slice(&col_elts);
     fft::evaluate_poly(&mut col_evaluations, &twiddles_l_elts);
 
     // evaluate row_elts polynomial over l
     let mut val_evaluations = vec![E::ZERO; l_size];
-    val_evaluations[..total_size].copy_from_slice(&val_elts);
+    val_evaluations[..k_field_size].copy_from_slice(&val_elts);
     fft::evaluate_poly(&mut val_evaluations, &twiddles_l_elts);
 
     IndexedMatrix {

@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::convert::TryInto;
 
 // TODO: This class will include the indexes of 3 matrices
@@ -46,12 +47,12 @@ impl<E: StarkField> Index<E> {
 #[derive(Clone, Debug)]
 pub struct IndexDomains<E: FieldElement> {
     pub i_field_base: E,
-    pub h_field_base: E,
-    pub k_field_base: E,
-    pub l_field_base: E,
+    pub k_field_base: E,  // Generate sufficiently large set to enumerate all nonzero matrix entries.
+    pub h_field_base: E,  // Generate sufficiently large set to enumerate each row or each column.
+    pub l_field_base: E,  // For Reed Solomon code.
     pub i_field: Vec<E>,
-    pub h_field: Vec<E>,
     pub k_field_len: usize,
+    pub h_field: Vec<E>,
     pub l_field_len: usize,
     pub inv_twiddles_k_elts: Vec<E>,
     pub twiddles_l_elts: Vec<E>,
@@ -90,34 +91,44 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E
         num_non_zero
     );
 
-    // Set up the needed field elements.
-    let i_field_base = E::get_root_of_unity(num_input_variables.trailing_zeros());
-    let h_field_base = E::get_root_of_unity(num_constraints.trailing_zeros());
-    let k_field_base = E::get_root_of_unity(num_non_zero.trailing_zeros());
-    let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
-    let l_field_base = E::get_root_of_unity(ext_field_size.trailing_zeros());
-    let i_field = utils::get_power_series(i_field_base, num_input_variables);
-    let h_field = utils::get_power_series(h_field_base, num_constraints);
+    // Need to encode a subset of H field: indices of inputs.
+    let i_field_size = num_input_variables;
+
+    // Need to enumerate each row or each column.
+    // Input variables are across the columns, constraints are across the rows.
+    let h_field_size = std::cmp::max(num_input_variables, num_constraints);
+
+    // Need to enumerate each nonzero matrix entry.
+    let k_field_size = num_non_zero;
+
+    // Find elements in F which generate each subfield.
+    let i_field_base = E::get_root_of_unity(i_field_size.trailing_zeros());
+    let k_field_base = E::get_root_of_unity(k_field_size.trailing_zeros());
+    let h_field_base = E::get_root_of_unity(h_field_size.trailing_zeros());
+
+    let l_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
+    let l_field_base = E::get_root_of_unity(l_field_size.trailing_zeros());
+
+    let i_field = utils::get_power_series(i_field_base, i_field_size);
+    let h_field = utils::get_power_series(h_field_base, h_field_size);
+
+    println!("i: {}    k: {}    h: {}   L: {}", i_field_size, k_field_size, h_field_size, l_field_size);
 
     // Prepare the FFT coefficients (twiddles).
-
-    // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
-    // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
-
-    let inv_twiddles_k_elts = fft::get_inv_twiddles::<E>(num_non_zero);
-    let twiddles_l_elts = fft::get_twiddles::<E>(ext_field_size);
+    let inv_twiddles_k_elts = fft::get_inv_twiddles::<E>(k_field_size);
+    let twiddles_l_elts = fft::get_twiddles::<E>(l_field_size);
 
     IndexDomains {
-        i_field_base,
-        h_field_base,
-        k_field_base,
-        l_field_base,
-        i_field,
-        h_field,
-        k_field_len: num_non_zero,
-        l_field_len: ext_field_size,
-        inv_twiddles_k_elts,
-        twiddles_l_elts,
+        i_field_base: i_field_base,
+        k_field_base: k_field_base,
+        h_field_base: h_field_base,
+        l_field_base: l_field_base,
+        i_field: i_field,
+        k_field_len: k_field_size,
+        h_field: h_field,
+        l_field_len: l_field_size,
+        inv_twiddles_k_elts: inv_twiddles_k_elts,
+        twiddles_l_elts: twiddles_l_elts,
     }
 }
 
@@ -126,31 +137,67 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
-    let i_field_base = SmallFieldElement17::get_root_of_unity((num_input_variables as u32).trailing_zeros());
-    let h_field_base = SmallFieldElement17::get_root_of_unity((num_constraints as u32).trailing_zeros());
-    let k_field_base = SmallFieldElement17::get_root_of_unity((num_non_zero as u32).trailing_zeros());
-    let ext_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
-    let l_field_base = SmallFieldElement17::get_root_of_unity(ext_field_size.trailing_zeros());
-    unsafe {
-        let i_field = SmallFieldElement17::get_power_series(i_field_base, num_input_variables);
-        let h_field = SmallFieldElement17::get_power_series(h_field_base, num_constraints);
 
-        // let inv_twiddles_k_elts = fft::get_inv_twiddles(k_field_base, num_non_zero);
-        // let twiddles_l_elts = fft::get_twiddles(l_field_base, ext_field_size);
-        let inv_twiddles_k_elts = SmallFieldElement17::get_inv_twiddles(num_non_zero);
-        let twiddles_l_elts = SmallFieldElement17::get_twiddles(ext_field_size);
+    // Validate inputs.
+    let ntpow2 = { |x: usize| x > 1 && (x & (x - 1) == 0) };
+    assert!(
+        ntpow2(num_input_variables),
+        "num_input_variables {} must be nontriv power of two",
+        num_input_variables
+    );
+    assert!(
+        ntpow2(num_constraints),
+        "num_constraints {} must be nontriv power of two",
+        num_constraints
+    );
+    assert!(
+        ntpow2(num_non_zero),
+        "num_non_zero {} must be nontriv power of two",
+        num_non_zero
+    );
+
+    // Need to encode a subset of H field: indices of inputs.
+    let i_field_size = num_input_variables;
+
+    // Need to enumerate each row or each column.
+    // Input variables are across the columns, constraints are across the rows.
+    let h_field_size = std::cmp::max(num_input_variables, num_constraints);
+
+    // Need to enumerate each nonzero matrix entry.
+    let k_field_size = num_non_zero;
+
+    // Find elements in F which generate each subfield.
+    let i_field_base = SmallFieldElement17::get_root_of_unity(i_field_size.trailing_zeros());
+    let k_field_base = SmallFieldElement17::get_root_of_unity(k_field_size.trailing_zeros());
+    let h_field_base = SmallFieldElement17::get_root_of_unity(h_field_size.trailing_zeros());
+
+    // TODO: for p=17, cannot fit 4 here.  So use 2.  Buy a bigger prime for testing.
+    //let l_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
+    let l_field_size = 2 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
+    let l_field_base = SmallFieldElement17::get_root_of_unity(l_field_size.trailing_zeros());
+
+    println!("i: {}    k: {}    h: {}   L: {}", i_field_size, k_field_size, h_field_size, l_field_size);
+
+    unsafe {
+        // Find elements in F which generate each subfield.
+        let i_field = SmallFieldElement17::get_power_series(i_field_base, i_field_size);
+        let h_field = SmallFieldElement17::get_power_series(h_field_base, h_field_size);
+
+        // Prepare the FFT coefficients (twiddles).
+        let inv_twiddles_k_elts = SmallFieldElement17::get_inv_twiddles(k_field_size);
+        let twiddles_l_elts = SmallFieldElement17::get_twiddles(l_field_size);
 
         IndexDomains {
-            i_field_base,
-            h_field_base,
-            k_field_base,
-            l_field_base,
-            i_field,
-            h_field,
-            k_field_len: num_non_zero,
-            l_field_len: ext_field_size,
-            inv_twiddles_k_elts,
-            twiddles_l_elts,
+            i_field_base: i_field_base,
+            k_field_base: k_field_base,
+            h_field_base: h_field_base,
+            l_field_base: l_field_base,
+            i_field: i_field,
+            k_field_len: k_field_size,
+            h_field: h_field,
+            l_field_len: l_field_size,
+            inv_twiddles_k_elts: inv_twiddles_k_elts,
+            twiddles_l_elts: twiddles_l_elts,
         }
     }
 }

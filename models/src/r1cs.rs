@@ -54,6 +54,14 @@ impl<E: StarkField> Matrix<E> {
         return total_size;
     }
 
+    // L0 norm, number of nonzero elements.
+    pub fn l0_norm(&self) -> usize {
+        let l0_norm = self.mat.iter().fold(
+            0,|a, row| a + row.iter().fold(
+                0,|x, &y| if y == E::ZERO { x } else {x + 1}));
+        l0_norm
+    }
+
     pub fn dot(&self, vec: Vec<E>) -> Vec<E> {
         self.mat
             .iter()
@@ -220,7 +228,7 @@ impl<E: StarkField> R1CS<E> {
             println!("No rows in the matrix!");
             return;
         }
-        for row_idx in 0..num_rows - 1 {
+        for row_idx in 0..num_rows {
             self.A.debug_print_row_bits(row_idx);
             print!("  ");
             self.B.debug_print_row_bits(row_idx);
@@ -265,7 +273,7 @@ impl<E: StarkField> R1CS<E> {
             println!("No rows in the matrix!");
             return;
         }
-        for row_idx in 0..num_rows - 1 {
+        for row_idx in 0..num_rows {
             print!("(");
             self.debug_print_row_symbolic(&self.A.mat[row_idx]);
             print!(")  (");
