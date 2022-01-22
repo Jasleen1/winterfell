@@ -9,26 +9,35 @@ use std::path::Path;
 use crate::errors::*;
 use crate::r1cs::*;
 
-#[derive(Clone, Debug)]
-pub struct R1CSArithParser<E: StarkField> {
-    pub verbose: bool,
+#[derive(Debug)]
+
+/// Parses .arith and .in files to produce a R1CS instance.
+pub struct R1CSArithReaderParser<E: StarkField> {
     r1cs_instance: R1CS<E>,
+}
+
+/// Parses .arith file and augments a R1CS instance.
+pub struct R1CSArithParser<'a, E: StarkField> {
+    pub verbose: bool,
+    r1cs_instance: &'a mut R1CS<E>,
+}
+
+/// Parses .in input file and augments a R1CS instance.
+pub struct R1CSInputParser<'a, E: StarkField> {
+    pub verbose: bool,
+    r1cs_instance: &'a mut R1CS<E>,
 }
 
 pub trait LineProcessor {
     fn process_line(&mut self, line: String);
 }
 
-impl<E: StarkField> R1CSArithParser<E> {
-    pub fn new() -> Result<Self, R1CSError> {
+impl<'a, E: StarkField> R1CSArithParser<'a, E> {
+    pub fn new(r1cs_instance: &'a mut R1CS<E>) -> Result<Self, R1CSError> {
         Ok(R1CSArithParser {
             verbose: false,
-            r1cs_instance: create_empty_r1cs()?,
+            r1cs_instance: r1cs_instance,
         })
-    }
-
-    pub fn return_r1cs(&self) -> R1CS<E> {
-        self.r1cs_instance.clone()
     }
 
     // Handlers.
@@ -209,9 +218,7 @@ impl<E: StarkField> R1CSArithParser<E> {
         }
         return vals;
     }
-}
 
-impl<E: StarkField> LineProcessor for R1CSArithParser<E> {
     fn process_line(&mut self, line: String) {
         if self.verbose {
             println!("{}", line);
@@ -276,27 +283,114 @@ impl<E: StarkField> LineProcessor for R1CSArithParser<E> {
     }
 }
 
-pub struct R1CSArithReaderParser<E: StarkField> {
-    pub r1cs_instance: R1CS<E>,
+impl<'a, E: StarkField> R1CSInputParser<'a, E> {
+    pub fn new(r1cs_instance: &'a mut R1CS<E>) -> Result<Self, R1CSError> {
+        Ok(R1CSInputParser {
+            verbose: false,
+            r1cs_instance: r1cs_instance,
+        })
+    }
+
+    fn handle_assign(&mut self, wire_id: usize, wire_val: E) {
+        if self.verbose {
+            println!("ASSIGN: {} {:?}", wire_id, wire_val);
+        }
+
+        let numcols = self.r1cs_instance.get_num_cols();
+        let mut new_row_a = vec![E::ZERO; numcols];
+        let mut new_row_b = vec![E::ZERO; numcols];
+        let mut new_row_c = vec![E::ZERO; numcols];
+
+        new_row_a[0] = E::ONE;
+        new_row_b[0] = wire_val;
+        new_row_c[wire_id] = E::ONE;
+
+        self.r1cs_instance.add_rows(new_row_a, new_row_b, new_row_c);
+    }
 }
 
-impl<E: StarkField> R1CSArithReaderParser<E> {
+impl<'a, E: StarkField> LineProcessor for R1CSInputParser<'a, E> {
+    fn process_line(&mut self, line: String) {
+        if self.verbose {
+            println!("{}", line);
+        }
+        if line.starts_with("#") {
+            return;
+        }
+
+        // Remove comments and trim end-whitespace.
+        let mut parts = line.split("#");
+        let mut buf = parts.next().unwrap();
+        buf = buf.trim();
+
+        // Arity 1 commands:
+        match scanf!(buf, "{} {x}", usize, u64) {
+            Some((wire_id, wire_value)) => {
+                println!("handle {} {}", wire_id, wire_value);
+                self.handle_assign(wire_id, E::from(wire_value));
+                return
+            }
+            None => {}
+        }
+
+        println!("FAILED: {}", line);
+    }
+}
+
+impl<'a, E: StarkField> R1CSArithReaderParser<E> {
     pub fn new() -> Result<Self, R1CSError> {
         Ok(R1CSArithReaderParser {
             r1cs_instance: create_empty_r1cs()?,
         })
     }
 
-    pub fn parse_file(&mut self, input_file: &str, verbose: bool) {
+    pub fn clone_r1cs(&self) -> R1CS<E> {
+        self.r1cs_instance.clone()
+    }
+
+    pub fn parse_files(&mut self, arith_file: &str, input_file: &str, verbose: bool) {
+        // Parse arith first, because it specifies the number of variables/columns.
+        self.parse_arith_file(arith_file, verbose);
+        self.parse_input_file(input_file, verbose);
+
+        //self.r1cs_instance = arith_parser.return_r1cs();
+        // println!("{:?}", arith_parser.return_r1cs());
         if verbose {
-            println!("Parse file {}", input_file);
+            self.r1cs_instance.debug_print_bits_horizontal();
+            self.r1cs_instance.debug_print_symbolic();
+        }
+    }
+
+    fn parse_input_file(&mut self, input_file: &str, verbose: bool) {
+        if verbose {
+            println!("Parse input file {}", input_file);
+        }
+
+        let mut input_parser = R1CSInputParser::<E>::new(&mut self.r1cs_instance).unwrap();
+        input_parser.verbose = verbose;
+
+        if let Ok(lines) = R1CSArithReaderParser::<E>::read_lines(input_file) {
+            for line in lines {
+                match line {
+                    Ok(ip) => {
+                        input_parser.process_line(ip);
+                    }
+                    Err(e) => println!("{:?}", e),
+                }
+            }
+        }
+    }
+
+    fn parse_arith_file(&mut self, arith_file: &str, verbose: bool) {
+        if verbose {
+            println!("Parse arith file {}", arith_file);
         }
 
         // let mut arith_parser: arith_parser::ArithParser = arith_parser::LineProcessor::new();
-        let mut arith_parser = R1CSArithParser::<E>::new().unwrap();
+        let mut arith_parser = R1CSArithParser::<E>::new(&mut self.r1cs_instance).unwrap();
         arith_parser.verbose = verbose;
 
-        if let Ok(lines) = self.read_lines(input_file) {
+        if let Ok(lines) = R1CSArithReaderParser::<E>::read_lines(arith_file) {
             for line in lines {
                 match line {
                     Ok(ip) => {
@@ -306,16 +400,9 @@ impl<E: StarkField> R1CSArithReaderParser<E> {
                 }
             }
         }
-
-        self.r1cs_instance = arith_parser.return_r1cs();
-        // println!("{:?}", arith_parser.return_r1cs());
-        if arith_parser.verbose {
-            self.r1cs_instance.debug_print_bits_horizontal();
-            self.r1cs_instance.debug_print_symbolic();
-        }
     }
 
-    fn read_lines<P>(&self, filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+    fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
     where
         P: AsRef<Path>,
     {

@@ -42,12 +42,14 @@ pub(crate) fn orchestrate_r1cs_example<
     H: ElementHasher + ElementHasher<BaseField = B>,
     const N: usize,
 >(
-    input_file: &str,
+    filebase: &str,
     verbose: bool,
 ) {
     let mut arith_parser = R1CSArithReaderParser::<B>::new().unwrap();
-    arith_parser.parse_file(input_file, verbose);
-    let r1cs = arith_parser.r1cs_instance.clone();
+    let arith_file = filebase.to_string() + ".arith";
+    let input_file = filebase.to_string() + ".in";
+    arith_parser.parse_files(&arith_file, &input_file, verbose);
+    let r1cs = arith_parser.clone_r1cs();
 
     // 1. Index this R1CS
     let index_params = IndexParams {
