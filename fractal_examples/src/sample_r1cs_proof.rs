@@ -12,7 +12,7 @@ use math::fields::f64::BaseElement;
 use math::FieldElement;
 use math::StarkField;
 
-use models::arith_parser::R1CSArithReaderParser;
+use models::jsnark_arith_parser::R1CSArithReaderParser;
 
 use fractal_indexer::{
     index::{build_index_domains, Index, IndexParams},
@@ -47,8 +47,8 @@ pub(crate) fn orchestrate_r1cs_example<
 ) {
     let mut arith_parser = R1CSArithReaderParser::<B>::new().unwrap();
     let arith_file = filebase.to_string() + ".arith";
-    let input_file = filebase.to_string() + ".in";
-    arith_parser.parse_files(&arith_file, &input_file, verbose);
+    let wire_file = filebase.to_string() + ".in";
+    arith_parser.parse_arith_file(&arith_file, verbose);
     let r1cs = arith_parser.clone_r1cs();
 
     // 1. Index this R1CS

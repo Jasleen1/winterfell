@@ -11,3 +11,10 @@ pub enum R1CSError {
     /// All matrices in R1CS should have equal dimensions
     MatrixSizeMismatch(String, String),
 }
+
+/// Represents errors in instantiating input wire value vectors
+#[derive(Debug, Display, Error)]
+pub enum InputWireError {
+    /// Generic error.
+    GenericError(String),
+}

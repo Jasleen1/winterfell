@@ -6,8 +6,8 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "arith-parser"
-path = "src/arith_parser_example.rs"
+name = "jsnark-parser"
+path = "src/jsnark_parser_example.rs"
 bench = false
 doc = false
 debug = 1
