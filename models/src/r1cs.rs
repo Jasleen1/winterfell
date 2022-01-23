@@ -1,6 +1,7 @@
 use math::StarkField;
 
 use crate::errors::*;
+use crate::utils::{print_vec, print_vec_bits};
 
 pub type MatrixDimensions = (usize, usize);
 #[derive(Clone, Debug)]
@@ -89,48 +90,15 @@ impl<E: StarkField> Matrix<E> {
     pub fn debug_print(&self) {
         println!("{}", self.name);
         for row in &self.mat {
-            for elt in row {
-                if elt == &E::ZERO {
-                    print!("0 ");
-                } else if elt == &E::ONE {
-                    print!("1 ");
-                } else {
-                    print!("{:?}", elt);
-                }
-            }
+            print_vec(row);
             println!("");
-        }
-    }
-
-    /// Print row as ...1..1.1...*...1.. with no newline.
-    pub fn debug_print_row_bits(&self, row_idx: usize) {
-        for elt in &self.mat[row_idx] {
-            if elt == &E::ZERO {
-                print!(".");
-            } else if elt == &E::ONE {
-                print!("1");
-            } else if elt == &E::ONE.neg() {
-                print!("-");
-            } else if elt == &E::from(2u64) {
-                print!("2");
-            } else {
-                print!("*");
-            }
         }
     }
 
     pub fn debug_print_bits(&self) {
         println!("{}", self.name);
         for row in &self.mat {
-            for elt in row {
-                if elt == &E::ZERO {
-                    print!(".");
-                } else if elt == &E::ONE {
-                    print!("1");
-                } else {
-                    print!("*");
-                }
-            }
+            print_vec_bits(row);
             println!("");
         }
     }
@@ -229,11 +197,11 @@ impl<E: StarkField> R1CS<E> {
             return;
         }
         for row_idx in 0..num_rows {
-            self.A.debug_print_row_bits(row_idx);
+            print_vec_bits(&self.A.mat[row_idx]);
             print!("  ");
-            self.B.debug_print_row_bits(row_idx);
+            print_vec_bits(&self.B.mat[row_idx]);
             print!("  ");
-            self.C.debug_print_row_bits(row_idx);
+            print_vec_bits(&self.C.mat[row_idx]);
             println!("");
         }
     }

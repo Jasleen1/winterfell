@@ -10,18 +10,19 @@ use crate::r1cs::*;
 #[derive(Debug)]
 
 /// Parses .arith file and updates a R1CS instance.
-pub struct R1CSArithReaderParser<E: StarkField> {
+pub struct JsnarkArithReaderParser<E: StarkField> {
     pub r1cs_instance: R1CS<E>,
 }
 
-pub struct R1CSArithParser<'a, E: StarkField> {
+/// Parse Jsnark arith file into R1CS.
+pub struct JsnarkArithParser<'a, E: StarkField> {
     pub verbose: bool,
     r1cs_instance: &'a mut R1CS<E>,
 }
 
-impl<'a, E: StarkField> R1CSArithParser<'a, E> {
+impl<'a, E: StarkField> JsnarkArithParser<'a, E> {
     pub fn new(r1cs_instance: &'a mut R1CS<E>) -> Result<Self, R1CSError> {
-        Ok(R1CSArithParser {
+        Ok(JsnarkArithParser {
             verbose: false,
             r1cs_instance: r1cs_instance,
         })
@@ -270,9 +271,9 @@ impl<'a, E: StarkField> R1CSArithParser<'a, E> {
     }
 }
 
-impl<'a, E: StarkField> R1CSArithReaderParser<E> {
+impl<'a, E: StarkField> JsnarkArithReaderParser<E> {
     pub fn new() -> Result<Self, R1CSError> {
-        Ok(R1CSArithReaderParser {
+        Ok(JsnarkArithReaderParser {
             r1cs_instance: create_empty_r1cs()?,
         })
     }
@@ -287,7 +288,7 @@ impl<'a, E: StarkField> R1CSArithReaderParser<E> {
         }
 
         // let mut arith_parser: arith_parser::ArithParser = arith_parser::LineProcessor::new();
-        let mut arith_parser = R1CSArithParser::<E>::new(&mut self.r1cs_instance).unwrap();
+        let mut arith_parser = JsnarkArithParser::<E>::new(&mut self.r1cs_instance).unwrap();
         arith_parser.verbose = verbose;
 
         if let Ok(lines) = crate::io::read_lines(arith_file) {

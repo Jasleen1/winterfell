@@ -3,41 +3,50 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::env;
+use structopt::StructOpt;
 
 use math::fields::f128::BaseElement;
-
-use models::jsnark_arith_parser::R1CSArithReaderParser;
+use models::jsnark_arith_parser::JsnarkArithReaderParser;
 use models::jsnark_wire_parser::JsnarkWireReaderParser;
+use models::utils::{print_vec, print_vec_bits};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let options = ExampleOptions::from_args();
+    let verbose = options.verbose;
 
-    let mut arith_file = "./src/sample.arith";
-    let mut wire_file = "./src/sample.in";
-    if args.len() > 1 {
-        arith_file = &args[1];
-    }
-    if args.len() > 2 {
-        wire_file = &args[2];
-    }
-
-    let verbose = true;
     if verbose {
-        println!("Parse files {} {}", arith_file, wire_file);
+        println!("Parse files {} {}", options.arith_file, options.wires_file);
     }
 
-    let mut arith_file_parser = R1CSArithReaderParser::<BaseElement>::new().unwrap();
-    arith_file_parser.parse_arith_file(&arith_file, verbose);
+    let mut arith_file_parser = JsnarkArithReaderParser::<BaseElement>::new().unwrap();
+    arith_file_parser.parse_arith_file(&options.arith_file, verbose);
     let r1cs_instance = arith_file_parser.r1cs_instance;
 
     let mut wire_file_parser = JsnarkWireReaderParser::<BaseElement>::new().unwrap();
-    wire_file_parser.parse_wire_file(&wire_file, verbose);
+    wire_file_parser.parse_wire_file(&options.wires_file, verbose);
     let wires = wire_file_parser.wires;
 
     if verbose {
         r1cs_instance.debug_print_bits_horizontal();
         r1cs_instance.debug_print_symbolic();
-        println!("{:?}", wires);
+        print_vec(&wires);
+        println!("");
     }
+}
+
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "jsnark-parser", about = "Jsnark file parsing")]
+struct ExampleOptions {
+    /// Jsnark .arith file to parse.
+    #[structopt(short = "a", long = "arith_file", default_value = "sample.arith")]
+    arith_file: String,
+
+    /// Jsnark .in or .wires file to parse.
+    #[structopt(short = "w", long = "wire_file", default_value = "sample.wires")]
+    wires_file: String,
+
+    /// Verbose logging and reporting.
+    #[structopt(short = "v", long = "verbose")]
+    verbose: bool,
 }

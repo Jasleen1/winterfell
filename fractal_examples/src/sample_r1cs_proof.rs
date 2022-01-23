@@ -3,7 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::env;
+use structopt::StructOpt;
 
 use crypto::hashers::Rp64_256;
 use crypto::ElementHasher;
@@ -12,7 +12,8 @@ use math::fields::f64::BaseElement;
 use math::FieldElement;
 use math::StarkField;
 
-use models::jsnark_arith_parser::R1CSArithReaderParser;
+use models::jsnark_arith_parser::JsnarkArithReaderParser;
+use models::jsnark_wire_parser::JsnarkWireReaderParser;
 
 use fractal_indexer::{
     index::{build_index_domains, Index, IndexParams},
@@ -21,19 +22,16 @@ use fractal_indexer::{
 };
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut input_file = "./src/sample.arith";
-    if args.len() > 1 {
-        input_file = &args[1];
-    }
-
-    let verbose = true;
-    if verbose {
-        println!("Parse file {}", input_file);
+    let options = ExampleOptions::from_args();
+    if options.verbose {
+        println!("Arith file {}, wire value file {}", options.arith_file, options.wires_file);
     }
 
     // call orchestrate_r1cs_example
-    orchestrate_r1cs_example::<BaseElement, BaseElement, Rp64_256, 16>(input_file, verbose);
+    orchestrate_r1cs_example::<BaseElement, BaseElement, Rp64_256, 16>(
+        &options.arith_file,
+        &options.wires_file,
+        options.verbose);
 }
 
 pub(crate) fn orchestrate_r1cs_example<
@@ -42,14 +40,17 @@ pub(crate) fn orchestrate_r1cs_example<
     H: ElementHasher + ElementHasher<BaseField = B>,
     const N: usize,
 >(
-    filebase: &str,
+    arith_file: &str,
+    wire_file: &str,
     verbose: bool,
 ) {
-    let mut arith_parser = R1CSArithReaderParser::<B>::new().unwrap();
-    let arith_file = filebase.to_string() + ".arith";
-    let wire_file = filebase.to_string() + ".in";
+    let mut arith_parser = JsnarkArithReaderParser::<B>::new().unwrap();
     arith_parser.parse_arith_file(&arith_file, verbose);
     let r1cs = arith_parser.clone_r1cs();
+
+    let mut wires_parser = JsnarkWireReaderParser::<B>::new().unwrap();
+    wires_parser.parse_wire_file(&wire_file, verbose);
+    let _wires = wires_parser.wires;
 
     // 1. Index this R1CS
     let index_params = IndexParams {
@@ -90,6 +91,22 @@ pub(crate) fn orchestrate_r1cs_example<
     //     options,
     //     witness,
     //     variable_assignment,
-    //     pub_inputs_byptes
+    //     pub_inputs_bytes
     // );
+}
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "jsnark-parser", about = "Jsnark file parsing")]
+struct ExampleOptions {
+    /// Jsnark .arith file to parse.
+    #[structopt(short = "a", long = "arith_file", default_value = "sample.arith")]
+    arith_file: String,
+
+    /// Jsnark .in or .wires file to parse.
+    #[structopt(short = "w", long = "wire_file", default_value = "sample.wires")]
+    wires_file: String,
+
+    /// Verbose logging and reporting.
+    #[structopt(short = "v", long = "verbose")]
+    verbose: bool,
 }
