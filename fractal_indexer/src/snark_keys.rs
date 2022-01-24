@@ -16,7 +16,7 @@ pub struct ProverIndexPolynomial<H: ElementHasher + ElementHasher<BaseField = E>
     pub tree: MerkleTree<H>,
 }
 
-impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndexPolynomial<H, B> {
+impl<H: ElementHasher + ElementHasher<BaseField = B> + Clone, B: StarkField> ProverIndexPolynomial<H, B> {
     // TODO Add error checking, currently assumes index is
     // within range.
     pub fn get_eval_at_index(&self, index: usize) -> B {
@@ -29,14 +29,14 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndex
 }
 
 #[derive(Debug, Clone)]
-pub struct ProverMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
+pub struct ProverMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B> + Clone, B: StarkField> {
     pub matrix: Matrix<B>,
     pub row_poly: ProverIndexPolynomial<H, B>,
     pub col_poly: ProverIndexPolynomial<H, B>,
     pub val_poly: ProverIndexPolynomial<H, B>,
 }
 
-impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverMatrixIndex<H, B> {
+impl<H: ElementHasher + ElementHasher<BaseField = B> + Clone, B: StarkField> ProverMatrixIndex<H, B> {
     pub fn get_val_eval(&self, point: B) -> B {
         self.val_poly.get_eval_at_point(point)
     }
@@ -60,7 +60,7 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverMatri
 }
 
 #[derive(Debug, Clone)]
-pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
+pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = B> + Clone, B: StarkField> {
     pub params: IndexParams,
     pub matrix_a_index: ProverMatrixIndex<H, B>,
     pub matrix_b_index: ProverMatrixIndex<H, B>,
@@ -68,14 +68,14 @@ pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkFi
 }
 
 #[derive(Debug)]
-pub struct VerifierMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
+pub struct VerifierMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B> + Clone, B: StarkField> {
     row_poly_commitment: H::Digest,
     col_poly_commitment: H::Digest,
     val_poly_commitment: H::Digest,
 }
 
 #[derive(Debug)]
-pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
+pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = B> + Clone, B: StarkField> {
     params: IndexParams,
     matrix_a_commitments: VerifierMatrixIndex<H, B>,
     matrix_b_commitments: VerifierMatrixIndex<H, B>,
@@ -85,7 +85,7 @@ pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = B>, B: Stark
 // QUESTION: Currently using the utils hash_values function which uses quartic folding.
 // Is there any drawback to doing this here, where there's no layering?
 pub fn commit_polynomial_evaluations<
-    H: ElementHasher + ElementHasher<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
     B: StarkField,
     const N: usize,
 >(
@@ -97,7 +97,7 @@ pub fn commit_polynomial_evaluations<
 }
 
 pub fn generate_prover_and_verifier_matrix_index<
-    H: ElementHasher + ElementHasher<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
     B: StarkField,
     const N: usize,
 >(
@@ -147,7 +147,7 @@ pub fn generate_prover_and_verifier_matrix_index<
 }
 
 pub fn generate_prover_and_verifier_keys<
-    H: ElementHasher + ElementHasher<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
     B: StarkField,
     const N: usize,
 >(
@@ -181,7 +181,7 @@ pub fn generate_prover_and_verifier_keys<
 }
 
 pub fn generate_basefield_keys<
-    H: ElementHasher + ElementHasher<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
     B: StarkField,
     const N: usize,
 >(

@@ -18,7 +18,7 @@ const n: usize = 1;
 pub struct LincheckProver<
     B: StarkField,
     E: FieldElement<BaseField = B>,
-    H: ElementHasher + ElementHasher<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
 > {
     alpha: B,
     prover_matrix_index: ProverMatrixIndex<H, B>,
@@ -32,7 +32,7 @@ pub struct LincheckProver<
 impl<
         B: StarkField,
         E: FieldElement<BaseField = B>,
-        H: ElementHasher + ElementHasher<BaseField = B>,
+        H: ElementHasher + ElementHasher<BaseField = B> + Clone,
     > LincheckProver<B, E, H>
 {
     pub fn new(

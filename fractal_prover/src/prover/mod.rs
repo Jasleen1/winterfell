@@ -16,7 +16,7 @@ use crate::{
 pub struct FractalProver<
     B: StarkField,
     E: FieldElement<BaseField = B>,
-    H: ElementHasher + ElementHasher<BaseField = B>,
+    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
 > {
     prover_key: ProverKey<H, B>,
     options: FractalOptions<B>,

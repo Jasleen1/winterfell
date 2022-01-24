@@ -1,4 +1,5 @@
-use fractal_proofs::{FriOptions, StarkField};
+use fri::FriOptions;
+use math::StarkField;
 
 mod errors;
 mod lincheck_prover;
@@ -9,12 +10,12 @@ mod tests;
 
 #[derive(Clone)]
 pub struct FractalOptions<B: StarkField> {
-    degree_fs: usize,
-    size_subgroup_h: u128,
-    size_subgroup_k: u128,
-    summing_domain: Vec<B>,
-    evaluation_domain: Vec<B>,
-    h_domain: Vec<B>,
-    fri_options: FriOptions,
-    num_queries: usize,
+    pub degree_fs: usize,
+    pub size_subgroup_h: u128,
+    pub size_subgroup_k: u128,
+    pub summing_domain: Vec<B>,
+    pub evaluation_domain: Vec<B>,
+    pub h_domain: Vec<B>,
+    pub fri_options: FriOptions,
+    pub num_queries: usize,
 }
