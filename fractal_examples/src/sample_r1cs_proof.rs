@@ -54,9 +54,9 @@ pub(crate) fn orchestrate_r1cs_example<
 
     // 1. Index this R1CS
     let index_params = IndexParams {
-        num_input_variables: 16,
-        num_constraints: 16,
-        num_non_zero: 8,
+        num_input_variables: r1cs.num_cols().next_power_of_two(),
+        num_constraints: r1cs.num_rows().next_power_of_two(),
+        num_non_zero: r1cs.max_num_nonzero().next_power_of_two(),
     };
 
     let index_domains = build_index_domains::<B>(index_params.clone());
@@ -69,7 +69,7 @@ pub(crate) fn orchestrate_r1cs_example<
     let (_prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
 
     // TODO: create FractalProver
-    let degree_fs = r1cs.clone().get_num_cols();
+    let degree_fs = r1cs.clone().num_cols();
     let log_size_subgroup_h = log2(degree_fs) + 1u32;
     let log_size_subgroup_k = 2 * log_size_subgroup_h;
     let _size_subgroup_h = 1 << log_size_subgroup_h;

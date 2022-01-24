@@ -52,7 +52,7 @@ impl<'a, E: StarkField> JsnarkArithParser<'a, E> {
             println!("CONST ADD: {} {:?} {:?}", coeff, in_args, out_args)
         };
 
-        let numcols = self.r1cs_instance.get_num_cols();
+        let numcols = self.r1cs_instance.num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
         let mut new_row_b = vec![E::ZERO; numcols];
         let mut new_row_c = vec![E::ZERO; numcols];
@@ -74,7 +74,7 @@ impl<'a, E: StarkField> JsnarkArithParser<'a, E> {
             println!("MUL: {} {:?} {:?}", coeff, in_args, out_args)
         };
 
-        let numcols = self.r1cs_instance.get_num_cols();
+        let numcols = self.r1cs_instance.num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
         let mut new_row_b = vec![E::ZERO; numcols];
         let mut new_row_c = vec![E::ZERO; numcols];
@@ -99,7 +99,7 @@ impl<'a, E: StarkField> JsnarkArithParser<'a, E> {
             println!("XOR: {:?} {:?}", in_args, out_args)
         };
 
-        let numcols = self.r1cs_instance.get_num_cols();
+        let numcols = self.r1cs_instance.num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
         let mut new_row_b = vec![E::ZERO; numcols];
         let mut new_row_c = vec![E::ZERO; numcols];
@@ -123,7 +123,7 @@ impl<'a, E: StarkField> JsnarkArithParser<'a, E> {
             println!("OR: {:?} {:?}", in_args, out_args)
         };
 
-        let numcols = self.r1cs_instance.get_num_cols();
+        let numcols = self.r1cs_instance.num_cols();
         let mut new_row_a = vec![E::ZERO; numcols];
         let mut new_row_b = vec![E::ZERO; numcols];
         let mut new_row_c = vec![E::ZERO; numcols];

@@ -167,8 +167,16 @@ impl<E: StarkField> R1CS<E> {
         }
     }
 
-    pub fn get_num_cols(&self) -> usize {
+    pub fn num_rows(&self) -> usize {
+        self.A.dims.0
+    }
+
+    pub fn num_cols(&self) -> usize {
         self.A.dims.1
+    }
+
+    pub fn max_num_nonzero(&self) -> usize {
+        self.A.l0_norm().max(self.B.l0_norm()).max(self.C.l0_norm())
     }
 
     pub fn get_a(&mut self) -> &mut Matrix<E> {

@@ -61,7 +61,7 @@ pub fn index_matrix<E: StarkField>(
 
     let mut count = 0;
 
-    //println!("loop start:  {} x {}", num_rows, num_cols);
+    // println!("loop start:  {} x {}", num_rows, num_cols);
     for r_int in 0..num_rows {
         for c_int in 0..num_cols {
             if mat.mat[r_int][c_int] == E::ZERO {
@@ -69,7 +69,7 @@ pub fn index_matrix<E: StarkField>(
             }
             let c = h_field[c_int];
             let r = h_field[r_int];
-            //println!("loop at nonzero: count={}    rc_int=({}, {})   cr=({},{})", count, r_int, c_int, r, c);
+            // println!("loop at nonzero: count={}    rc_int=({}, {})   cr=({},{})", count, r_int, c_int, r, c);
             row_elts[count] = c;
             col_elts[count] = r;
             val_elts[count] = mat.mat[r_int][c_int]

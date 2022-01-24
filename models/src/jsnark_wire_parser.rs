@@ -53,7 +53,7 @@ impl<'a, E: StarkField> LineProcessor for JsnarkWireParser<'a, E> {
         let mut buf = parts.next().unwrap();
         buf = buf.trim();
 
-        match scanf!(buf, "{} {x}", usize, u64) {
+        match scanf!(buf, "{} {x}", usize, u128) {
             Some((wire_id, wire_value)) => {
                 println!("handle {} {}", wire_id, wire_value);
                 self.handle_assign(wire_id, E::from(wire_value));
