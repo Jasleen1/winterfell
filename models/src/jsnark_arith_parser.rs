@@ -4,7 +4,6 @@ use regex::Regex;
 use sscanf::scanf;
 
 use crate::errors::*;
-use crate::io::{LineProcessor, read_lines};
 use crate::r1cs::*;
 
 #[derive(Debug)]
@@ -301,6 +300,8 @@ impl<'a, E: StarkField> JsnarkArithReaderParser<E> {
                 }
             }
         }
+
+        self.r1cs_instance.pad_power_two();
 
         // if verbose {
         //     self.r1cs_instance.debug_print_bits_horizontal();

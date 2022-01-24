@@ -76,15 +76,34 @@ impl<E: StarkField> Matrix<E> {
     }
 
     pub fn define_cols(&mut self, num_cols: usize) {
+        assert!(self.dims.1 <= num_cols, "Attempted to reduce number of columns.");
         self.dims.1 = num_cols;
+        for row in &mut self.mat {
+            row.resize(num_cols, E::ZERO);
+        }
     }
 
-    pub fn add_row(&mut self, new_row: Vec<E>) {
+    pub fn add_row(&mut self, new_row: &Vec<E>) {
         if new_row.len() != self.dims.1 {
             // FIXME: add error handling
         }
         self.mat.push(new_row.clone());
         self.dims.0 = self.dims.0 + 1;
+    }
+
+    pub fn pad_rows(&mut self, new_row_count: usize) {
+        let new_row = vec![E::ZERO; self.dims.1];
+        for _ in 0..new_row_count {
+            self.add_row(&new_row);
+        }
+    }
+
+    pub fn pad_power_two(&mut self) {
+        let rows = self.dims.0;
+        let cols = self.dims.1;
+
+        self.define_cols(cols.next_power_of_two());
+        self.pad_rows(rows.next_power_of_two() - rows);
     }
 
     pub fn debug_print(&self) {
@@ -171,9 +190,15 @@ impl<E: StarkField> R1CS<E> {
     }
 
     pub fn add_rows(&mut self, new_row_a: Vec<E>, new_row_b: Vec<E>, new_row_c: Vec<E>) {
-        self.A.add_row(new_row_a);
-        self.B.add_row(new_row_b);
-        self.C.add_row(new_row_c);
+        self.A.add_row(&new_row_a);
+        self.B.add_row(&new_row_b);
+        self.C.add_row(&new_row_c);
+    }
+
+    pub fn pad_power_two(&mut self) {
+        self.A.pad_power_two();
+        self.B.pad_power_two();
+        self.C.pad_power_two();
     }
 
     pub fn debug_print(&self) {

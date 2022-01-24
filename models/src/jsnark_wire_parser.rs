@@ -32,7 +32,7 @@ impl<'a, E: StarkField> JsnarkWireParser<'a, E> {
             println!("ASSIGN: {} {:?}", wire_id, wire_val);
         }
 
-        if (wire_id >= self.wires.len()) {
+        if wire_id >= self.wires.len() {
             self.wires.resize(wire_id + 1, E::ZERO);
         }
         self.wires[wire_id] = wire_val;

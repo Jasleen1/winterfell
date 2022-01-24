@@ -8,7 +8,7 @@ use structopt::StructOpt;
 use math::fields::f128::BaseElement;
 use models::jsnark_arith_parser::JsnarkArithReaderParser;
 use models::jsnark_wire_parser::JsnarkWireReaderParser;
-use models::utils::{print_vec, print_vec_bits};
+use models::utils::{print_vec};
 
 fn main() {
     let options = ExampleOptions::from_args();
