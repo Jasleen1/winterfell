@@ -12,7 +12,10 @@ where
     P: AsRef<Path>,
 {
     let file = match File::open(filename) {
-        Err(why) => panic!("Cannot open file: {}", why),
+        Err(why) => {
+            println!("Looking in {:?}", std::env::current_dir().unwrap().display());
+            panic!("Cannot open file: {}", why)
+        },
         Ok(file) => file,
     };
     Ok(io::BufReader::new(file).lines())

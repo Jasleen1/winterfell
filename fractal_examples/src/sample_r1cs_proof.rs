@@ -43,7 +43,7 @@ fn main() {
 pub(crate) fn orchestrate_r1cs_example<
     B: StarkField,
     E: FieldElement<BaseField = B>,
-    H: ElementHasher + ElementHasher<BaseField = B>, // + Clone,
+    H: ElementHasher + ElementHasher<BaseField = B>,
     const N: usize,
 >(
     arith_file: &str,
@@ -59,9 +59,9 @@ pub(crate) fn orchestrate_r1cs_example<
     let wires = wires_parser.wires;
     // 0. Compute num_non_zero by counting max(number of non-zero elts across A, B, C).
     
-    let num_input_variables = r1cs.clone().num_cols();
-    let num_constraints = r1cs.clone().num_rows();
-    let num_non_zero = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm());
+    // let num_input_variables = r1cs.clone().num_cols();
+    // let num_constraints = r1cs.clone().num_rows();
+    // let num_non_zero = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm());
     // 1. Index this R1CS
     let index_params = IndexParams {
         num_input_variables: r1cs.num_cols().next_power_of_two(),
@@ -76,7 +76,7 @@ pub(crate) fn orchestrate_r1cs_example<
     // This is the index i.e. the pre-processed data for this r1cs
     let index = Index::new(index_params.clone(), indexed_a, indexed_b, indexed_c);
 
-    // let (prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
+    let (prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
 
     // TODO: the IndexDomains should already guarantee powers of two, so why add extraneous bit or use next_power_of_two?
 
@@ -92,35 +92,38 @@ pub(crate) fn orchestrate_r1cs_example<
     let lde_blowup = 8;
     let num_queries = 32;
     let fri_options = FriOptions::new(lde_blowup, 4, 256);
-    // let options: FractalOptions<B> = FractalOptions::<B> {
-    //     degree_fs,
-    //     size_subgroup_h,
-    //     size_subgroup_k,
-    //     summing_domain,
-    //     evaluation_domain,
-    //     h_domain,
-    //     fri_options,
-    //     num_queries,
-    // };
-    // let pub_inputs_bytes = vec![0u8];
-    // let mut prover = FractalProver::<B, E, H>::new(
-    //     prover_key,
-    //     options,
-    //     vec![],
-    //     wires,
-    //     pub_inputs_bytes
-    // );
+    let options: FractalOptions<B> = FractalOptions::<B> {
+        degree_fs,
+        size_subgroup_h,
+        size_subgroup_k,
+        summing_domain,
+        evaluation_domain,
+        h_domain,
+        fri_options,
+        num_queries,
+    };
+    let pub_inputs_bytes = vec![0u8];
+    let mut prover = FractalProver::<B, E, H>::new(
+        prover_key,
+        options,
+        vec![],
+        wires,
+        pub_inputs_bytes
+    );
+    let proof = prover.generate_proof().unwrap();
+    
+    println!("Verified: {:?}", fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof).is_ok());
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "jsnark-parser", about = "Jsnark file parsing")]
 struct ExampleOptions {
     /// Jsnark .arith file to parse.
-    #[structopt(short = "a", long = "arith_file", default_value = "sample.arith")]
+    #[structopt(short = "a", long = "arith_file", default_value = "fractal_examples/jsnark_outputs/sample.arith")]
     arith_file: String,
 
     /// Jsnark .in or .wires file to parse.
-    #[structopt(short = "w", long = "wire_file", default_value = "sample.wires")]
+    #[structopt(short = "w", long = "wire_file", default_value = "fractal_examples/jsnark_outputs/sample.wires")]
     wires_file: String,
 
     /// Verbose logging and reporting.

@@ -16,12 +16,12 @@ use crate::{errors::LincheckError, FractalOptions};
 const n: usize = 1;
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
 pub struct LincheckProver<
-    B: StarkField,
+    'a, B: StarkField,
     E: FieldElement<BaseField = B>,
-    H: ElementHasher + ElementHasher<BaseField = B> + Clone,
+    H: ElementHasher + ElementHasher<BaseField = B>,
 > {
     alpha: B,
-    prover_matrix_index: ProverMatrixIndex<H, B>,
+    prover_matrix_index: &'a ProverMatrixIndex<H, B>,
     f_1_poly_coeffs: Vec<B>,
     f_2_poly_coeffs: Vec<B>,
     options: FractalOptions<B>,
@@ -30,14 +30,15 @@ pub struct LincheckProver<
 }
 
 impl<
+        'a,
         B: StarkField,
         E: FieldElement<BaseField = B>,
-        H: ElementHasher + ElementHasher<BaseField = B> + Clone,
-    > LincheckProver<B, E, H>
+        H: ElementHasher + ElementHasher<BaseField = B>,
+    > LincheckProver<'a, B, E, H>
 {
     pub fn new(
         alpha: B,
-        prover_matrix_index: ProverMatrixIndex<H, B>,
+        prover_matrix_index: &'a ProverMatrixIndex<H, B>,
         f_1_poly_coeffs: Vec<B>,
         f_2_poly_coeffs: Vec<B>,
         options: FractalOptions<B>,

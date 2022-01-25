@@ -73,6 +73,16 @@ impl<'a, E: StarkField> JsnarkWireReaderParser<E> {
         })
     }
 
+    fn pad_power_two(&mut self) {
+        let num_wires = self.wires.len();
+        if !num_wires.is_power_of_two() {
+            let padding = num_wires.next_power_of_two() - num_wires;
+            for _ in 0..padding {
+                self.wires.push(E::ZERO);
+            }
+        }
+    }
+
     pub fn parse_wire_file(&mut self, wire_file: &str, verbose: bool) {
         if verbose {
             println!("Parse wire file {}", wire_file);
@@ -91,6 +101,8 @@ impl<'a, E: StarkField> JsnarkWireReaderParser<E> {
                 }
             }
         }
+
+        self.pad_power_two();
 
         // if verbose {
         //     println!("{:?}", self.wires);

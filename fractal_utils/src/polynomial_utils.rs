@@ -8,7 +8,7 @@ use std::convert::TryInto;
  * Note that v_H(X) = X^dom_size - eta^dom_size. If eta = 1 we're
  * in a multiplicative subgroup itself.
  **/
-pub fn compute_vanishing_poly<E: FieldElement>(x: E, eta: E, dom_size: u128) -> E {
+pub fn compute_vanishing_poly<E: FieldElement>(x: E, eta: E, dom_size: usize) -> E {
     let power_u64: u64 = dom_size.try_into().unwrap();
     let power = E::PositiveInteger::from(power_u64);
     if eta == E::ONE {
@@ -22,7 +22,7 @@ pub fn compute_vanishing_poly<E: FieldElement>(x: E, eta: E, dom_size: u128) -> 
  * Compute vanishing polynomial for a multiplicative subgroup. Same as above with
  * eta = ONE.
  **/
-pub fn vanishing_poly_for_mult_subgroup<E: FieldElement>(x: E, dom_size: u128) -> E {
+pub fn vanishing_poly_for_mult_subgroup<E: FieldElement>(x: E, dom_size: usize) -> E {
     compute_vanishing_poly(x, E::ONE, dom_size)
 }
 

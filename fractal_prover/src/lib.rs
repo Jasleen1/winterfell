@@ -11,8 +11,8 @@ mod tests;
 #[derive(Clone)]
 pub struct FractalOptions<B: StarkField> {
     pub degree_fs: usize,
-    pub size_subgroup_h: u128,
-    pub size_subgroup_k: u128,
+    pub size_subgroup_h: usize,
+    pub size_subgroup_k: usize,
     pub summing_domain: Vec<B>,
     pub evaluation_domain: Vec<B>,
     pub h_domain: Vec<B>,
