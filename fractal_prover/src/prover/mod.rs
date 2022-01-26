@@ -135,8 +135,9 @@ impl<
             return Err(ProverError::InvalidMatrixName(matrix_label.to_string()));
         }
         let mut f_2_vals = matrix.dot(self.variable_assignment.clone());
+        println!("Matrix rows = {}, matrix cols = {}", matrix.dims.0, matrix.dims.1);
         println!("Len f_2 = {}", f_2_vals.len());
-        println!("Len twiddels = {}", inv_twiddles.len());
+        println!("Len twiddles = {}", inv_twiddles.len());
         fft::interpolate_poly(&mut f_2_vals, inv_twiddles);
         Ok(f_2_vals)
     }
