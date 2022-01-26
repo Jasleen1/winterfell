@@ -48,6 +48,14 @@ impl<E: StarkField> Matrix<E> {
         }
     }
 
+    pub fn num_rows(&self) -> usize {
+        self.dims.0
+    }
+
+    pub fn num_cols(&self) -> usize {
+        self.dims.1
+    }
+
     pub fn get_total_size(&self) -> usize {
         let rows = self.dims.0;
         let cols = self.dims.1;
@@ -83,6 +91,16 @@ impl<E: StarkField> Matrix<E> {
         }
     }
 
+    pub fn define_rows(&mut self, num_rows: usize) {
+        assert!(self.dims.0 <= num_rows, "Attempted to reduce number of rows.");
+        let zero_row = vec![E::ZERO; self.dims.1];
+        let num_to_pad = num_rows - self.dims.0;
+        for _ in 0..num_to_pad {
+            self.mat.push(zero_row.clone());
+        }
+        self.dims.0 = num_rows;
+    }
+
     pub fn add_row(&mut self, new_row: &Vec<E>) {
         if new_row.len() != self.dims.1 {
             // FIXME: add error handling
@@ -104,6 +122,15 @@ impl<E: StarkField> Matrix<E> {
 
         self.define_cols(cols.next_power_of_two());
         self.pad_rows(rows.next_power_of_two() - rows);
+    }
+
+    pub fn make_square(&mut self) {
+        let rows = self.dims.0;
+        let cols = self.dims.1;
+        let square_dim = rows.max(cols);
+
+        self.define_cols(square_dim);
+        self.define_rows(square_dim);
     }
 
     pub fn debug_print(&self) {
@@ -207,6 +234,12 @@ impl<E: StarkField> R1CS<E> {
         self.A.pad_power_two();
         self.B.pad_power_two();
         self.C.pad_power_two();
+    }
+
+    pub fn make_square(&mut self) {
+        self.A.make_square();
+        self.B.make_square();
+        self.C.make_square();
     }
 
     pub fn debug_print(&self) {

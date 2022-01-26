@@ -302,6 +302,7 @@ impl<'a, E: StarkField> JsnarkArithReaderParser<E> {
         }
 
         self.r1cs_instance.pad_power_two();
+        self.r1cs_instance.make_square();
 
         // if verbose {
         //     self.r1cs_instance.debug_print_bits_horizontal();
