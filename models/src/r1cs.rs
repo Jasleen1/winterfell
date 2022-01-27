@@ -71,7 +71,7 @@ impl<E: StarkField> Matrix<E> {
         l0_norm
     }
 
-    pub fn dot(&self, vec: Vec<E>) -> Vec<E> {
+    pub fn dot(&self, vec: &Vec<E>) -> Vec<E> {
         self.mat
             .iter()
             .map(|a| {

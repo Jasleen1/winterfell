@@ -24,7 +24,7 @@ pub struct LincheckProver<
     prover_matrix_index: &'a ProverMatrixIndex<H, B>,
     f_1_poly_coeffs: Vec<B>,
     f_2_poly_coeffs: Vec<B>,
-    options: FractalOptions<B>,
+    options: &'a FractalOptions<B>,
     _h: PhantomData<H>,
     _e: PhantomData<E>,
 }
@@ -41,7 +41,7 @@ impl<
         prover_matrix_index: &'a ProverMatrixIndex<H, B>,
         f_1_poly_coeffs: Vec<B>,
         f_2_poly_coeffs: Vec<B>,
-        options: FractalOptions<B>,
+        options: &'a FractalOptions<B>,
     ) -> Self {
         LincheckProver {
             alpha,

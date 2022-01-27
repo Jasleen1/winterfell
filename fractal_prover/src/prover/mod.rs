@@ -6,10 +6,12 @@ use models::r1cs::Matrix;
 
 use math::{FieldElement, StarkField};
 
-use fractal_proofs::{fft, FractalProof, TryInto};
+use fractal_proofs::{fft, FractalProof, LincheckProof, TryInto};
 
 use crate::{
-    errors::ProverError, lincheck_prover::LincheckProver, rowcheck_prover::RowcheckProver,
+    errors::ProverError,
+    lincheck_prover::LincheckProver,
+    rowcheck_prover::RowcheckProver,
     FractalOptions,
 };
 
@@ -55,48 +57,54 @@ impl<
         // not z = (x, w)
         let alpha = self.public_coin.draw().expect("failed to draw OOD point");
         let inv_twiddles_h = fft::get_inv_twiddles(self.variable_assignment.len());
-        // let inv_twiddles_k = fft::get_inv_twiddles(self.options.size_subgroup_k);
-        let f_1_a_poly = &mut self.variable_assignment.clone();
-        fft::interpolate_poly(f_1_a_poly, &inv_twiddles_h);
-        let lincheck_prover_a = LincheckProver::<B, E, H>::new(
+
+        // 1. Generate lincheck proofs for the A,B,C matrices.
+        let mut z_coeffs = &mut self.variable_assignment.clone();  // evals
+        fft::interpolate_poly(&mut z_coeffs, &inv_twiddles_h);  // coeffs
+
+        let f_az_coeffs = self.compute_matrix_mul_poly_coeffs(
+            &self.prover_key.matrix_a_index.matrix, z_coeffs, &inv_twiddles_h)?;
+        let lincheck_a = self.create_lincheck_proof(
             alpha,
             &self.prover_key.matrix_a_index,
-            f_1_a_poly.to_vec(),
-            self.compute_matrix_mul_poly_coeffs("a", &inv_twiddles_h)?,
-            self.options.clone(),
-        );
-        let lincheck_a = lincheck_prover_a.generate_lincheck_proof()?;
-        let f_1_b_poly = &mut self.variable_assignment.clone();
-        fft::interpolate_poly(f_1_b_poly, &inv_twiddles_h);
-        let lincheck_prover_b = LincheckProver::<B, E, H>::new(
+            &self.variable_assignment.clone(),
+            &f_az_coeffs)?;
+
+        let f_bz_coeffs = self.compute_matrix_mul_poly_coeffs(
+            &self.prover_key.matrix_b_index.matrix, z_coeffs, &inv_twiddles_h)?;
+        let lincheck_b = self.create_lincheck_proof(
             alpha,
             &self.prover_key.matrix_b_index,
-            f_1_b_poly.to_vec(),
-            self.compute_matrix_mul_poly_coeffs("b", &inv_twiddles_h)?,
-            self.options.clone(),
-        );
-        let lincheck_b = lincheck_prover_b.generate_lincheck_proof()?;
-        let f_1_c_poly = &mut self.variable_assignment.clone();
-        fft::interpolate_poly(f_1_c_poly, &inv_twiddles_h);
-        let lincheck_prover_c = LincheckProver::<B, E, H>::new(
+            &self.variable_assignment.clone(),
+            &f_bz_coeffs)?;
+
+        let f_cz_coeffs = self.compute_matrix_mul_poly_coeffs(
+            &self.prover_key.matrix_c_index.matrix, z_coeffs, &inv_twiddles_h)?;
+        let lincheck_c = self.create_lincheck_proof(
             alpha,
             &self.prover_key.matrix_c_index,
-            f_1_c_poly.to_vec(),
-            self.compute_matrix_mul_poly_coeffs("c", &inv_twiddles_h)?,
-            self.options.clone(),
-        );
-        let lincheck_c = lincheck_prover_c.generate_lincheck_proof()?;
+            &self.variable_assignment.clone(),
+            &f_cz_coeffs)?;
+
+        // 2. Generate the rowcheck proof.
+
+        // Evaluate the Az, Bz, Cz polynomials.
         let eval_twiddles = fft::get_twiddles(self.options.evaluation_domain.len());
-        let mut f_az_evals = f_1_a_poly.clone();
+
+        let mut f_az_evals = f_az_coeffs.clone();
         fft::evaluate_poly(&mut f_az_evals, &eval_twiddles);
-        let mut f_bz_evals = f_1_b_poly.clone();
+
+        let mut f_bz_evals = f_bz_coeffs.clone();
         fft::evaluate_poly(&mut f_bz_evals, &eval_twiddles);
-        let mut f_cz_evals = f_1_c_poly.clone();
+
+        let mut f_cz_evals = f_cz_coeffs.clone();
         fft::evaluate_poly(&mut f_cz_evals, &eval_twiddles);
+
+        // Issue a rowcheck proof.
         let rowcheck_prover = RowcheckProver::<B, E, H>::new(
-            f_az_evals,
-            f_bz_evals,
-            f_cz_evals,
+            f_az_evals.to_vec(),
+            f_bz_evals.to_vec(),
+            f_cz_evals.to_vec(),
             self.options.degree_fs,
             self.options.size_subgroup_h.try_into().unwrap(),
             self.options.evaluation_domain.clone(),
@@ -104,41 +112,45 @@ impl<
             self.options.num_queries,
         );
         let rowcheck_proof = rowcheck_prover.generate_proof()?;
+
+        // 3. Build and return an overall fractal proof.
         Ok(FractalProof {
             rowcheck_proof,
             lincheck_a,
             lincheck_b,
             lincheck_c,
         })
-        // unimplemented!()
     }
 
+    // Multiply a matrix times a vector of evaluations, then interpolate a poly and return its coeffs.
     fn compute_matrix_mul_poly_coeffs(
         &self,
-        matrix_label: &str,
+        matrix: &Matrix<B>,
+        vec: &Vec<B>,
         inv_twiddles: &[B],
     ) -> Result<Vec<B>, ProverError> {
-        let mut matrix = Matrix::new(matrix_label, Vec::<Vec<B>>::new())?;
-        match matrix_label {
-            "a" => {
-                matrix = self.prover_key.matrix_a_index.matrix.clone();
-            }
-            "b" => {
-                matrix = self.prover_key.matrix_b_index.matrix.clone();
-            }
-            "c" => {
-                matrix = self.prover_key.matrix_c_index.matrix.clone();
-            }
-            _ => {}
-        }
-        if matrix.mat.len() == 0 {
-            return Err(ProverError::InvalidMatrixName(matrix_label.to_string()));
-        }
-        let mut f_2_vals = matrix.dot(self.variable_assignment.clone());
-        println!("Matrix rows = {}, matrix cols = {}", matrix.dims.0, matrix.dims.1);
-        println!("Len f_2 = {}", f_2_vals.len());
-        println!("Len twiddles = {}", inv_twiddles.len());
-        fft::interpolate_poly(&mut f_2_vals, inv_twiddles);
-        Ok(f_2_vals)
+
+        let mut product = matrix.dot(vec);  // as evals
+        fft::interpolate_poly(&mut product, inv_twiddles);  // as coeffs
+        Ok(product)  // as coeffs
+    }
+
+    // Indexed matrix; variable assignments as polynomial evaluation points.
+    fn create_lincheck_proof(
+        &self,
+        alpha: B,
+        matrix_index: &ProverMatrixIndex<H, B>,
+        z_coeffs: &Vec<B>,
+        prod_m_z_coeffs: &Vec<B>) -> Result<LincheckProof<B, E, H>, ProverError> {
+
+        let lincheck_prover = LincheckProver::<B, E, H>::new(
+            alpha,
+            &matrix_index,
+            z_coeffs.to_vec(),
+            prod_m_z_coeffs.to_vec(),
+            &self.options,
+        );
+        let lincheck_proof = lincheck_prover.generate_lincheck_proof()?;
+        Ok(lincheck_proof)
     }
 }
