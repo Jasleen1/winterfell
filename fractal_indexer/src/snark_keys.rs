@@ -5,7 +5,7 @@ use crate::{
 };
 use crypto::{ElementHasher, MerkleTree};
 use fri::utils::hash_values;
-use math::{FieldElement, StarkField};
+use math::{FieldElement, StarkField, polynom};
 use models::r1cs::{Matrix, R1CS};
 use utils::transpose_slice;
 
@@ -23,8 +23,9 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverIndex
         self.evaluations[index]
     }
 
-    pub fn get_eval_at_point(&self, _point: B) -> B {
-        unimplemented!()
+    pub fn get_eval_at_point(&self, point: B) -> B {
+        polynom::eval(&self.polynomial, point)
+        //unimplemented!()
     }
 }
 

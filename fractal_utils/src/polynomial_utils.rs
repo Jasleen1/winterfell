@@ -62,3 +62,22 @@ pub fn compute_binomial_on_y<E: FieldElement>(bivariate: BivariatePoly<E>, y_val
     }
     x_coeffs
 }
+
+pub fn pad_with_zeroes<E: FieldElement>(poly: &mut Vec<E>, total_len: usize) {
+    if total_len <= poly.len() {
+        return;
+    }
+    let diff = total_len - poly.len();
+    for _ in 0..diff {
+        poly.push(E::ZERO);
+    }
+}
+
+pub fn get_to_degree_size<E: FieldElement>(poly: &mut Vec<E>) {
+    let len_poly = poly.len();
+    let mut count = len_poly - 1;
+    while count > 0 && poly[count] == E::ZERO {
+        poly.pop();
+        count = count - 1;
+    }
+}

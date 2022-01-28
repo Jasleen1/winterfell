@@ -12,6 +12,7 @@ pub fn verify_rowcheck_proof<
     H: ElementHasher<BaseField = B>,
 >(
     proof: RowcheckProof<B, E, H>,
+    // Change to include public seed
 ) -> Result<(), VerifierError> {
     let mut public_coin_seed = Vec::new();
     proof.write_into(&mut public_coin_seed);

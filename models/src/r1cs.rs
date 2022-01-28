@@ -65,9 +65,11 @@ impl<E: StarkField> Matrix<E> {
 
     // L0 norm, number of nonzero elements.
     pub fn l0_norm(&self) -> usize {
-        let l0_norm = self.mat.iter().fold(
-            0,|a, row| a + row.iter().fold(
-                0,|x, &y| if y == E::ZERO { x } else {x + 1}));
+        let l0_norm = self.mat.iter().fold(0, |a, row| {
+            a + row
+                .iter()
+                .fold(0, |x, &y| if y == E::ZERO { x } else { x + 1 })
+        });
         l0_norm
     }
 
@@ -84,7 +86,10 @@ impl<E: StarkField> Matrix<E> {
     }
 
     pub fn define_cols(&mut self, num_cols: usize) {
-        assert!(self.dims.1 <= num_cols, "Attempted to reduce number of columns.");
+        assert!(
+            self.dims.1 <= num_cols,
+            "Attempted to reduce number of columns."
+        );
         self.dims.1 = num_cols;
         for row in &mut self.mat {
             row.resize(num_cols, E::ZERO);
@@ -92,7 +97,10 @@ impl<E: StarkField> Matrix<E> {
     }
 
     pub fn define_rows(&mut self, num_rows: usize) {
-        assert!(self.dims.0 <= num_rows, "Attempted to reduce number of rows.");
+        assert!(
+            self.dims.0 <= num_rows,
+            "Attempted to reduce number of rows."
+        );
         let zero_row = vec![E::ZERO; self.dims.1];
         let num_to_pad = num_rows - self.dims.0;
         for _ in 0..num_to_pad {

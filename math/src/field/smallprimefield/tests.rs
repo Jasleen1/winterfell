@@ -281,7 +281,7 @@ fn test_get_root_of_unity_37() {
     let root_4 = SmallFieldElement37::get_root_of_unity(2);
     assert_eq!(SmallFieldElement37::from(31u32), root_4);
 
-    let powers: Vec<u32> = vec![
+    let _powers: Vec<u32> = vec![
         2, 4, 8, 16, 32, 27, 17, 34, 31, 25, 13, 26, 15, 30, 23, 9, 18, 36, 35, 33, 29, 21, 5, 10,
         20, 3, 6, 12, 24, 11, 22, 7, 14, 28, 19, 1,
     ];

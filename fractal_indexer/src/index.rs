@@ -1,6 +1,3 @@
-use std::cmp::max;
-use std::convert::TryInto;
-
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
 use math::{fft, utils, FieldElement, StarkField};
@@ -47,9 +44,9 @@ impl<E: StarkField> Index<E> {
 #[derive(Clone, Debug)]
 pub struct IndexDomains<E: FieldElement> {
     pub i_field_base: E,
-    pub k_field_base: E,  // Generate sufficiently large set to enumerate all nonzero matrix entries.
-    pub h_field_base: E,  // Generate sufficiently large set to enumerate each row or each column.
-    pub l_field_base: E,  // For Reed Solomon code.
+    pub k_field_base: E, // Generate sufficiently large set to enumerate all nonzero matrix entries.
+    pub h_field_base: E, // Generate sufficiently large set to enumerate each row or each column.
+    pub l_field_base: E, // For Reed Solomon code.
     pub i_field: Vec<E>,
     pub k_field_len: usize,
     pub h_field: Vec<E>,
@@ -112,7 +109,10 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E
     let i_field = utils::get_power_series(i_field_base, i_field_size);
     let h_field = utils::get_power_series(h_field_base, h_field_size);
 
-    println!("i: {}    k: {}    h: {}   L: {}", i_field_size, k_field_size, h_field_size, l_field_size);
+    println!(
+        "i: {}    k: {}    h: {}   L: {}",
+        i_field_size, k_field_size, h_field_size, l_field_size
+    );
 
     // Prepare the FFT coefficients (twiddles).
     let inv_twiddles_k_elts = fft::get_inv_twiddles::<E>(k_field_size);
@@ -176,7 +176,10 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
     let l_field_size = 2 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = SmallFieldElement17::get_root_of_unity(l_field_size.trailing_zeros());
 
-    println!("i: {}    k: {}    h: {}   L: {}", i_field_size, k_field_size, h_field_size, l_field_size);
+    println!(
+        "i: {}    k: {}    h: {}   L: {}",
+        i_field_size, k_field_size, h_field_size, l_field_size
+    );
 
     unsafe {
         // Find elements in F which generate each subfield.

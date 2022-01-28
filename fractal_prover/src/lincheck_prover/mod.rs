@@ -16,7 +16,8 @@ use crate::{errors::LincheckError, FractalOptions};
 const n: usize = 1;
 // TODO: Will need to ask Irakliy whether a channel should be passed in here
 pub struct LincheckProver<
-    'a, B: StarkField,
+    'a,
+    B: StarkField,
     E: FieldElement<BaseField = B>,
     H: ElementHasher + ElementHasher<BaseField = B>,
 > {
@@ -87,6 +88,7 @@ impl<
         let twiddles_evaluation_domain: Vec<B> =
             fft::get_twiddles(self.options.evaluation_domain.len());
         fft::interpolate_poly(&mut t_alpha_eval_domain_poly, &twiddles_evaluation_domain);
+        fractal_utils::polynomial_utils::get_to_degree_size(&mut t_alpha_eval_domain_poly);
         t_alpha_eval_domain_poly
     }
 
@@ -100,7 +102,11 @@ impl<
         u_numerator[0] = self.alpha;
         u_numerator.push(B::ONE);
         let u_denominator = vec![self.alpha, B::ONE];
-        let u_alpha = polynom::div(&u_numerator, &u_denominator);
+        let mut u_alpha = polynom::div(&u_numerator, &u_denominator);
+        fractal_utils::polynomial_utils::get_to_degree_size(&mut u_alpha);
+        println!("u_alpha_len = {}", u_alpha.len());
+        println!("f_1_len = {}", self.f_1_poly_coeffs.len());
+        println!("f_2_len = {}", self.f_2_poly_coeffs.len());
         polynom::sub(
             &polynom::mul(&u_alpha, &self.f_1_poly_coeffs),
             &polynom::mul(t_alpha_eval_domain_poly, &self.f_2_poly_coeffs),
@@ -110,10 +116,12 @@ impl<
     pub fn generate_lincheck_proof(&self) -> Result<LincheckProof<B, E, H>, LincheckError> {
         let t_alpha_evals = self.generate_t_alpha_evals();
         let t_alpha = self.generate_t_alpha(t_alpha_evals.clone());
+        println!("t_alpha_size = {}", t_alpha.len());
         let poly_prod = self.generate_poly_prod(&t_alpha);
         // Next use poly_beta in a sumcheck proof but
         // the sumcheck domain is H, which isn't included here
         // Use that to produce the sumcheck proof.
+        println!("Poly prod len = {}", poly_prod.len());
         let mut product_sumcheck_prover = SumcheckProver::<B, E, H>::new(
             poly_prod,
             vec![B::ONE],

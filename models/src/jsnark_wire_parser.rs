@@ -2,8 +2,7 @@ use math::StarkField;
 use sscanf::scanf;
 
 use crate::errors::*;
-use crate::io::{LineProcessor};
-use crate::r1cs::*;
+use crate::io::LineProcessor;
 
 #[derive(Debug)]
 
@@ -17,7 +16,6 @@ pub struct JsnarkWireParser<'a, E: StarkField> {
     pub verbose: bool,
     pub wires: &'a mut Vec<E>,
 }
-
 
 impl<'a, E: StarkField> JsnarkWireParser<'a, E> {
     pub fn new(wires: &'a mut Vec<E>) -> Result<Self, InputWireError> {
@@ -57,7 +55,7 @@ impl<'a, E: StarkField> LineProcessor for JsnarkWireParser<'a, E> {
             Some((wire_id, wire_value)) => {
                 println!("handle {} {}", wire_id, wire_value);
                 self.handle_assign(wire_id, E::from(wire_value));
-                return
+                return;
             }
             None => {}
         }

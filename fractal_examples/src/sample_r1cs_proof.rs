@@ -3,20 +3,18 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::cmp::max;
-
 use fractal_proofs::FriOptions;
-use fractal_prover::FractalOptions;
 use fractal_prover::prover::FractalProver;
+use fractal_prover::FractalOptions;
 use structopt::StructOpt;
 
 use crypto::hashers::Rp64_256;
 use crypto::ElementHasher;
-use fractal_proofs::log2;
+
 use math::fields::f64::BaseElement;
+use math::utils;
 use math::FieldElement;
 use math::StarkField;
-use math::utils;
 
 use models::jsnark_arith_parser::JsnarkArithReaderParser;
 use models::jsnark_wire_parser::JsnarkWireReaderParser;
@@ -30,14 +28,18 @@ use fractal_indexer::{
 fn main() {
     let options = ExampleOptions::from_args();
     if options.verbose {
-        println!("Arith file {}, wire value file {}", options.arith_file, options.wires_file);
+        println!(
+            "Arith file {}, wire value file {}",
+            options.arith_file, options.wires_file
+        );
     }
 
     // call orchestrate_r1cs_example
     orchestrate_r1cs_example::<BaseElement, BaseElement, Rp64_256, 16>(
         &options.arith_file,
         &options.wires_file,
-        options.verbose);
+        options.verbose,
+    );
 }
 
 pub(crate) fn orchestrate_r1cs_example<
@@ -58,7 +60,7 @@ pub(crate) fn orchestrate_r1cs_example<
     wires_parser.parse_wire_file(&wire_file, verbose);
     let wires = wires_parser.wires;
     // 0. Compute num_non_zero by counting max(number of non-zero elts across A, B, C).
-    
+
     // let num_input_variables = r1cs.clone().num_cols();
     // let num_constraints = r1cs.clone().num_rows();
     // let num_non_zero = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm());
@@ -86,8 +88,10 @@ pub(crate) fn orchestrate_r1cs_example<
 
     // to get evals for L, using fft.evaluate
 
-    let summing_domain = utils::get_power_series(index_domains.k_field_base, index_domains.k_field_len);
-    let evaluation_domain = utils::get_power_series(index_domains.l_field_base, index_domains.l_field_len);
+    let summing_domain =
+        utils::get_power_series(index_domains.k_field_base, index_domains.k_field_len);
+    let evaluation_domain =
+        utils::get_power_series(index_domains.l_field_base, index_domains.l_field_len);
     let h_domain = index_domains.h_field;
     let lde_blowup = 8;
     let num_queries = 32;
@@ -102,28 +106,35 @@ pub(crate) fn orchestrate_r1cs_example<
         fri_options,
         num_queries,
     };
-    let pub_inputs_bytes = vec![0u8];
-    let mut prover = FractalProver::<B, E, H>::new(
-        prover_key,
-        options,
-        vec![],
-        wires,
-        pub_inputs_bytes
-    );
-    let proof = prover.generate_proof().unwrap();
     
-    println!("Verified: {:?}", fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof).is_ok());
+    let pub_inputs_bytes = vec![0u8];
+    let mut prover =
+        FractalProver::<B, E, H>::new(prover_key, options, vec![], wires, pub_inputs_bytes);
+    let proof = prover.generate_proof().unwrap();
+
+    println!(
+        "Verified: {:?}",
+        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof).is_ok()
+    );
 }
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "jsnark-parser", about = "Jsnark file parsing")]
 struct ExampleOptions {
     /// Jsnark .arith file to parse.
-    #[structopt(short = "a", long = "arith_file", default_value = "fractal_examples/jsnark_outputs/sample.arith")]
+    #[structopt(
+        short = "a",
+        long = "arith_file",
+        default_value = "fractal_examples/jsnark_outputs/sample.arith"
+    )]
     arith_file: String,
 
     /// Jsnark .in or .wires file to parse.
-    #[structopt(short = "w", long = "wire_file", default_value = "fractal_examples/jsnark_outputs/sample.wires")]
+    #[structopt(
+        short = "w",
+        long = "wire_file",
+        default_value = "fractal_examples/jsnark_outputs/sample.wires"
+    )]
     wires_file: String,
 
     /// Verbose logging and reporting.

@@ -46,12 +46,28 @@ fn test_domain_building_17() {
     let k_field_base = domains.k_field_base;
     let h_field_base = domains.h_field_base;
     let l_field_base = domains.l_field_base;
-    assert_eq!(i_field_base, SmallFieldElement17::new(16), "Bad base for i_field");
-    assert_eq!(k_field_base, SmallFieldElement17::new(13), "Bad base for k_field");
-    assert_eq!(h_field_base, SmallFieldElement17::new(16), "Bad base for h_field");
+    assert_eq!(
+        i_field_base,
+        SmallFieldElement17::new(16),
+        "Bad base for i_field"
+    );
+    assert_eq!(
+        k_field_base,
+        SmallFieldElement17::new(13),
+        "Bad base for k_field"
+    );
+    assert_eq!(
+        h_field_base,
+        SmallFieldElement17::new(16),
+        "Bad base for h_field"
+    );
     // Temp using l_field as 2 * ..., so really expect 9.
     //assert_eq!(l_field_base, SmallFieldElement17::new(3), "Bad base for l_field");
-    assert_eq!(l_field_base, SmallFieldElement17::new(9), "Bad base for l_field");
+    assert_eq!(
+        l_field_base,
+        SmallFieldElement17::new(9),
+        "Bad base for l_field"
+    );
 }
 
 #[test]

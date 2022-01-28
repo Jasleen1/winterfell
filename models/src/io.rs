@@ -1,4 +1,3 @@
-
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -13,9 +12,12 @@ where
 {
     let file = match File::open(filename) {
         Err(why) => {
-            println!("Looking in {:?}", std::env::current_dir().unwrap().display());
+            println!(
+                "Looking in {:?}",
+                std::env::current_dir().unwrap().display()
+            );
             panic!("Cannot open file: {}", why)
-        },
+        }
         Ok(file) => file,
     };
     Ok(io::BufReader::new(file).lines())

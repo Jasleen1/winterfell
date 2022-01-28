@@ -60,12 +60,12 @@ pub fn index_matrix<E: StarkField>(
     let mut val_elts = vec![E::ZERO; k_field_size];
 
     let mut count = 0;
-    
+
     //println!("loop start:  {} x {}", num_rows, num_cols);
     for r_int in 0..num_rows {
         for c_int in 0..num_cols {
             if mat.mat[r_int][c_int] == E::ZERO {
-                continue
+                continue;
             }
             let c = h_field[c_int];
             let r = h_field[r_int];

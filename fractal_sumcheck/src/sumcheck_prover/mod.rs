@@ -55,15 +55,27 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
     pub fn generate_proof(&mut self) -> SumcheckProof<B, E, H> {
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
         let mut summing_poly_numerator_evals = self.summing_poly_numerator.clone();
+        let mut eval_domain_twiddles = fft::get_twiddles(self.evaluation_domain.len());
+
+        println!("summing_poly_evals len = {:?}", summing_poly_numerator_evals.len());
+        let size_num_evals = summing_poly_numerator_evals.len().next_power_of_two();
+        pad_with_zeroes(&mut summing_poly_numerator_evals, size_num_evals);
+        
+        println!("Numerator evals = {}", summing_poly_numerator_evals.len());
+        println!("Num twiddles = {}", eval_domain_twiddles.len());
+        
         fft::evaluate_poly(
             &mut summing_poly_numerator_evals,
-            &mut self.summing_domain_twiddles,
+            &mut eval_domain_twiddles,
         );
-
+        
         let mut summing_poly_denominator_evals = self.summing_poly_denominator.clone();
+        let size_denom_evals = summing_poly_denominator_evals.len().next_power_of_two();
+        println!("Denominator evals = {}", summing_poly_denominator_evals.len());
+        pad_with_zeroes(&mut summing_poly_denominator_evals, size_denom_evals);
         fft::evaluate_poly(
             &mut summing_poly_denominator_evals,
-            &mut self.summing_domain_twiddles,
+            &mut eval_domain_twiddles,
         );
 
         // compute the polynomial g such that Sigma(g, sigma) = summing_poly
