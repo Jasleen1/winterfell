@@ -12,5 +12,8 @@ Cargo.lock
 # macOS attribute files
 **/.DS_store
 
+# icloud files on MacOS
+**/*.icloud
+
 # VS Code settings
 **/.vscode
