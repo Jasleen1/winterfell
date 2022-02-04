@@ -8,7 +8,7 @@ use examples::{fast_fourier_transform, Example};
 use std::time::Duration;
 use winterfell::{FieldExtension, HashFunction, ProofOptions};
 
-const SIZES: [usize; 3] = [16, 32, 64];
+const SIZES: [usize; 3] = [256, 512, 1024];
 
 fn fast_fourier_transform(c: &mut Criterion) {
     let mut group = c.benchmark_group("fast_fourier_transform");
