@@ -9,16 +9,21 @@ use fractal_proofs::{OracleQueries, SumcheckProof};
 #[cfg(test)]
 mod tests;
 
-pub struct SumcheckProver<
+pub struct RationalSumcheckProver<
     B: StarkField,
     E: FieldElement<BaseField = B>,
     H: ElementHasher<BaseField = B>,
 > {
+    // this is p(x) as in the API for sumcheck in the paper
     summing_poly_numerator: Vec<E::BaseField>,
+    // this is q(x)
     summing_poly_denominator: Vec<E::BaseField>,
+    // this is \sigma as in the sumcheck i.e. the desired sum
     sigma: E,
+    // For lincheck this domain is K
     summing_domain: Vec<E::BaseField>,
     summing_domain_twiddles: Vec<B>,
+    // Eval domain is always L
     evaluation_domain: Vec<E::BaseField>,
     fri_options: FriOptions,
     pub channel: DefaultProverChannel<B, E, H>,
@@ -26,7 +31,7 @@ pub struct SumcheckProver<
 }
 
 impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField = B>>
-    SumcheckProver<B, E, H>
+    RationalSumcheckProver<B, E, H>
 {
     pub fn new(
         summing_poly_numerator: Vec<B>,
@@ -39,7 +44,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
     ) -> Self {
         let summing_domain_twiddles = fft::get_twiddles(summing_domain.len());
         let channel = DefaultProverChannel::new(evaluation_domain.len(), num_queries);
-        SumcheckProver {
+        RationalSumcheckProver {
             summing_poly_numerator,
             summing_poly_denominator,
             sigma,
@@ -151,6 +156,9 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
         }
     }
 
+    // SIGMA(g, sigma)(x) = f(x) = p(x)/q(x)
+    // SIGMA(g, sigma) = x*g(x) + sigma*|summing_domain|^-1
+    // g(x) = x^-1*(f(x) - sigma*|summing_domain|^-1)
     pub fn compute_g_poly_on_val(&self, x_val: E, f_x_val: E) -> E {
         let dividing_factor_for_sigma: u64 = self.summing_domain.len().try_into().unwrap();
         let subtracting_factor = self.sigma * E::from(dividing_factor_for_sigma).inv();

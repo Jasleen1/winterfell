@@ -115,16 +115,17 @@ impl<
 
     pub fn generate_lincheck_proof(&self) -> Result<LincheckProof<B, E, H>, LincheckError> {
         let t_alpha_evals = self.generate_t_alpha_evals();
-        let t_alpha = self.generate_t_alpha(t_alpha_evals.clone());
+        let mut t_alpha = self.generate_t_alpha(t_alpha_evals.clone());
+        get_to_degree_size(&mut t_alpha);
         println!("t_alpha_size = {}", t_alpha.len());
         let poly_prod = self.generate_poly_prod(&t_alpha);
         // Next use poly_beta in a sumcheck proof but
         // the sumcheck domain is H, which isn't included here
         // Use that to produce the sumcheck proof.
         println!("Poly prod len = {}", poly_prod.len());
-        let mut product_sumcheck_prover = SumcheckProver::<B, E, H>::new(
+        let mut product_sumcheck_prover = RationalSumcheckProver::<B, E, H>::new(
             poly_prod,
-            vec![B::ONE],
+            self.f_1_poly_coeffs.clone(),
             E::ZERO,
             self.options.h_domain.clone(),
             self.options.evaluation_domain.clone(),
@@ -147,7 +148,7 @@ impl<
             polynom::mul_by_scalar(&self.prover_matrix_index.col_poly.polynomial, -B::ONE);
         beta_minus_col[0] = beta_minus_col[0] + beta;
         let matrix_proof_denominator = polynom::mul(&alpha_minus_row, &beta_minus_col);
-        let mut matrix_sumcheck_prover = SumcheckProver::<B, E, H>::new(
+        let mut matrix_sumcheck_prover = RationalSumcheckProver::<B, E, H>::new(
             matrix_proof_numerator,
             matrix_proof_denominator,
             E::from(gamma),

@@ -1,5 +1,7 @@
 use math::{
-    fields::f128::{self, BaseElement},
+    fields::{
+        smallprimefield, 
+        f128::{self, BaseElement}},
     FieldElement,
 };
 
@@ -8,7 +10,7 @@ use crate::{
     r1cs::{Matrix, R1CS},
 };
 
-type SmallFieldElement17 = math::fields::smallprimefield::BaseElement<17, 3, 4>;
+type SmallFieldElement17 = smallprimefield::BaseElement<17, 3, 4>;
 
 #[test]
 fn test_construct_matrix_f128() {
