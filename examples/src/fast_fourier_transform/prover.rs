@@ -15,9 +15,7 @@ use winterfell::{math::log2, Trace};
 // CONSTANTS
 // ================================================================================================
 
-const TWO: BaseElement = BaseElement::new(2);
-const ZERO_KEY: [BaseElement; 2] = [BaseElement::ZERO, BaseElement::ZERO];
-
+// FIXME
 
 // FFT PROVER
 // ================================================================================================
@@ -45,15 +43,30 @@ impl FFTProver {
         degree: usize,
     ) -> TraceTable<BaseElement> {
         // allocate memory to hold the trace table
-        let trace_width = degree + 3;
         let trace_length = (log2(degree) + 1).try_into().unwrap();
+        // Degree to store coeffs + 1 col to store omega + 
+        // 1 col to store omega^{1 << step_number} + 1 col for step number
+        // The foll tuple for each step number (pos - step_number, f(pos - step number), selector_bit)
+        // where pos iterates over the set of step numbers in each row,
+        // f(x) = { 1 if x == 0, x^-1 if x =/= 0
+        // So 1 - f(x) * x = 1 only when x = 0 and 0 otherwise. 
+        let trace_width = degree + 3 + 3 * trace_length;
         let mut trace = TraceTable::new(trace_width, trace_length);
 
+        // FIXME Move to separate function
         // let powers_of_two = get_power_series(TWO, 128);
-        let mut inputs = coefficients;
-        inputs[inputs.len()] = omega;
-        inputs[inputs.len()] = BaseElement::ONE;
-        inputs[inputs.len()] = BaseElement::ZERO;
+        let mut inputs = Vec::with_capacity(trace_width);
+        inputs.copy_from_slice(coefficients);
+        let omega_pos = degree;
+        inputs[omega_pos] = omega;
+        let omega_to_degree_over_step = degree + 1;
+        inputs[omega_to_degree_over_step] = BaseElement::ONE;
+        // This is just the step counter
+        let step_counter_pos = degree + 2;
+        inputs[step_counter_pos] = BaseElement::ZERO;
+        let trace_128: u128 = trace_length.try_into().unwrap();
+        
+        fill_selector_info(&mut inputs, BaseElement::ZERO, trace_128, degree);
         // To prove fft(omega, coeff: &[BaseElement], degree) = output: &[BaseElement]
         trace.fill(
             |state| {
@@ -62,7 +75,7 @@ impl FFTProver {
                 }
             },
             |step, state| {
-                apply_fft(step, state, degree)
+                apply_fft(step, state, degree, trace_128)
             }
         );
         trace
@@ -95,7 +108,7 @@ impl Prover for FFTProver {
             coefficients: self.get_initial_coeffs(trace),
             omega: self.get_omega(trace),
             degree: self.degree,
-            output_evals: self.get_final_outputs(trace),
+            // output_evals: self.get_final_outputs(trace),
         }
     }
 
@@ -107,7 +120,7 @@ impl Prover for FFTProver {
 
 // TRANSITION FUNCTION
 // ================================================================================================
-fn apply_fft(step: usize, state: &mut [BaseElement], degree: usize) {
+fn apply_fft(step: usize, state: &mut [BaseElement], degree: usize, trace_length: u128) {
     let omega = state[degree];
     state[degree + 2] = state[degree + 2] + BaseElement::ONE;
 
@@ -130,7 +143,7 @@ fn apply_fft(step: usize, state: &mut [BaseElement], degree: usize) {
 
     // actual fft
     let jump = 1 << step;
-    let counter = 0;
+    let mut counter = 0;
     while counter < degree {
         let mut curr_pow = BaseElement::ONE;
         for j in 0..(1 << (step - 1)) {
@@ -142,15 +155,38 @@ fn apply_fft(step: usize, state: &mut [BaseElement], degree: usize) {
         }
         counter = counter + jump;
     }
-
-        // Calculate the curr_omega to be used in the next step
-        let next_omega = omega.exp((degree/(1 << (step + 1))).try_into().unwrap());
-        state[degree + 1] = next_omega;
+    let step_u128: u128 = step.try_into().unwrap();
+    let step_base_elt = BaseElement::from(step_u128);
+    fill_selector_info(state, step_base_elt, trace_length, degree);
+    
+    // Calculate the curr_omega to be used in the next step
+    let next_omega = omega.exp((degree/(1 << (step + 1))).try_into().unwrap());
+    state[degree + 1] = next_omega;
 
 }
 
 // // HELPER FUNCTIONS
 // // ================================================================================================
+
+fn fill_selector_info(state: &mut [BaseElement], step: BaseElement, trace_128: u128, degree: usize) {
+    for i in 0..trace_128 {
+        let i_group_elt = BaseElement::from(i) - step;
+        let i_inv_try = {
+            if i_group_elt == BaseElement::ZERO {
+                BaseElement::ONE
+            }
+            else {
+                i_group_elt.inv()
+            }
+        };
+        let selector_bit = BaseElement::ONE - (i_group_elt * i_inv_try);
+        let i_usize: usize = i.try_into().unwrap();
+        state[get_count_diff_pos(i_usize, degree)] = i_group_elt;
+        state[get_inv_pos(i_usize, degree)] = i_inv_try;
+        state[get_selector_pos(i_usize, degree)] = selector_bit;
+
+    }
+}
 
 fn reverse(index: usize, log_degree: u32) -> usize {
     let mut return_index = 0;
@@ -166,6 +202,19 @@ fn reverse(index: usize, log_degree: u32) -> usize {
 fn swap(pos1: usize, pos2: usize, state: &mut [BaseElement]) {
     let temp = state[pos1];
     state[pos1] = state[pos2];
-    state[pos2] = state[pos1];
+    state[pos2] = temp;
 
 }
+
+fn get_count_diff_pos(i: usize, degree: usize) -> usize {
+    degree + 3 + 3*i
+}
+
+fn get_inv_pos(i: usize, degree: usize) -> usize {
+    degree + 3 + 3*i + 1
+}
+
+fn get_selector_pos(i: usize, degree: usize) -> usize {
+    degree + 3 + 3*i + 2
+}
+

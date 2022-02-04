@@ -8,13 +8,13 @@ use super::{
 };
 use crate::ExampleOptions;
 use log::debug;
+use rand_utils::rand_value;
 use std::time::Instant;
 use winterfell::{
     math::{fields::f128::BaseElement, get_power_series, log2, FieldElement, StarkField},
     ProofOptions, Prover, StarkProof, Trace, TraceTable, VerifierError,
 };
 
-use utils::Randomizable;
 
 mod air;
 use air::{FFTAir, PublicInputs};
@@ -46,12 +46,13 @@ pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
     list is of the form coefficients := [a0, a1, ... , an].
     """
 */
-
+// FIXME: Need to add constraints to check for input and output values.
 pub struct FFTExample {
     options: ProofOptions,
     coefficients: Vec<BaseElement>,
     omega: BaseElement,
     degree: usize,
+    // output_evals: Vec<BaseElement>,
 }
 
 impl FFTExample {
@@ -61,7 +62,7 @@ impl FFTExample {
             "number of signatures must be a power of 2"
         );
         assert!(
-            degree <= BaseElement::TWO_ADICITY.try_into().unwrap(), 
+            log2(degree) <= BaseElement::TWO_ADICITY.try_into().unwrap(), 
             "Provided degree is too large"
         );
         // generate appropriately sized omega 
@@ -69,9 +70,10 @@ impl FFTExample {
         // generate appropriately sized coefficients
         let mut coefficients = Vec::with_capacity(degree);
         let now = Instant::now();
-        for i in 0..degree {
-            coefficients.push(BaseElement::from_random_bytes(&[i as u8; 32]).unwrap());
+        for _ in 0..degree {
+            coefficients.push(rand_value::<BaseElement>());
         }
+        // let output_evals = coefficients.clone();
         debug!(
             "Generated {} coefficients in {} ms",
             degree,
@@ -83,6 +85,7 @@ impl FFTExample {
             coefficients,
             omega,
             degree,
+            // output_evals,
         }
     }
 }
@@ -100,41 +103,44 @@ impl Example for FFTExample {
         );
 
         // create a prover
-        // let prover =
-            // FFTProver::new(&self.pub_keys, &self.messages, self.options.clone());
+        let prover =
+            FFTProver::new(self.options.clone(), self.degree);
 
-        // let now = Instant::now();
-        // let trace = prover.build_trace(&self.messages, &self.signatures);
-        // let trace_length = trace.length();
-        // debug!(
-        //     "Generated execution trace of {} registers and 2^{} steps in {} ms",
-        //     trace.width(),
-        //     log2(trace_length),
-        //     now.elapsed().as_millis()
-        // );
-
-        // // generate the proof
-        // prover.prove(trace).unwrap()
-        unimplemented!()
+        let now = Instant::now();
+        let trace = prover.build_trace(self.omega, &self.coefficients, self.degree);
+        let trace_length = trace.length();
+        debug!(
+            "Generated execution trace of {} registers and 2^{} steps in {} ms",
+            trace.width(),
+            log2(trace_length),
+            now.elapsed().as_millis()
+        );
+        // self.output_evals = prover.get_pub_inputs(&trace).output_evals;
+        // generate the proof
+        prover.prove(trace).unwrap()
+        // unimplemented!()
     }
 
     fn verify(&self, proof: StarkProof) -> Result<(), VerifierError> {
-        // let pub_inputs = PublicInputs {
-        //     pub_keys: self.pub_keys.clone(),
-        //     messages: self.messages.clone(),
-        // };
-        // winterfell::verify::<FFTAir>(proof, pub_inputs)
-        unimplemented!()
+        let pub_inputs = PublicInputs {
+            coefficients: self.coefficients.clone(),
+            omega: self.omega,
+            degree: self.degree,
+            // output_evals: self.output_evals,
+        };
+        winterfell::verify::<FFTAir>(proof, pub_inputs)
     }
 
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
-        // let mut pub_keys = self.pub_keys.clone();
-        // pub_keys.swap(0, 1);
-        // let pub_inputs = PublicInputs {
-        //     pub_keys,
-        //     messages: self.messages.clone(),
-        // };
-        // winterfell::verify::<FFTAir>(proof, pub_inputs)
-        unimplemented!()
+        let mut coefficients = self.coefficients.clone();
+        coefficients.swap(0, 1);
+        let pub_inputs = PublicInputs {
+            coefficients,
+            omega: self.omega,
+            degree: self.degree,
+            // output_evals: self.output_evals,
+        };
+        winterfell::verify::<FFTAir>(proof, pub_inputs)
+        // unimplemented!()
     }
 }

@@ -9,7 +9,7 @@ use std::time::Instant;
 use structopt::StructOpt;
 use winterfell::StarkProof;
 
-use examples::{fibonacci, rescue, ExampleOptions, ExampleType};
+use examples::{fibonacci, rescue, ExampleOptions, ExampleType, fast_fourier_transform};
 #[cfg(feature = "std")]
 use examples::{lamport, merkle};
 
@@ -52,6 +52,10 @@ fn main() {
         #[cfg(feature = "std")]
         ExampleType::LamportT { num_signers } => {
             lamport::threshold::get_example(options, num_signers)
+        }
+        #[cfg(feature = "std")]
+        ExampleType::FFT { degree } => {
+            fast_fourier_transform::get_example(options, degree)
         }
     };
 

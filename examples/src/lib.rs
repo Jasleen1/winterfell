@@ -7,6 +7,7 @@ use structopt::StructOpt;
 use winterfell::{FieldExtension, HashFunction, ProofOptions, StarkProof, VerifierError};
 
 pub mod fibonacci;
+#[cfg(feature = "std")]
 pub mod fast_fourier_transform;
 #[cfg(feature = "std")]
 pub mod lamport;
@@ -143,5 +144,12 @@ pub enum ExampleType {
         /// Number of signers; must be one less than a power of two
         #[structopt(short = "n", default_value = "3")]
         num_signers: usize,
+    },
+    /// Compute an fft of given degree
+    #[cfg(feature = "std")]
+    FFT {
+        /// Degree; must be a power of two
+        #[structopt(short = "n", default_value = "16")]
+        degree: usize,
     },
 }
