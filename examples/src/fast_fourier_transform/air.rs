@@ -75,7 +75,7 @@ impl Air for FFTAir {
         // define degrees for all transition constraints
         let mut degrees = Vec::new();
         // TODO
-        let enforce_zero_deg = TransitionConstraintDegree::with_cycles(1, vec![2]);
+        let enforce_zero_deg = TransitionConstraintDegree::new(1);
         degrees.push(enforce_zero_deg);
 
         let log_deg_usize: usize = log2(pub_inputs.degree).try_into().unwrap();
@@ -86,7 +86,7 @@ impl Air for FFTAir {
             for step in 1..trace_usize { 
                 let jump = 1 << step; 
                 let j_usize: usize = (pos % jump).try_into().unwrap();
-                let enforce_butterfly_deg = TransitionConstraintDegree::with_cycles(j_usize + 2, vec![2]);
+                let enforce_butterfly_deg = TransitionConstraintDegree::new(j_usize + 2);
                 degrees.push(enforce_butterfly_deg);
             }
         }
@@ -95,9 +95,9 @@ impl Air for FFTAir {
         
 
         for _ in 0..log_deg_usize {
-            let enforce_coeff_deg = TransitionConstraintDegree::with_cycles(2, vec![1]);
+            let enforce_coeff_deg = TransitionConstraintDegree::new(2);
             degrees.push(enforce_coeff_deg);
-            let enforce_selector_deg = TransitionConstraintDegree::with_cycles(1, vec![2]);
+            let enforce_selector_deg = TransitionConstraintDegree::new(1);
             degrees.push(enforce_selector_deg);
         }
         
@@ -182,22 +182,22 @@ fn enforce_round<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],
-    degree: usize,
+    data_size: usize,
     reverse_perm: Vec<usize>,
 ) {
     // FFT part
-    for pos in 0..degree {
+    for pos in 0..data_size {
         result[pos] = E::ZERO;
     }
-    enforce_0th_round(result, current, next, degree, reverse_perm);
-    enforce_butterfly_round(result, current, next, degree);
+    enforce_0th_round(result, current, next, data_size, reverse_perm);
+    enforce_butterfly_round(result, current, next, data_size);
 
     // Auxiliary parts 
-    let log_degree = log2(degree).try_into().unwrap();
+    let log_degree = log2(data_size).try_into().unwrap();
     for i in 0..log_degree {
-        let count_pos = get_count_diff_pos(i, degree);
-        let inv_pos = get_inv_pos(i, degree);
-        let selector_pos = get_selector_pos(i, degree);
+        let count_pos = get_count_diff_pos(i, data_size);
+        let inv_pos = get_inv_pos(i, data_size);
+        let selector_pos = get_selector_pos(i, data_size);
         result[count_pos] = not(are_equal(next[count_pos], current[count_pos] - E::ONE));
         result[selector_pos] = not(are_equal(current[selector_pos], E::ONE - (current[count_pos]*current[inv_pos])));
         // FIXME Need some way to ensure the inverses are done correctly. This is the same 
@@ -214,11 +214,11 @@ fn enforce_0th_round<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],
-    degree: usize,
+    data_size: usize,
     reverse_perm: Vec<usize>,
 ) { 
-    let selector = current[get_selector_pos(0, degree)];
-    for i in 0..degree {
+    let selector = current[get_selector_pos(0, data_size)];
+    for i in 0..data_size {
         result[i] = result[i] + selector * not(are_equal(next[i], current[reverse_perm[i]]));
     }
 }
@@ -229,20 +229,20 @@ fn enforce_butterfly_round<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],
-    degree: usize,
+    data_size: usize,
 ) {
     // let step = current[degree + 2];
     
-    let curr_omega = current[degree + 1];
-    let trace_usize: usize = (log2(degree) + 1).try_into().unwrap();
-    for pos in 1..degree {
+    let curr_omega = current[data_size + 1];
+    let trace_usize: usize = (log2(data_size) + 1).try_into().unwrap();
+    for pos in 1..data_size {
         // FIXME: Needs the op for the 0th round
         for step in 1..trace_usize { 
             let jump = 1 << step;
             let gap = 1 << (step - 1);   
             let j_64: u64 = (pos % jump).try_into().unwrap();
             let j = E::PositiveInteger::from(j_64);
-            let selector = current[get_selector_pos(step, degree)];
+            let selector = current[get_selector_pos(step, data_size)];
             result[pos] = result[pos] + selector * (not(are_equal(next[pos], current[pos] + 
                 (curr_omega.exp(j) * current[pos + gap]))));
             result[pos + gap] = result[pos + gap] + selector * not(are_equal(next[pos + gap], current[pos] - 

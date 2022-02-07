@@ -8,8 +8,10 @@ use examples::{fast_fourier_transform, Example};
 use std::time::Duration;
 use winterfell::{FieldExtension, HashFunction, ProofOptions};
 
-const SIZES: [usize; 3] = [256, 512, 1024];
+// Use SIZE s.t. Log2(SIZE) + 1 is a power of 2
+const SIZES: [usize; 1] = [128];//, 128, 128];
 
+// cargo run -- -b 16 fft -n 8
 fn fast_fourier_transform(c: &mut Criterion) {
     let mut group = c.benchmark_group("fast_fourier_transform");
     group.sample_size(10);
@@ -17,7 +19,7 @@ fn fast_fourier_transform(c: &mut Criterion) {
 
     let options = ProofOptions::new(
         32,
-        8,
+        32,
         0,
         HashFunction::Blake3_256,
         FieldExtension::None,

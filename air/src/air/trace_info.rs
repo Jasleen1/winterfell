@@ -20,9 +20,9 @@ pub struct TraceInfo {
 
 impl TraceInfo {
     /// Smallest allowed execution trace length; currently set at 8.
-    pub const MIN_TRACE_LENGTH: usize = 8;
+    pub const MIN_TRACE_LENGTH: usize = 4;
     /// Maximum number of registers in an execution trace; currently set at 255.
-    pub const MAX_TRACE_WIDTH: usize = 255;
+    pub const MAX_TRACE_WIDTH: usize = 511;
     /// Maximum number of bytes in trace metadata; currently set at 65535.
     pub const MAX_META_LENGTH: usize = 65535;
 

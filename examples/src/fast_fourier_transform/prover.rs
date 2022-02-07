@@ -40,33 +40,42 @@ impl FFTProver {
         &self,
         omega: BaseElement,
         coefficients: &[BaseElement],
-        degree: usize,
+        data_size: usize,
     ) -> TraceTable<BaseElement> {
         // allocate memory to hold the trace table
-        let trace_length = (log2(degree) + 1).try_into().unwrap();
+        let trace_length = (log2(data_size) + 1).try_into().unwrap();
         // Degree to store coeffs + 1 col to store omega + 
         // 1 col to store omega^{1 << step_number} + 1 col for step number
         // The foll tuple for each step number (pos - step_number, f(pos - step number), selector_bit)
         // where pos iterates over the set of step numbers in each row,
         // f(x) = { 1 if x == 0, x^-1 if x =/= 0
         // So 1 - f(x) * x = 1 only when x = 0 and 0 otherwise. 
-        let trace_width = degree + 3 + 3 * trace_length;
+        let trace_width = data_size + 3 + 3 * trace_length;
         let mut trace = TraceTable::new(trace_width, trace_length);
-
+        // Layout 
+        // | -- 0 to (data_size - 1) is coefficients 
+        // | -- position # data_size contains omega
+        // | -- position # data_size + 1 contains the layer omega
+        // FIXME finish
         // FIXME Move to separate function
-        // let powers_of_two = get_power_series(TWO, 128);
-        let mut inputs = Vec::with_capacity(trace_width);
-        inputs.copy_from_slice(coefficients);
-        let omega_pos = degree;
+        // data_size is N in the description of an FFT
+        let mut inputs = vec![BaseElement::ZERO; trace_width];
+        inputs[..data_size].copy_from_slice(coefficients);
+        let omega_pos = data_size;
         inputs[omega_pos] = omega;
-        let omega_to_degree_over_step = degree + 1;
-        inputs[omega_to_degree_over_step] = BaseElement::ONE;
-        // This is just the step counter
-        let step_counter_pos = degree + 2;
-        inputs[step_counter_pos] = BaseElement::ZERO;
+
+        // Omega^{data_size/(1<<step_number)}
+        let layer_omega = data_size + 1;
+        inputs[layer_omega] = BaseElement::ONE;
+
+        // This is just the step counter aka AIR layer number within the trace
+        let air_step_counter_pos = data_size + 2;
+        inputs[air_step_counter_pos] = BaseElement::ZERO;
         let trace_128: u128 = trace_length.try_into().unwrap();
+
+        // Now we've filled data_size + 3 positions 
         
-        fill_selector_info(&mut inputs, BaseElement::ZERO, trace_128, degree);
+        fill_selector_info(&mut inputs, BaseElement::ZERO, trace_128, data_size);
         // To prove fft(omega, coeff: &[BaseElement], degree) = output: &[BaseElement]
         trace.fill(
             |state| {
@@ -75,7 +84,7 @@ impl FFTProver {
                 }
             },
             |step, state| {
-                apply_fft(step, state, degree, trace_128)
+                apply_fft(step, state, data_size, trace_128)
             }
         );
         trace
