@@ -6,12 +6,12 @@
 use super::{
     rescue, Example,
 };
-use crate::ExampleOptions;
+use crate::{ExampleOptions, utils::print_trace};
 use log::debug;
 use rand_utils::rand_value;
 use std::time::Instant;
 use winterfell::{
-    math::{fields::f128::BaseElement, get_power_series, log2, FieldElement, StarkField},
+    math::{fields::f128::BaseElement, get_power_series, log2, FieldElement, StarkField, fft},
     ProofOptions, Prover, StarkProof, Trace, TraceTable, VerifierError,
 };
 
@@ -69,9 +69,11 @@ impl FFTExample {
         let omega = BaseElement::get_root_of_unity(log2(degree)); 
         // generate appropriately sized coefficients
         let mut coefficients = Vec::with_capacity(degree);
+        let degree_u128: u128 = degree.try_into().unwrap();
         let now = Instant::now();
-        for _ in 0..degree {
-            coefficients.push(rand_value::<BaseElement>());
+        for i in 0..degree_u128 {
+            // coefficients.push(rand_value::<BaseElement>());
+            coefficients.push(BaseElement::from(i+1));
         }
         // let output_evals = coefficients.clone();
         debug!(
@@ -79,6 +81,11 @@ impl FFTExample {
             degree,
             now.elapsed().as_millis()
         );
+
+        let mut coefficients_clone = coefficients.clone();
+        let mut twiddles = fft::get_twiddles(degree);
+        fft::evaluate_poly(&mut coefficients_clone, &mut twiddles);
+        println!("Expected results: {:?}", coefficients_clone);
 
         FFTExample {
             options,
@@ -105,7 +112,6 @@ impl Example for FFTExample {
         // create a prover
         let prover =
             FFTProver::new(self.options.clone(), self.degree);
-
         let now = Instant::now();
         let trace = prover.build_trace(self.omega, &self.coefficients, self.degree);
         let trace_length = trace.length();
@@ -117,6 +123,7 @@ impl Example for FFTExample {
         );
         // self.output_evals = prover.get_pub_inputs(&trace).output_evals;
         // generate the proof
+        print_trace(&trace, 1, 0, self.degree+3..trace.width());
         prover.prove(trace).unwrap()
         // unimplemented!()
     }

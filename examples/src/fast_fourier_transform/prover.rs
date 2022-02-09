@@ -50,7 +50,7 @@ impl FFTProver {
         // where pos iterates over the set of step numbers in each row,
         // f(x) = { 1 if x == 0, x^-1 if x =/= 0
         // So 1 - f(x) * x = 1 only when x = 0 and 0 otherwise. 
-        let trace_width = data_size + 3 + 3 * trace_length;
+        let trace_width = data_size + 3 + trace_length;
         let mut trace = TraceTable::new(trace_width, trace_length);
         // Layout 
         // | -- 0 to (data_size - 1) is coefficients 
@@ -75,7 +75,7 @@ impl FFTProver {
 
         // Now we've filled data_size + 3 positions 
         
-        fill_selector_info(&mut inputs, BaseElement::ZERO, trace_128, data_size);
+        fill_selector_info(&mut inputs, 0u128, trace_128, data_size);
         // To prove fft(omega, coeff: &[BaseElement], degree) = output: &[BaseElement]
         trace.fill(
             |state| {
@@ -84,9 +84,15 @@ impl FFTProver {
                 }
             },
             |step, state| {
-                apply_fft(step, state, data_size, trace_128)
+                apply_iterative_fft_layer(step, state, data_size, trace_128)
             }
         );
+        // let mut trace_0 = Vec::new();
+        // for i in 0..trace_width {
+            // trace_0.push(trace.get(i, 0));
+        // }
+        // println!("Trace[0] = {:?}", trace_0);
+        println!("outputs = {:?}", self.get_final_outputs(&trace));
         trace
     }
 
@@ -94,12 +100,12 @@ impl FFTProver {
         (0..self.degree).map(|x| trace.get(x, 0)).collect()
     }
 
-    fn get_final_outputs(&self, trace: &TraceTable<BaseElement>) -> Vec<BaseElement> {
+    pub(crate) fn get_final_outputs(&self, trace: &TraceTable<BaseElement>) -> Vec<BaseElement> {
         (0..self.degree).map(|x| trace.get(x, trace.length() - 1)).collect()
     }
 
     fn get_omega(&self, trace: &TraceTable<BaseElement>) -> BaseElement {
-        trace.get(self.degree + 1, 0)
+        trace.get(self.degree, 0)
     }
 
 }
@@ -129,73 +135,84 @@ impl Prover for FFTProver {
 
 // TRANSITION FUNCTION
 // ================================================================================================
-fn apply_fft(step: usize, state: &mut [BaseElement], degree: usize, trace_length: u128) {
-    let omega = state[degree];
-    state[degree + 2] = state[degree + 2] + BaseElement::ONE;
+fn apply_iterative_fft_layer(step: usize, state: &mut [BaseElement], data_size: usize, trace_length: u128) {
+    let omega = state[data_size];
+    state[data_size + 2] = state[data_size + 2] + BaseElement::ONE;
 
     // Swapping for the butterfly network
     if step == 0 {
-        let log_degree= log2(degree);
-        for i in 0..degree {
+        let log_degree= log2(data_size);
+        for i in 0..data_size {
             let rev = reverse(i, log_degree);
             if i < rev {
                 swap(i, rev, state);
             }
         }
-        // Calculate the curr_omega to be used in the next step
-        let next_omega = omega.exp((degree/(1 << (step + 1))).try_into().unwrap());
-        state[degree + 1] = next_omega;
-        return
     }
-    
-    let curr_omega = state[degree + 1];
+    else {
+        let curr_omega = state[data_size + 1];
 
-    // actual fft
-    let jump = 1 << step;
-    let mut counter = 0;
-    while counter < degree {
-        let mut curr_pow = BaseElement::ONE;
-        for j in 0..(1 << (step - 1)) {
-            let u = state[counter + j];
-            let v = state[counter + j + (1 << (step - 1))] * curr_pow;
-            state[counter + j] = u + v;
-            state[counter + j + (1 << (step - 1))] = u - v;
-            curr_pow = curr_pow * curr_omega;
+        // actual fft
+        let jump = 1 << step;
+        let mut counter = 0;
+        while counter < data_size {
+            let mut curr_pow = BaseElement::ONE;
+            for j in 0..(1 << (step - 1)) {
+                let u = state[counter + j];
+                let v = state[counter + j + (1 << (step - 1))] * curr_pow;
+                state[counter + j] = u + v;
+                state[counter + j + (1 << (step - 1))] = u - v;
+                curr_pow = curr_pow * curr_omega;
+            }
+            counter = counter + jump;
         }
-        counter = counter + jump;
+        
     }
     let step_u128: u128 = step.try_into().unwrap();
-    let step_base_elt = BaseElement::from(step_u128);
-    fill_selector_info(state, step_base_elt, trace_length, degree);
-    
+        fill_selector_info(state, step_u128+1, trace_length, data_size);
     // Calculate the curr_omega to be used in the next step
-    let next_omega = omega.exp((degree/(1 << (step + 1))).try_into().unwrap());
-    state[degree + 1] = next_omega;
+    let next_omega = omega.exp((data_size/(1 << (step + 1))).try_into().unwrap());
+    state[data_size + 1] = next_omega;
 
 }
 
 // // HELPER FUNCTIONS
 // // ================================================================================================
 
-fn fill_selector_info(state: &mut [BaseElement], step: BaseElement, trace_128: u128, degree: usize) {
+fn fill_selector_info(state: &mut [BaseElement], step: u128, trace_128: u128, degree: usize) {
     for i in 0..trace_128 {
-        let i_group_elt = BaseElement::from(i) - step;
-        let i_inv_try = {
-            if i_group_elt == BaseElement::ZERO {
+        let i_group_elt = {
+            if i == step {
                 BaseElement::ONE
             }
             else {
-                i_group_elt.inv()
+                BaseElement::ZERO
             }
         };
-        let selector_bit = BaseElement::ONE - (i_group_elt * i_inv_try);
-        let i_usize: usize = i.try_into().unwrap();
-        state[get_count_diff_pos(i_usize, degree)] = i_group_elt;
-        state[get_inv_pos(i_usize, degree)] = i_inv_try;
-        state[get_selector_pos(i_usize, degree)] = selector_bit;
+        state[get_selector_pos(i.try_into().unwrap(), degree)] = i_group_elt;
 
     }
 }
+
+// fn fill_selector_info_old(state: &mut [BaseElement], step: BaseElement, trace_128: u128, degree: usize) {
+//     for i in 0..trace_128 {
+//         let i_group_elt = BaseElement::from(i) - step;
+//         let i_inv_try = {
+//             if i_group_elt == BaseElement::ZERO {
+//                 BaseElement::ONE
+//             }
+//             else {
+//                 i_group_elt.inv()
+//             }
+//         };
+//         let selector_bit = BaseElement::ONE - (i_group_elt * i_inv_try);
+//         let i_usize: usize = i.try_into().unwrap();
+//         state[get_count_diff_pos(i_usize, degree)] = i_group_elt;
+//         state[get_inv_pos(i_usize, degree)] = i_inv_try;
+//         state[get_selector_pos(i_usize, degree)] = selector_bit;
+
+//     }
+// }
 
 fn reverse(index: usize, log_degree: u32) -> usize {
     let mut return_index = 0;
@@ -215,15 +232,19 @@ fn swap(pos1: usize, pos2: usize, state: &mut [BaseElement]) {
 
 }
 
-fn get_count_diff_pos(i: usize, degree: usize) -> usize {
-    degree + 3 + 3*i
-}
+// fn get_selector_bit_pos(i: usize, degree: usize) -> usize {
+//     degree + 3 + i
+// }
 
-fn get_inv_pos(i: usize, degree: usize) -> usize {
-    degree + 3 + 3*i + 1
-}
+// fn get_count_diff_pos(i: usize, degree: usize) -> usize {
+//     degree + 3 + 3*i
+// }
+
+// fn get_inv_pos(i: usize, degree: usize) -> usize {
+//     degree + 3 + 3*i + 1
+// }
 
 fn get_selector_pos(i: usize, degree: usize) -> usize {
-    degree + 3 + 3*i + 2
+    degree + 3 + i
 }
 
