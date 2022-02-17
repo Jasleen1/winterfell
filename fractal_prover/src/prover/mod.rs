@@ -145,8 +145,8 @@ impl<
         let lincheck_prover = LincheckProver::<B, E, H>::new(
             alpha,
             &matrix_index,
-            z_coeffs.to_vec(),
             prod_m_z_coeffs.to_vec(),
+            z_coeffs.to_vec(),
             &self.options,
         );
         let lincheck_proof = lincheck_prover.generate_lincheck_proof()?;

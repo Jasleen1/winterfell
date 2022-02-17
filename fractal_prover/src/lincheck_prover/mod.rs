@@ -55,8 +55,15 @@ impl<
         }
     }
 
-    pub fn generate_t_alpha_evals(&self) -> Vec<B> {
-        let v_h_alpha = vanishing_poly_for_mult_subgroup(self.alpha, self.options.size_subgroup_h);
+    /// The polynomial t_alpha(X) = u_M(X, alpha). 
+    /// We also know that u_M(X, alpha) = M_star(X, alpha).
+    /// Further, M_star(X, Y) = 
+    /// sum_{k in summing domain} (v_H(X)/ (X - row(k))) * (v_H(Y)/ (Y - col(k))) * val(k).
+    /// Fixing Y = alpha, this gives us t_alpha(X) = sum_k (v_H(X)/ (X - row(k))) * (v_H(alpha)/ (alpha - col(k))) * val(k).
+    /// = v_H(alpha) * sum_k (v_H(X)/ (X - row(k))) * (val(k)/ (alpha - col(k)))
+    pub fn generate_t_alpha_evals_on_h(&self) -> Vec<B> {
+        // Lets get the coefficients (val(k)/ (alpha - col(k)) 
+        // for all values of k, since these don't change with X.
         let mut coefficient_values = Vec::new();
         for id in 0..self.options.summing_domain.len() {
             let summing_elt = self.options.summing_domain[id];
@@ -65,11 +72,15 @@ impl<
             let k_term = self.prover_matrix_index.get_val_eval(summing_elt) * k_term_factor;
             coefficient_values.push(k_term)
         }
+        // This is the v_h(alpha) term, which only needs to be computed once.
+        let v_h_alpha = vanishing_poly_for_mult_subgroup(self.alpha, self.options.size_subgroup_h);
+        // Now we compute the terms sum_k (v_H(X)/ (X - row(k))) * (val(k)/ (alpha - col(k)))
+        // over the eval domain.
         let mut t_evals = Vec::new();
-        for x_val_id in 0..self.options.evaluation_domain.len() {
-            let x_val = self.options.evaluation_domain[x_val_id];
-            let v_h_x = vanishing_poly_for_mult_subgroup(x_val, self.options.size_subgroup_h);
-
+        for x_val_id in 0..self.options.h_domain.len() {
+            let x_val = self.options.h_domain[x_val_id];
+            
+            // Getting sum_k (1/ (X - row(k))) * (val(k)/ (alpha - col(k)))
             let mut sum_without_vs = B::ZERO;
             for id in 0..self.options.summing_domain.len() {
                 let summing_elt = self.options.summing_domain[id];
@@ -77,45 +88,62 @@ impl<
                 let prod_term = coefficient_values[id] * denom_term.inv();
                 sum_without_vs = sum_without_vs + prod_term;
             }
+            // This is v_H(X).
+            let v_h_x = vanishing_poly_for_mult_subgroup(x_val, self.options.size_subgroup_h);
+            // This is finally v_H(X) * v_H(alpha) * sum_K (1/ (X - row(k))) * (val(k)/ (alpha - col(k)))
             let sum_with_vs = (sum_without_vs * v_h_x) * v_h_alpha;
             t_evals.push(sum_with_vs);
         }
         t_evals
     }
 
+    pub fn generate_t_alpha_on_h(&self, t_evals: Vec<B>) -> Vec<B> {
+        let mut t_alpha_h_domain_poly: Vec<B> = t_evals.clone();
+        // let twiddles_evaluation_domain: Vec<B> =
+        //     fft::get_twiddles(self.options.evaluation_domain.len());
+        let twiddles_evaluation_domain: Vec<B> =
+            fft::get_twiddles(self.options.h_domain.len());
+        fft::interpolate_poly(&mut t_alpha_h_domain_poly, &twiddles_evaluation_domain);
+        fractal_utils::polynomial_utils::get_to_degree_size(&mut t_alpha_h_domain_poly);
+        t_alpha_h_domain_poly
+    }
+
     pub fn generate_t_alpha(&self, t_evals: Vec<B>) -> Vec<B> {
         let mut t_alpha_eval_domain_poly: Vec<B> = t_evals.clone();
+        // let twiddles_evaluation_domain: Vec<B> =
+        //     fft::get_twiddles(self.options.evaluation_domain.len());
         let twiddles_evaluation_domain: Vec<B> =
-            fft::get_twiddles(self.options.evaluation_domain.len());
+            fft::get_twiddles(self.options.h_domain.len());
         fft::interpolate_poly(&mut t_alpha_eval_domain_poly, &twiddles_evaluation_domain);
         fractal_utils::polynomial_utils::get_to_degree_size(&mut t_alpha_eval_domain_poly);
         t_alpha_eval_domain_poly
     }
 
-    pub fn generate_poly_prod(&self, t_alpha_eval_domain_poly: &Vec<B>) -> Vec<B> {
+    pub fn generate_poly_prod(&self, t_alpha_coeffs: &Vec<B>) -> Vec<B> {
         // This function needs to compute the polynomial
         // u_H(X, alpha)*f_1 - t_alpha*f_2
         // here are the steps to this:
         // 1. find out how polynomials are represented and get u_H(X, alpha) = (X^|H| - alpha)/(X - alpha)
         // 2. Polynom includes a mul and a sub function, use these to do the respective ops
-        let mut u_numerator = vec![B::ZERO; (self.options.size_subgroup_h).try_into().unwrap()];
-        u_numerator[0] = self.alpha;
+        let mut u_numerator = vec![B::ZERO; (self.options.size_subgroup_h - 1).try_into().unwrap()];
+        u_numerator[0] = self.alpha.neg();
         u_numerator.push(B::ONE);
-        let u_denominator = vec![self.alpha, B::ONE];
-        let mut u_alpha = polynom::div(&u_numerator, &u_denominator);
-        fractal_utils::polynomial_utils::get_to_degree_size(&mut u_alpha);
-        println!("u_alpha_len = {}", u_alpha.len());
+        let u_denominator = vec![self.alpha.neg(), B::ONE];
+        let mut u_alpha_coeffs = polynom::div(&u_numerator, &u_denominator);
+        fractal_utils::polynomial_utils::get_to_degree_size(&mut u_alpha_coeffs);
+        println!("u_alpha_len = {}", u_alpha_coeffs.len());
         println!("f_1_len = {}", self.f_1_poly_coeffs.len());
         println!("f_2_len = {}", self.f_2_poly_coeffs.len());
         polynom::sub(
-            &polynom::mul(&u_alpha, &self.f_1_poly_coeffs),
-            &polynom::mul(t_alpha_eval_domain_poly, &self.f_2_poly_coeffs),
+            &polynom::mul(&u_alpha_coeffs, &self.f_1_poly_coeffs),
+            &polynom::mul(t_alpha_coeffs, &self.f_2_poly_coeffs),
         )
     }
 
     pub fn generate_lincheck_proof(&self) -> Result<LincheckProof<B, E, H>, LincheckError> {
-        let t_alpha_evals = self.generate_t_alpha_evals();
-        let mut t_alpha = self.generate_t_alpha(t_alpha_evals.clone());
+        let t_alpha_evals = self.generate_t_alpha_evals_on_h();
+        let mut t_alpha = self.generate_t_alpha_on_h(t_alpha_evals.clone());
+        println!("t_alpha = {:?}", t_alpha);
         get_to_degree_size(&mut t_alpha);
         println!("t_alpha_size = {}", t_alpha.len());
         let poly_prod = self.generate_poly_prod(&t_alpha);
@@ -123,6 +151,7 @@ impl<
         // the sumcheck domain is H, which isn't included here
         // Use that to produce the sumcheck proof.
         println!("Poly prod len = {}", poly_prod.len());
+        
         let mut product_sumcheck_prover = RationalSumcheckProver::<B, E, H>::new(
             poly_prod,
             self.f_1_poly_coeffs.clone(),

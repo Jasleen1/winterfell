@@ -26,7 +26,8 @@ use fractal_indexer::{
 };
 
 fn main() {
-    let options = ExampleOptions::from_args();
+    let mut options = ExampleOptions::from_args();
+    options.verbose = true;
     if options.verbose {
         println!(
             "Arith file {}, wire value file {}",

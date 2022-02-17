@@ -11,11 +11,7 @@ use std::convert::TryInto;
 pub fn compute_vanishing_poly<E: FieldElement>(x: E, eta: E, dom_size: usize) -> E {
     let power_u64: u64 = dom_size.try_into().unwrap();
     let power = E::PositiveInteger::from(power_u64);
-    if eta == E::ONE {
-        x.exp(power) - eta
-    } else {
-        x.exp(power) - eta.exp(power)
-    }
+    x.exp(power) - eta.exp(power)
 }
 
 /**

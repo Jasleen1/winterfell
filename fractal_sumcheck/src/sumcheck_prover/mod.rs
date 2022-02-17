@@ -63,7 +63,8 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
         let mut eval_domain_twiddles = fft::get_twiddles(self.evaluation_domain.len());
 
         println!("summing_poly_evals len = {:?}", summing_poly_numerator_evals.len());
-        let size_num_evals = summing_poly_numerator_evals.len().next_power_of_two();
+        // let size_num_evals = summing_poly_numerator_evals.len().next_power_of_two();
+        let size_num_evals = self.evaluation_domain.len();
         pad_with_zeroes(&mut summing_poly_numerator_evals, size_num_evals);
         
         println!("Numerator evals = {}", summing_poly_numerator_evals.len());
@@ -75,7 +76,8 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
         );
         
         let mut summing_poly_denominator_evals = self.summing_poly_denominator.clone();
-        let size_denom_evals = summing_poly_denominator_evals.len().next_power_of_two();
+        // let size_denom_evals = summing_poly_denominator_evals.len().next_power_of_two();
+        let size_denom_evals = self.evaluation_domain.len();
         println!("Denominator evals = {}", summing_poly_denominator_evals.len());
         pad_with_zeroes(&mut summing_poly_denominator_evals, size_denom_evals);
         fft::evaluate_poly(
