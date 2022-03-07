@@ -55,6 +55,7 @@ impl<'a, A: Air, E: FieldElement<BaseField = A::BaseField>> ConstraintEvaluator<
             .map(|d| d.get_evaluation_degree(air.trace_length()))
             .collect();
 
+            
         // build transition constraint groups; these will be used later to compute a random
         // linear combination of transition constraint evaluations.
         let transition_constraints = air.get_transition_constraints(&coefficients.transition);

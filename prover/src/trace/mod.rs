@@ -196,6 +196,7 @@ fn extend_column<B: StarkField>(
 
     // interpolate register trace into a polynomial; we do this over the un-shifted trace_domain
     fft::interpolate_poly(column, inv_twiddles);
+    println!("Degree = {:?}", polynom::degree_of(column));
 
     // evaluate the polynomial over extended domain; the domain may be shifted by the
     // domain_offset

@@ -199,9 +199,14 @@ impl<B: StarkField, E: FieldElement<BaseField = B>> ConstraintEvaluationTable<B,
         let mut actual_degrees = Vec::with_capacity(self.t_expected_degrees.len());
         let mut max_degree = 0;
         let inv_twiddles = fft::get_inv_twiddles::<B>(self.num_rows());
+        let mut count = 0;
         for evaluations in self.t_evaluations.iter() {
             let mut poly = evaluations.clone();
             fft::interpolate_poly(&mut poly, &inv_twiddles);
+            // if count >= 8 + 3 {
+            //     println!("Got polynomial {} = {:?}\n evals = {:?}\n ****** \n", count, poly, evaluations);
+            // }
+            count = count + 1;
             let degree = math::polynom::degree_of(&poly);
             actual_degrees.push(degree);
 

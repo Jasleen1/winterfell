@@ -53,7 +53,7 @@ impl<B: StarkField> TraceLde<B> {
     }
 
     /// Returns the entire trace for the column at the specified index.
-    #[cfg(test)]
+    // #[cfg(test)]
     pub fn get_column(&self, col_idx: usize) -> &[B] {
         &self.data[col_idx]
     }

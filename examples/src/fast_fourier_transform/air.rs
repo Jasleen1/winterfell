@@ -206,12 +206,19 @@ fn enforce_round<E: FieldElement + From<BaseElement>>(
     let curr_omega = current[data_size + 1];
     let next_omega = next[data_size + 1];
     result[data_size + 1] = are_equal(curr_omega, next_omega.exp(2u32.try_into().unwrap()));
+    // r(X) = a(X) - b(omega * X) and if constraint satisfied then this should be 0 on the eval domain.
+    // # of points on which r is interpol = trace_len - 1
+    // Deg(r) = deg(RHS)
+    // If deg(r) <= trace_len - 1, then if r = 0 on trace_len - 1 points, r must be the zero poly.  
+    // r'(X) = (a(X))^2 - (b(omega * X))^2 = (a(X) - b(X)) * (a(X) + b(X)) 
+    // deg(r') = 2 * max(deg(a), deg(b))
     result[data_size + 2] = are_equal(current[data_size + 2] + E::ONE, next[data_size + 2]);
     // Auxiliary parts 
     let log_degree = log2(data_size).try_into().unwrap();
     for i in 0..log_degree+1 {
         let selector_pos = get_selector_pos(i, data_size);
         result[selector_pos] = are_equal(next[selector_pos], current[get_previous_selector_pos(i, data_size, log_degree)]);
+        // result[selector_pos] = are_equal(next[selector_pos], current[get_previous_selector_pos(i, data_size, log_degree)]);
     }
 
     for i in 0..data_size {
@@ -272,16 +279,16 @@ fn enforce_butterfly_round<E: FieldElement + From<BaseElement>>(
     
 }
 
-// fn get_count_diff_pos(i: usize, degree: usize) -> usize {
-//     degree + 3 + 3*i
-// }
-
-// fn get_inv_pos(i: usize, degree: usize) -> usize {
-//     degree + 3 + 3*i + 1
-// }
-
 fn get_selector_pos(i: usize, degree: usize) -> usize {
     degree + 3 + i
+}
+
+#[test]
+fn test_get_selector_pos() {
+    assert!(get_selector_pos(0, 8) == 11);
+    assert!(get_selector_pos(1, 8) == 12);
+    assert!(get_selector_pos(0, 16) == 19);
+    assert!(get_selector_pos(1, 16) == 20);
 }
 
 fn get_previous_selector_pos(i: usize, degree: usize, log_degree: usize) -> usize {

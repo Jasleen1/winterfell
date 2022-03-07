@@ -237,6 +237,12 @@ pub trait Prover {
         // polynomial, and then evaluates the polynomial over the LDE domain; each of the trace
         // polynomials has degree = trace_length - 1
         let (extended_trace, trace_polys) = trace.extend(&domain);
+        for i in 0..extended_trace.len() {
+            print!("Extended 11: {:?}\t", extended_trace.get_column(11)[i]);
+            println!("Extended 12: {:?}", extended_trace.get_column(12)[(i + 16) % extended_trace.len()]);
+        }
+        // println!("Extended 11: {:?}", extended_trace.get_column(11).iter().map(|x| x.as_int()).collect::<Vec<_>>());
+        // println!("Extended 12: {:?}", extended_trace.get_column(12).iter().map(|x| x.as_int()).collect::<Vec<_>>());
         #[cfg(feature = "std")]
         debug!(
         "Extended execution trace of {} registers from 2^{} to 2^{} steps ({}x blowup) in {} ms",
