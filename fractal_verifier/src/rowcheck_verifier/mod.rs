@@ -14,9 +14,9 @@ pub fn verify_rowcheck_proof<
     proof: RowcheckProof<B, E, H>,
     // Change to include public seed
 ) -> Result<(), VerifierError> {
-    let mut public_coin_seed = Vec::new();
-    proof.write_into(&mut public_coin_seed);
-    let mut public_coin = RandomCoin::new(&public_coin_seed);
+    // let mut public_coin_seed = Vec::new();
+    // proof.write_into(&mut public_coin_seed);
+    let mut public_coin = RandomCoin::new(&[]);
 
     let mut channel = DefaultVerifierChannel::new(
         proof.s_proof,

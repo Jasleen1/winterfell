@@ -13,6 +13,7 @@ pub fn verify_lincheck_proof<
     H: ElementHasher<BaseField = B>,
 >(
     proof: LincheckProof<B, E, H>,
+    expected_alpha: B,
 ) -> Result<(), VerifierError> {
     // LincheckProof::<B, E, H> {
     //     options: self.options.fri_options.clone(),
@@ -29,9 +30,9 @@ pub fn verify_lincheck_proof<
     //     matrix_sumcheck_proof,
     //     _e: PhantomData,
     // }
-    let mut public_coin_seed = Vec::new();
-    proof.write_into(&mut public_coin_seed);
-    let _public_coin: RandomCoin<B, H> = RandomCoin::new(&public_coin_seed);
+    // let mut public_coin_seed = Vec::new();
+    // proof.write_into(&mut public_coin_seed);
+    // let _public_coin: RandomCoin<B, H> = RandomCoin::new(&public_coin_seed);
 
     let _alpha = proof.alpha;
     let _t_alpha_commitment = proof.t_alpha_commitment;

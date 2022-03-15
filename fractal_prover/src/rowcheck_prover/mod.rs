@@ -58,7 +58,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
                 self.evaluation_domain[i],
                 self.size_subgroup_h.try_into().unwrap(),
             ));
-            s_evals[i] = s_val_numerator / s_val_denominator;
+            s_evals.push(s_val_numerator / s_val_denominator);
         }
         let mut channel = DefaultProverChannel::new(self.evaluation_domain.len(), self.num_queries);
         let mut fri_prover =
@@ -81,7 +81,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             s_proof,
             s_queried_evals,
             s_commitments,
-            s_max_degree: self.degree_fs - 1,
+            s_max_degree: self.degree_fs,
         })
     }
 }

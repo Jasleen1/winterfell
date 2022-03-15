@@ -6,7 +6,7 @@ use models::r1cs::Matrix;
 
 use math::{FieldElement, StarkField};
 
-use fractal_proofs::{fft, FractalProof, LincheckProof, TryInto};
+use fractal_proofs::{fft, polynom, FractalProof, LincheckProof, TryInto};
 
 use crate::{
     errors::ProverError,
@@ -63,43 +63,46 @@ impl<
         fft::interpolate_poly(&mut z_coeffs, &inv_twiddles_h);  // coeffs
 
         let f_az_coeffs = self.compute_matrix_mul_poly_coeffs(
-            &self.prover_key.matrix_a_index.matrix, z_coeffs, &inv_twiddles_h)?;
+            &self.prover_key.matrix_a_index.matrix, &self.variable_assignment.clone(), &inv_twiddles_h)?;
         let lincheck_a = self.create_lincheck_proof(
             alpha,
             &self.prover_key.matrix_a_index,
-            &self.variable_assignment.clone(),
+            &z_coeffs.clone(),
             &f_az_coeffs)?;
 
         let f_bz_coeffs = self.compute_matrix_mul_poly_coeffs(
-            &self.prover_key.matrix_b_index.matrix, z_coeffs, &inv_twiddles_h)?;
+            &self.prover_key.matrix_b_index.matrix, &self.variable_assignment.clone(), &inv_twiddles_h)?;
         let lincheck_b = self.create_lincheck_proof(
             alpha,
             &self.prover_key.matrix_b_index,
-            &self.variable_assignment.clone(),
+            &z_coeffs.clone(),
             &f_bz_coeffs)?;
 
         let f_cz_coeffs = self.compute_matrix_mul_poly_coeffs(
-            &self.prover_key.matrix_c_index.matrix, z_coeffs, &inv_twiddles_h)?;
+            &self.prover_key.matrix_c_index.matrix, &self.variable_assignment.clone(), &inv_twiddles_h)?;
         let lincheck_c = self.create_lincheck_proof(
             alpha,
             &self.prover_key.matrix_c_index,
-            &self.variable_assignment.clone(),
+            &z_coeffs.clone(),
             &f_cz_coeffs)?;
-
+        
+        println!("Done with linchecks");
+        
         // 2. Generate the rowcheck proof.
 
         // Evaluate the Az, Bz, Cz polynomials.
-        let eval_twiddles = fft::get_twiddles(self.options.evaluation_domain.len());
+        // let eval_twiddles = fft::get_twiddles(self.options.evaluation_domain.len());
 
-        let mut f_az_evals = f_az_coeffs.clone();
-        fft::evaluate_poly(&mut f_az_evals, &eval_twiddles);
+        // let mut f_az_evals = f_az_coeffs.clone();
+        let f_az_evals = polynom::eval_many(&f_az_coeffs.clone(), &self.options.evaluation_domain);
+        // fft::evaluate_poly(&mut f_az_evals, &eval_twiddles);
 
-        let mut f_bz_evals = f_bz_coeffs.clone();
-        fft::evaluate_poly(&mut f_bz_evals, &eval_twiddles);
+        let f_bz_evals = polynom::eval_many(&f_bz_coeffs.clone(), &self.options.evaluation_domain);
+        // fft::evaluate_poly(&mut f_bz_evals, &eval_twiddles);
 
-        let mut f_cz_evals = f_cz_coeffs.clone();
-        fft::evaluate_poly(&mut f_cz_evals, &eval_twiddles);
-
+        let f_cz_evals = polynom::eval_many(&f_cz_coeffs.clone(), &self.options.evaluation_domain);;
+        // fft::evaluate_poly(&mut f_cz_evals, &eval_twiddles);
+        
         // Issue a rowcheck proof.
         let rowcheck_prover = RowcheckProver::<B, E, H>::new(
             f_az_evals.to_vec(),
@@ -112,7 +115,7 @@ impl<
             self.options.num_queries,
         );
         let rowcheck_proof = rowcheck_prover.generate_proof()?;
-
+        println!("Done with rowcheck");
         // 3. Build and return an overall fractal proof.
         Ok(FractalProof {
             rowcheck_proof,

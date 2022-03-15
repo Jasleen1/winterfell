@@ -3,6 +3,8 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+use core::num;
+
 use fractal_proofs::FriOptions;
 use fractal_prover::prover::FractalProver;
 use fractal_prover::FractalOptions;
@@ -36,7 +38,7 @@ fn main() {
     }
 
     // call orchestrate_r1cs_example
-    orchestrate_r1cs_example::<BaseElement, BaseElement, Rp64_256, 16>(
+    orchestrate_r1cs_example::<BaseElement, BaseElement, Rp64_256, 1>(
         &options.arith_file,
         &options.wires_file,
         options.verbose,
@@ -66,10 +68,15 @@ pub(crate) fn orchestrate_r1cs_example<
     // let num_constraints = r1cs.clone().num_rows();
     // let num_non_zero = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm());
     // 1. Index this R1CS
+    let num_vars = r1cs.num_cols().next_power_of_two();
+    let mut num_non_zero = r1cs.max_num_nonzero().next_power_of_two();
+    if num_non_zero <= num_vars {
+        num_non_zero = num_non_zero * 2;
+    }
     let index_params = IndexParams {
-        num_input_variables: r1cs.num_cols().next_power_of_two(),
+        num_input_variables: num_vars,
         num_constraints: r1cs.num_rows().next_power_of_two(),
-        num_non_zero: r1cs.max_num_nonzero().next_power_of_two(),
+        num_non_zero: num_non_zero,
     };
 
     let index_domains = build_index_domains::<B>(index_params.clone());
@@ -95,7 +102,7 @@ pub(crate) fn orchestrate_r1cs_example<
         utils::get_power_series(index_domains.l_field_base, index_domains.l_field_len);
     let h_domain = index_domains.h_field;
     let lde_blowup = 8;
-    let num_queries = 32;
+    let num_queries = 16;
     let fri_options = FriOptions::new(lde_blowup, 4, 256);
     let options: FractalOptions<B> = FractalOptions::<B> {
         degree_fs,
@@ -110,12 +117,12 @@ pub(crate) fn orchestrate_r1cs_example<
     
     let pub_inputs_bytes = vec![0u8];
     let mut prover =
-        FractalProver::<B, E, H>::new(prover_key, options, vec![], wires, pub_inputs_bytes);
-    let proof = prover.generate_proof().unwrap();
+        FractalProver::<B, E, H>::new(prover_key, options, vec![], wires, pub_inputs_bytes.clone());
+    let proof = prover.generate_proof();
 
     println!(
         "Verified: {:?}",
-        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof).is_ok()
+        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof.unwrap(), pub_inputs_bytes).is_ok()
     );
 }
 

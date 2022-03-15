@@ -1,4 +1,4 @@
-use crypto::ElementHasher;
+use crypto::{ElementHasher, RandomCoin};
 use fractal_proofs::{FieldElement, FractalProof, StarkField};
 use fri::VerifierError;
 
@@ -10,10 +10,13 @@ pub fn verify_fractal_proof<
     H: ElementHasher<BaseField = B>,
 >(
     proof: FractalProof<B, E, H>,
+    pub_inputs_bytes: Vec<u8>,
 ) -> Result<(), VerifierError> {
+    let mut public_coin = RandomCoin::<_, H>::new(&pub_inputs_bytes);
+    let expected_alpha = public_coin.draw().expect("failed to draw OOD point");
     verify_rowcheck_proof(proof.rowcheck_proof)?;
-    verify_lincheck_proof(proof.lincheck_a)?;
-    verify_lincheck_proof(proof.lincheck_b)?;
-    verify_lincheck_proof(proof.lincheck_c)?;
+    verify_lincheck_proof(proof.lincheck_a, expected_alpha)?;
+    verify_lincheck_proof(proof.lincheck_b, expected_alpha)?;
+    verify_lincheck_proof(proof.lincheck_c, expected_alpha)?;
     Ok(())
 }
