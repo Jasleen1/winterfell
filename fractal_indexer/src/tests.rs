@@ -21,10 +21,11 @@ fn test_indexing() {
     // an immutable reference?
     let r1cs_instance_result = R1CS::new(matrix_a, matrix_b, matrix_c);
     let r1cs_instance = r1cs_instance_result.unwrap();
-    let params = IndexParams {
+    let params = IndexParams::<BaseElement> {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        eta: BaseElement::ONE
     };
     let domains = build_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(&r1cs_instance.A, &domains);
@@ -36,10 +37,11 @@ fn test_indexing() {
 
 #[test]
 fn test_domain_building_17() {
-    let params = IndexParams {
+    let params = IndexParams::<SmallFieldElement17> {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        eta: SmallFieldElement17::ONE,
     };
     let domains = build_primefield_index_domains(params.clone());
     let i_field_base = domains.i_field_base;
@@ -84,10 +86,11 @@ fn test_getting_roots_17() {
 fn test_single_indexed_matrix_17() {
     let m1 = make_all_ones_matrix_f17("A", 2, 2);
     let matrix_a = m1.unwrap();
-    let params = IndexParams {
+    let params = IndexParams::<SmallFieldElement17> {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        eta: SmallFieldElement17::ONE,
     };
     let domains = build_index_domains(params.clone());
     println!("Domains {:?}", domains);
@@ -119,10 +122,11 @@ fn test_indexing_f17() {
     // an immutable reference?
     let r1cs_instance_result = R1CS::new(matrix_a, matrix_b, matrix_c);
     let r1cs_instance = r1cs_instance_result.unwrap();
-    let params = IndexParams {
+    let params = IndexParams::<SmallFieldElement17> {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        eta: SmallFieldElement17::ONE,
     };
     let domains = build_primefield_index_domains(params.clone());
     let indexed_a = IndexedMatrix::new(&r1cs_instance.A, &domains);

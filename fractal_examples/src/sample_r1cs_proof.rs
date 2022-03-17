@@ -62,6 +62,7 @@ pub(crate) fn orchestrate_r1cs_example<
     let mut wires_parser = JsnarkWireReaderParser::<B>::new().unwrap();
     wires_parser.parse_wire_file(&wire_file, verbose);
     let wires = wires_parser.wires;
+    println!("Len wires = {}", wires.len());
     // 0. Compute num_non_zero by counting max(number of non-zero elts across A, B, C).
 
     // let num_input_variables = r1cs.clone().num_cols();
@@ -69,14 +70,19 @@ pub(crate) fn orchestrate_r1cs_example<
     // let num_non_zero = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm());
     // 1. Index this R1CS
     let num_vars = r1cs.num_cols().next_power_of_two();
-    let mut num_non_zero = r1cs.max_num_nonzero().next_power_of_two();
-    if num_non_zero <= num_vars {
-        num_non_zero = num_non_zero * 2;
-    }
-    let index_params = IndexParams {
+    let num_non_zero = r1cs.max_num_nonzero().next_power_of_two();
+    let num_constraints = r1cs.num_rows().next_power_of_two();
+    // TODO: make the calculation of eta automated
+    let eta = B::GENERATOR.exp(B::PositiveInteger::from(2 * B::TWO_ADICITY));
+    // if num_non_zero <= num_vars {
+    //     num_non_zero = num_non_zero * 2;
+    // }
+    println!("Eta is = {}", eta);
+    let index_params = IndexParams::<B> {
         num_input_variables: num_vars,
-        num_constraints: r1cs.num_rows().next_power_of_two(),
-        num_non_zero: num_non_zero,
+        num_constraints,
+        num_non_zero,
+        eta,
     };
 
     let index_domains = build_index_domains::<B>(index_params.clone());
@@ -90,7 +96,7 @@ pub(crate) fn orchestrate_r1cs_example<
 
     // TODO: the IndexDomains should already guarantee powers of two, so why add extraneous bit or use next_power_of_two?
 
-    let degree_fs = r1cs.num_rows();
+    let degree_fs = r1cs.num_cols();
     let size_subgroup_h = index_domains.h_field.len().next_power_of_two();
     let size_subgroup_k = index_domains.k_field_len.next_power_of_two();
 
@@ -122,7 +128,7 @@ pub(crate) fn orchestrate_r1cs_example<
 
     println!(
         "Verified: {:?}",
-        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof.unwrap(), pub_inputs_bytes).is_ok()
+        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof.unwrap(), pub_inputs_bytes)
     );
 }
 

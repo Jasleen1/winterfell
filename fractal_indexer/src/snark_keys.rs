@@ -62,7 +62,7 @@ impl<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> ProverMatri
 
 #[derive(Debug, Clone)]
 pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
-    pub params: IndexParams,
+    pub params: IndexParams<B>,
     pub matrix_a_index: ProverMatrixIndex<H, B>,
     pub matrix_b_index: ProverMatrixIndex<H, B>,
     pub matrix_c_index: ProverMatrixIndex<H, B>,
@@ -77,7 +77,7 @@ pub struct VerifierMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, 
 
 #[derive(Debug)]
 pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
-    params: IndexParams,
+    params: IndexParams<B>,
     matrix_a_commitments: VerifierMatrixIndex<H, B>,
     matrix_b_commitments: VerifierMatrixIndex<H, B>,
     matrix_c_commitments: VerifierMatrixIndex<H, B>,
@@ -186,7 +186,7 @@ pub fn generate_basefield_keys<
     B: StarkField,
     const N: usize,
 >(
-    params: IndexParams,
+    params: IndexParams<B>,
     r1cs_instance: R1CS<B>,
 ) -> Result<(ProverKey<H, B>, VerifierKey<H, B>), IndexerError> {
     let index = create_index_from_r1cs(params, r1cs_instance);

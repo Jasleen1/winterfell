@@ -5,19 +5,20 @@ use fractal_utils::polynomial_utils::*;
 use fri::{DefaultProverChannel, FriOptions};
 use math::{FieldElement, StarkField};
 
-use fractal_proofs::RowcheckProof;
+use fractal_proofs::{RowcheckProof, polynom};
 
 use crate::errors::ProverError;
 
 pub struct RowcheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: Hasher> {
-    f_az_evals: Vec<B>,
-    f_bz_evals: Vec<B>,
-    f_cz_evals: Vec<B>,
+    f_az_coeffs: Vec<B>,
+    f_bz_coeffs: Vec<B>,
+    f_cz_coeffs: Vec<B>,
     degree_fs: usize,
     size_subgroup_h: usize,
     evaluation_domain: Vec<B>,
     fri_options: FriOptions,
     num_queries: usize,
+    eta: B,
     _h: PhantomData<H>,
     _e: PhantomData<E>,
 }
@@ -26,40 +27,56 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
     RowcheckProver<B, E, H>
 {
     pub fn new(
-        f_az_evals: Vec<B>,
-        f_bz_evals: Vec<B>,
-        f_cz_evals: Vec<B>,
+        f_az_coeffs: Vec<B>,
+        f_bz_coeffs: Vec<B>,
+        f_cz_coeffs: Vec<B>,
         degree_fs: usize,
         size_subgroup_h: usize,
         evaluation_domain: Vec<B>,
         fri_options: FriOptions,
         num_queries: usize,
+        eta: B,
     ) -> Self {
         RowcheckProver {
-            f_az_evals,
-            f_bz_evals,
-            f_cz_evals,
+            f_az_coeffs,
+            f_bz_coeffs,
+            f_cz_coeffs,
             degree_fs,
             size_subgroup_h,
             evaluation_domain,
             fri_options,
             num_queries,
+            eta,
             _h: PhantomData,
             _e: PhantomData,
         }
     }
 
     pub fn generate_proof(&self) -> Result<RowcheckProof<B, E, H>, ProverError> {
-        let mut s_evals: Vec<E> = Vec::new();
-        for i in 0..self.evaluation_domain.len() {
-            let s_val_numerator =
-                E::from(self.f_az_evals[i] * self.f_bz_evals[i] - self.f_cz_evals[i]);
-            let s_val_denominator = E::from(vanishing_poly_for_mult_subgroup(
-                self.evaluation_domain[i],
-                self.size_subgroup_h.try_into().unwrap(),
-            ));
-            s_evals.push(s_val_numerator / s_val_denominator);
-        }
+        let mut denom_poly = vec![B::ZERO; self.size_subgroup_h];
+        denom_poly.push(B::ONE);
+        let h_size_32: u32 = self.size_subgroup_h.try_into().unwrap();
+        let eta_pow = B::PositiveInteger::from(h_size_32);
+        denom_poly[0] = self.eta.exp(eta_pow);
+        let s_coeffs = polynom::div(
+            &polynom::sub(&polynom::mul(&self.f_az_coeffs, &self.f_bz_coeffs), &self.f_cz_coeffs),
+            &denom_poly
+        );   
+
+        let s_evals_b: Vec<B> = polynom::eval_many(s_coeffs.clone().as_slice(), self.evaluation_domain.clone().as_slice());// Vec::new();
+        let s_evals: Vec<E> = s_evals_b.into_iter().map(|x: B| {E::from(x)}).collect();
+        // for i in 0..self.evaluation_domain.len() {
+        //     let s_val_numerator =
+        //         E::from(self.f_az_coeffs[i] * self.f_bz_coeffs[i] - self.f_cz_coeffs[i]);
+            
+        //     let s_val_denominator = E::from(compute_vanishing_poly(
+        //         self.evaluation_domain[i],
+        //         self.eta,
+        //         self.size_subgroup_h.try_into().unwrap(),
+        //     ));
+        //     println!("S denom = {}, eval elt = {}", s_val_denominator, self.evaluation_domain[i]);
+        //     s_evals.push(s_val_numerator / s_val_denominator);
+        // }
         let mut channel = DefaultProverChannel::new(self.evaluation_domain.len(), self.num_queries);
         let mut fri_prover =
             fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
@@ -74,6 +91,8 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             .map(|&p| s_evals[p])
             .collect::<Vec<_>>();
         let s_commitments = channel.layer_commitments().to_vec();
+        println!("Deg fs = {}", self.degree_fs);
+        println!("Deg h = {}", self.size_subgroup_h);
         Ok(RowcheckProof {
             options: self.fri_options.clone(),
             num_evaluations: self.evaluation_domain.len(),

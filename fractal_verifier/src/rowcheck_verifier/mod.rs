@@ -21,7 +21,7 @@ pub fn verify_rowcheck_proof<
     let mut channel = DefaultVerifierChannel::new(
         proof.s_proof,
         proof.s_commitments,
-        proof.s_max_degree,
+        proof.num_evaluations,
         FOLDING_FACTOR,
     )
     .map_err(VerifierError::DeserializationErr)?;

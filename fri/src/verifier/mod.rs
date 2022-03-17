@@ -340,6 +340,8 @@ fn verify_remainder<B: StarkField, E: FieldElement<BaseField = B>>(
 
     // make sure the degree is valid
     if max_degree < polynom::degree_of(&poly) {
+        // #[cfg(std)]
+        println!("Actual deg {}", polynom::degree_of(&poly));
         Err(VerifierError::RemainderDegreeMismatch(max_degree))
     } else {
         Ok(())

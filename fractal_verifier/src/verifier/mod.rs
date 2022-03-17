@@ -14,9 +14,15 @@ pub fn verify_fractal_proof<
 ) -> Result<(), VerifierError> {
     let mut public_coin = RandomCoin::<_, H>::new(&pub_inputs_bytes);
     let expected_alpha = public_coin.draw().expect("failed to draw OOD point");
+
     verify_rowcheck_proof(proof.rowcheck_proof)?;
+    println!("Rowcheck verified");
     verify_lincheck_proof(proof.lincheck_a, expected_alpha)?;
+    println!("Lincheck a verified");
     verify_lincheck_proof(proof.lincheck_b, expected_alpha)?;
+    println!("Lincheck b verified");
     verify_lincheck_proof(proof.lincheck_c, expected_alpha)?;
+    println!("Linchecks verified");
+    
     Ok(())
 }

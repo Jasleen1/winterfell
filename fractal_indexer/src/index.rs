@@ -8,15 +8,16 @@ use crate::indexed_matrix::IndexedMatrix;
 use models::r1cs::R1CS;
 
 #[derive(Clone, Debug)]
-pub struct IndexParams {
+pub struct IndexParams<E: StarkField> {
     pub num_input_variables: usize,
     // num_witness_variables: usize,
     pub num_constraints: usize,
     pub num_non_zero: usize,
+    pub eta: E,
 }
 #[derive(Clone, Debug)]
 pub struct Index<E: StarkField> {
-    pub params: IndexParams,
+    pub params: IndexParams<E>,
     pub indexed_a: IndexedMatrix<E>,
     pub indexed_b: IndexedMatrix<E>,
     pub indexed_c: IndexedMatrix<E>,
@@ -24,7 +25,7 @@ pub struct Index<E: StarkField> {
 
 impl<E: StarkField> Index<E> {
     pub fn new(
-        params: IndexParams,
+        params: IndexParams<E>,
         indexed_a: IndexedMatrix<E>,
         indexed_b: IndexedMatrix<E>,
         indexed_c: IndexedMatrix<E>,
@@ -53,6 +54,7 @@ pub struct IndexDomains<E: FieldElement> {
     pub l_field_len: usize,
     pub inv_twiddles_k_elts: Vec<E>,
     pub twiddles_l_elts: Vec<E>,
+    pub eta: E,
 }
 
 /// ***************  HELPERS *************** \\\
@@ -65,7 +67,7 @@ pub struct IndexDomains<E: FieldElement> {
 /// getting generators of a certain order. I think this would require some re-structuring.
 /// Perhaps we can add a function "get_subgroup_of_size" or "get_generator_of_order"
 /// Generators are needed here since we'll need those for FFT-friendly subgroups anyway.
-pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E> {
+pub fn build_index_domains<E: StarkField>(params: IndexParams<E>) -> IndexDomains<E> {
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
@@ -107,7 +109,7 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E
     let l_field_base = E::get_root_of_unity(l_field_size.trailing_zeros());
 
     let i_field = utils::get_power_series(i_field_base, i_field_size);
-    let h_field = utils::get_power_series(h_field_base, h_field_size);
+    let h_field = utils::get_power_series_with_offset(h_field_base, params.eta, h_field_size);
 
     println!(
         "i: {}    k: {}    h: {}   L: {}",
@@ -129,11 +131,12 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams) -> IndexDomains<E
         l_field_len: l_field_size,
         inv_twiddles_k_elts: inv_twiddles_k_elts,
         twiddles_l_elts: twiddles_l_elts,
+        eta: params.eta
     }
 }
 
 // Same as build_basefield_index_domains but for a prime field of size 17
-pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<SmallFieldElement17> {
+pub fn build_primefield_index_domains(params: IndexParams<SmallFieldElement17>) -> IndexDomains<SmallFieldElement17> {
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
@@ -201,6 +204,7 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
             l_field_len: l_field_size,
             inv_twiddles_k_elts: inv_twiddles_k_elts,
             twiddles_l_elts: twiddles_l_elts,
+            eta: params.eta
         }
     }
 }
@@ -208,7 +212,7 @@ pub fn build_primefield_index_domains(params: IndexParams) -> IndexDomains<Small
 // TODO Update the new function for Index to take an R1CS instance as input.
 
 pub fn create_index_from_r1cs<E: StarkField>(
-    params: IndexParams,
+    params: IndexParams<E>,
     r1cs_instance: R1CS<E>,
 ) -> Index<E> {
     let domains = build_index_domains(params.clone());
@@ -219,7 +223,7 @@ pub fn create_index_from_r1cs<E: StarkField>(
 }
 
 pub fn create_primefield_index_from_r1cs(
-    params: IndexParams,
+    params: IndexParams<SmallFieldElement17>,
     r1cs_instance: R1CS<SmallFieldElement17>,
 ) -> Index<SmallFieldElement17> {
     let domains = build_primefield_index_domains(params.clone());
