@@ -154,6 +154,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             .collect::<Vec<_>>();
         let e_commitments = self.channel.layer_commitments().to_vec();
 
+
         SumcheckProof {
             options: self.fri_options.clone(),
             num_evaluations: self.evaluation_domain.len(),

@@ -198,15 +198,18 @@ impl<
         // println!("Poly prod= {:?}", poly_prod);
 
         let denom_eval = vec![B::ONE; self.options.evaluation_domain.len()];
-        
+        let g_degree = self.options.h_domain.len() - 2;
+        let e_degree = self.options.h_domain.len() - 1;
+        let g_max_degree = g_degree.next_power_of_two();
+        let e_max_degree = e_degree.next_power_of_two();
         let mut product_sumcheck_prover = RationalSumcheckProver::<B, E, H>::new(
             poly_prod,
             denom_eval,
             E::ZERO,
             self.options.h_domain.clone(),
             self.options.evaluation_domain.clone(),
-            self.options.h_domain.len() - 2, 
-            self.options.h_domain.len() - 1,
+            g_max_degree, 
+            e_max_degree,
             self.options.fri_options.clone(),
             self.options.num_queries,
         );

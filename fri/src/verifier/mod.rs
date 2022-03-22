@@ -104,6 +104,7 @@ where
         options: FriOptions,
         max_poly_degree: usize,
     ) -> Result<Self, VerifierError> {
+        println!("Verifier's options = {:?}", options.max_remainder_size());
         // infer evaluation domain info
         let domain_size = max_poly_degree.next_power_of_two() * options.blowup_factor();
         let domain_generator = B::get_root_of_unity(log2(domain_size));
@@ -124,6 +125,8 @@ where
             if depth != layer_commitments.len() - 1
                 && max_degree_plus_1 % options.folding_factor() != 0
             {
+
+                println!("The error was here");
                 return Err(VerifierError::DegreeTruncation(
                     max_degree_plus_1 - 1,
                     options.folding_factor(),

@@ -40,7 +40,7 @@ pub fn verify_lincheck_proof<
 
     let products_sumcheck_proof = proof.products_sumcheck_proof;
     verify_sumcheck_proof(products_sumcheck_proof)?;
-
+    println!("Verified sumcheck for product");
     let _row_queried = proof.row_queried;
     let _col_queried = proof.col_queried;
     let _val_queried = proof.val_queried;

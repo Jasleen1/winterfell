@@ -22,7 +22,7 @@ pub fn verify_fractal_proof<
     verify_lincheck_proof(proof.lincheck_b, expected_alpha)?;
     println!("Lincheck b verified");
     verify_lincheck_proof(proof.lincheck_c, expected_alpha)?;
-    println!("Linchecks verified");
+    println!("Lincheck c verified");
     
     Ok(())
 }

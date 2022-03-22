@@ -109,7 +109,7 @@ pub(crate) fn orchestrate_r1cs_example<
     let h_domain = index_domains.h_field;
     let lde_blowup = 8;
     let num_queries = 16;
-    let fri_options = FriOptions::new(lde_blowup, 4, 256);
+    let fri_options = FriOptions::new(lde_blowup, 4, 32);
     let options: FractalOptions<B> = FractalOptions::<B> {
         degree_fs,
         size_subgroup_h,

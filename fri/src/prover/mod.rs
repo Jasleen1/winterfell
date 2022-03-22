@@ -116,6 +116,7 @@ where
     // --------------------------------------------------------------------------------------------
     /// Returns a new FRI prover instantiated with the provided `options`.
     pub fn new(options: FriOptions) -> Self {
+        println!("Prover's options = {:?}", options.max_remainder_size());
         FriProver {
             options,
             layers: Vec::new(),
@@ -167,7 +168,7 @@ where
             self.layers.is_empty(),
             "a prior proof generation request has not been completed yet"
         );
-
+        println!("Number of layers {}", self.options.num_fri_layers(evaluations.len()) );
         // reduce the degree by folding_factor at each iteration until the remaining polynomial
         // is small enough; + 1 is for the remainder
         for _ in 0..self.options.num_fri_layers(evaluations.len()) + 1 {
@@ -197,6 +198,7 @@ where
         // evaluations into a matrix of N columns, and then building a Merkle tree from the
         // rows of this matrix; we do this so that we could de-commit to N values with a single
         // Merkle authentication path.
+        println!("Eval len = {}", evaluations.len());
         let transposed_evaluations = transpose_slice(evaluations);
         let hashed_evaluations = hash_values::<H, E, N>(&transposed_evaluations);
         let evaluation_tree =
