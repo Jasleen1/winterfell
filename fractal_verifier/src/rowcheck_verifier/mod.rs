@@ -22,7 +22,7 @@ pub fn verify_rowcheck_proof<
         proof.s_proof,
         proof.s_commitments,
         proof.num_evaluations,
-        FOLDING_FACTOR,
+        proof.options.folding_factor(),
     )
     .map_err(VerifierError::DeserializationErr)?;
     let s_queried_evals = proof.s_queried_evals;
@@ -30,7 +30,8 @@ pub fn verify_rowcheck_proof<
         &mut channel,
         &mut public_coin,
         proof.options.clone(),
-        proof.s_max_degree,
+        proof.s_max_degree - 1,
     )?;
+    println!("s max deg in rowcheck = {}", proof.s_max_degree);
     fri_verifier.verify(&mut channel, &s_queried_evals, &proof.queried_positions)
 }

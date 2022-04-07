@@ -297,6 +297,7 @@ impl<H: Hasher> MerkleTree<H> {
         proof: &BatchMerkleProof<H>,
     ) -> Result<(), MerkleTreeError> {
         if *root != proof.get_root(indexes)? {
+            println!("Here ))_________))))))");
             return Err(MerkleTreeError::InvalidProof);
         }
         Ok(())

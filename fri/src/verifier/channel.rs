@@ -82,7 +82,8 @@ pub trait VerifierChannel<E: FieldElement> {
     ) -> Result<Vec<[E; N]>, VerifierError> {
         let layer_proof = self.take_next_fri_layer_proof();
         MerkleTree::<Self::Hasher>::verify_batch(commitment, positions, &layer_proof)
-            .map_err(|_| VerifierError::LayerCommitmentMismatch)?;
+            .map_err(|err| {println!("Error here = {:?}", err);
+            VerifierError::LayerCommitmentMismatch})?;
 
         // TODO: make sure layer queries hash into leaves of layer proof
 

@@ -171,7 +171,8 @@ where
         println!("Number of layers {}", self.options.num_fri_layers(evaluations.len()) );
         // reduce the degree by folding_factor at each iteration until the remaining polynomial
         // is small enough; + 1 is for the remainder
-        for _ in 0..self.options.num_fri_layers(evaluations.len()) + 1 {
+        for depth in 0..self.options.num_fri_layers(evaluations.len()) + 1 {
+            println!("Depth = {}", depth);
             match self.folding_factor() {
                 4 => self.build_layer::<4>(channel, &mut evaluations),
                 8 => self.build_layer::<8>(channel, &mut evaluations),
@@ -198,13 +199,13 @@ where
         // evaluations into a matrix of N columns, and then building a Merkle tree from the
         // rows of this matrix; we do this so that we could de-commit to N values with a single
         // Merkle authentication path.
-        println!("Eval len = {}", evaluations.len());
+        println!("Eval size = {:?}", evaluations.len());
         let transposed_evaluations = transpose_slice(evaluations);
         let hashed_evaluations = hash_values::<H, E, N>(&transposed_evaluations);
         let evaluation_tree =
             MerkleTree::<H>::new(hashed_evaluations).expect("failed to construct FRI layer tree");
         channel.commit_fri_layer(*evaluation_tree.root());
-
+        println!("Layer commitment = {:?}", evaluation_tree.root());
         // draw a pseudo-random coefficient from the channel, and use it in degree-respecting
         // projection to reduce the degree of evaluations by N
         let alpha = channel.draw_fri_alpha();
@@ -235,7 +236,7 @@ where
         let mut positions = positions.to_vec();
         let mut domain_size = self.layers[0].evaluations.len();
         let folding_factor = self.options.folding_factor();
-
+        println!("Positions in prover = {:?}", positions);
         // for all FRI layers, except the last one, record tree root, determine a set of query
         // positions, and query the layer at these positions.
         let mut layers = Vec::with_capacity(self.layers.len());

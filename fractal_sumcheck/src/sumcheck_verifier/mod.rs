@@ -25,7 +25,7 @@ pub fn verify_sumcheck_proof<
     let mut g_channel = DefaultVerifierChannel::<E, H>::new(
         proof.g_proof,
         proof.g_queried.queried_proofs[0].clone(),
-        proof.g_max_degree,
+        proof.num_evaluations,
         proof.options.folding_factor(),
     )
     .map_err(VerifierError::DeserializationErr)?;
@@ -40,7 +40,7 @@ pub fn verify_sumcheck_proof<
     let mut e_channel = DefaultVerifierChannel::<E, H>::new(
         proof.e_proof,
         proof.e_queried.queried_proofs[0].clone(),
-        proof.e_max_degree,
+        proof.num_evaluations,
         proof.options.folding_factor(),
     )
     .map_err(|e| VerifierError::DeserializationErr(e))?;

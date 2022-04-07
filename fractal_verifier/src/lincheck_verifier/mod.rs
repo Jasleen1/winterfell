@@ -37,7 +37,7 @@ pub fn verify_lincheck_proof<
     let _alpha = proof.alpha;
     let _t_alpha_commitment = proof.t_alpha_commitment;
     let _t_alpha_queried = proof.t_alpha_queried;
-
+    
     let products_sumcheck_proof = proof.products_sumcheck_proof;
     verify_sumcheck_proof(products_sumcheck_proof)?;
     println!("Verified sumcheck for product");

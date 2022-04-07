@@ -107,7 +107,7 @@ pub(crate) fn orchestrate_r1cs_example<
     let evaluation_domain =
         utils::get_power_series(index_domains.l_field_base, index_domains.l_field_len);
     let h_domain = index_domains.h_field;
-    let lde_blowup = 8;
+    let lde_blowup = 4;
     let num_queries = 16;
     let fri_options = FriOptions::new(lde_blowup, 4, 32);
     let options: FractalOptions<B> = FractalOptions::<B> {

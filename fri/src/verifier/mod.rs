@@ -126,7 +126,7 @@ where
                 && max_degree_plus_1 % options.folding_factor() != 0
             {
 
-                println!("The error was here");
+                println!("The error was here, max deg plus 1 = {}", max_degree_plus_1);
                 return Err(VerifierError::DegreeTruncation(
                     max_degree_plus_1 - 1,
                     options.folding_factor(),
@@ -240,7 +240,7 @@ where
                     .exp(((self.domain_size / N * i) as u64).into())
             })
             .collect::<Vec<_>>();
-
+        println!("=====++++++======+++++++++=+=======");
         // 1 ----- verify the recursive components of the FRI proof -----------------------------------
         let mut domain_generator = self.domain_generator;
         let mut domain_size = self.domain_size;
@@ -259,9 +259,13 @@ where
                 self.options.folding_factor(),
                 self.num_partitions,
             );
+            println!("Domain size = {:?}, folding_factor = {:?}, num partitions = {}", domain_size, self.options.folding_factor(), self.num_partitions);
             // read query values from the specified indexes in the Merkle tree
             let layer_commitment = self.layer_commitments[depth];
             // TODO: add layer depth to the potential error message
+            println!("Depth = {}", depth);
+            println!("Positions queried = {:?}", position_indexes);
+            println!("Layer commitment = {:?}", layer_commitment);
             let layer_values = channel.read_layer_queries(&position_indexes, &layer_commitment)?;
             let query_values =
                 get_query_values::<E, N>(&layer_values, &positions, &folded_positions, domain_size);
@@ -284,7 +288,9 @@ where
 
             // calculate the pseudo-random value used for linear combination in layer folding
             let alpha = self.layer_alphas[depth];
-
+            println!("Depth = {}, alpha = {}", depth, alpha);
+            println!("Positions queried = {:?}", positions);
+            println!("Layer commitment = {:?}", layer_commitment);
             // check that when the polynomials are evaluated at alpha, the result is equal to
             // the corresponding column value
             evaluations = row_polys.iter().map(|p| polynom::eval(p, alpha)).collect();
