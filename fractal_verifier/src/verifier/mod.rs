@@ -19,10 +19,10 @@ pub fn verify_fractal_proof<
     println!("Rowcheck verified");
     verify_lincheck_proof(proof.lincheck_a, expected_alpha)?;
     println!("Lincheck a verified");
-    // verify_lincheck_proof(proof.lincheck_b, expected_alpha)?;
-    // println!("Lincheck b verified");
-    // verify_lincheck_proof(proof.lincheck_c, expected_alpha)?;
-    // println!("Lincheck c verified");
+    verify_lincheck_proof(proof.lincheck_b, expected_alpha)?;
+    println!("Lincheck b verified");
+    verify_lincheck_proof(proof.lincheck_c, expected_alpha)?;
+    println!("Lincheck c verified");
     
     Ok(())
 }
