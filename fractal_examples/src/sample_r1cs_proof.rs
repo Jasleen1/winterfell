@@ -92,7 +92,7 @@ pub(crate) fn orchestrate_r1cs_example<
     // This is the index i.e. the pre-processed data for this r1cs
     let index = Index::new(index_params.clone(), indexed_a, indexed_b, indexed_c);
 
-    let (prover_key, _verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
+    let (prover_key, verifier_key) = generate_prover_and_verifier_keys::<H, B, N>(index).unwrap();
 
     // TODO: the IndexDomains should already guarantee powers of two, so why add extraneous bit or use next_power_of_two?
 
@@ -128,7 +128,7 @@ pub(crate) fn orchestrate_r1cs_example<
 
     println!(
         "Verified: {:?}",
-        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(proof.unwrap(), pub_inputs_bytes)
+        fractal_verifier::verifier::verify_fractal_proof::<B, E, H>(verifier_key, proof.unwrap(), pub_inputs_bytes)
     );
 }
 

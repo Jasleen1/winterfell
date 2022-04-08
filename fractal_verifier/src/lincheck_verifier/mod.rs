@@ -12,6 +12,7 @@ pub fn verify_lincheck_proof<
     E: FieldElement<BaseField = B>,
     H: ElementHasher<BaseField = B>,
 >(
+    verifier_key: VerifierKey<H, B>,
     proof: LincheckProof<B, E, H>,
     expected_alpha: B,
 ) -> Result<(), VerifierError> {

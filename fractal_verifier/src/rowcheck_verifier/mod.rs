@@ -1,4 +1,5 @@
 use crypto::{ElementHasher, RandomCoin};
+use fractal_indexer::snark_keys::VerifierKey;
 use math::StarkField;
 
 use fri::{DefaultVerifierChannel, FriVerifier, VerifierError};
@@ -11,6 +12,7 @@ pub fn verify_rowcheck_proof<
     E: FieldElement<BaseField = B>,
     H: ElementHasher<BaseField = B>,
 >(
+    verifier_key: VerifierKey<H, B>,
     proof: RowcheckProof<B, E, H>,
     // Change to include public seed
 ) -> Result<(), VerifierError> {

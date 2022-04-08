@@ -16,5 +16,6 @@ utils = { version = "0.3.0", path = "../utils/core", package = "winter-utils", d
 fractal_utils = { path = "../fractal_utils" }
 fractal_proofs = {path = "../fractal_proofs"}
 fractal_sumcheck = {path = "../fractal_sumcheck"}
+fractal_indexer = {path = "../fractal_indexer" }
 serde = { version = "1.0.117", features = ["derive"] }
 thiserror = "1.0.22"
