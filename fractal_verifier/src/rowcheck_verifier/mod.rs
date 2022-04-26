@@ -12,7 +12,7 @@ pub fn verify_rowcheck_proof<
     E: FieldElement<BaseField = B>,
     H: ElementHasher<BaseField = B>,
 >(
-    verifier_key: VerifierKey<H, B>,
+    verifier_key: &VerifierKey<H, B>,
     proof: RowcheckProof<B, E, H>,
     // Change to include public seed
 ) -> Result<(), VerifierError> {
@@ -32,8 +32,8 @@ pub fn verify_rowcheck_proof<
         &mut channel,
         &mut public_coin,
         proof.options.clone(),
-        proof.s_max_degree - 1,
+        verifier_key.params.max_degree - 1,
     )?;
-    println!("s max deg in rowcheck = {}", proof.s_max_degree);
+    println!("s max deg in rowcheck = {}", verifier_key.params.max_degree - 1);
     fri_verifier.verify(&mut channel, &s_queried_evals, &proof.queried_positions)
 }

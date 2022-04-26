@@ -77,3 +77,12 @@ pub fn get_to_degree_size<E: FieldElement>(poly: &mut Vec<E>) {
         count = count - 1;
     }
 }
+
+pub fn get_complementary_poly<E: FieldElement>(current_degree: usize, desired_degree: usize) -> Vec<E> {
+    assert!(desired_degree >= current_degree);
+    let comp_deg = desired_degree - current_degree;
+    let mut out_poly = vec![E::ZERO; comp_deg];
+    out_poly.push(E::ONE);
+    out_poly[0] = E::ONE;
+    out_poly
+}

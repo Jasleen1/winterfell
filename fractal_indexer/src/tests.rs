@@ -25,6 +25,7 @@ fn test_indexing() {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        max_degree: get_max_degree(2, 2, 4),
         eta: BaseElement::ONE
     };
     let domains = build_index_domains(params.clone());
@@ -41,6 +42,7 @@ fn test_domain_building_17() {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        max_degree: get_max_degree(2, 2, 4),
         eta: SmallFieldElement17::ONE,
     };
     let domains = build_primefield_index_domains(params.clone());
@@ -90,6 +92,7 @@ fn test_single_indexed_matrix_17() {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        max_degree: get_max_degree(2, 2, 4),
         eta: SmallFieldElement17::ONE,
     };
     let domains = build_index_domains(params.clone());
@@ -126,6 +129,7 @@ fn test_indexing_f17() {
         num_input_variables: 2,
         num_constraints: 2,
         num_non_zero: 4,
+        max_degree: get_max_degree(2, 2, 4),
         eta: SmallFieldElement17::ONE,
     };
     let domains = build_primefield_index_domains(params.clone());

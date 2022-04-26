@@ -18,6 +18,7 @@ pub struct RowcheckProver<B: StarkField, E: FieldElement<BaseField = B>, H: Hash
     evaluation_domain: Vec<B>,
     fri_options: FriOptions,
     num_queries: usize,
+    max_degree: usize,
     eta: B,
     _h: PhantomData<H>,
     _e: PhantomData<E>,
@@ -35,6 +36,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
         evaluation_domain: Vec<B>,
         fri_options: FriOptions,
         num_queries: usize,
+        max_degree: usize,
         eta: B,
     ) -> Self {
         RowcheckProver {
@@ -46,6 +48,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             evaluation_domain,
             fri_options,
             num_queries,
+            max_degree,
             eta,
             _h: PhantomData,
             _e: PhantomData,
@@ -62,8 +65,10 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             &polynom::sub(&polynom::mul(&self.f_az_coeffs, &self.f_bz_coeffs), &self.f_cz_coeffs),
             &denom_poly
         );   
-
-        let s_evals_b: Vec<B> = polynom::eval_many(s_coeffs.clone().as_slice(), self.evaluation_domain.clone().as_slice());// Vec::new();
+        let s_comp_coeffs = get_complementary_poly::<B>(self.size_subgroup_h - 2, self.max_degree - 1);
+        let new_s = polynom::mul(&s_coeffs, &s_comp_coeffs);
+        println!("New s deg = {}", polynom::degree_of(&new_s));
+        let s_evals_b: Vec<B> = polynom::eval_many(new_s.clone().as_slice(), self.evaluation_domain.clone().as_slice());// Vec::new();
         let s_evals: Vec<E> = s_evals_b.into_iter().map(|x: B| {E::from(x)}).collect();
         // for i in 0..self.evaluation_domain.len() {
         //     let s_val_numerator =
@@ -100,7 +105,7 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             s_proof,
             s_queried_evals,
             s_commitments,
-            s_max_degree: self.degree_fs,
+            s_max_degree: self.size_subgroup_h - 2,
         })
     }
 }

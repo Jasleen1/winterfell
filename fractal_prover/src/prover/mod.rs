@@ -121,6 +121,7 @@ impl<
             self.options.evaluation_domain.clone(),
             self.options.fri_options.clone(),
             self.options.num_queries,
+            self.prover_key.params.max_degree,
             self.prover_key.params.eta,
         );
         let rowcheck_proof = rowcheck_prover.generate_proof()?;

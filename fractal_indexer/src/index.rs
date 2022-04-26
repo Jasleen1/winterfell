@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 // TODO: This class will include the indexes of 3 matrices
 // Should domain info be in here or in a separate class?
 use math::{fft, utils, FieldElement, StarkField};
@@ -13,6 +15,7 @@ pub struct IndexParams<E: StarkField> {
     // num_witness_variables: usize,
     pub num_constraints: usize,
     pub num_non_zero: usize,
+    pub max_degree: usize,
     pub eta: E,
 }
 #[derive(Clone, Debug)]
@@ -71,6 +74,7 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams<E>) -> IndexDomain
     let num_input_variables = params.num_input_variables;
     let num_constraints = params.num_constraints;
     let num_non_zero = params.num_non_zero;
+    let max_degree = params.max_degree;
 
     // Validate inputs.
     let ntpow2 = { |x: usize| x > 1 && (x & (x - 1) == 0) };
@@ -90,6 +94,12 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams<E>) -> IndexDomain
         num_non_zero
     );
 
+    assert!(
+        ntpow2(max_degree),
+        "max_degree {} must be nontriv power of two",
+        max_degree
+    );
+
     // Need to encode a subset of H field: indices of inputs.
     let i_field_size = num_input_variables;
 
@@ -105,7 +115,7 @@ pub fn build_index_domains<E: StarkField>(params: IndexParams<E>) -> IndexDomain
     let k_field_base = E::get_root_of_unity(k_field_size.trailing_zeros());
     let h_field_base = E::get_root_of_unity(h_field_size.trailing_zeros());
 
-    let l_field_size = 4 * num_non_zero; // this should actually be 3*k_field_size - 3 but will change later.
+    let l_field_size = 4 * max_degree; // this should actually be 3*k_field_size - 3 but will change later.
     let l_field_base = E::get_root_of_unity(l_field_size.trailing_zeros());
 
     let i_field = utils::get_power_series(i_field_base, i_field_size);
@@ -232,3 +242,8 @@ pub fn create_primefield_index_from_r1cs(
     let indexed_c = IndexedMatrix::new(&r1cs_instance.C, &domains);
     Index::new(params, indexed_a, indexed_b, indexed_c)
 }
+
+pub fn get_max_degree(num_input_variables: usize, num_constraints: usize, num_non_zero: usize) -> usize {
+    let max_whole = max(num_input_variables - 1, max(2*num_non_zero-3, num_non_zero - 2)) + 1;
+    max_whole.next_power_of_two()
+}   

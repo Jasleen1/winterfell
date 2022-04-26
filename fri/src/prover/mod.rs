@@ -116,7 +116,6 @@ where
     // --------------------------------------------------------------------------------------------
     /// Returns a new FRI prover instantiated with the provided `options`.
     pub fn new(options: FriOptions) -> Self {
-        println!("Prover's options = {:?}", options.max_remainder_size());
         FriProver {
             options,
             layers: Vec::new(),

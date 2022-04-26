@@ -68,19 +68,19 @@ pub struct ProverKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkFi
     pub matrix_c_index: ProverMatrixIndex<H, B>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VerifierMatrixIndex<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
-    row_poly_commitment: H::Digest,
-    col_poly_commitment: H::Digest,
-    val_poly_commitment: H::Digest,
+    pub row_poly_commitment: H::Digest,
+    pub col_poly_commitment: H::Digest,
+    pub val_poly_commitment: H::Digest,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VerifierKey<H: ElementHasher + ElementHasher<BaseField = B>, B: StarkField> {
-    params: IndexParams<B>,
-    matrix_a_commitments: VerifierMatrixIndex<H, B>,
-    matrix_b_commitments: VerifierMatrixIndex<H, B>,
-    matrix_c_commitments: VerifierMatrixIndex<H, B>,
+    pub params: IndexParams<B>,
+    pub matrix_a_commitments: VerifierMatrixIndex<H, B>,
+    pub matrix_b_commitments: VerifierMatrixIndex<H, B>,
+    pub matrix_c_commitments: VerifierMatrixIndex<H, B>,
 }
 
 // QUESTION: Currently using the utils hash_values function which uses quartic folding.

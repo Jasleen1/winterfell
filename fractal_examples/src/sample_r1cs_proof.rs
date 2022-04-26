@@ -4,7 +4,9 @@
 // LICENSE file in the root directory of this source tree.
 
 use core::num;
+use std::cmp::max;
 
+use fractal_indexer::index::get_max_degree;
 use fractal_proofs::FriOptions;
 use fractal_prover::prover::FractalProver;
 use fractal_prover::FractalOptions;
@@ -69,9 +71,10 @@ pub(crate) fn orchestrate_r1cs_example<
     // let num_constraints = r1cs.clone().num_rows();
     // let num_non_zero = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm());
     // 1. Index this R1CS
-    let num_vars = r1cs.num_cols().next_power_of_two();
+    let num_input_variables = r1cs.num_cols().next_power_of_two();
     let num_non_zero = r1cs.max_num_nonzero().next_power_of_two();
-    let num_constraints = r1cs.num_rows().next_power_of_two();
+    let num_constraints = max(max(r1cs.A.l0_norm(), r1cs.B.l0_norm()), r1cs.C.l0_norm()).next_power_of_two();
+    let max_degree = get_max_degree(num_input_variables, num_non_zero, num_constraints);
     // TODO: make the calculation of eta automated
     let eta = B::GENERATOR.exp(B::PositiveInteger::from(2 * B::TWO_ADICITY));
     // if num_non_zero <= num_vars {
@@ -79,9 +82,10 @@ pub(crate) fn orchestrate_r1cs_example<
     // }
     println!("Eta is = {}", eta);
     let index_params = IndexParams::<B> {
-        num_input_variables: num_vars,
+        num_input_variables,
         num_constraints,
         num_non_zero,
+        max_degree,
         eta,
     };
 

@@ -390,7 +390,6 @@ fn validate_column_degree<B: StarkField, E: FieldElement<BaseField = B>>(
         .into_iter()
         .map(|x| E::from(divisor.evaluate_at(x)))
         .collect::<Vec<_>>();
-
     // divide column values by the divisor
     let mut evaluations = column
         .iter()
@@ -402,6 +401,7 @@ fn validate_column_degree<B: StarkField, E: FieldElement<BaseField = B>>(
     let inv_twiddles = fft::get_inv_twiddles::<B>(evaluations.len());
     fft::interpolate_poly_with_offset(&mut evaluations, &inv_twiddles, domain_offset);
     let poly = evaluations;
+    println!("Polynomial = {:?}", poly.clone());
 
     if expected_degree != math::polynom::degree_of(&poly) {
         return Err(ProverError::MismatchedConstraintPolynomialDegree(
