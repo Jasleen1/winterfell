@@ -1,11 +1,13 @@
 use std::{convert::TryInto, marker::PhantomData};
 
-use crypto::{ElementHasher, Hasher};
+use crypto::{ElementHasher, Hasher, MerkleTree};
+use fractal_indexer::hash_values;
 use fractal_utils::polynomial_utils::*;
 use fri::{DefaultProverChannel, FriOptions};
 use math::{FieldElement, StarkField};
 
 use fractal_proofs::{RowcheckProof, polynom};
+use utils::transpose_slice;
 
 use crate::errors::ProverError;
 
@@ -56,38 +58,42 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
     }
 
     pub fn generate_proof(&self) -> Result<RowcheckProof<B, E, H>, ProverError> {
-        let mut denom_poly = vec![B::ZERO; self.size_subgroup_h];
+        let mut denom_poly = vec![B::ZERO; self.size_subgroup_h-1];
         denom_poly.push(B::ONE);
         let h_size_32: u32 = self.size_subgroup_h.try_into().unwrap();
         let eta_pow = B::PositiveInteger::from(h_size_32);
-        denom_poly[0] = self.eta.exp(eta_pow);
+        denom_poly[0] = self.eta.exp(eta_pow).neg();
         let s_coeffs = polynom::div(
             &polynom::sub(&polynom::mul(&self.f_az_coeffs, &self.f_bz_coeffs), &self.f_cz_coeffs),
             &denom_poly
         );   
+        let old_s_evals_b: Vec<B> = polynom::eval_many(s_coeffs.clone().as_slice(), self.evaluation_domain.clone().as_slice());// Vec::new();
+        let old_s_evals: Vec<E> = old_s_evals_b.into_iter().map(|x: B| {E::from(x)}).collect();
+        let transposed_evaluations = transpose_slice(&old_s_evals);
+        let hashed_evaluations = hash_values::<H, E, 1>(&transposed_evaluations);
+        let s_tree = MerkleTree::<H>::new(hashed_evaluations)?;
+        
         let s_comp_coeffs = get_complementary_poly::<B>(self.size_subgroup_h - 2, self.max_degree - 1);
         let new_s = polynom::mul(&s_coeffs, &s_comp_coeffs);
-        println!("New s deg = {}", polynom::degree_of(&new_s));
+
         let s_evals_b: Vec<B> = polynom::eval_many(new_s.clone().as_slice(), self.evaluation_domain.clone().as_slice());// Vec::new();
         let s_evals: Vec<E> = s_evals_b.into_iter().map(|x: B| {E::from(x)}).collect();
-        // for i in 0..self.evaluation_domain.len() {
-        //     let s_val_numerator =
-        //         E::from(self.f_az_coeffs[i] * self.f_bz_coeffs[i] - self.f_cz_coeffs[i]);
-            
-        //     let s_val_denominator = E::from(compute_vanishing_poly(
-        //         self.evaluation_domain[i],
-        //         self.eta,
-        //         self.size_subgroup_h.try_into().unwrap(),
-        //     ));
-        //     println!("S denom = {}, eval elt = {}", s_val_denominator, self.evaluation_domain[i]);
-        //     s_evals.push(s_val_numerator / s_val_denominator);
-        // }
+        
         let mut channel = DefaultProverChannel::new(self.evaluation_domain.len(), self.num_queries);
         let mut fri_prover =
             fri::FriProver::<B, E, DefaultProverChannel<B, E, H>, H>::new(self.fri_options.clone());
 
         let query_positions = channel.draw_query_positions();
         let queried_positions = query_positions.clone();
+
+        let s_eval_root = *s_tree.root();
+        let s_original_evals = query_positions
+            .iter()
+            .map(|&p| old_s_evals[p])
+            .collect::<Vec<_>>();
+        
+        let s_original_proof = s_tree.prove_batch(&queried_positions)?;
+
         // Build proofs for the polynomial g
         fri_prover.build_layers(&mut channel, s_evals.clone());
         let s_proof = fri_prover.build_proof(&query_positions);
@@ -95,13 +101,15 @@ impl<B: StarkField, E: FieldElement<BaseField = B>, H: ElementHasher<BaseField =
             .iter()
             .map(|&p| s_evals[p])
             .collect::<Vec<_>>();
+        println!("Eval domain val {:?}", self.evaluation_domain[180]);
         let s_commitments = channel.layer_commitments().to_vec();
-        println!("Deg fs = {}", self.degree_fs);
-        println!("Deg h = {}", self.size_subgroup_h);
         Ok(RowcheckProof {
             options: self.fri_options.clone(),
             num_evaluations: self.evaluation_domain.len(),
             queried_positions,
+            s_eval_root,
+            s_original_evals,
+            s_original_proof,
             s_proof,
             s_queried_evals,
             s_commitments,

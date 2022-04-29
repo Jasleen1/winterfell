@@ -12,6 +12,7 @@ pub enum ProverError {
     LincheckErr(LincheckError),
     R1CSErr(R1CSError),
     InvalidMatrixName(String),
+    MerkleTreeErr(MerkleTreeError),
 }
 
 impl From<LincheckError> for ProverError {
@@ -23,6 +24,12 @@ impl From<LincheckError> for ProverError {
 impl From<R1CSError> for ProverError {
     fn from(e: R1CSError) -> ProverError {
         ProverError::R1CSErr(e)
+    }
+}
+
+impl From<MerkleTreeError> for ProverError {
+    fn from(e: MerkleTreeError) -> ProverError {
+        ProverError::MerkleTreeErr(e)
     }
 }
 
@@ -58,10 +65,17 @@ impl fmt::Display for ProverError {
             Self::LincheckErr(err) => {
                 write!(f, "Encountered an error in Lincheck: {:?}", err,)
             }
-            ProverError::R1CSErr(err) => {
+            Self::R1CSErr(err) => {
                 write!(
                     f,
                     "Encountered an R1CS error in the fractal prover: {:?}",
+                    err,
+                )
+            }
+            Self::MerkleTreeErr(err) => {
+                write!(
+                    f,
+                    "Encountered a Merkle Tree error in the fractal prover: {:?}",
                     err,
                 )
             }

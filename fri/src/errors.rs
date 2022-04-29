@@ -6,7 +6,7 @@
 use core::fmt;
 use utils::{string::String, DeserializationError};
 
-use crypto::RandomCoinError;
+use crypto::{RandomCoinError, MerkleTreeError};
 
 // VERIFIER ERROR
 // ================================================================================================
@@ -37,7 +37,10 @@ pub enum VerifierError {
     RemainderDegreeMismatch(usize),
     /// Polynomial degree at one of the FRI layers could not be divided evenly by the folding factor.
     DegreeTruncation(usize, usize, usize),
+    /// Errors derived from Merkle proofs 
+    MerkleTreeErr(MerkleTreeError),
     DeserializationErr(DeserializationError),
+    SmallPolyAdjustmentErr,
 }
 
 impl fmt::Display for VerifierError {
@@ -80,6 +83,12 @@ impl fmt::Display for VerifierError {
             }
             Self::DeserializationErr(err) => {
                 write!(f, "failed to deserialize something in verifier: {}", err)
+            }
+            Self::MerkleTreeErr(err) => {
+                write!(f, "Merkle tree in the verifier threw an error, {}", err)
+            }
+            Self::SmallPolyAdjustmentErr => {
+                write!(f, "Committed poly does not match adjusted poly for FRI")
             }
         }
     }

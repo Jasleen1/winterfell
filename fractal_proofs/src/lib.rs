@@ -3,7 +3,7 @@ mod tests;
 pub use std::convert::TryInto;
 use std::{marker::PhantomData, usize};
 
-use crypto::Hasher;
+use crypto::{Hasher, BatchMerkleProof};
 pub use fractal_utils::{errors::MatrixError, matrix_utils::*, polynomial_utils::*, *};
 pub use fri::{DefaultProverChannel, FriOptions, FriProof};
 pub use math::{fft, fields::f128::BaseElement, FieldElement, StarkField, *};
@@ -34,6 +34,9 @@ pub struct RowcheckProof<B: StarkField, E: FieldElement<BaseField = B>, H: Hashe
     pub options: FriOptions,
     pub num_evaluations: usize,
     pub queried_positions: Vec<usize>,
+    pub s_eval_root: H::Digest,
+    pub s_original_evals: Vec<E>,
+    pub s_original_proof: BatchMerkleProof<H>,
     pub s_proof: FriProof,
     pub s_queried_evals: Vec<E>,
     pub s_commitments: Vec<<H>::Digest>,
