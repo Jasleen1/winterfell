@@ -16,6 +16,7 @@ pub mod rescue;
 pub mod rescue_raps;
 pub mod utils;
 pub mod vdf;
+pub mod fast_fourier_transform_raps;
 
 #[cfg(test)]
 mod tests;
