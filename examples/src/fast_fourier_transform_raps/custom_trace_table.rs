@@ -27,13 +27,13 @@ use winterfell::{
 /// You can also use [RapTraceTable::with_meta()] function to create a blank execution trace.
 /// This function work just like [RapTraceTable::new()] function, but also takes a metadata
 /// parameter which can be an arbitrary sequence of bytes up to 64KB in size.
-pub struct RapTraceTable<B: StarkField> {
+pub struct FFTTraceTable<B: StarkField> {
     layout: TraceLayout,
     trace: Matrix<B>,
     meta: Vec<u8>,
 }
 
-impl<B: StarkField> RapTraceTable<B> {
+impl<B: StarkField> FFTTraceTable<B> {
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
 
@@ -124,7 +124,7 @@ impl<B: StarkField> RapTraceTable<B> {
         I: Fn(&mut [B]),
         U: Fn(usize, &mut [B]),
     {
-        let mut state = vec![B::ZERO; self.main_trace_width()];
+        let mut state = vec![B::ZERO; self.length()];
         init(&mut state);
         self.update_row(0, &state);
 
@@ -161,7 +161,7 @@ impl<B: StarkField> RapTraceTable<B> {
 // TRACE TRAIT IMPLEMENTATION
 // ================================================================================================
 
-impl<B: StarkField> Trace for RapTraceTable<B> {
+impl<B: StarkField> Trace for FFTTraceTable<B> {
     type BaseField = B;
 
     fn layout(&self) -> &TraceLayout {

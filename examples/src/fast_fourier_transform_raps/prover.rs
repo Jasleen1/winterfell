@@ -5,17 +5,17 @@
 
 use super::{
     apply_rescue_round_parallel, rescue::STATE_WIDTH, BaseElement, FieldElement, ProofOptions,
-    Prover, PublicInputs, RapTraceTable, RescueRapsAir, Trace, CYCLE_LENGTH, NUM_HASH_ROUNDS,
+    Prover, PublicInputs, FFTTraceTable, FFTRapsAir, Trace, CYCLE_LENGTH, NUM_HASH_ROUNDS,
 };
 
 // RESCUE PROVER
 // ================================================================================================
 
-pub struct RescueRapsProver {
+pub struct FFTRapsProver {
     options: ProofOptions,
 }
 
-impl RescueRapsProver {
+impl FFTRapsProver {
     pub fn new(options: ProofOptions) -> Self {
         Self { options }
     }
@@ -25,11 +25,11 @@ impl RescueRapsProver {
         seeds: &[[BaseElement; 2]],
         permuted_seeds: &[[BaseElement; 2]],
         result: [[BaseElement; 2]; 2],
-    ) -> RapTraceTable<BaseElement> {
+    ) -> FFTTraceTable<BaseElement> {
         debug_assert_eq!(seeds.len(), permuted_seeds.len());
         // allocate memory to hold the trace table
         let trace_length = seeds.len() * CYCLE_LENGTH;
-        let mut trace = RapTraceTable::new(2 * STATE_WIDTH, trace_length);
+        let mut trace = FFTTraceTable::new(2 * STATE_WIDTH, trace_length);
         const END_INCLUSIVE_RANGE: usize = NUM_HASH_ROUNDS - 1;
 
         trace.fill(
@@ -81,10 +81,10 @@ impl RescueRapsProver {
     }
 }
 
-impl Prover for RescueRapsProver {
+impl Prover for FFTRapsProver {
     type BaseField = BaseElement;
-    type Air = RescueRapsAir;
-    type Trace = RapTraceTable<BaseElement>;
+    type Air = FFTRapsAir;
+    type Trace = FFTTraceTable<BaseElement>;
 
     fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
         let last_step = trace.length() - 1;

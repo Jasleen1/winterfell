@@ -49,12 +49,12 @@ impl Serializable for PublicInputs {
     }
 }
 
-pub struct RescueRapsAir {
+pub struct FFTRapsAir {
     context: AirContext<BaseElement>,
     result: [[BaseElement; 2]; 2],
 }
 
-impl Air for RescueRapsAir {
+impl Air for FFTRapsAir {
     type BaseField = BaseElement;
     type PublicInputs = PublicInputs;
 
@@ -69,7 +69,7 @@ impl Air for RescueRapsAir {
             TransitionConstraintDegree::new(2),
         ];
         assert_eq!(TRACE_WIDTH + 3, trace_info.width());
-        RescueRapsAir {
+        FFTRapsAir {
             context: AirContext::new_multi_segment(
                 trace_info,
                 main_degrees,

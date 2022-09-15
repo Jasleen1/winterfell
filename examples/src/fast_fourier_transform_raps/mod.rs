@@ -13,15 +13,15 @@ use winterfell::{
 };
 
 mod custom_trace_table;
-pub use custom_trace_table::RapTraceTable;
+pub use custom_trace_table::FFTTraceTable;
 
 use super::rescue::rescue::{self, STATE_WIDTH};
 
 mod air;
-use air::{PublicInputs, RescueRapsAir};
+use air::{PublicInputs, FFTRapsAir};
 
 mod prover;
-use prover::RescueRapsProver;
+use prover::FFTRapsProver;
 
 #[cfg(test)]
 mod tests;
@@ -99,7 +99,7 @@ impl Example for RescueRapsExample {
         );
 
         // create a prover
-        let prover = RescueRapsProver::new(self.options.clone());
+        let prover = FFTRapsProver::new(self.options.clone());
 
         // generate the execution trace
         let now = Instant::now();
@@ -120,14 +120,14 @@ impl Example for RescueRapsExample {
         let pub_inputs = PublicInputs {
             result: self.result,
         };
-        winterfell::verify::<RescueRapsAir>(proof, pub_inputs)
+        winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
     }
 
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
         let pub_inputs = PublicInputs {
             result: [self.result[1], self.result[0]],
         };
-        winterfell::verify::<RescueRapsAir>(proof, pub_inputs)
+        winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
     }
 }
 
