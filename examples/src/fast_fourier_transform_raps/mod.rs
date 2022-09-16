@@ -188,6 +188,8 @@ fn apply_fft_calculation(state: &mut [BaseElement], step: usize, omega: BaseElem
     }
 }
 
+
+
 /////// Tests for helpers
 
 #[test]
