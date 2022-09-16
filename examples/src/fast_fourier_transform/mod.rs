@@ -83,6 +83,7 @@ impl FFTExample {
         );
 
         let mut coefficients_clone = coefficients.clone();
+        println!("Original coeffs input: {:?}", coefficients);
         let mut twiddles = fft::get_twiddles(degree);
         fft::evaluate_poly(&mut coefficients_clone, &mut twiddles);
         println!("Expected results: {:?}", coefficients_clone);

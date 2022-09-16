@@ -87,11 +87,11 @@ impl FFTProver {
                 apply_iterative_fft_layer(step, state, data_size, trace_128)
             }
         );
-        // let mut trace_0 = Vec::new();
-        // for i in 0..trace_width {
-            // trace_0.push(trace.get(i, 0));
-        // }
-        // println!("Trace[0] = {:?}", trace_0);
+        let mut trace_0 = Vec::new();
+        for i in 0..trace_width {
+            trace_0.push(trace.get(i, 0));
+        }
+        println!("Trace[0] = {:?}", trace_0);
         println!("outputs = {:?}", self.get_final_outputs(&trace));
         trace
     }
@@ -169,7 +169,7 @@ fn apply_iterative_fft_layer(step: usize, state: &mut [BaseElement], data_size: 
         
     }
     let step_u128: u128 = step.try_into().unwrap();
-        fill_selector_info(state, step_u128+1, trace_length, data_size);
+    fill_selector_info(state, step_u128+1, trace_length, data_size);
     // Calculate the curr_omega to be used in the next step
     let next_omega = omega.exp((data_size/(1 << (step + 1))).try_into().unwrap());
     state[data_size + 1] = next_omega;
@@ -190,7 +190,6 @@ fn fill_selector_info(state: &mut [BaseElement], step: u128, trace_128: u128, de
             }
         };
         state[get_selector_pos(i.try_into().unwrap(), degree)] = i_group_elt;
-
     }
 }
 
@@ -229,7 +228,6 @@ fn swap(pos1: usize, pos2: usize, state: &mut [BaseElement]) {
     let temp = state[pos1];
     state[pos1] = state[pos2];
     state[pos2] = temp;
-
 }
 
 // fn get_selector_bit_pos(i: usize, degree: usize) -> usize {
