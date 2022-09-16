@@ -40,7 +40,9 @@ const CYCLE_MASK: [BaseElement; CYCLE_LENGTH] = [
 // ================================================================================================
 
 pub struct PublicInputs {
-    pub result: [[BaseElement; 2]; 2],
+    pub num_inputs: usize,
+    pub fft_inputs: Vec<BaseElement>,
+    pub result: Vec<BaseElement>,
 }
 
 impl Serializable for PublicInputs {
@@ -51,7 +53,7 @@ impl Serializable for PublicInputs {
 
 pub struct FFTRapsAir {
     context: AirContext<BaseElement>,
-    result: [[BaseElement; 2]; 2],
+    result: Vec<BaseElement>,
 }
 
 impl Air for FFTRapsAir {
@@ -220,12 +222,12 @@ impl Air for FFTRapsAir {
             Assertion::single(3, 0, BaseElement::ZERO),
             Assertion::single(6, 0, BaseElement::ZERO),
             Assertion::single(7, 0, BaseElement::ZERO),
-            // Final rate registers (digests) should be equal to
-            // the provided public input
-            Assertion::single(0, last_step, self.result[0][0]),
-            Assertion::single(1, last_step, self.result[0][1]),
-            Assertion::single(4, last_step, self.result[1][0]),
-            Assertion::single(5, last_step, self.result[1][1]),
+            // // Final rate registers (digests) should be equal to
+            // // the provided public input
+            // Assertion::single(0, last_step, self.result[0][0]),
+            // Assertion::single(1, last_step, self.result[0][1]),
+            // Assertion::single(4, last_step, self.result[1][0]),
+            // Assertion::single(5, last_step, self.result[1][1]),
         ]
     }
 

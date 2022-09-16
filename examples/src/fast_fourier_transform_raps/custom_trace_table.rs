@@ -98,11 +98,25 @@ impl<B: StarkField> FFTTraceTable<B> {
         );
 
         let columns = unsafe { (0..width).map(|_| uninit_vector(length)).collect() };
+        let num_aux_vals = Self::get_aux_col_len_fft(width);
+        let num_aux_rands = Self::get_num_rand_fft(width);
         Self {
-            layout: TraceLayout::new(width, [3], [3]),
+            layout: TraceLayout::new(width, [num_aux_vals], [num_aux_rands]),
             trace: Matrix::new(columns),
             meta,
         }
+    }
+
+    // We want to show that the column for each fft step was permuted correctly  
+    // Keeping a column with step numbers for now.
+    fn get_aux_col_len_fft(width: usize) -> usize {
+        width - 2
+    }
+
+    // We want to show that the column for each fft step was permuted correctly,
+    // so we'll want terms like alpha_0 * loc(col, step) + alpha_1 * val(col, step) + gamma   
+    fn get_num_rand_fft(width: usize) -> usize {
+        3 * (width - 2)
     }
 
     // DATA MUTATORS
@@ -111,7 +125,7 @@ impl<B: StarkField> FFTTraceTable<B> {
     /// Fill all rows in the execution trace.
     ///
     /// The rows are filled by executing the provided closures as follows:
-    /// - `init` closure is used to initialize the first row of the trace; it receives a mutable
+    /// - `init` closure is used to initialize the first col of the trace; it receives a mutable
     ///   reference to the first state initialized to all zeros. The contents of the state are
     ///   copied into the first row of the trace after the closure returns.
     /// - `update` closure is used to populate all subsequent rows of the trace; it receives two
@@ -119,24 +133,24 @@ impl<B: StarkField> FFTTraceTable<B> {
     ///   - index of the last updated row (starting with 0).
     ///   - a mutable reference to the last updated state; the contents of the state are copied
     ///     into the next row of the trace after the closure returns.
-    pub fn fill<I, U>(&mut self, init: I, update: U)
+    pub fn fill_cols<I, U>(&mut self, init: I, update: U)
     where
         I: Fn(&mut [B]),
         U: Fn(usize, &mut [B]),
     {
         let mut state = vec![B::ZERO; self.length()];
         init(&mut state);
-        self.update_row(0, &state);
+        self.update_col(0, &state);
 
         for i in 0..self.length() - 1 {
             update(i, &mut state);
-            self.update_row(i + 1, &state);
+            self.update_col(i + 1, &state);
         }
     }
 
-    /// Updates a single row in the execution trace with provided data.
-    pub fn update_row(&mut self, step: usize, state: &[B]) {
-        self.trace.update_row(step, state);
+    /// Updates a single col in the execution trace with provided data.
+    pub fn update_col(&mut self, step: usize, state: &[B]) {
+        update_matrix_col(&mut self.trace, step, state);
     }
 
     // PUBLIC ACCESSORS
@@ -155,6 +169,13 @@ impl<B: StarkField> FFTTraceTable<B> {
     /// Reads a single row from this execution trace into the provided target.
     pub fn read_row_into(&self, step: usize, target: &mut [B]) {
         self.trace.read_row_into(step, target);
+    }
+
+    /// Reads a single row from this execution trace into the provided target.
+    pub fn read_col_into(&self, col_idx: usize, target: &mut [B]) {
+        for row_idx in 0..self.trace.num_rows() {
+            target[row_idx] = self.trace.get(col_idx, row_idx);
+        }
     }
 }
 
@@ -233,5 +254,12 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         }
 
         Some(Matrix::new(aux_columns))
+    }
+}
+
+
+fn update_matrix_col<E: FieldElement>(matrix: &mut Matrix<E>, col_idx: usize, col: &[E]) {
+    for row_idx in 0..matrix.num_rows() {
+        matrix.set(col_idx, row_idx, col[row_idx]);
     }
 }
