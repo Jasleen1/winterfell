@@ -9,7 +9,7 @@ use winterfell::math::{log2, fft};
 
 use super::{
     BaseElement, FieldElement, ProofOptions,
-    Prover, PublicInputs, FFTTraceTable, FFTRapsAir, Trace, apply_fft_permutation, fill_fft_indices, apply_fft_calculation,
+    Prover, PublicInputs, FFTTraceTable, FFTRapsAir, Trace, apply_fft_permutation, fill_fft_indices, apply_fft_calculation, apply_fft_inv_permutation, apply_bit_rev_copy_permutation,
 };
 
 // RESCUE PROVER
@@ -37,7 +37,7 @@ impl FFTRapsProver {
         // The last step is to write down the row numbers.
         let trace_width = 2*log_trace_length;
         let mut trace = FFTTraceTable::new(trace_width, trace_length);
-        let last_step = trace_width - 2;
+        let last_permutation_step = trace_width - 2;
 
         trace.fill_cols(
             |state| {
@@ -51,7 +51,18 @@ impl FFTRapsProver {
                 match step % 2 {
                     // For each even step, we would like to permute the previous col depending on what the step number is.
                     0 => {
-                        if step != last_step {
+                        if step == 0 {
+                            // To do iteratative FFT, the first step is to apply this permutation.
+                            apply_bit_rev_copy_permutation(state);
+                        }
+                        if step != last_permutation_step && step != 0 {
+                            // Undo the permutation from last time, since you put 
+                            // together values that would have actually been far apart
+                            apply_fft_inv_permutation(state, step);
+                        }
+                        if step != last_permutation_step {
+                            // Lay the values that are computed upon together, 
+                            // next to each other
                             apply_fft_permutation(state, step);
                         }
                         else {
@@ -99,10 +110,3 @@ impl Prover for FFTRapsProver {
     }
 }
 
-
-fn handle_even_steps(step: usize, state: &mut [BaseElement]) {
-    // If this is not the last step, then permute
-
-    // If this is the last step, just fill it in with field representations of indices
-    unimplemented!()
-}

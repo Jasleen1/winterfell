@@ -7,7 +7,7 @@ use crate::{Example, ExampleOptions};
 use log::debug;
 use rand_utils::rand_array;
 use core::num;
-use std::{time::Instant, collections::VecDeque};
+use std::{time::Instant, collections::VecDeque, convert::TryInto};
 use winterfell::{
     math::{fields::f128::BaseElement, log2, ExtensionOf, FieldElement, fft, StarkField},
     ProofOptions, Prover, StarkProof, Trace, VerifierError,
@@ -58,7 +58,7 @@ impl FFTRapsExample {
             num_fft_inputs.is_power_of_two(),
             "number of inputs for fft must a power of 2"
         );
-        assert!(num_fft_inputs > 128, "number of inputs must be at least 128");
+        // assert!(num_fft_inputs > 128, "number of inputs must be at least 128");
 
         let mut fft_inputs = vec![BaseElement::ZERO; num_fft_inputs as usize];
         for internal_seed in fft_inputs.iter_mut() {
@@ -70,7 +70,7 @@ impl FFTRapsExample {
         // TODO #1 write and test a plain fft computation here
         let result = vec![BaseElement::ZERO; num_fft_inputs as usize];
         debug!(
-            "Computed two permuted chains of {} Rescue hashes in {} ms",
+            "Computed fft of {} inputs in {} ms",
             num_fft_inputs,
             now.elapsed().as_millis(),
         );
@@ -102,6 +102,8 @@ impl Example for FFTRapsExample {
         // create a prover
         let prover = FFTRapsProver::new(self.options.clone());
 
+        let mut fft_in = self.fft_inputs.clone();
+
         // generate the execution trace
         let now = Instant::now();
         let trace = prover.build_trace(self.omega, &self.fft_inputs, &self.result);
@@ -112,7 +114,10 @@ impl Example for FFTRapsExample {
             log2(trace_length),
             now.elapsed().as_millis()
         );
-
+        let mut last_trace_col = [BaseElement::ONE];
+        trace.read_col_into(trace.width() - 2, &mut last_trace_col);
+        println!("Last col of the fft section of the trace: {:?}", last_trace_col);
+        println!("Simple fft output: {:?}", simple_iterative_fft(fft_in, self.omega));
         // generate the proof
         prover.prove(trace).unwrap()
     }
@@ -131,14 +136,80 @@ impl Example for FFTRapsExample {
         //     result: [self.result[1], self.result[0]],
         // };
         // winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
-        unimplemented!()
+        // unimplemented!()
+        Ok(())
     }
 }
 
 // HELPER FUNCTIONS
 // ================================================================================================
 
+// Implements a simple iterative FFT using the Cooley-Tukey algorithm from 
+// https://en.wikipedia.org/wiki/Cooley–Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms
+fn simple_iterative_fft(input_array: Vec<BaseElement>, omega: BaseElement) -> Vec<BaseElement> {
+    let mut output_arr = bit_reverse_copy(input_array.clone());
+    let fft_size = input_array.len();
+    let log_fft_size = log2(fft_size);
+    let num_steps: usize = log_fft_size.try_into().unwrap();
+    let fft_size_u128: u128 = fft_size.try_into().unwrap();
+    for step in 0..num_steps {
+        let m = 1 << step;
+        let omega_pow = fft_size_u128 / m;
+        let local_factor = omega.exp(omega_pow); 
+        let k_upperbound: usize = (fft_size_u128/m).try_into().unwrap();
+        for k in 0..k_upperbound {
+            let mut omega_curr = BaseElement::ONE;
+            let jump: usize = (m/2).try_into().unwrap();
+            for j in 0..jump {
+                let u = input_array[k+j];
+                let v = omega_curr * input_array[k+j+jump];
+                output_arr[k+j] = u + v;
+                output_arr[k+j+jump] = u - v;
+                omega_curr *= local_factor;
+            }
+        }
+    }
+    output_arr
+}
 
+fn bit_reverse_copy(input_array: Vec<BaseElement>) -> Vec<BaseElement> {
+    let mut output_arr = input_array.clone();
+    let fft_size = input_array.len();
+    let log_fft_size = log2(fft_size);
+    let num_bits: usize = log_fft_size.try_into().unwrap();
+    for i in 0..fft_size {
+        output_arr[bit_reverse(i, num_bits)] = input_array[i];
+    }
+    output_arr
+}
+
+
+
+
+
+fn bit_reverse(input_int: usize, num_bits: usize) -> usize {
+    let mut output_int = 0;
+    let mut input_copy = input_int;
+    for _ in 0..num_bits {
+        output_int <<= 1;
+        output_int |= input_copy & 1;
+        input_copy >>= 1;
+    }
+    return output_int;
+}
+
+fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
+    let fft_size = state.len();
+    let log_fft_size = log2(fft_size);
+    let num_bits: usize = log_fft_size.try_into().unwrap();
+    let mut next_state = vec![BaseElement::ZERO; fft_size];
+    for i in 0..fft_size {
+        next_state[bit_reverse(i, num_bits)] = state[i]; 
+    }
+    for i in 0..fft_size {
+        state[i] = next_state[i];
+    }
+}
 
 fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     assert!(step % 2 == 0, "Only even steps have permuations");
@@ -148,9 +219,31 @@ fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     let mut next_state = vec![BaseElement::ZERO; fft_size];
     for i in 0..num_ranges {
         let start_of_range = i * 2 * jump;
+        println!("Jump = {}", jump);
         for j in 0..jump/2+1 {
+            println!("Accessing: {:?}", start_of_range + 2*j);
             next_state[start_of_range + 2*j] = state[start_of_range + j];
             next_state[start_of_range + 2*j + 1] = state[start_of_range + j + jump];
+        }
+    }
+    for i in 0..fft_size {
+        println!("Writing: {:?}", i);
+        state[i] = next_state[i];
+    }
+}
+
+fn apply_fft_inv_permutation(state: &mut [BaseElement], step: usize) {
+    assert!(step != 0, "Only even, non-zero steps have inv permuations");
+    assert!(step % 2 == 0, "Only even steps have inv permuations");
+    let fft_size = state.len();
+    let jump = fft_size/(1 << (step/2 + 1));
+    let num_ranges = 1 << step/2;
+    let mut next_state = vec![BaseElement::ZERO; fft_size];
+    for i in 0..num_ranges {
+        let start_of_range = i * 2 * jump;
+        for j in 0..jump/2+1 {
+            next_state[start_of_range + j] = state[start_of_range + 2*j];
+            next_state[start_of_range + j + jump] = state[start_of_range + 2*j + 1];
         }
     }
     for i in 0..fft_size {

@@ -11,7 +11,7 @@ use winterfell::StarkProof;
 
 use examples::{fibonacci, rescue, vdf, ExampleOptions, ExampleType};
 #[cfg(feature = "std")]
-use examples::{lamport, merkle, rescue_raps};
+use examples::{lamport, merkle, rescue_raps, fast_fourier_transform_raps};
 
 // EXAMPLE RUNNER
 // ================================================================================================
@@ -47,6 +47,8 @@ fn main() {
         ExampleType::Rescue { chain_length } => rescue::get_example(options, chain_length),
         #[cfg(feature = "std")]
         ExampleType::RescueRaps { chain_length } => rescue_raps::get_example(options, chain_length),
+        #[cfg(feature = "std")]
+        ExampleType::FFTRaps { num_fft_inputs } => fast_fourier_transform_raps::get_example(options, num_fft_inputs),
         #[cfg(feature = "std")]
         ExampleType::Merkle { tree_depth } => merkle::get_example(options, tree_depth),
         #[cfg(feature = "std")]

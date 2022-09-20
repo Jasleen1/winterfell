@@ -171,12 +171,13 @@ impl<B: StarkField> FFTTraceTable<B> {
         self.trace.read_row_into(step, target);
     }
 
-    /// Reads a single row from this execution trace into the provided target.
+    /// Reads a single col from this execution trace into the provided target.
     pub fn read_col_into(&self, col_idx: usize, target: &mut [B]) {
         for row_idx in 0..self.trace.num_rows() {
             target[row_idx] = self.trace.get(col_idx, row_idx);
         }
     }
+
 }
 
 // TRACE TRAIT IMPLEMENTATION

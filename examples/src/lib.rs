@@ -145,6 +145,13 @@ pub enum ExampleType {
         #[structopt(short = "n", default_value = "1024")]
         chain_length: usize,
     },
+    /// Compute an FFT
+    #[cfg(feature = "std")]
+    FFTRaps {
+        /// Number of fft inputs; must be a power of two and at least 4
+        #[structopt(short = "n", default_value = "16")]
+        num_fft_inputs: usize,
+    },
     /// Compute a root of a Merkle path using Rescue hash function
     #[cfg(feature = "std")]
     Merkle {
