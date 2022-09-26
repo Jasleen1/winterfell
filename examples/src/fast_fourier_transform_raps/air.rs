@@ -3,7 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::convert::TryInto;
+use std::{convert::TryInto, env::current_exe};
 
 use super::{
     rescue::{self, STATE_WIDTH},
@@ -68,6 +68,7 @@ impl Air for FFTRapsAir {
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
         let main_degrees =
             vec![TransitionConstraintDegree::new(1); pub_inputs.fft_inputs.len()-1];
+        // println!("Main degrees = {:?}", main_degrees);
         let aux_degrees = vec![];
         // let aux_degrees = vec![
         //     TransitionConstraintDegree::new(1);
@@ -92,7 +93,7 @@ impl Air for FFTRapsAir {
                 trace_info,
                 main_degrees,
                 aux_degrees,
-                2*pub_inputs.fft_inputs.len(),
+                1,//2*pub_inputs.fft_inputs.len(),
                 0,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
@@ -122,12 +123,15 @@ impl Air for FFTRapsAir {
             let local_omega = periodic_values[step-1];
             let u = current[2*step-1];
             let v = next[2*step-1] * local_omega;
-            println!("Step = {}, result postions = {} and {}, result len = {}", step, 2*step - 2, 2*step - 1, result.len());
-            println!("local omega = {:?}", periodic_values[step-1]);
+            
             result[2*step-2] = compute_flag * (u + v - current[2*step]);
             result[2*step-1] = compute_flag * (u - v - next[2*step]);
+            // println!("lstep = {}, result postions = {} and {}", step, 2*step - 2, 2*step - 1);
+            // println!("local omega = {:?}", periodic_values[step-1]);
+            // println!("Result {} = {:?}", 2*step-2, result[2*step - 2]);
+            // println!("Result {} = {:?}", 2*step-1, result[2*step - 1]);
         }
-        
+        // println!("Result for step {:?} = {:?}", current[current.len() - 1], result);
 
         // // split periodic values into hash_flag, absorption flag and Rescue round constants
         // let hash_flag = periodic_values[0];
@@ -259,7 +263,9 @@ impl Air for FFTRapsAir {
         //     // Assertion::single(4, last_step, self.result[1][0]),
         //     // Assertion::single(5, last_step, self.result[1][1]),
         // ]
-        vec![]
+        vec![
+            Assertion::single(0, 0, self.fft_inputs[0]),
+        ]
     }
 
     fn get_aux_assertions<E: FieldElement + From<Self::BaseField>>(
@@ -281,8 +287,10 @@ impl Air for FFTRapsAir {
         let num_steps: usize = log2(fft_size).try_into().unwrap();
         let mut result = Vec::<Vec::<BaseElement>>::new();
         let omega = BaseElement::get_root_of_unity(fft_size_u32);
+        // println!("In the periodic col generation");
         for step in 0..num_steps {
-            let m = 1 << ((step+2)/2);
+            // println!("Step = {}", step);
+            let m = 1 << (step+1);
             let m_u128: u128 = m.try_into().unwrap();
             let mut local_omega_col = vec![BaseElement::ONE; m];
             let local_omega = omega.exp(fft_size_u128/m_u128);
@@ -290,8 +298,10 @@ impl Air for FFTRapsAir {
                 let i_u128: u128 = i.try_into().unwrap();
                 local_omega_col[2*i] = local_omega.exp(i_u128);
             }
+            // println!("Local omega col step {} = {:?}", step, local_omega_col);
             result.push(local_omega_col);
         }
+        // println!("\n ******** \n");
         let flags = vec![BaseElement::ONE,BaseElement::ZERO];
         result.push(flags);
         result
