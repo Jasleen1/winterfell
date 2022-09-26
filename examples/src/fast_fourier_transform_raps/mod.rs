@@ -102,7 +102,7 @@ impl Example for FFTRapsExample {
         // create a prover
         let prover = FFTRapsProver::new(self.options.clone());
 
-        let mut fft_in = self.fft_inputs.clone();
+        let fft_in = self.fft_inputs.clone();
 
         // generate the execution trace
         let now = Instant::now();
@@ -114,10 +114,11 @@ impl Example for FFTRapsExample {
             log2(trace_length),
             now.elapsed().as_millis()
         );
-        let mut last_trace_col = [BaseElement::ONE];
+        let mut last_trace_col = vec![BaseElement::ONE; trace_length];
         trace.read_col_into(trace.width() - 2, &mut last_trace_col);
-        println!("Last col of the fft section of the trace: {:?}", last_trace_col);
-        println!("Simple fft output: {:?}", simple_iterative_fft(fft_in, self.omega));
+        let simple_fft_output = simple_iterative_fft(fft_in, self.omega);
+        println!("Last col of the fft section of the trace:\n{:?}", last_trace_col);
+        println!("Simple fft output:\n{:?}", simple_fft_output);
         // generate the proof
         prover.prove(trace).unwrap()
     }
@@ -152,20 +153,22 @@ fn simple_iterative_fft(input_array: Vec<BaseElement>, omega: BaseElement) -> Ve
     let log_fft_size = log2(fft_size);
     let num_steps: usize = log_fft_size.try_into().unwrap();
     let fft_size_u128: u128 = fft_size.try_into().unwrap();
-    for step in 0..num_steps {
+    for step in 1..num_steps+1 {
         let m = 1 << step;
         let omega_pow = fft_size_u128 / m;
         let local_factor = omega.exp(omega_pow); 
         let k_upperbound: usize = (fft_size_u128/m).try_into().unwrap();
+        let jump: usize = (m/2).try_into().unwrap();
         for k in 0..k_upperbound {
             let mut omega_curr = BaseElement::ONE;
-            let jump: usize = (m/2).try_into().unwrap();
+            let start_pos = k*jump*2;
             for j in 0..jump {
-                let u = input_array[k+j];
-                let v = omega_curr * input_array[k+j+jump];
-                output_arr[k+j] = u + v;
-                output_arr[k+j+jump] = u - v;
-                omega_curr *= local_factor;
+                let u = output_arr[start_pos+j];
+                let v = omega_curr * output_arr[start_pos+j+jump];
+                output_arr[start_pos+j] = u + v;
+                output_arr[start_pos+j+jump] = u - v;
+                omega_curr = omega_curr * local_factor;
+                
             }
         }
     }
@@ -204,7 +207,7 @@ fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
     let num_bits: usize = log_fft_size.try_into().unwrap();
     let mut next_state = vec![BaseElement::ZERO; fft_size];
     for i in 0..fft_size {
-        next_state[bit_reverse(i, num_bits)] = state[i]; 
+        next_state[bit_reverse(i, num_bits)] = state[i];
     }
     for i in 0..fft_size {
         state[i] = next_state[i];
@@ -214,41 +217,41 @@ fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
 fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     assert!(step % 2 == 0, "Only even steps have permuations");
     let fft_size = state.len();
-    let jump = fft_size/(1 << (step/2 + 1));
-    let num_ranges = 1 << step/2;
+    let jump = (1 << (step/2 + 1))/2;
+    let num_ranges = fft_size / (2*jump);
     let mut next_state = vec![BaseElement::ZERO; fft_size];
-    for i in 0..num_ranges {
-        let start_of_range = i * 2 * jump;
-        println!("Jump = {}", jump);
-        for j in 0..jump/2+1 {
-            println!("Accessing: {:?}", start_of_range + 2*j);
+    for k in 0..num_ranges {
+        let start_of_range = k * 2 * jump;
+        for j in 0..jump {
             next_state[start_of_range + 2*j] = state[start_of_range + j];
             next_state[start_of_range + 2*j + 1] = state[start_of_range + j + jump];
         }
     }
     for i in 0..fft_size {
-        println!("Writing: {:?}", i);
         state[i] = next_state[i];
     }
 }
 
 fn apply_fft_inv_permutation(state: &mut [BaseElement], step: usize) {
-    assert!(step != 0, "Only even, non-zero steps have inv permuations");
+    assert!(step != 0, "Only non-zero steps have inv permuations");
     assert!(step % 2 == 0, "Only even steps have inv permuations");
+    let step_prev = step - 2;
     let fft_size = state.len();
-    let jump = fft_size/(1 << (step/2 + 1));
-    let num_ranges = 1 << step/2;
+    let jump = (1 << (step_prev/2 + 1))/2;
+    let num_ranges = fft_size / (2*jump);
     let mut next_state = vec![BaseElement::ZERO; fft_size];
-    for i in 0..num_ranges {
-        let start_of_range = i * 2 * jump;
-        for j in 0..jump/2+1 {
+    for k in 0..num_ranges {
+        let start_of_range = k * 2 * jump;
+        
+        for j in 0..jump {
             next_state[start_of_range + j] = state[start_of_range + 2*j];
             next_state[start_of_range + j + jump] = state[start_of_range + 2*j + 1];
         }
     }
+    
     for i in 0..fft_size {
         state[i] = next_state[i];
-    }
+    }  
 }
 
 fn fill_fft_indices(state: &mut [BaseElement]) {
@@ -265,19 +268,24 @@ fn fill_fft_indices(state: &mut [BaseElement]) {
 fn apply_fft_calculation(state: &mut [BaseElement], step: usize, omega: BaseElement) {
     assert!(step % 2 == 1, "Only odd steps have computation steps");
     let fft_size = state.len();
-    let power_mod = 1 << ((step + 1)/2);
+    let fft_size_u128: u128 = fft_size.try_into().unwrap();
+    let m = 1 << ((step + 1)/2);
+    let m_u128: u128 = m.try_into().unwrap();
     let mut omegas = Vec::<BaseElement>::new();
     let mut power_of_omega = BaseElement::ONE;
-    for _ in 0..power_mod {
+    let local_omega = omega.exp(fft_size_u128/m_u128);
+    for _ in 0..m {
         omegas.push(power_of_omega);
-        power_of_omega *= omega;
+        power_of_omega *= local_omega;
     }
+
     for i in 0..fft_size/2 {
-        let curr_omega = omegas[step % power_mod];
+        let curr_omega = omegas[i % (m/2)];
         let u = state[2*i];
         let v = state[2*i+1] * curr_omega;
         state[2*i] = u + v;
         state[2*i + 1] = u - v;
+        println!("Step {}, i = {}, omega = {:?}", step, i, curr_omega);
     }
 }
 

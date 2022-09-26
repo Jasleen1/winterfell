@@ -110,13 +110,15 @@ impl<B: StarkField> FFTTraceTable<B> {
     // We want to show that the column for each fft step was permuted correctly  
     // Keeping a column with step numbers for now.
     fn get_aux_col_len_fft(width: usize) -> usize {
-        width - 2
+        // width - 2
+        0
     }
 
     // We want to show that the column for each fft step was permuted correctly,
     // so we'll want terms like alpha_0 * loc(col, step) + alpha_1 * val(col, step) + gamma   
     fn get_num_rand_fft(width: usize) -> usize {
-        3 * (width - 2)
+        // 3 * (width - 2)
+        0
     }
 
     // DATA MUTATORS
@@ -142,7 +144,7 @@ impl<B: StarkField> FFTTraceTable<B> {
         init(&mut state);
         self.update_col(0, &state);
 
-        for i in 0..self.length() - 1 {
+        for i in 0..self.width() - 1 {
             update(i, &mut state);
             self.update_col(i + 1, &state);
         }

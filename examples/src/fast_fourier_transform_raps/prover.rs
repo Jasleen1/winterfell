@@ -3,6 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+use core::num;
 use std::convert::TryInto;
 
 use winterfell::math::{log2, fft};
@@ -35,9 +36,10 @@ impl FFTRapsProver {
         let log_trace_length: usize = log2(trace_length).try_into().unwrap();
         // For all but the last step, one step to write down the FFT layer and one to write the permutation.
         // The last step is to write down the row numbers.
-        let trace_width = 2*log_trace_length;
+        let trace_width = 2*log_trace_length + 3;
         let mut trace = FFTTraceTable::new(trace_width, trace_length);
-        let last_permutation_step = trace_width - 2;
+        let last_permutation_step = trace_width - 3;
+        let non_fft_step = trace_width - 2;
 
         trace.fill_cols(
             |state| {
@@ -47,7 +49,7 @@ impl FFTRapsProver {
             },
             |step, state| {
                 // execute the transition function for all steps
-                // 
+                println!("Step number = {}", step);
                 match step % 2 {
                     // For each even step, we would like to permute the previous col depending on what the step number is.
                     0 => {
@@ -55,7 +57,7 @@ impl FFTRapsProver {
                             // To do iteratative FFT, the first step is to apply this permutation.
                             apply_bit_rev_copy_permutation(state);
                         }
-                        if step != last_permutation_step && step != 0 {
+                        if step != 0 {
                             // Undo the permutation from last time, since you put 
                             // together values that would have actually been far apart
                             apply_fft_inv_permutation(state, step);
@@ -65,13 +67,17 @@ impl FFTRapsProver {
                             // next to each other
                             apply_fft_permutation(state, step);
                         }
-                        else {
-                            fill_fft_indices(state);
-                        }
                     },
                     // For each odd step, we would like to do the FFT operation with adjacent values.
                     1 => {
-                        apply_fft_calculation(state, step, omega);
+                        if step != non_fft_step {
+                            apply_fft_calculation(state, step, omega);
+                        }
+                        else {
+                            println!("Here in filling indices and step is = {}", step);
+                            fill_fft_indices(state);
+                        }
+                        
                     },
                     // Required by rust since the type usize is unbounded and we need to be exhaustive with match.
                     _ => {},
@@ -95,14 +101,25 @@ impl Prover for FFTRapsProver {
     type Trace = FFTTraceTable<BaseElement>;
 
     fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
-        let last_step = trace.length() - 1;
+        let last_fft_state = trace.width() - 2;
+        let num_inputs = trace.length();
+        println!("\nTrace len = {}\n", num_inputs);
+        let mut fft_input_vec = vec![BaseElement::ONE; num_inputs];
+        trace.read_col_into(0, &mut fft_input_vec);
+        let mut fft_output_vec = vec![BaseElement::ONE; num_inputs];
+        trace.read_col_into(last_fft_state, &mut fft_output_vec);
         // PublicInputs {
         //     result: [
         //         [trace.get(0, last_step), trace.get(1, last_step)],
         //         [trace.get(4, last_step), trace.get(5, last_step)],
         //     ],
         // }
-        unimplemented!()
+        PublicInputs {
+            num_inputs,
+            fft_inputs: fft_input_vec,
+            result: fft_output_vec,
+        }
+        // unimplemented!()
     }
 
     fn options(&self) -> &ProofOptions {
