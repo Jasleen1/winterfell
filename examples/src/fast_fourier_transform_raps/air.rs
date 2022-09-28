@@ -3,11 +3,10 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::{convert::TryInto, env::current_exe};
+use std::{convert::TryInto};
 
 use super::{
-    rescue::{self, STATE_WIDTH},
-    BaseElement, ExtensionOf, FieldElement, ProofOptions, CYCLE_LENGTH, TRACE_WIDTH,
+    BaseElement, ExtensionOf, FieldElement, ProofOptions,
 };
 use crate::utils::{are_equal, not, EvaluationResult};
 use winterfell::{
@@ -15,28 +14,7 @@ use winterfell::{
     TraceInfo, TransitionConstraintDegree, math::{StarkField, log2, fft},
 };
 
-// CONSTANTS
-// ================================================================================================
 
-/// Specifies steps on which Rescue transition function is applied.
-const CYCLE_MASK: [BaseElement; CYCLE_LENGTH] = [
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ONE,
-    BaseElement::ZERO,
-    BaseElement::ZERO,
-];
 
 // RESCUE AIR
 // ================================================================================================
@@ -66,8 +44,13 @@ impl Air for FFTRapsAir {
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
-        let main_degrees =
-            vec![TransitionConstraintDegree::new(1); pub_inputs.fft_inputs.len()-1];
+        let num_fft_steps: usize = log2(pub_inputs.fft_inputs.len()).try_into().unwrap();
+        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1,vec![2]), TransitionConstraintDegree::with_cycles(1,vec![2])];
+        for step in 2..num_fft_steps+1 {
+            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
+            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
+        }
+        //vec![TransitionConstraintDegree::new(2); 2*num_fft_steps];
         // println!("Main degrees = {:?}", main_degrees);
         let aux_degrees = vec![];
         // let aux_degrees = vec![
@@ -88,6 +71,7 @@ impl Air for FFTRapsAir {
         //     fft_inputs: pub_inputs.fft_inputs,
         //     result: pub_inputs.result,
         // }
+        
         FFTRapsAir {
             context: AirContext::new_multi_segment(
                 trace_info,
@@ -124,8 +108,8 @@ impl Air for FFTRapsAir {
             let u = current[2*step-1];
             let v = next[2*step-1] * local_omega;
             
-            result[2*step-2] = compute_flag * (u + v - current[2*step]);
-            result[2*step-1] = compute_flag * (u - v - next[2*step]);
+            result[2*step-2] = compute_flag * are_equal(u + v, current[2*step]);
+            result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
             // println!("lstep = {}, result postions = {} and {}", step, 2*step - 2, 2*step - 1);
             // println!("local omega = {:?}", periodic_values[step-1]);
             // println!("Result {} = {:?}", 2*step-2, result[2*step - 2]);
@@ -289,7 +273,6 @@ impl Air for FFTRapsAir {
         let omega = BaseElement::get_root_of_unity(fft_size_u32);
         // println!("In the periodic col generation");
         for step in 0..num_steps {
-            // println!("Step = {}", step);
             let m = 1 << (step+1);
             let m_u128: u128 = m.try_into().unwrap();
             let mut local_omega_col = vec![BaseElement::ONE; m];
@@ -310,29 +293,3 @@ impl Air for FFTRapsAir {
 
 // HELPER EVALUATORS
 // ------------------------------------------------------------------------------------------------
-
-/// when flag = 1, enforces that the next state of the computation is defined like so:
-/// - the first two registers are equal to the values from the previous step
-/// - the other two registers are not restrained, they could be arbitrary elements,
-///   until the RAP columns enforces that they are a permutation of the two final registers
-///   of the other parallel chain
-fn enforce_hash_copy<E: FieldElement>(result: &mut [E], current: &[E], next: &[E], flag: E) {
-    result.agg_constraint(0, flag, are_equal(current[0], next[0]));
-    result.agg_constraint(1, flag, are_equal(current[1], next[1]));
-    result.agg_constraint(2, flag, are_equal(current[2], next[2]));
-    result.agg_constraint(3, flag, are_equal(current[3], next[3]));
-}
-
-// fn compute_omega_for_row_and_col<E: FieldElement>(row: E, col: usize, fft_size: usize, omega: E) {
-//     assert_eq!(col % 2, 1, "Only odd columns perform FFT ops");
-//     let step = <E as FieldElement>::as_base_elements(&[row])[0].as_int(); 
-//     assert_eq!(, 1, "Only odd rows show compute the omega");
-//     let m = 1 << ((col + 1)/2);
-//     let fft_size_u128: u128 = fft_size.try_into().unwrap();
-//     let m = 1 << ((step + 1)/2);
-//     let m_u128: u128 = m.try_into().unwrap();
-//     let local_omega = omega.exp(fft_size_u128/m_u128);
-
-
-
-// }

@@ -256,7 +256,8 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
             aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
         }
 
-        Some(Matrix::new(aux_columns))
+        Some(Matrix::new(aux_columns));
+        None
     }
 }
 

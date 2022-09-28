@@ -221,7 +221,7 @@ impl TraceLayout {
                 num_rand_elements
             );
         }
-
+        println!("Num aux segs = {}", num_aux_segments);
         Self {
             main_segment_width: main_width,
             aux_segment_widths: aux_widths,

@@ -32,7 +32,7 @@ mod tests;
 
 const CYCLE_LENGTH: usize = 16;
 const NUM_HASH_ROUNDS: usize = 14;
-const TRACE_WIDTH: usize = 4 * 2;
+
 
 // RESCUE SPLIT HASH CHAIN EXAMPLE
 // ================================================================================================
@@ -40,7 +40,7 @@ const TRACE_WIDTH: usize = 4 * 2;
 pub fn get_example(options: ExampleOptions, num_fft_inputs: usize) -> Box<dyn Example> {
     Box::new(FFTRapsExample::new(
         num_fft_inputs,
-        options.to_proof_options(42, 4),
+        options.to_proof_options(42, 8),
     ))
 }
 
@@ -67,15 +67,15 @@ impl FFTRapsExample {
 
         // compute the sequence of hashes using external implementation of Rescue hash
         let now = Instant::now();
-        // TODO #1 write and test a plain fft computation here
-        let result = vec![BaseElement::ZERO; num_fft_inputs as usize];
+        let omega = BaseElement::get_root_of_unity(num_fft_inputs.try_into().unwrap());
+        let result = simple_iterative_fft(fft_inputs.clone(), omega);
         debug!(
             "Computed fft of {} inputs in {} ms",
             num_fft_inputs,
             now.elapsed().as_millis(),
         );
 
-        let omega = BaseElement::get_root_of_unity(num_fft_inputs.try_into().unwrap());
+        
 
         FFTRapsExample {
             options,
@@ -115,10 +115,7 @@ impl Example for FFTRapsExample {
             now.elapsed().as_millis()
         );
         let mut last_trace_col = vec![BaseElement::ONE; trace_length];
-        trace.read_col_into(trace.width() - 2, &mut last_trace_col);
-        let simple_fft_output = simple_iterative_fft(fft_in, self.omega);
-        println!("Last col of the fft section of the trace:\n{:?}", last_trace_col);
-        println!("Simple fft output:\n{:?}", simple_fft_output);
+        trace.read_col_into(FFTRapsProver::get_results_col_idx(self.num_fft_inputs), &mut last_trace_col);
         // generate the proof
         prover.prove(trace).unwrap()
     }
@@ -278,14 +275,12 @@ fn apply_fft_calculation(state: &mut [BaseElement], step: usize, omega: BaseElem
         omegas.push(power_of_omega);
         power_of_omega *= local_omega;
     }
-
     for i in 0..fft_size/2 {
         let curr_omega = omegas[i % (m/2)];
         let u = state[2*i];
         let v = state[2*i+1] * curr_omega;
         state[2*i] = u + v;
         state[2*i + 1] = u - v;
-        println!("Step {}, i = {}, omega = {:?}", step, i, curr_omega);
     }
 }
 

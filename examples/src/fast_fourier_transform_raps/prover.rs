@@ -24,7 +24,7 @@ impl FFTRapsProver {
     pub fn new(options: ProofOptions) -> Self {
         Self { options }
     }
-    // TODO #2 is to implement this function
+
     pub fn build_trace(
         &self,
         omega: BaseElement,
@@ -49,7 +49,6 @@ impl FFTRapsProver {
             },
             |step, state| {
                 // execute the transition function for all steps
-                println!("Step number = {}", step);
                 match step % 2 {
                     // For each even step, we would like to permute the previous col depending on what the step number is.
                     0 => {
@@ -74,7 +73,6 @@ impl FFTRapsProver {
                             apply_fft_calculation(state, step, omega);
                         }
                         else {
-                            println!("Here in filling indices and step is = {}", step);
                             fill_fft_indices(state);
                         }
                         
@@ -85,13 +83,16 @@ impl FFTRapsProver {
             },
         );
 
-        // debug_assert_eq!(trace.get(0, trace_length - 1), result[0][0]);
-        // debug_assert_eq!(trace.get(1, trace_length - 1), result[0][1]);
-
-        // debug_assert_eq!(trace.get(4, trace_length - 1), result[1][0]);
-        // debug_assert_eq!(trace.get(5, trace_length - 1), result[1][1]);
+        for row in 0..trace_length {
+            debug_assert_eq!(trace.get(Self::get_results_col_idx(trace_length), row), result[row]);
+        }
 
         trace
+    }
+
+    pub(crate) fn get_results_col_idx(num_fft_inputs: usize) -> usize {
+        let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
+        2*log_trace_length + 1
     }
 }
 
@@ -101,25 +102,17 @@ impl Prover for FFTRapsProver {
     type Trace = FFTTraceTable<BaseElement>;
 
     fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
-        let last_fft_state = trace.width() - 2;
+        let last_fft_state = Self::get_results_col_idx(trace.length());
         let num_inputs = trace.length();
-        println!("\nTrace len = {}\n", num_inputs);
         let mut fft_input_vec = vec![BaseElement::ONE; num_inputs];
         trace.read_col_into(0, &mut fft_input_vec);
         let mut fft_output_vec = vec![BaseElement::ONE; num_inputs];
         trace.read_col_into(last_fft_state, &mut fft_output_vec);
-        // PublicInputs {
-        //     result: [
-        //         [trace.get(0, last_step), trace.get(1, last_step)],
-        //         [trace.get(4, last_step), trace.get(5, last_step)],
-        //     ],
-        // }
         PublicInputs {
             num_inputs,
             fft_inputs: fft_input_vec,
             result: fft_output_vec,
         }
-        // unimplemented!()
     }
 
     fn options(&self) -> &ProofOptions {
