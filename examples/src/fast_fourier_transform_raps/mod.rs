@@ -3,7 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use crate::{Example, ExampleOptions};
+use crate::{Example, ExampleOptions, fast_fourier_transform_raps::prover::get_results_col_idx};
 use log::debug;
 use rand_utils::rand_array;
 use core::num;
@@ -115,7 +115,7 @@ impl Example for FFTRapsExample {
             now.elapsed().as_millis()
         );
         let mut last_trace_col = vec![BaseElement::ONE; trace_length];
-        trace.read_col_into(FFTRapsProver::get_results_col_idx(self.num_fft_inputs), &mut last_trace_col);
+        trace.read_col_into(get_results_col_idx(self.num_fft_inputs), &mut last_trace_col);
         // generate the proof
         prover.prove(trace).unwrap()
     }

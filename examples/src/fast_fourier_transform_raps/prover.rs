@@ -84,16 +84,12 @@ impl FFTRapsProver {
         );
 
         for row in 0..trace_length {
-            debug_assert_eq!(trace.get(Self::get_results_col_idx(trace_length), row), result[row]);
+            debug_assert_eq!(trace.get(get_results_col_idx(trace_length), row), result[row]);
         }
 
         trace
     }
 
-    pub(crate) fn get_results_col_idx(num_fft_inputs: usize) -> usize {
-        let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
-        2*log_trace_length + 1
-    }
 }
 
 impl Prover for FFTRapsProver {
@@ -102,7 +98,7 @@ impl Prover for FFTRapsProver {
     type Trace = FFTTraceTable<BaseElement>;
 
     fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
-        let last_fft_state = Self::get_results_col_idx(trace.length());
+        let last_fft_state = get_results_col_idx(trace.length());
         let num_inputs = trace.length();
         let mut fft_input_vec = vec![BaseElement::ONE; num_inputs];
         trace.read_col_into(0, &mut fft_input_vec);
@@ -120,3 +116,12 @@ impl Prover for FFTRapsProver {
     }
 }
 
+pub(crate) fn get_results_col_idx(num_fft_inputs: usize) -> usize {
+    let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
+    2*log_trace_length + 1
+}
+
+pub(crate) fn get_num_cols(num_fft_inputs: usize) -> usize {
+    let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
+    2*log_trace_length + 3
+}

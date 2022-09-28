@@ -6,7 +6,7 @@
 use std::{convert::TryInto};
 
 use super::{
-    BaseElement, ExtensionOf, FieldElement, ProofOptions,
+    BaseElement, ExtensionOf, FieldElement, ProofOptions, prover::{get_num_cols, get_results_col_idx},
 };
 use crate::utils::{are_equal, not, EvaluationResult};
 use winterfell::{
@@ -50,8 +50,7 @@ impl Air for FFTRapsAir {
             main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
             main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
         }
-        //vec![TransitionConstraintDegree::new(2); 2*num_fft_steps];
-        // println!("Main degrees = {:?}", main_degrees);
+        main_degrees.push(TransitionConstraintDegree::new(1));
         let aux_degrees = vec![];
         // let aux_degrees = vec![
         //     TransitionConstraintDegree::new(1);
@@ -77,7 +76,7 @@ impl Air for FFTRapsAir {
                 trace_info,
                 main_degrees,
                 aux_degrees,
-                1,//2*pub_inputs.fft_inputs.len(),
+                2*pub_inputs.fft_inputs.len()+1,
                 0,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
@@ -101,6 +100,7 @@ impl Air for FFTRapsAir {
 
         debug_assert_eq!(next.len(), current.len());
         let num_steps: usize = log2(self.fft_inputs.len()).try_into().unwrap();
+        let last_col = get_num_cols(self.fft_inputs.len()) - 1;
         // You'll actually only check constraints at even steps, at odd steps you don't do anything
         let compute_flag = periodic_values[num_steps];
         for step in 1..num_steps+1 {
@@ -110,63 +110,10 @@ impl Air for FFTRapsAir {
             
             result[2*step-2] = compute_flag * are_equal(u + v, current[2*step]);
             result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
-            // println!("lstep = {}, result postions = {} and {}", step, 2*step - 2, 2*step - 1);
-            // println!("local omega = {:?}", periodic_values[step-1]);
-            // println!("Result {} = {:?}", 2*step-2, result[2*step - 2]);
-            // println!("Result {} = {:?}", 2*step-1, result[2*step - 1]);
+
         }
-        // println!("Result for step {:?} = {:?}", current[current.len() - 1], result);
-
-        // // split periodic values into hash_flag, absorption flag and Rescue round constants
-        // let hash_flag = periodic_values[0];
-        // let absorption_flag = periodic_values[1];
-        // let ark = &periodic_values[2..];
-
-        // // when hash_flag = 1, constraints for Rescue round are enforced (steps 0 to 14)
-        // rescue::enforce_round(
-        //     &mut result[..STATE_WIDTH],
-        //     &current[..STATE_WIDTH],
-        //     &next[..STATE_WIDTH],
-        //     ark,
-        //     hash_flag,
-        // );
-
-        // rescue::enforce_round(
-        //     &mut result[STATE_WIDTH..],
-        //     &current[STATE_WIDTH..],
-        //     &next[STATE_WIDTH..],
-        //     ark,
-        //     hash_flag,
-        // );
-
-        // // When absorbing the additional seeds (step 14), we do not verify correctness of the
-        // // rate registers. Instead, we only verify that capacity registers have not
-        // // changed. When computing the permutation argument, we will recompute the permuted
-        // // values from the contiguous rows.
-        // // At step 15, we enforce that the whole hash states are copied to the next step,
-        // // enforcing that the values added to the capacity registers at step 14 and used in the
-        // // permutation argument are the ones being used in the next hashing sequence.
-        // result.agg_constraint(2, absorption_flag, are_equal(current[2], next[2]));
-        // result.agg_constraint(3, absorption_flag, are_equal(current[3], next[3]));
-
-        // result.agg_constraint(6, absorption_flag, are_equal(current[6], next[6]));
-        // result.agg_constraint(7, absorption_flag, are_equal(current[7], next[7]));
-
-        // // when hash_flag + absorption_flag = 0, constraints for copying hash values to the
-        // // next step are enforced.
-        // let copy_flag = not(hash_flag + absorption_flag);
-        // enforce_hash_copy(
-        //     &mut result[..STATE_WIDTH],
-        //     &current[..STATE_WIDTH],
-        //     &next[..STATE_WIDTH],
-        //     copy_flag,
-        // );
-        // enforce_hash_copy(
-        //     &mut result[STATE_WIDTH..],
-        //     &current[STATE_WIDTH..],
-        //     &next[STATE_WIDTH..],
-        //     copy_flag,
-        // );
+        result[2*num_steps] = are_equal(current[last_col] + E::ONE , next[last_col]);
+        
     }
 
     fn evaluate_aux_transition<F, E>(
@@ -189,7 +136,7 @@ impl Air for FFTRapsAir {
 
         // let random_elements = aux_rand_elements.get_segment_elements(0);
 
-        // let absorption_flag = periodic_values[1];
+        
 
         // // We want to enforce that the absorbed values of the first hash chain are a
         // // permutation of the absorbed values of the second one. Because we want to
@@ -247,9 +194,18 @@ impl Air for FFTRapsAir {
         //     // Assertion::single(4, last_step, self.result[1][0]),
         //     // Assertion::single(5, last_step, self.result[1][1]),
         // ]
-        vec![
-            Assertion::single(0, 0, self.fft_inputs[0]),
-        ]
+        let num_cols = get_num_cols(self.fft_inputs.len());
+        let results_col = get_results_col_idx(self.fft_inputs.len());
+        let mut assertions = vec![
+            Assertion::single(num_cols - 1, 0, BaseElement::ZERO)
+        ];
+        for (row, &val) in self.fft_inputs.iter().enumerate() {
+            assertions.push(Assertion::single(0, row, val))
+        }
+        for (row, &val) in self.result.iter().enumerate() {
+            assertions.push(Assertion::single(results_col, row, val))
+        }
+        assertions
     }
 
     fn get_aux_assertions<E: FieldElement + From<Self::BaseField>>(
