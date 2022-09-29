@@ -127,7 +127,7 @@ impl Air for FFTRapsAir {
         F: FieldElement<BaseField = Self::BaseField>,
         E: FieldElement<BaseField = Self::BaseField> + ExtensionOf<F>,
     {
-        return;
+        
         // let main_current = main_frame.current();
         // let main_next = main_frame.next();
 
@@ -136,7 +136,7 @@ impl Air for FFTRapsAir {
 
         // let random_elements = aux_rand_elements.get_segment_elements(0);
 
-        
+        return;
 
         // // We want to enforce that the absorbed values of the first hash chain are a
         // // permutation of the absorbed values of the second one. Because we want to
@@ -179,29 +179,18 @@ impl Air for FFTRapsAir {
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
-        // Assert starting and ending values of the hash chain
-        // let last_step = self.trace_length() - 1;
-        // vec![
-        //     // Initial capacity registers must be set to zero
-        //     Assertion::single(2, 0, BaseElement::ZERO),
-        //     Assertion::single(3, 0, BaseElement::ZERO),
-        //     Assertion::single(6, 0, BaseElement::ZERO),
-        //     Assertion::single(7, 0, BaseElement::ZERO),
-        //     // // Final rate registers (digests) should be equal to
-        //     // // the provided public input
-        //     // Assertion::single(0, last_step, self.result[0][0]),
-        //     // Assertion::single(1, last_step, self.result[0][1]),
-        //     // Assertion::single(4, last_step, self.result[1][0]),
-        //     // Assertion::single(5, last_step, self.result[1][1]),
-        // ]
         let num_cols = get_num_cols(self.fft_inputs.len());
         let results_col = get_results_col_idx(self.fft_inputs.len());
+        
+        // The last column should just keep a count of where you are.
         let mut assertions = vec![
             Assertion::single(num_cols - 1, 0, BaseElement::ZERO)
         ];
+        // The 0th column just includes fft inputs.
         for (row, &val) in self.fft_inputs.iter().enumerate() {
             assertions.push(Assertion::single(0, row, val))
         }
+        // The second-to-last column is where the fft outputs are written down.
         for (row, &val) in self.result.iter().enumerate() {
             assertions.push(Assertion::single(results_col, row, val))
         }
@@ -246,6 +235,14 @@ impl Air for FFTRapsAir {
         result
     }
 }
+
+
+fn get_permuted_location_bit_rev<E: FieldElement + From<BaseElement>>(fft_size: usize, step: E) -> E {
+    let step_base_elt = E::as_base_elements(&[step])[0];
+    unimplemented!()
+}
+
+
 
 // HELPER EVALUATORS
 // ------------------------------------------------------------------------------------------------

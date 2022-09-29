@@ -10,6 +10,7 @@ use winterfell::{
 };
 
 pub mod rescue;
+pub mod fast_fourier_transform;
 
 // CONSTRAINT EVALUATION HELPERS
 // ================================================================================================
