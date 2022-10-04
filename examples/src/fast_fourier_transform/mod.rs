@@ -3,7 +3,8 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use crate::{Example, ExampleOptions, fast_fourier_transform_raps::prover::get_results_col_idx, utils::fast_fourier_transform::bit_reverse};
+use crate::{Example, ExampleOptions, utils::fast_fourier_transform::bit_reverse};
+use prover::get_results_col_idx;
 use log::debug;
 use rand_utils::rand_array;
 use core::num;
@@ -15,16 +16,15 @@ use winterfell::{
 
 use crate::utils::fast_fourier_transform::simple_iterative_fft;
 
-mod custom_trace_table;
-pub use custom_trace_table::FFTTraceTable;
+pub use winterfell::TraceTable;
 
 use super::rescue::rescue::{self, STATE_WIDTH};
 
 mod air;
-use air::{PublicInputs, FFTRapsAir};
+use air::{PublicInputs, FFTAir};
 
 mod prover;
-use prover::FFTRapsProver;
+use prover::FFTProver;
 
 #[cfg(test)]
 mod tests;
@@ -40,13 +40,13 @@ const NUM_HASH_ROUNDS: usize = 14;
 // ================================================================================================
 
 pub fn get_example(options: ExampleOptions, num_fft_inputs: usize) -> Box<dyn Example> {
-    Box::new(FFTRapsExample::new(
+    Box::new(FFTExample::new(
         num_fft_inputs,
         options.to_proof_options(42, 8),
     ))
 }
 
-pub struct FFTRapsExample {
+pub struct FFTExample {
     options: ProofOptions,
     omega: BaseElement,
     num_fft_inputs: usize,
@@ -54,8 +54,8 @@ pub struct FFTRapsExample {
     result: Vec<BaseElement>,
 }
 
-impl FFTRapsExample {
-    pub fn new(num_fft_inputs: usize, options: ProofOptions) -> FFTRapsExample {
+impl FFTExample {
+    pub fn new(num_fft_inputs: usize, options: ProofOptions) -> FFTExample {
         assert!(
             num_fft_inputs.is_power_of_two(),
             "number of inputs for fft must a power of 2"
@@ -79,7 +79,7 @@ impl FFTRapsExample {
 
         
 
-        FFTRapsExample {
+        FFTExample {
             options,
             omega,
             num_fft_inputs,
@@ -92,7 +92,7 @@ impl FFTRapsExample {
 // EXAMPLE IMPLEMENTATION
 // ================================================================================================
 
-impl Example for FFTRapsExample {
+impl Example for FFTExample {
     fn prove(&self) -> StarkProof {
         // generate the execution trace
         debug!(
@@ -100,24 +100,9 @@ impl Example for FFTRapsExample {
             ---------------------",
             self.num_fft_inputs
         );
-        // for i in 1..5 {
-        //     println!("\n Running bit rev for {} bits", i);
-        //     let num_bits = i;
-        //     let max_int = 1 << i;
-        //     for j in 0..max_int {
-        //         println!("Bit rev {} = {:?}", j, bit_reverse(j, num_bits));
-        //     }
-        // }
 
-        // for step in 1..5 {
-        //     println!("\nRunning fft permutation for step {}", step);
-        //     let perm_loc = get_fft_permutation_loc(16, step);
-        //     for j in 0..16 {
-        //         println!("Location {} maps to {:?}", j, perm_loc[j]);
-        //     }
-        // }
         // create a prover
-        let prover = FFTRapsProver::new(self.options.clone());
+        let prover = FFTProver::new(self.options.clone());
 
         let fft_in = self.fft_inputs.clone();
 
@@ -132,7 +117,7 @@ impl Example for FFTRapsExample {
             now.elapsed().as_millis()
         );
         let mut last_trace_col = vec![BaseElement::ONE; trace_length];
-        trace.read_col_into(get_results_col_idx(self.num_fft_inputs), &mut last_trace_col);
+        trace.read_row_into(get_results_col_idx(self.num_fft_inputs), &mut last_trace_col);
         // generate the proof
         prover.prove(trace).unwrap()
     }
@@ -143,14 +128,14 @@ impl Example for FFTRapsExample {
             num_inputs: self.num_fft_inputs,
             fft_inputs: self.fft_inputs.clone(),
         };
-        winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
+        winterfell::verify::<FFTAir>(proof, pub_inputs)
     }
 
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
         // let pub_inputs = PublicInputs {
         //     result: [self.result[1], self.result[0]],
         // };
-        // winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
+        // winterfell::verify::<FFTAir>(proof, pub_inputs)
         // unimplemented!()
         Ok(())
     }
@@ -198,20 +183,6 @@ fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     for i in 0..fft_size {
         state[i] = next_state[i];
     }
-}
-
-fn get_fft_permutation_loc(fft_size: usize, step: usize) -> Vec<usize> {
-    let jump = (1 << step)/2;
-    let num_ranges = fft_size / (2*jump);
-    let mut perm_locs = vec![0; fft_size];
-    for k in 0..num_ranges {
-        let start_of_range = k * 2 * jump;
-        for j in 0..jump {
-            perm_locs[start_of_range + 2*j] = start_of_range + j;
-            perm_locs[start_of_range + 2*j + 1] = start_of_range + j + jump;
-        }
-    }
-    perm_locs
 }
 
 fn apply_fft_inv_permutation(state: &mut [BaseElement], step: usize) {

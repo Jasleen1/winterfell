@@ -9,6 +9,8 @@ use winterfell::{
     EvaluationFrame, Matrix, Trace, TraceInfo, TraceLayout,
 };
 
+use super::{air::FFTRapsAir, prover::{FFTRapsProver, get_num_cols}};
+
 // RAP TRACE TABLE
 // ================================================================================================
 /// A concrete implementation of the [Trace] trait supporting custom RAPs.
@@ -98,7 +100,7 @@ impl<B: StarkField> FFTTraceTable<B> {
         );
 
         let columns = unsafe { (0..width).map(|_| uninit_vector(length)).collect() };
-        let num_aux_vals = Self::get_aux_col_len_fft(width);
+        let num_aux_vals = Self::get_aux_col_width_fft(width);
         let num_aux_rands = Self::get_num_rand_fft(width);
         Self {
             layout: TraceLayout::new(width, [num_aux_vals], [num_aux_rands]),
@@ -109,16 +111,16 @@ impl<B: StarkField> FFTTraceTable<B> {
 
     // We want to show that the column for each fft step was permuted correctly  
     // Keeping a column with step numbers for now.
-    fn get_aux_col_len_fft(width: usize) -> usize {
+    fn get_aux_col_width_fft(width: usize) -> usize {
         // width - 2
-        0
+        3
     }
 
     // We want to show that the column for each fft step was permuted correctly,
     // so we'll want terms like alpha_0 * loc(col, step) + alpha_1 * val(col, step) + gamma   
     fn get_num_rand_fft(width: usize) -> usize {
         // 3 * (width - 2)
-        0
+        3
     }
 
     // DATA MUTATORS
@@ -222,42 +224,51 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         if !aux_segments.is_empty() {
             return None;
         }
-
+        let fft_width = get_num_cols(self.length());
         let mut current_row = unsafe { uninit_vector(self.width()) };
-        let mut next_row = unsafe { uninit_vector(self.width()) };
+        // let mut next_row = unsafe { uninit_vector(self.width()) };
         self.read_row_into(0, &mut current_row);
         let mut aux_columns = vec![vec![E::ZERO; self.length()]; self.aux_trace_width()];
 
         // Columns storing the copied values for the permutation argument are not necessary, but
         // help understanding the construction of RAPs and are kept for illustrative purposes.
         aux_columns[0][0] =
-            rand_elements[0] * current_row[0].into() + rand_elements[1] * current_row[1].into();
+            rand_elements[0] * current_row[0].into() + rand_elements[1] * current_row[fft_width-1].into();
         aux_columns[1][0] =
-            rand_elements[0] * current_row[4].into() + rand_elements[1] * current_row[5].into();
+            rand_elements[0] * current_row[1].into() + rand_elements[1] * current_row[fft_width-2].into();
+        
+        println!("Current row 0 = {:?}, second last val {:?}", current_row[0], current_row[fft_width - 2]);
+        println!("Current row 1 = {:?}, last val {:?}", current_row[1], current_row[fft_width - 1]);
 
         // Permutation argument column
         aux_columns[2][0] = E::ONE;
 
         for index in 1..self.length() {
-            // At every last step before a new hash iteration,
-            // copy the permuted values into the auxiliary columns
-            if (index % super::CYCLE_LENGTH) == super::NUM_HASH_ROUNDS {
-                self.read_row_into(index, &mut current_row);
-                self.read_row_into(index + 1, &mut next_row);
-
-                aux_columns[0][index] = rand_elements[0] * (next_row[0] - current_row[0]).into()
-                    + rand_elements[1] * (next_row[1] - current_row[1]).into();
-                aux_columns[1][index] = rand_elements[0] * (next_row[4] - current_row[4]).into()
-                    + rand_elements[1] * (next_row[5] - current_row[5]).into();
-            }
+            
+            self.read_row_into(index, &mut current_row);
+            // self.read_row_into(index + 1, &mut next_row);
+            println!("Current row 0 = {:?}, second last val {:?}", current_row[0], current_row[fft_width - 2]);
+            println!("Current row 1 = {:?}, last val {:?}", current_row[1], current_row[fft_width - 1]);
+            aux_columns[0][index] =
+                rand_elements[0] * current_row[0].into() + rand_elements[1] * current_row[fft_width-2].into();
+            aux_columns[1][index] =
+                rand_elements[0] * current_row[1].into() + rand_elements[1] * current_row[fft_width-1].into();
+            
 
             let num = aux_columns[0][index - 1] + rand_elements[2];
             let denom = aux_columns[1][index - 1] + rand_elements[2];
+
+            println!("Num = {:?}", num);
+            println!("Denom = {:?}", denom);
+
             aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
         }
 
-        Some(Matrix::new(aux_columns));
-        None
+        let last_num = aux_columns[0][self.length() - 1] + rand_elements[2];
+        let last_denom = aux_columns[1][self.length() - 1] + rand_elements[2];
+        let final_val = aux_columns[2][self.length() - 1] * last_num * last_denom.inv();
+        println!("Final val = {:?}, equal to 1 {}", final_val, final_val == E::ONE);
+        Some(Matrix::new(aux_columns))
     }
 }
 

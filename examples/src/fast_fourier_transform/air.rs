@@ -3,8 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use core::num;
-use std::{convert::TryInto, thread::current};
+use std::{convert::TryInto};
 
 use super::{
     BaseElement, ExtensionOf, FieldElement, ProofOptions, prover::{get_num_cols, get_results_col_idx},
@@ -32,13 +31,13 @@ impl Serializable for PublicInputs {
     }
 }
 
-pub struct FFTRapsAir {
+pub struct FFTAir {
     context: AirContext<BaseElement>,
     fft_inputs: Vec<BaseElement>,
     result: Vec<BaseElement>,
 }
 
-impl Air for FFTRapsAir {
+impl Air for FFTAir {
     type BaseField = BaseElement;
     type PublicInputs = PublicInputs;
 
@@ -52,21 +51,14 @@ impl Air for FFTRapsAir {
             main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
         }
         main_degrees.push(TransitionConstraintDegree::new(1));
-        // The constraints for the reverse perm columns
-        main_degrees.push(TransitionConstraintDegree::new(1));
-        main_degrees.push(TransitionConstraintDegree::new(1));
-        let aux_degrees = vec![
-            TransitionConstraintDegree::new(1), 
-            TransitionConstraintDegree::new(1), 
-            TransitionConstraintDegree::new(2),
-        ];
+        let aux_degrees = vec![];
         // let aux_degrees = vec![
         //     TransitionConstraintDegree::new(1);
         //     (pub_inputs.fft_inputs.len()-3)/2
         // ];
         // let log_num_inputs: usize = log2(pub_inputs.fft_inputs.len()).try_into().unwrap();
         // assert_eq!(2*log_num_inputs + 3, trace_info.width());
-        // FFTRapsAir {
+        // FFTAir {
         //     context: AirContext::new_multi_segment(
         //         trace_info,
         //         main_degrees,
@@ -79,13 +71,13 @@ impl Air for FFTRapsAir {
         //     result: pub_inputs.result,
         // }
         
-        FFTRapsAir {
+        FFTAir {
             context: AirContext::new_multi_segment(
                 trace_info,
                 main_degrees,
                 aux_degrees,
                 2*pub_inputs.fft_inputs.len()+1,
-                2,//pub_inputs.fft_inputs.len()-3,
+                0,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
             fft_inputs: pub_inputs.fft_inputs,
@@ -120,9 +112,7 @@ impl Air for FFTRapsAir {
             result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
 
         }
-        result[2*num_steps] = are_equal(current[last_col- 1] + E::ONE , next[last_col - 1]);
-        // println!("Periodic val = {:?}", periodic_values[num_steps+1]);
-        self.evaluate_rev_perm(frame, &periodic_values.clone(), result, last_col);
+        result[2*num_steps] = are_equal(current[last_col] + E::ONE , next[last_col]);
         
     }
 
@@ -138,15 +128,15 @@ impl Air for FFTRapsAir {
         E: FieldElement<BaseField = Self::BaseField> + ExtensionOf<F>,
     {
         
-        let main_current = main_frame.current();
-        let main_next = main_frame.next();
+        // let main_current = main_frame.current();
+        // let main_next = main_frame.next();
 
-        let aux_current = aux_frame.current();
-        let aux_next = aux_frame.next();
+        // let aux_current = aux_frame.current();
+        // let aux_next = aux_frame.next();
 
-        let random_elements = aux_rand_elements.get_segment_elements(0);
-        
-        let fft_width = get_num_cols(self.fft_inputs.len());
+        // let random_elements = aux_rand_elements.get_segment_elements(0);
+
+        return;
 
         // // We want to enforce that the absorbed values of the first hash chain are a
         // // permutation of the absorbed values of the second one. Because we want to
@@ -159,25 +149,33 @@ impl Air for FFTRapsAir {
         // // auxiliary one. For the sake of illustrating RAPs behaviour, we will store
         // // the computed values in additional columns.
 
-        let copied_value_1 = random_elements[0] * (main_current[0]).into()
-            + random_elements[1] * (main_current[fft_width - 2]).into();
+        // let copied_value_1 = random_elements[0] * (main_next[0] - main_current[0]).into()
+        //     + random_elements[1] * (main_next[1] - main_current[1]).into();
 
-        result[0] = are_equal(aux_current[0], copied_value_1);
+        // result.agg_constraint(
+        //     0,
+        //     absorption_flag.into(),
+        //     are_equal(aux_current[0], copied_value_1),
+        // );
 
-        let copied_value_2 = random_elements[0] * (main_current[1]).into()
-            + random_elements[1] * (main_current[fft_width - 1]).into();
+        // let copied_value_2 = random_elements[0] * (main_next[4] - main_current[4]).into()
+        //     + random_elements[1] * (main_next[5] - main_current[5]).into();
 
-        result[1] = are_equal(aux_current[1], copied_value_2);
-        
-        // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
-        result.agg_constraint(
-            2,
-            E::ONE,
-            are_equal(
-                aux_next[2] * (aux_current[1] + random_elements[2]),
-                aux_current[2] * (aux_current[0] + random_elements[2]),
-            ),
-        );
+        // result.agg_constraint(
+        //     1,
+        //     absorption_flag.into(),
+        //     are_equal(aux_current[1], copied_value_2),
+        // );
+
+        // // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
+        // result.agg_constraint(
+        //     2,
+        //     E::ONE,
+        //     are_equal(
+        //         aux_next[2] * (aux_current[1] + random_elements[2]),
+        //         aux_current[2] * (aux_current[0] + random_elements[2]),
+        //     ),
+        // );
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -186,7 +184,7 @@ impl Air for FFTRapsAir {
         
         // The last column should just keep a count of where you are.
         let mut assertions = vec![
-            Assertion::single(num_cols - 2, 0, BaseElement::ZERO)
+            Assertion::single(num_cols - 1, 0, BaseElement::ZERO)
         ];
         // The 0th column just includes fft inputs.
         for (row, &val) in self.fft_inputs.iter().enumerate() {
@@ -203,12 +201,12 @@ impl Air for FFTRapsAir {
         &self,
         _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
-        let last_step = self.trace_length() - 1;
-        vec![
-            Assertion::single(2, 0, E::ONE),
-            Assertion::single(2, last_step, E::ONE),
-        ]
-        // vec![]
+        // let last_step = self.trace_length() - 1;
+        // vec![
+        //     Assertion::single(2, 0, E::ONE),
+        //     Assertion::single(2, last_step, E::ONE),
+        // ]
+        vec![]
     }
 
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
@@ -218,8 +216,7 @@ impl Air for FFTRapsAir {
         let num_steps: usize = log2(fft_size).try_into().unwrap();
         let mut result = Vec::<Vec::<BaseElement>>::new();
         let omega = BaseElement::get_root_of_unity(fft_size_u32);
-        // We want to make sure we arrange it so that the appropriate omega can get multiplied.
-        // Since the transition constraint must be identical at each step, 
+        // println!("In the periodic col generation");
         for step in 0..num_steps {
             let m = 1 << (step+1);
             let m_u128: u128 = m.try_into().unwrap();
@@ -235,73 +232,17 @@ impl Air for FFTRapsAir {
         // println!("\n ******** \n");
         let flags = vec![BaseElement::ONE,BaseElement::ZERO];
         result.push(flags);
-
-        // These are periodic assertions to such that the next num_steps 
-        // columns together represent the bit decomposition of the field elts 0-fft_size 
-        let mut start_zeros = fft_size/2;
-        for _ in 1..num_steps+1 {
-            // For each bit in the indices of FFT inputs
-            let mut bit_vec = vec![BaseElement::ZERO; start_zeros];
-            let mut one_bit_vec = vec![BaseElement::ONE; start_zeros];
-            bit_vec.append(&mut one_bit_vec);
-            result.push(bit_vec);
-            start_zeros = start_zeros / 2;
-        }
-        // println!("Length of results vector {}", result.len());
-        // println!("Next val in result {:?}", result[num_steps+1]);
         result
     }
 }
 
-impl FFTRapsAir {
-    fn evaluate_rev_perm<E: FieldElement + From<<Self as Air>::BaseField>>(
-        &self,
-        frame: &EvaluationFrame<E>,
-        periodic_values: &[E],
-        result: &mut [E],
-        last_col: usize,
-    ) {
-        let current = frame.current();
-        let num_steps: usize = log2(self.fft_inputs.len()).try_into().unwrap();
-        // result[num_steps+1] = 
-        let mut backward_sum = E::ZERO;
-        let mut forward_sum = E::ZERO;
-        let mut backward_counter: u64 = 0;
-        let mut forward_counter: u64 = num_steps.try_into().unwrap();
-        for loc in num_steps+1..2*num_steps+1 {
-            // Want to make sure we don't go below 0, 
-            // so we subtract at the start of the loop iteration instead 
-            // of starting at num_steps - 1.
-            forward_counter = forward_counter - 1;
-            let forward_pow = <E as FieldElement>::PositiveInteger::from(backward_counter);
-            backward_sum = backward_sum + (periodic_values[loc] * E::from(2u128).exp(forward_pow));
-            let backward_pow = <E as FieldElement>::PositiveInteger::from(forward_counter);
-            forward_sum = forward_sum + (periodic_values[loc] * E::from(2u128).exp(backward_pow));
-            backward_counter = backward_counter + 1;
-        }
-        result[2*num_steps + 1] = are_equal(forward_sum, current[last_col- 1]);
-        result[2*num_steps + 2] = are_equal(backward_sum, current[last_col]);
-    }
+
+fn get_permuted_location_bit_rev<E: FieldElement + From<BaseElement>>(fft_size: usize, step: E) -> E {
+    let step_base_elt = E::as_base_elements(&[step])[0];
+    unimplemented!()
 }
-
-
 
 
 
 // HELPER EVALUATORS
 // ------------------------------------------------------------------------------------------------
-
-
-/*
-x_i + perm(i)*gamma
-y_i + i*gamma
-*/
-
-/*
-X Y I J:=perm(i)
-constraint: j = perm(i)
-e: <E: FieldElement + From<E::BaseField>>
-TODO:
-- Is there a closed form (preferably algebraic) formula for checking the permutation at each step?
-If so, then use that for a constraint.
-*/
