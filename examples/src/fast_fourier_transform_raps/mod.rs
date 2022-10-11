@@ -185,6 +185,7 @@ fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
 fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     assert!(step % 2 == 0, "Only even steps have permuations");
     let fft_size = state.len();
+    println!("Step number = {}", step/2 + 1);
     let jump = (1 << (step/2 + 1))/2;
     let num_ranges = fft_size / (2*jump);
     let mut next_state = vec![BaseElement::ZERO; fft_size];
@@ -195,12 +196,41 @@ fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
             next_state[start_of_range + 2*j + 1] = state[start_of_range + j + jump];
         }
     }
+    if step == 2 {
+        println!("Original for step 1 = {:?}", state);
+        println!("perm for step 1 = {:?}", next_state);
+    }
     for i in 0..fft_size {
         state[i] = next_state[i];
     }
+    
 }
 
-fn get_fft_permutation_loc(fft_size: usize, step: usize) -> Vec<usize> {
+/// This function maps an integer j -> new_location(j) after applying the 
+/// permutation for the given fft step. Note that step here ranges from 
+/// 1-log(fft_size) (both included)
+fn get_fft_permutation_locs(fft_size: usize, step: usize) -> Vec<usize> {
+    assert!(step >= 1, "Step number must be at least 1");
+    assert!(1<<step <= fft_size, "Step number is upper bounded by log(fft_size");
+    let jump = (1 << step)/2;
+    let num_ranges = fft_size / (2*jump);
+    let mut perm_locs = vec![0; fft_size];
+    for k in 0..num_ranges {
+        let start_of_range = k * 2 * jump;
+        for j in 0..jump {
+            perm_locs[start_of_range + j] = start_of_range + 2*j;
+            perm_locs[start_of_range + j + jump] = start_of_range + 2*j + 1;
+        }
+    }
+    perm_locs
+}
+
+/// This function maps an integer new_location(j) -> j after applying the 
+/// permutation for the given fft step. Note that step here ranges from 
+/// 1-log(fft_size) (both included)
+fn get_fft_inv_permutation_locs(fft_size: usize, step: usize) -> Vec<usize> {
+    assert!(step >= 1, "Step number must be at least 1");
+    assert!(1<<step <= fft_size, "Step number is upper bounded by log(fft_size");
     let jump = (1 << step)/2;
     let num_ranges = fft_size / (2*jump);
     let mut perm_locs = vec![0; fft_size];

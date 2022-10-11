@@ -52,8 +52,8 @@ impl FFTRapsProver {
                 match step % 2 {
                     // For each even step, we would like to permute the previous col depending on what the step number is.
                     0 => {
-                        if step == 0 {
-                            // To do iteratative FFT, the first step is to apply this permutation.
+                        if step == 0 || step > last_permutation_step {
+                            // To do iteratative FFT, the first step (and the last step) is to apply this permutation.
                             apply_bit_rev_copy_permutation(state);
                         }
                         if step > 2 && step <= last_permutation_step  {
@@ -61,13 +61,10 @@ impl FFTRapsProver {
                             // together values that would have actually been far apart
                             apply_fft_inv_permutation(state, step);
                         }
-                        if step < last_permutation_step {
+                        if step >= 2 && step < last_permutation_step {
                             // Lay the values that are computed upon together, 
                             // next to each other
                             apply_fft_permutation(state, step);
-                        }
-                        if step > last_permutation_step {
-                            apply_bit_rev_copy_permutation(state);
                         }
                     },
                     // For each odd step, we would like to do the FFT operation with adjacent values.
@@ -129,3 +126,7 @@ pub(crate) fn get_num_cols(num_fft_inputs: usize) -> usize {
     2*log_trace_length + 4
 }
 
+pub(crate) fn get_num_steps(num_fft_inputs: usize) -> usize {
+    let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
+    log_trace_length
+}
