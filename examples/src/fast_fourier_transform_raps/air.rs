@@ -70,6 +70,15 @@ impl Air for FFTRapsAir {
             TransitionConstraintDegree::new(2),
         ];
 
+        for _ in 2..num_fft_steps + 1 {
+            let mut further_aux = vec![
+                TransitionConstraintDegree::new(1),
+                TransitionConstraintDegree::new(1),
+                TransitionConstraintDegree::new(2),
+            ];
+            aux_degrees.append(&mut further_aux);
+        }
+
         // for step in 0..num_fft_steps {
         //     let mut further_aux = vec![
         //         TransitionConstraintDegree::new(1),
@@ -201,6 +210,32 @@ impl Air for FFTRapsAir {
                 aux_current[2] * (aux_current[0] + random_elements[2]),
             ),
         );
+
+        for step in 2..num_steps + 1 {
+            let new_loc = main_current[fft_width - 2]
+                + (periodic_values[2 * num_steps + 5 * (step - 2) + 1])
+                - periodic_values[2 * num_steps + 5 * (step - 2) + 2]
+                + periodic_values[2 * num_steps + 5 * (step - 2) + 3];
+
+            let copied_value_1 = random_elements[0] * (main_current[3 * (step - 1) - 1]).into()
+                + random_elements[1] * (new_loc).into();
+            result[3 * (step - 1)] = are_equal(aux_current[3 * (step - 1)], copied_value_1);
+
+            let copied_value_2 = random_elements[0] * (main_current[3 * (step - 1)]).into()
+                + random_elements[1] * (main_current[fft_width - 2]).into();
+            result[3 * (step - 1) + 1] = are_equal(aux_current[3 * (step - 1) + 1], copied_value_2);
+
+            result.agg_constraint(
+                3 * (step - 1) + 2,
+                E::ONE,
+                are_equal(
+                    aux_next[3 * (step - 1) + 2]
+                        * (aux_current[3 * (step - 1) + 1] + random_elements[2]),
+                    aux_current[3 * (step - 1) + 2]
+                        * (aux_current[3 * (step - 1)] + random_elements[2]),
+                ),
+            );
+        }
         // println!("Periodic values: {:?}, {:?}, {:?}", periodic_values[2*num_steps + 1],
         // periodic_values[2*num_steps + 2], periodic_values[2*num_steps + 3]);
         // let new_loc = main_current[fft_width - 2]
@@ -358,7 +393,6 @@ impl Air for FFTRapsAir {
             result.push(bit_vec);
             start_zeros = start_zeros / 2;
         }
-
         for j in 2..num_steps + 1 {
             let jump = (1 << j) / 2;
             let j_u64: u64 = j.try_into().unwrap();
