@@ -116,14 +116,16 @@ impl<B: StarkField> FFTTraceTable<B> {
     fn get_aux_col_width_fft(width: usize) -> usize {
         // width - 2
         // 3 + 3
-        3 + 3*((width - 4)/2+1)
+        //3 + 3*((width - 4)/2+1)
+        0
     }
 
     // We want to show that the column for each fft step was permuted correctly,
     // so we'll want terms like alpha_0 * loc(col, step) + alpha_1 * val(col, step) + gamma   
     fn get_num_rand_fft(width: usize) -> usize {
         // 3 * (width - 2)
-        3 + 3*((width - 4)/2+1)
+        // 3 + 3*((width - 4)/2+1)
+        0
     }
 
     // DATA MUTATORS

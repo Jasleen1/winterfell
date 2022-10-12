@@ -144,18 +144,7 @@ impl Example for FFTRapsExample {
 // HELPER FUNCTIONS
 // ================================================================================================
 
-
-
-
-
-
-
-
-
-
-
 fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
-    println!("Applying bit rev copy");
     let fft_size = state.len();
     let log_fft_size = log2(fft_size);
     let num_bits: usize = log_fft_size.try_into().unwrap();

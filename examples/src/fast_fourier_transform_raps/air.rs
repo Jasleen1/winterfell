@@ -55,20 +55,21 @@ impl Air for FFTRapsAir {
         // The constraints for the reverse perm columns
         main_degrees.push(TransitionConstraintDegree::new(1));
         main_degrees.push(TransitionConstraintDegree::new(1));
-        let mut aux_degrees = vec![
-            TransitionConstraintDegree::new(1), 
-            TransitionConstraintDegree::new(1), 
-            TransitionConstraintDegree::new(2),
-        ];
+        let mut aux_degrees = vec![];//vec![
+        //     TransitionConstraintDegree::new(1), 
+        //     TransitionConstraintDegree::new(1), 
+        //     TransitionConstraintDegree::new(2),
+        // ];
 
-        for step in 0..num_fft_steps {
-            let mut further_aux = vec![
-                TransitionConstraintDegree::new(1), 
-                TransitionConstraintDegree::new(1), 
-               TransitionConstraintDegree::new(2),
-            ];
-            aux_degrees.append(&mut further_aux);
-        }
+        // for step in 0..num_fft_steps {
+        //     let mut further_aux = vec![
+        //         TransitionConstraintDegree::new(1), 
+        //         TransitionConstraintDegree::new(1), 
+        //        TransitionConstraintDegree::new(2),
+        //     ];
+        //     aux_degrees.append(&mut further_aux);
+        // }
+
         // let aux_degrees = vec![
         //     TransitionConstraintDegree::new(1);
         //     (pub_inputs.fft_inputs.len()-3)/2
@@ -94,7 +95,7 @@ impl Air for FFTRapsAir {
                 main_degrees,
                 aux_degrees,
                 2*pub_inputs.fft_inputs.len()+1,
-                4,//pub_inputs.fft_inputs.len()-3,
+                0,//4,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
             fft_inputs: pub_inputs.fft_inputs,
@@ -120,17 +121,30 @@ impl Air for FFTRapsAir {
         let last_col = get_num_cols(self.fft_inputs.len()) - 1;
         // You'll actually only check constraints at even steps, at odd steps you don't do anything
         let compute_flag = periodic_values[num_steps];
+        
+
         for step in 1..num_steps+1 {
             let local_omega = periodic_values[step-1];
-            let u = current[2*step-1];
-            let v = next[2*step-1] * local_omega;
+            if step == 1 {
+                let u = current[1];
+                let v = next[1] * local_omega;
+
+                result[2*step-2] = compute_flag * are_equal(u + v, current[2*step]);
+                result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
+            }
+            else {
+                
+                let u = current[3*(step-1)];
+                let v = next[3*(step-1)] * local_omega;
             
-            result[2*step-2] = compute_flag * are_equal(u + v, current[2*step]);
-            result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
+                result[2*step-2] = compute_flag * are_equal(u + v, current[3*step - 2]);
+                result[2*step-1] = compute_flag * are_equal(u - v, next[3*step - 2]);
+            }
+            
 
         }
-        result[2*num_steps] = are_equal(current[last_col- 1] + E::ONE , next[last_col - 1]);
-        // println!("Periodic val = {:?}", periodic_values[num_steps+1]);
+        result[2*num_steps] = are_equal(current[last_col - 1] + E::ONE , next[last_col - 1]);
+
         self.evaluate_rev_perm(frame, &periodic_values.clone(), result, last_col);
         
     }
@@ -293,18 +307,18 @@ impl Air for FFTRapsAir {
         &self,
         _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
-        let last_step = self.trace_length() - 1;
-        let num_steps = get_num_steps(self.trace_length());
-        let mut output_vec = vec![
-            Assertion::single(2, 0, E::ONE),
-            Assertion::single(2, last_step, E::ONE)
-        ];
-        for step in 1..num_steps {
-            output_vec.push(Assertion::single(3*step + 2, 0, E::ONE));
-            output_vec.push(Assertion::single(3*step + 2, last_step, E::ONE));
-        }
-        output_vec
-        // vec![]
+        // let last_step = self.trace_length() - 1;
+        // let num_steps = get_num_steps(self.trace_length());
+        // let mut output_vec = vec![
+        //     Assertion::single(2, 0, E::ONE),
+        //     Assertion::single(2, last_step, E::ONE)
+        // ];
+        // for step in 1..num_steps {
+        //     output_vec.push(Assertion::single(3*step + 2, 0, E::ONE));
+        //     output_vec.push(Assertion::single(3*step + 2, last_step, E::ONE));
+        // }
+        // output_vec
+        vec![]
     }
 
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {

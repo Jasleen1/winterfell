@@ -86,7 +86,8 @@ impl FFTRapsProver {
                             fill_fft_indices(state);
                         }
                     }
-                    // Required by rust since the type usize is unbounded and we need to be exhaustive with match.
+                    // Required by rust since the type usize is unbounded and 
+                    // we need to be exhaustive with match.
                     _ => {},
                 };
             },
