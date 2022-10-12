@@ -9,8 +9,8 @@ use winterfell::{
     Trace, TraceTable,
 };
 
-pub mod rescue;
 pub mod fast_fourier_transform;
+pub mod rescue;
 
 // CONSTRAINT EVALUATION HELPERS
 // ================================================================================================

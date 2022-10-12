@@ -6,14 +6,16 @@
 use core::num;
 use std::convert::TryInto;
 
-use winterfell::{math::{log2, fft}, TraceTable};
-
-use super::{
-    BaseElement, FieldElement, ProofOptions,
-    Prover, PublicInputs, FFTAir, Trace, apply_fft_permutation, fill_fft_indices, apply_fft_calculation, apply_fft_inv_permutation, apply_bit_rev_copy_permutation,
+use winterfell::{
+    math::{fft, log2},
+    TraceTable,
 };
 
-
+use super::{
+    apply_bit_rev_copy_permutation, apply_fft_calculation, apply_fft_inv_permutation,
+    apply_fft_permutation, fill_fft_indices, BaseElement, FFTAir, FieldElement, ProofOptions,
+    Prover, PublicInputs, Trace,
+};
 
 // RESCUE PROVER
 // ================================================================================================
@@ -38,7 +40,7 @@ impl FFTProver {
         let log_trace_length: usize = log2(trace_length).try_into().unwrap();
         // For all but the last step, one step to write down the FFT layer and one to write the permutation.
         // The last step is to write down the row numbers.
-        let trace_width = 2*log_trace_length + 3;
+        let trace_width = 2 * log_trace_length + 3;
         let mut trace = TraceTable::new(trace_width, trace_length);
         let last_permutation_step = trace_width - 3;
         let non_fft_step = trace_width - 2;
@@ -59,39 +61,39 @@ impl FFTProver {
                             apply_bit_rev_copy_permutation(state);
                         }
                         if step != 0 {
-                            // Undo the permutation from last time, since you put 
+                            // Undo the permutation from last time, since you put
                             // together values that would have actually been far apart
                             apply_fft_inv_permutation(state, step);
                         }
                         if step != last_permutation_step {
-                            // Lay the values that are computed upon together, 
+                            // Lay the values that are computed upon together,
                             // next to each other
                             apply_fft_permutation(state, step);
                         }
-                    },
+                    }
                     // For each odd step, we would like to do the FFT operation with adjacent values.
                     1 => {
                         if step != non_fft_step {
                             apply_fft_calculation(state, step, omega);
-                        }
-                        else {
+                        } else {
                             fill_fft_indices(state);
                         }
-                        
-                    },
+                    }
                     // Required by rust since the type usize is unbounded and we need to be exhaustive with match.
-                    _ => {},
+                    _ => {}
                 };
             },
         );
 
         for row in 0..trace_length {
-            debug_assert_eq!(trace.get(get_results_col_idx(trace_length), row), result[row]);
+            debug_assert_eq!(
+                trace.get(get_results_col_idx(trace_length), row),
+                result[row]
+            );
         }
 
         trace
     }
-
 }
 
 impl Prover for FFTProver {
@@ -120,10 +122,10 @@ impl Prover for FFTProver {
 
 pub(crate) fn get_results_col_idx(num_fft_inputs: usize) -> usize {
     let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
-    2*log_trace_length + 1
+    2 * log_trace_length + 1
 }
 
 pub(crate) fn get_num_cols(num_fft_inputs: usize) -> usize {
     let log_trace_length: usize = log2(num_fft_inputs).try_into().unwrap();
-    2*log_trace_length + 3
+    2 * log_trace_length + 3
 }

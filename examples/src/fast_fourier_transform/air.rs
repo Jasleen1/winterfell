@@ -3,18 +3,18 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::{convert::TryInto};
+use std::convert::TryInto;
 
 use super::{
-    BaseElement, ExtensionOf, FieldElement, ProofOptions, prover::{get_num_cols, get_results_col_idx},
+    prover::{get_num_cols, get_results_col_idx},
+    BaseElement, ExtensionOf, FieldElement, ProofOptions,
 };
 use crate::utils::{are_equal, not, EvaluationResult};
 use winterfell::{
+    math::{fft, log2, StarkField},
     Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, Serializable,
-    TraceInfo, TransitionConstraintDegree, math::{StarkField, log2, fft},
+    TraceInfo, TransitionConstraintDegree,
 };
-
-
 
 // RESCUE AIR
 // ================================================================================================
@@ -45,10 +45,19 @@ impl Air for FFTAir {
     // --------------------------------------------------------------------------------------------
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
         let num_fft_steps: usize = log2(pub_inputs.fft_inputs.len()).try_into().unwrap();
-        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1,vec![2]), TransitionConstraintDegree::with_cycles(1,vec![2])];
-        for step in 2..num_fft_steps+1 {
-            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
-            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
+        let mut main_degrees = vec![
+            TransitionConstraintDegree::with_cycles(1, vec![2]),
+            TransitionConstraintDegree::with_cycles(1, vec![2]),
+        ];
+        for step in 2..num_fft_steps + 1 {
+            main_degrees.push(TransitionConstraintDegree::with_cycles(
+                1,
+                vec![2, 1 << step],
+            ));
+            main_degrees.push(TransitionConstraintDegree::with_cycles(
+                1,
+                vec![2, 1 << step],
+            ));
         }
         main_degrees.push(TransitionConstraintDegree::new(1));
         let aux_degrees = vec![];
@@ -70,14 +79,14 @@ impl Air for FFTAir {
         //     fft_inputs: pub_inputs.fft_inputs,
         //     result: pub_inputs.result,
         // }
-        
+
         FFTAir {
             context: AirContext::new_multi_segment(
                 trace_info,
                 main_degrees,
                 aux_degrees,
-                2*pub_inputs.fft_inputs.len()+1,
-                0,//pub_inputs.fft_inputs.len()-3,
+                2 * pub_inputs.fft_inputs.len() + 1,
+                0, //pub_inputs.fft_inputs.len()-3,
                 options,
             ),
             fft_inputs: pub_inputs.fft_inputs,
@@ -103,17 +112,15 @@ impl Air for FFTAir {
         let last_col = get_num_cols(self.fft_inputs.len()) - 1;
         // You'll actually only check constraints at even steps, at odd steps you don't do anything
         let compute_flag = periodic_values[num_steps];
-        for step in 1..num_steps+1 {
-            let local_omega = periodic_values[step-1];
-            let u = current[2*step-1];
-            let v = next[2*step-1] * local_omega;
-            
-            result[2*step-2] = compute_flag * are_equal(u + v, current[2*step]);
-            result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
+        for step in 1..num_steps + 1 {
+            let local_omega = periodic_values[step - 1];
+            let u = current[2 * step - 1];
+            let v = next[2 * step - 1] * local_omega;
 
+            result[2 * step - 2] = compute_flag * are_equal(u + v, current[2 * step]);
+            result[2 * step - 1] = compute_flag * are_equal(u - v, next[2 * step]);
         }
-        result[2*num_steps] = are_equal(current[last_col] + E::ONE , next[last_col]);
-        
+        result[2 * num_steps] = are_equal(current[last_col] + E::ONE, next[last_col]);
     }
 
     fn evaluate_aux_transition<F, E>(
@@ -127,7 +134,6 @@ impl Air for FFTAir {
         F: FieldElement<BaseField = Self::BaseField>,
         E: FieldElement<BaseField = Self::BaseField> + ExtensionOf<F>,
     {
-        
         // let main_current = main_frame.current();
         // let main_next = main_frame.next();
 
@@ -181,11 +187,9 @@ impl Air for FFTAir {
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let num_cols = get_num_cols(self.fft_inputs.len());
         let results_col = get_results_col_idx(self.fft_inputs.len());
-        
+
         // The last column should just keep a count of where you are.
-        let mut assertions = vec![
-            Assertion::single(num_cols - 1, 0, BaseElement::ZERO)
-        ];
+        let mut assertions = vec![Assertion::single(num_cols - 1, 0, BaseElement::ZERO)];
         // The 0th column just includes fft inputs.
         for (row, &val) in self.fft_inputs.iter().enumerate() {
             assertions.push(Assertion::single(0, row, val))
@@ -214,35 +218,35 @@ impl Air for FFTAir {
         let fft_size_u128: u128 = fft_size.try_into().unwrap();
         let fft_size_u32: u32 = fft_size.try_into().unwrap();
         let num_steps: usize = log2(fft_size).try_into().unwrap();
-        let mut result = Vec::<Vec::<BaseElement>>::new();
+        let mut result = Vec::<Vec<BaseElement>>::new();
         let omega = BaseElement::get_root_of_unity(fft_size_u32);
         // println!("In the periodic col generation");
         for step in 0..num_steps {
-            let m = 1 << (step+1);
+            let m = 1 << (step + 1);
             let m_u128: u128 = m.try_into().unwrap();
             let mut local_omega_col = vec![BaseElement::ONE; m];
-            let local_omega = omega.exp(fft_size_u128/m_u128);
-            for i in 0..m/2 {
+            let local_omega = omega.exp(fft_size_u128 / m_u128);
+            for i in 0..m / 2 {
                 let i_u128: u128 = i.try_into().unwrap();
-                local_omega_col[2*i] = local_omega.exp(i_u128);
+                local_omega_col[2 * i] = local_omega.exp(i_u128);
             }
             // println!("Local omega col step {} = {:?}", step, local_omega_col);
             result.push(local_omega_col);
         }
         // println!("\n ******** \n");
-        let flags = vec![BaseElement::ONE,BaseElement::ZERO];
+        let flags = vec![BaseElement::ONE, BaseElement::ZERO];
         result.push(flags);
         result
     }
 }
 
-
-fn get_permuted_location_bit_rev<E: FieldElement + From<BaseElement>>(fft_size: usize, step: E) -> E {
+fn get_permuted_location_bit_rev<E: FieldElement + From<BaseElement>>(
+    fft_size: usize,
+    step: E,
+) -> E {
     let step_base_elt = E::as_base_elements(&[step])[0];
     unimplemented!()
 }
-
-
 
 // HELPER EVALUATORS
 // ------------------------------------------------------------------------------------------------

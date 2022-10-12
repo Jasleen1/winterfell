@@ -7,15 +7,15 @@ use core::num;
 use std::{convert::TryInto, thread::current, vec};
 
 use super::{
-    BaseElement, ExtensionOf, FieldElement, ProofOptions, prover::{get_num_cols, get_results_col_idx, get_num_steps},
+    prover::{get_num_cols, get_num_steps, get_results_col_idx},
+    BaseElement, ExtensionOf, FieldElement, ProofOptions,
 };
 use crate::utils::{are_equal, not, EvaluationResult};
 use winterfell::{
+    math::{fft, log2, StarkField},
     Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, Serializable,
-    TraceInfo, TransitionConstraintDegree, math::{StarkField, log2, fft},
+    TraceInfo, TransitionConstraintDegree,
 };
-
-
 
 // RESCUE AIR
 // ================================================================================================
@@ -46,25 +46,34 @@ impl Air for FFTRapsAir {
     // --------------------------------------------------------------------------------------------
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
         let num_fft_steps: usize = log2(pub_inputs.fft_inputs.len()).try_into().unwrap();
-        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1,vec![2]), TransitionConstraintDegree::with_cycles(1,vec![2])];
-        for step in 2..num_fft_steps+1 {
-            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
-            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2, 1<<step]));
+        let mut main_degrees = vec![
+            TransitionConstraintDegree::with_cycles(1, vec![2]),
+            TransitionConstraintDegree::with_cycles(1, vec![2]),
+        ];
+        for step in 2..num_fft_steps + 1 {
+            main_degrees.push(TransitionConstraintDegree::with_cycles(
+                1,
+                vec![2, 1 << step],
+            ));
+            main_degrees.push(TransitionConstraintDegree::with_cycles(
+                1,
+                vec![2, 1 << step],
+            ));
         }
         main_degrees.push(TransitionConstraintDegree::new(1));
         // The constraints for the reverse perm columns
         main_degrees.push(TransitionConstraintDegree::new(1));
         main_degrees.push(TransitionConstraintDegree::new(1));
         let mut aux_degrees = vec![
-            TransitionConstraintDegree::new(1), 
-            TransitionConstraintDegree::new(1), 
+            TransitionConstraintDegree::new(1),
+            TransitionConstraintDegree::new(1),
             TransitionConstraintDegree::new(2),
         ];
 
         // for step in 0..num_fft_steps {
         //     let mut further_aux = vec![
-        //         TransitionConstraintDegree::new(1), 
-        //         TransitionConstraintDegree::new(1), 
+        //         TransitionConstraintDegree::new(1),
+        //         TransitionConstraintDegree::new(1),
         //        TransitionConstraintDegree::new(2),
         //     ];
         //     aux_degrees.append(&mut further_aux);
@@ -88,14 +97,14 @@ impl Air for FFTRapsAir {
         //     fft_inputs: pub_inputs.fft_inputs,
         //     result: pub_inputs.result,
         // }
-        
+
         FFTRapsAir {
             context: AirContext::new_multi_segment(
                 trace_info,
                 main_degrees,
                 aux_degrees,
-                2*pub_inputs.fft_inputs.len()+1,
-                4*num_fft_steps - 2,//4,//pub_inputs.fft_inputs.len()-3,
+                2 * pub_inputs.fft_inputs.len() + 1,
+                4 * num_fft_steps - 2, //4,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
             fft_inputs: pub_inputs.fft_inputs,
@@ -121,32 +130,26 @@ impl Air for FFTRapsAir {
         let last_col = get_num_cols(self.fft_inputs.len()) - 1;
         // You'll actually only check constraints at even steps, at odd steps you don't do anything
         let compute_flag = periodic_values[num_steps];
-        
 
-        for step in 1..num_steps+1 {
-            let local_omega = periodic_values[step-1];
+        for step in 1..num_steps + 1 {
+            let local_omega = periodic_values[step - 1];
             if step == 1 {
                 let u = current[1];
                 let v = next[1] * local_omega;
 
-                result[2*step-2] = compute_flag * are_equal(u + v, current[2*step]);
-                result[2*step-1] = compute_flag * are_equal(u - v, next[2*step]);
-            }
-            else {
-                
-                let u = current[3*(step-1)];
-                let v = next[3*(step-1)] * local_omega;
-            
-                result[2*step-2] = compute_flag * are_equal(u + v, current[3*step - 2]);
-                result[2*step-1] = compute_flag * are_equal(u - v, next[3*step - 2]);
-            }
-            
+                result[2 * step - 2] = compute_flag * are_equal(u + v, current[2 * step]);
+                result[2 * step - 1] = compute_flag * are_equal(u - v, next[2 * step]);
+            } else {
+                let u = current[3 * (step - 1)];
+                let v = next[3 * (step - 1)] * local_omega;
 
+                result[2 * step - 2] = compute_flag * are_equal(u + v, current[3 * step - 2]);
+                result[2 * step - 1] = compute_flag * are_equal(u - v, next[3 * step - 2]);
+            }
         }
-        result[2*num_steps] = are_equal(current[last_col - 1] + E::ONE , next[last_col - 1]);
+        result[2 * num_steps] = are_equal(current[last_col - 1] + E::ONE, next[last_col - 1]);
 
         self.evaluate_rev_perm(frame, &periodic_values.clone(), result, last_col);
-        
     }
 
     fn evaluate_aux_transition<F, E>(
@@ -160,20 +163,19 @@ impl Air for FFTRapsAir {
         F: FieldElement<BaseField = Self::BaseField>,
         E: FieldElement<BaseField = Self::BaseField> + ExtensionOf<F>,
     {
-        
         let main_current = main_frame.current();
 
         let aux_current = aux_frame.current();
         let aux_next = aux_frame.next();
 
         let random_elements = aux_rand_elements.get_segment_elements(0);
-        
+
         let num_fft_inputs = self.fft_inputs.len();
         let fft_width = get_num_cols(num_fft_inputs);
         let num_steps = get_num_steps(num_fft_inputs);
-        // // We want to enforce that the correct permutation was applied. Because we 
-        // // want to copy two values per step: the actual value of the input and 
-        // // its intended index, we group them with random elements into a single 
+        // // We want to enforce that the correct permutation was applied. Because we
+        // // want to copy two values per step: the actual value of the input and
+        // // its intended index, we group them with random elements into a single
         // // cell via α_0 * c_0 + α_1 * c_1, where c_i is the appropriate permutation location.
 
         // // Note that storing the copied values into two auxiliary columns. One could
@@ -189,7 +191,7 @@ impl Air for FFTRapsAir {
             + random_elements[1] * (main_current[fft_width - 1]).into();
 
         result[1] = are_equal(aux_current[1], copied_value_2);
-        
+
         // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
         result.agg_constraint(
             2,
@@ -199,12 +201,11 @@ impl Air for FFTRapsAir {
                 aux_current[2] * (aux_current[0] + random_elements[2]),
             ),
         );
-
-        // println!("Periodic values: {:?}, {:?}, {:?}", periodic_values[2*num_steps + 1], 
-                    // periodic_values[2*num_steps + 2], periodic_values[2*num_steps + 3]);
-        // let new_loc = main_current[fft_width - 2] 
+        // println!("Periodic values: {:?}, {:?}, {:?}", periodic_values[2*num_steps + 1],
+        // periodic_values[2*num_steps + 2], periodic_values[2*num_steps + 3]);
+        // let new_loc = main_current[fft_width - 2]
         //                 + (periodic_values[2*num_steps + 1])
-        //                 - periodic_values[2*num_steps + 2] 
+        //                 - periodic_values[2*num_steps + 2]
         //                 + periodic_values[2*num_steps + 3];
 
         // let copied_value_3 = random_elements[0] * (main_current[2]).into()
@@ -216,7 +217,7 @@ impl Air for FFTRapsAir {
         //     + random_elements[1] * (new_loc).into();
 
         // result[4] = are_equal(aux_current[4], copied_value_4);
-        
+
         // // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
         // result.agg_constraint(
         //     5,
@@ -230,45 +231,45 @@ impl Air for FFTRapsAir {
         // for step in 2..num_steps {
         //     let new_loc_forward_perm = main_current[fft_width - 2]
         //                                 + periodic_values[2*num_steps + 5 * (step-1) + 1]
-        //                                 - periodic_values[2*num_steps + 5 * (step-1) + 2] 
+        //                                 - periodic_values[2*num_steps + 5 * (step-1) + 2]
         //                                 + periodic_values[2*num_steps + 5 * (step-1) + 3];
-            
+
         //     let mut new_loc_backward_term = F::ZERO;
         //     let mut old_loc_backward_term = F::ZERO;
-        //     if step >= 3 {  
+        //     if step >= 3 {
         //         new_loc_backward_term = periodic_values[2*num_steps + 5 * (step - 1) + 4]
-        //                                 - periodic_values[2*num_steps + 5 * (step - 1) + 5] 
+        //                                 - periodic_values[2*num_steps + 5 * (step - 1) + 5]
         //                                 - (F::ONE - periodic_values[num_steps]);
         //         // old_loc_backward_perm = main_current[fft_width - 2];
         //     }
         //     println!("index = {:?}, step = {:?}", main_current[fft_width - 2], step);
-            
-        //     println!("periodics step - 1 = {:?}", 
-        //             vec![periodic_values[2*num_steps + 5 * (step - 1) + 1], 
-        //             periodic_values[2*num_steps + 5 * (step - 1) + 2], 
+
+        //     println!("periodics step - 1 = {:?}",
+        //             vec![periodic_values[2*num_steps + 5 * (step - 1) + 1],
+        //             periodic_values[2*num_steps + 5 * (step - 1) + 2],
         //             periodic_values[2*num_steps + 5 * (step - 1) + 3]]);
         //     if step >= 3 {
-        //         println!("Inv periodics step - 2 = {:?}", 
-        //             vec![periodic_values[2*num_steps + 5 * (step - 2) + 4], 
-        //             periodic_values[2*num_steps + 5 * (step - 2) + 5], 
+        //         println!("Inv periodics step - 2 = {:?}",
+        //             vec![periodic_values[2*num_steps + 5 * (step - 2) + 4],
+        //             periodic_values[2*num_steps + 5 * (step - 2) + 5],
         //             (F::ONE - periodic_values[num_steps])]);
         //     }
 
-        //     let copy_a = random_elements[0] * main_current[2*step].into() 
+        //     let copy_a = random_elements[0] * main_current[2*step].into()
         //                     + random_elements[1] * main_current[fft_width - 2].into();
         //                     //+ random_elements[3] * old_loc_backward_perm.into();
         //                     // random_elements[3] * new_loc_backward_perm.into();
         //     println!("Step = {:?}", step);
-        //     println!("Original = {:?} New forward perm = {:?}",                      
-        //             main_current[fft_width - 2],    
-        //             new_loc_forward_perm 
+        //     println!("Original = {:?} New forward perm = {:?}",
+        //             main_current[fft_width - 2],
+        //             new_loc_forward_perm
         //             + new_loc_backward_term);
         //     // println!("Constraint # {}", 3*step);
         //     // println!("Aux current {:?}, copy_a {:?}", aux_current[3*step], copy_a);
 
         //     result[3*step] = are_equal(aux_current[3*step], copy_a);
 
-        //     let copy_b = random_elements[0] * main_current[2*step+1].into() 
+        //     let copy_b = random_elements[0] * main_current[2*step+1].into()
         //                     + random_elements[1] * (new_loc_forward_perm
         //                     +  new_loc_backward_term).into();
 
@@ -280,11 +281,9 @@ impl Air for FFTRapsAir {
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let num_cols = get_num_cols(self.fft_inputs.len());
         let results_col = get_results_col_idx(self.fft_inputs.len());
-        
+
         // The last column should just keep a count of where you are.
-        let mut assertions = vec![
-            Assertion::single(num_cols - 2, 0, BaseElement::ZERO)
-        ];
+        let mut assertions = vec![Assertion::single(num_cols - 2, 0, BaseElement::ZERO)];
         // The 0th column just includes fft inputs.
         for (row, &val) in self.fft_inputs.iter().enumerate() {
             assertions.push(Assertion::single(0, row, val))
@@ -304,15 +303,19 @@ impl Air for FFTRapsAir {
         let num_steps = get_num_steps(self.trace_length());
         let mut output_vec = vec![
             Assertion::single(2, 0, E::ONE),
-            Assertion::single(2, last_step, E::ONE)
+            Assertion::single(2, last_step, E::ONE),
         ];
-        for step in 2..num_steps+1 {
-            output_vec.push(Assertion::single(3*step - 1, 0, E::ONE));
-            output_vec.push(Assertion::single(3*step - 1, last_step, E::ONE));
+        for step in 2..num_steps + 1 {
+            output_vec.push(Assertion::single(3 * step - 1, 0, E::ONE));
+            output_vec.push(Assertion::single(3 * step - 1, last_step, E::ONE));
         }
-        for step in 2..num_steps+1 {
-            output_vec.push(Assertion::single( 3*num_steps + 3*step - 4, 0, E::ONE));
-            output_vec.push(Assertion::single(3*num_steps + 3*step - 4, last_step, E::ONE));
+        for step in 2..num_steps + 1 {
+            output_vec.push(Assertion::single(3 * num_steps + 3 * step - 4, 0, E::ONE));
+            output_vec.push(Assertion::single(
+                3 * num_steps + 3 * step - 4,
+                last_step,
+                E::ONE,
+            ));
         }
         output_vec
         // vec![]
@@ -323,31 +326,31 @@ impl Air for FFTRapsAir {
         let fft_size_u128: u128 = fft_size.try_into().unwrap();
         let fft_size_u32: u32 = fft_size.try_into().unwrap();
         let num_steps: usize = log2(fft_size).try_into().unwrap();
-        let mut result = Vec::<Vec::<BaseElement>>::new();
+        let mut result = Vec::<Vec<BaseElement>>::new();
         let omega = BaseElement::get_root_of_unity(fft_size_u32);
         // We want to make sure we arrange it so that the appropriate omega can get multiplied.
-        // Since the transition constraint must be identical at each step, 
+        // Since the transition constraint must be identical at each step,
         for step in 0..num_steps {
-            let m = 1 << (step+1);
+            let m = 1 << (step + 1);
             let m_u128: u128 = m.try_into().unwrap();
             let mut local_omega_col = vec![BaseElement::ONE; m];
-            let local_omega = omega.exp(fft_size_u128/m_u128);
-            for i in 0..m/2 {
+            let local_omega = omega.exp(fft_size_u128 / m_u128);
+            for i in 0..m / 2 {
                 let i_u128: u128 = i.try_into().unwrap();
-                local_omega_col[2*i] = local_omega.exp(i_u128);
+                local_omega_col[2 * i] = local_omega.exp(i_u128);
             }
             // println!("Local omega col step {} = {:?}", step, local_omega_col);
             result.push(local_omega_col);
         }
 
         // These flags are for indicating which step to compute on.
-        let flags = vec![BaseElement::ONE,BaseElement::ZERO];
+        let flags = vec![BaseElement::ONE, BaseElement::ZERO];
         result.push(flags);
 
-        // These are periodic assertions to such that the next num_steps 
-        // columns together represent the bit decomposition of the field elts 0-fft_size 
-        let mut start_zeros = fft_size/2;
-        for _ in 1..num_steps+1 {
+        // These are periodic assertions to such that the next num_steps
+        // columns together represent the bit decomposition of the field elts 0-fft_size
+        let mut start_zeros = fft_size / 2;
+        for _ in 1..num_steps + 1 {
             // For each bit in the indices of FFT inputs
             let mut bit_vec = vec![BaseElement::ZERO; start_zeros];
             let mut one_bit_vec = vec![BaseElement::ONE; start_zeros];
@@ -356,11 +359,13 @@ impl Air for FFTRapsAir {
             start_zeros = start_zeros / 2;
         }
 
-        for j in 2..num_steps+1 {
-            let jump = (1 << j)/2;
+        for j in 2..num_steps + 1 {
+            let jump = (1 << j) / 2;
             let j_u64: u64 = j.try_into().unwrap();
-            let jump_field_elt = BaseElement::new(2).exp(<BaseElement as FieldElement>::PositiveInteger::from(j_u64 - 1));
-            
+            let jump_field_elt = BaseElement::new(2).exp(
+                <BaseElement as FieldElement>::PositiveInteger::from(j_u64 - 1),
+            );
+
             let mut jump_col = vec![];
             let mut jump_col_first_half = vec![BaseElement::ZERO; jump];
             let mut jump_col_second_half = vec![jump_field_elt; jump];
@@ -388,10 +393,8 @@ impl Air for FFTRapsAir {
             result.push(jump_col);
             result.push(parity_col);
 
-
             result.push(vec![BaseElement::ZERO, jump_field_elt]);
             result.push(inv_counter_col);
-        
         }
 
         // println!("Length of results vector {}", result.len());
@@ -414,9 +417,9 @@ impl FFTRapsAir {
         let mut forward_sum = E::ZERO;
         let mut backward_counter: u64 = 0;
         let mut forward_counter: u64 = num_steps.try_into().unwrap();
-        for loc in num_steps+1..2*num_steps+1 {
-            // Want to make sure we don't go below 0, 
-            // so we subtract at the start of the loop iteration instead 
+        for loc in num_steps + 1..2 * num_steps + 1 {
+            // Want to make sure we don't go below 0,
+            // so we subtract at the start of the loop iteration instead
             // of starting at num_steps - 1.
             forward_counter = forward_counter - 1;
             let forward_pow = <E as FieldElement>::PositiveInteger::from(backward_counter);
@@ -425,19 +428,13 @@ impl FFTRapsAir {
             forward_sum = forward_sum + (periodic_values[loc] * E::from(2u128).exp(backward_pow));
             backward_counter = backward_counter + 1;
         }
-        result[2*num_steps + 1] = are_equal(forward_sum, current[last_col- 1]);
-        result[2*num_steps + 2] = are_equal(backward_sum, current[last_col]);
+        result[2 * num_steps + 1] = are_equal(forward_sum, current[last_col - 1]);
+        result[2 * num_steps + 2] = are_equal(backward_sum, current[last_col]);
     }
-
 }
-
-
-
-
 
 // HELPER EVALUATORS
 // ------------------------------------------------------------------------------------------------
-
 
 /*
 x_i + perm(i)*gamma

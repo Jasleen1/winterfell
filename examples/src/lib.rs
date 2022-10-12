@@ -6,6 +6,8 @@
 use structopt::StructOpt;
 use winterfell::{FieldExtension, HashFunction, ProofOptions, StarkProof, VerifierError};
 
+pub mod fast_fourier_transform;
+pub mod fast_fourier_transform_raps;
 pub mod fibonacci;
 #[cfg(feature = "std")]
 pub mod lamport;
@@ -16,8 +18,6 @@ pub mod rescue;
 pub mod rescue_raps;
 pub mod utils;
 pub mod vdf;
-pub mod fast_fourier_transform_raps;
-pub mod fast_fourier_transform;
 
 #[cfg(test)]
 mod tests;

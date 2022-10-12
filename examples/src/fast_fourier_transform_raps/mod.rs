@@ -3,13 +3,16 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use crate::{Example, ExampleOptions, fast_fourier_transform_raps::prover::get_results_col_idx, utils::fast_fourier_transform::bit_reverse};
+use crate::{
+    fast_fourier_transform_raps::prover::get_results_col_idx,
+    utils::fast_fourier_transform::bit_reverse, Example, ExampleOptions,
+};
+use core::num;
 use log::debug;
 use rand_utils::rand_array;
-use core::num;
-use std::{time::Instant, collections::VecDeque, convert::TryInto};
+use std::{collections::VecDeque, convert::TryInto, time::Instant};
 use winterfell::{
-    math::{fields::f128::BaseElement, log2, ExtensionOf, FieldElement, fft, StarkField},
+    math::{fft, fields::f128::BaseElement, log2, ExtensionOf, FieldElement, StarkField},
     ProofOptions, Prover, StarkProof, Trace, VerifierError,
 };
 
@@ -21,7 +24,7 @@ pub use custom_trace_table::FFTTraceTable;
 use super::rescue::rescue::{self, STATE_WIDTH};
 
 mod air;
-use air::{PublicInputs, FFTRapsAir};
+use air::{FFTRapsAir, PublicInputs};
 
 mod prover;
 use prover::FFTRapsProver;
@@ -34,7 +37,6 @@ mod tests;
 
 const CYCLE_LENGTH: usize = 16;
 const NUM_HASH_ROUNDS: usize = 14;
-
 
 // RESCUE SPLIT HASH CHAIN EXAMPLE
 // ================================================================================================
@@ -78,8 +80,6 @@ impl FFTRapsExample {
             now.elapsed().as_millis(),
         );
 
-        
-
         FFTRapsExample {
             options,
             omega,
@@ -101,10 +101,9 @@ impl Example for FFTRapsExample {
             ---------------------",
             self.num_fft_inputs
         );
-        
+
         // create a prover
         let prover = FFTRapsProver::new(self.options.clone());
-
 
         // generate the execution trace
         let now = Instant::now();
@@ -117,7 +116,10 @@ impl Example for FFTRapsExample {
             now.elapsed().as_millis()
         );
         let mut last_trace_col = vec![BaseElement::ONE; trace_length];
-        trace.read_col_into(get_results_col_idx(self.num_fft_inputs), &mut last_trace_col);
+        trace.read_col_into(
+            get_results_col_idx(self.num_fft_inputs),
+            &mut last_trace_col,
+        );
         // generate the proof
         prover.prove(trace).unwrap()
     }
@@ -160,15 +162,15 @@ fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
 fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     assert!(step % 3 == 2, "Only 2 (mod 3) steps have permuations");
     let fft_size = state.len();
-    let perm_step = (step + 1)/3 + 1;
-    let jump = (1 << perm_step)/2;
-    let num_ranges = fft_size / (2*jump);
+    let perm_step = (step + 1) / 3 + 1;
+    let jump = (1 << perm_step) / 2;
+    let num_ranges = fft_size / (2 * jump);
     let mut next_state = vec![BaseElement::ZERO; fft_size];
     for k in 0..num_ranges {
         let start_of_range = k * 2 * jump;
         for j in 0..jump {
-            next_state[start_of_range + 2*j] = state[start_of_range + j];
-            next_state[start_of_range + 2*j + 1] = state[start_of_range + j + jump];
+            next_state[start_of_range + 2 * j] = state[start_of_range + j];
+            next_state[start_of_range + 2 * j + 1] = state[start_of_range + j + jump];
         }
     }
     // if perm_step == 2 {
@@ -178,32 +180,32 @@ fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
     for i in 0..fft_size {
         state[i] = next_state[i];
     }
-    
 }
-
-
 
 fn apply_fft_inv_permutation(state: &mut [BaseElement], step: usize) {
     assert!(step != 0, "Only non-zero steps have inv permuations");
-    assert!(step % 3 == 1, "Only steps of the form 1 (mod 3) have inv permuations");
+    assert!(
+        step % 3 == 1,
+        "Only steps of the form 1 (mod 3) have inv permuations"
+    );
     let step_prev = step - 2;
     let fft_size = state.len();
-    let perm_step = (step_prev + 1)/3 + 1;
-    let jump = (1 << perm_step)/2;
-    let num_ranges = fft_size / (2*jump);
+    let perm_step = (step_prev + 1) / 3 + 1;
+    let jump = (1 << perm_step) / 2;
+    let num_ranges = fft_size / (2 * jump);
     let mut next_state = vec![BaseElement::ZERO; fft_size];
     for k in 0..num_ranges {
         let start_of_range = k * 2 * jump;
-        
+
         for j in 0..jump {
-            next_state[start_of_range + j] = state[start_of_range + 2*j];
-            next_state[start_of_range + j + jump] = state[start_of_range + 2*j + 1];
+            next_state[start_of_range + j] = state[start_of_range + 2 * j];
+            next_state[start_of_range + j + jump] = state[start_of_range + 2 * j + 1];
         }
     }
-    
+
     for i in 0..fft_size {
         state[i] = next_state[i];
-    }  
+    }
 }
 
 fn fill_fft_indices(state: &mut [BaseElement]) {
@@ -218,116 +220,159 @@ fn fill_fft_indices(state: &mut [BaseElement]) {
 }
 
 fn apply_fft_calculation(state: &mut [BaseElement], step: usize, omega: BaseElement) {
-    assert!((step == 1 || step % 3 == 0) , "Only step 1 or every 3rd step has computation steps");
+    assert!(
+        (step == 1 || step % 3 == 0),
+        "Only step 1 or every 3rd step has computation steps"
+    );
     let fft_size = state.len();
     let fft_size_u128: u128 = fft_size.try_into().unwrap();
-    let mut m = 1 << ((step + 1)/2);
+    let mut m = 1 << ((step + 1) / 2);
     if step % 3 == 0 {
         m = 1 << ((step / 3) + 1);
     }
     let m_u128: u128 = m.try_into().unwrap();
     let mut omegas = Vec::<BaseElement>::new();
     let mut power_of_omega = BaseElement::ONE;
-    let local_omega = omega.exp(fft_size_u128/m_u128);
+    let local_omega = omega.exp(fft_size_u128 / m_u128);
     for _ in 0..m {
         omegas.push(power_of_omega);
         power_of_omega *= local_omega;
     }
-    for i in 0..fft_size/2 {
-        let curr_omega = omegas[i % (m/2)];
-        let u = state[2*i];
-        let v = state[2*i+1] * curr_omega;
-        state[2*i] = u + v;
-        state[2*i + 1] = u - v;
+    for i in 0..fft_size / 2 {
+        let curr_omega = omegas[i % (m / 2)];
+        let u = state[2 * i];
+        let v = state[2 * i + 1] * curr_omega;
+        state[2 * i] = u + v;
+        state[2 * i + 1] = u - v;
     }
 }
 
-/// This function maps an integer j -> new_location(j) after applying the 
-/// permutation for the given fft step. Note that step here ranges from 
+/// This function maps an integer j -> new_location(j) after applying the
+/// permutation for the given fft step. Note that step here ranges from
 /// 1-log(fft_size) (both included)
 fn get_fft_permutation_locs(fft_size: usize, step: usize) -> Vec<usize> {
     assert!(step >= 1, "Step number must be at least 1");
-    assert!(1<<step <= fft_size, "Step number is upper bounded by log(fft_size");
-    let jump = (1 << step)/2;
-    let num_ranges = fft_size / (2*jump);
+    assert!(
+        1 << step <= fft_size,
+        "Step number is upper bounded by log(fft_size"
+    );
+    let jump = (1 << step) / 2;
+    let num_ranges = fft_size / (2 * jump);
     let mut perm_locs = vec![0; fft_size];
     for k in 0..num_ranges {
         let start_of_range = k * 2 * jump;
         for j in 0..jump {
-            perm_locs[start_of_range + j] = start_of_range + 2*j;
-            perm_locs[start_of_range + j + jump] = start_of_range + 2*j + 1;
+            perm_locs[start_of_range + j] = start_of_range + 2 * j;
+            perm_locs[start_of_range + j + jump] = start_of_range + 2 * j + 1;
         }
     }
     perm_locs
 }
 
-/// This function maps an integer new_location(j) -> j after applying the 
-/// permutation for the given fft step. Note that step here ranges from 
+/// This function maps an integer new_location(j) -> j after applying the
+/// permutation for the given fft step. Note that step here ranges from
 /// 1-log(fft_size) (both included)
 fn get_fft_inv_permutation_locs(fft_size: usize, step: usize) -> Vec<usize> {
     assert!(step >= 1, "Step number must be at least 1");
-    assert!(1<<step <= fft_size, "Step number is upper bounded by log(fft_size");
-    let jump = (1 << step)/2;
-    let num_ranges = fft_size / (2*jump);
+    assert!(
+        1 << step <= fft_size,
+        "Step number is upper bounded by log(fft_size"
+    );
+    let jump = (1 << step) / 2;
+    let num_ranges = fft_size / (2 * jump);
     let mut perm_locs = vec![0; fft_size];
     for k in 0..num_ranges {
         let start_of_range = k * 2 * jump;
         for j in 0..jump {
-            perm_locs[start_of_range + 2*j] = start_of_range + j;
-            perm_locs[start_of_range + 2*j + 1] = start_of_range + j + jump;
+            perm_locs[start_of_range + 2 * j] = start_of_range + j;
+            perm_locs[start_of_range + 2 * j + 1] = start_of_range + j + jump;
         }
     }
     perm_locs
 }
-
 
 /////// Tests for helpers
 
 #[test]
 fn apply_fft_permutation_test_size_4() {
-    let mut state = [BaseElement::new(0), BaseElement::new(1), BaseElement::new(2), BaseElement::new(3)];
-    let expected_output_state = [BaseElement::new(0), BaseElement::new(2), BaseElement::new(1), BaseElement::new(3)];
+    let mut state = [
+        BaseElement::new(0),
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+    ];
+    let expected_output_state = [
+        BaseElement::new(0),
+        BaseElement::new(2),
+        BaseElement::new(1),
+        BaseElement::new(3),
+    ];
     apply_fft_permutation(&mut state, 0);
     for j in 0..4 {
-        assert_eq!(state[j], expected_output_state[j], 
-            "Output state {} is {:?}, expexted {:?}", 
-            j, state[j], expected_output_state[j]);
+        assert_eq!(
+            state[j], expected_output_state[j],
+            "Output state {} is {:?}, expexted {:?}",
+            j, state[j], expected_output_state[j]
+        );
     }
 }
 
 #[test]
 fn apply_fft_permutation_test_size_8() {
-    let mut state = [BaseElement::new(0), BaseElement::new(1), 
-                                        BaseElement::new(2), BaseElement::new(3),
-                                        BaseElement::new(4), BaseElement::new(5),
-                                        BaseElement::new(6), BaseElement::new(7)
-                                    ];
-    let expected_output_state_step_0 = [BaseElement::new(0), BaseElement::new(4), 
-                                                            BaseElement::new(1), BaseElement::new(5),
-                                                            BaseElement::new(2), BaseElement::new(6),
-                                                            BaseElement::new(3), BaseElement::new(7)
-                                                        ];
+    let mut state = [
+        BaseElement::new(0),
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+        BaseElement::new(5),
+        BaseElement::new(6),
+        BaseElement::new(7),
+    ];
+    let expected_output_state_step_0 = [
+        BaseElement::new(0),
+        BaseElement::new(4),
+        BaseElement::new(1),
+        BaseElement::new(5),
+        BaseElement::new(2),
+        BaseElement::new(6),
+        BaseElement::new(3),
+        BaseElement::new(7),
+    ];
     apply_fft_permutation(&mut state, 0);
     for j in 0..4 {
-        assert_eq!(state[j], expected_output_state_step_0[j], 
-            "Output state {} is {:?}, expexted {:?}", 
-            j, state[j], expected_output_state_step_0[j]);
+        assert_eq!(
+            state[j], expected_output_state_step_0[j],
+            "Output state {} is {:?}, expexted {:?}",
+            j, state[j], expected_output_state_step_0[j]
+        );
     }
-    let mut new_state = [BaseElement::new(0), BaseElement::new(1), 
-                                        BaseElement::new(2), BaseElement::new(3),
-                                        BaseElement::new(4), BaseElement::new(5),
-                                        BaseElement::new(6), BaseElement::new(7)
-                                    ];
-    let expected_output_state_step_1 = [BaseElement::new(0), BaseElement::new(2), 
-                                                            BaseElement::new(1), BaseElement::new(3),
-                                                            BaseElement::new(4), BaseElement::new(6),
-                                                            BaseElement::new(5), BaseElement::new(7)
-                                                        ];
+    let mut new_state = [
+        BaseElement::new(0),
+        BaseElement::new(1),
+        BaseElement::new(2),
+        BaseElement::new(3),
+        BaseElement::new(4),
+        BaseElement::new(5),
+        BaseElement::new(6),
+        BaseElement::new(7),
+    ];
+    let expected_output_state_step_1 = [
+        BaseElement::new(0),
+        BaseElement::new(2),
+        BaseElement::new(1),
+        BaseElement::new(3),
+        BaseElement::new(4),
+        BaseElement::new(6),
+        BaseElement::new(5),
+        BaseElement::new(7),
+    ];
     apply_fft_permutation(&mut new_state, 2);
     for j in 0..4 {
-        assert_eq!(new_state[j], expected_output_state_step_1[j], 
-            "Output state {} is {:?}, expexted {:?}", 
-            j, new_state[j], expected_output_state_step_1[j]);
+        assert_eq!(
+            new_state[j], expected_output_state_step_1[j],
+            "Output state {} is {:?}, expexted {:?}",
+            j, new_state[j], expected_output_state_step_1[j]
+        );
     }
-
 }
