@@ -76,9 +76,9 @@ impl Air for FFTRapsAir {
                 TransitionConstraintDegree::new(1),
                 TransitionConstraintDegree::new(2),
             ];
+            aux_degrees.append(&mut further_aux.clone());
             aux_degrees.append(&mut further_aux);
         }
-
         // for step in 0..num_fft_steps {
         //     let mut further_aux = vec![
         //         TransitionConstraintDegree::new(1),
@@ -236,81 +236,36 @@ impl Air for FFTRapsAir {
                 ),
             );
         }
-        // println!("Periodic values: {:?}, {:?}, {:?}", periodic_values[2*num_steps + 1],
-        // periodic_values[2*num_steps + 2], periodic_values[2*num_steps + 3]);
-        // let new_loc = main_current[fft_width - 2]
-        //                 + (periodic_values[2*num_steps + 1])
-        //                 - periodic_values[2*num_steps + 2]
-        //                 + periodic_values[2*num_steps + 3];
 
-        // let copied_value_3 = random_elements[0] * (main_current[2]).into()
-        //     + random_elements[1] * (main_current[fft_width - 2]).into();
+        for step in 2..num_steps + 1 {
+            let new_loc = main_current[fft_width - 2] - (F::ONE - periodic_values[num_steps])
+                + periodic_values[2 * num_steps + 5 * (step - 2) + 4]
+                - periodic_values[2 * num_steps + 5 * (step - 2) + 5];
 
-        // result[3] = are_equal(aux_current[3], copied_value_3);
+            let copied_value_1 = random_elements[0] * (main_current[3 * (step - 1) + 1]).into()
+                + random_elements[1] * (new_loc).into();
 
-        // let copied_value_4 = random_elements[0] * (main_current[3]).into()
-        //     + random_elements[1] * (new_loc).into();
+            result[3 * num_steps + 3 * (step - 2)] =
+                are_equal(aux_current[3 * num_steps + 3 * (step - 2)], copied_value_1);
 
-        // result[4] = are_equal(aux_current[4], copied_value_4);
+            let copied_value_2 = random_elements[0] * (main_current[3 * (step - 1) + 2]).into()
+                + random_elements[1] * (main_current[fft_width - 2]).into();
+            result[3 * num_steps + 3 * (step - 2) + 1] = are_equal(
+                aux_current[3 * num_steps + 3 * (step - 2) + 1],
+                copied_value_2,
+            );
 
-        // // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
-        // result.agg_constraint(
-        //     5,
-        //     E::ONE,
-        //     are_equal(
-        //         aux_next[5] * (aux_current[4] + random_elements[2]),
-        //         aux_current[5] * (aux_current[3] + random_elements[2]),
-        //     ),
-        // );
-
-        // for step in 2..num_steps {
-        //     let new_loc_forward_perm = main_current[fft_width - 2]
-        //                                 + periodic_values[2*num_steps + 5 * (step-1) + 1]
-        //                                 - periodic_values[2*num_steps + 5 * (step-1) + 2]
-        //                                 + periodic_values[2*num_steps + 5 * (step-1) + 3];
-
-        //     let mut new_loc_backward_term = F::ZERO;
-        //     let mut old_loc_backward_term = F::ZERO;
-        //     if step >= 3 {
-        //         new_loc_backward_term = periodic_values[2*num_steps + 5 * (step - 1) + 4]
-        //                                 - periodic_values[2*num_steps + 5 * (step - 1) + 5]
-        //                                 - (F::ONE - periodic_values[num_steps]);
-        //         // old_loc_backward_perm = main_current[fft_width - 2];
-        //     }
-        //     println!("index = {:?}, step = {:?}", main_current[fft_width - 2], step);
-
-        //     println!("periodics step - 1 = {:?}",
-        //             vec![periodic_values[2*num_steps + 5 * (step - 1) + 1],
-        //             periodic_values[2*num_steps + 5 * (step - 1) + 2],
-        //             periodic_values[2*num_steps + 5 * (step - 1) + 3]]);
-        //     if step >= 3 {
-        //         println!("Inv periodics step - 2 = {:?}",
-        //             vec![periodic_values[2*num_steps + 5 * (step - 2) + 4],
-        //             periodic_values[2*num_steps + 5 * (step - 2) + 5],
-        //             (F::ONE - periodic_values[num_steps])]);
-        //     }
-
-        //     let copy_a = random_elements[0] * main_current[2*step].into()
-        //                     + random_elements[1] * main_current[fft_width - 2].into();
-        //                     //+ random_elements[3] * old_loc_backward_perm.into();
-        //                     // random_elements[3] * new_loc_backward_perm.into();
-        //     println!("Step = {:?}", step);
-        //     println!("Original = {:?} New forward perm = {:?}",
-        //             main_current[fft_width - 2],
-        //             new_loc_forward_perm
-        //             + new_loc_backward_term);
-        //     // println!("Constraint # {}", 3*step);
-        //     // println!("Aux current {:?}, copy_a {:?}", aux_current[3*step], copy_a);
-
-        //     result[3*step] = are_equal(aux_current[3*step], copy_a);
-
-        //     let copy_b = random_elements[0] * main_current[2*step+1].into()
-        //                     + random_elements[1] * (new_loc_forward_perm
-        //                     +  new_loc_backward_term).into();
-
-        //     result[3*step + 1] = are_equal(aux_current[3*step + 1], copy_b);
-
-        // }
+            result.agg_constraint(
+                3 * num_steps + 3 * (step - 2) + 2,
+                E::ONE,
+                are_equal(
+                    aux_next[3 * num_steps + 3 * (step - 2) + 2]
+                        * (aux_current[3 * num_steps + 3 * (step - 2) + 1] + random_elements[2]),
+                    aux_current[3 * num_steps + 3 * (step - 2) + 2]
+                        * (aux_current[3 * num_steps + 3 * (step - 2)] + random_elements[2]),
+                ),
+            );
+        }
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
