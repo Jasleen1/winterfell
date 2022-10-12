@@ -117,7 +117,7 @@ impl<B: StarkField> FFTTraceTable<B> {
         // width - 2
         // 3 + 3
         //3 + 3*((width - 4)/2+1)
-        0
+        3
     }
 
     // We want to show that the column for each fft step was permuted correctly,
@@ -125,7 +125,7 @@ impl<B: StarkField> FFTTraceTable<B> {
     fn get_num_rand_fft(width: usize) -> usize {
         // 3 * (width - 2)
         // 3 + 3*((width - 4)/2+1)
-        0
+        3
     }
 
     // DATA MUTATORS
@@ -236,6 +236,7 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         self.read_row_into(0, &mut current_row);
         let mut aux_columns = vec![vec![E::ZERO; self.length()]; self.aux_trace_width()];
 
+        aux_columns[2][0] = E::ONE;
         // Columns storing the copied values for the permutation argument are not necessary, but
         // help understanding the construction of RAPs and are kept for illustrative purposes.
         aux_columns[0][0] =
@@ -252,105 +253,117 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         
         // println!("Current row 2 = {:?}, second last val {:?}", current_row[2], permutation_locs[0]);
         // println!("Current row 3 = {:?}, permuted val {:?}", current_row[3], current_row[fft_width - 2]);
-        // println!("Current row 0 = {:?}, second last val {:?}", current_row[0], current_row[fft_width - 2]);
-        // println!("Current row 1 = {:?}, last val {:?}", current_row[1], current_row[fft_width - 1]);
         
-        // let permutation_locs: Vec<(Vec<E>, Vec<E>)> = get_fft_permutation_locs_field_arr(self.length());
-       let permutation_locs: Vec<Vec<E>> = get_fft_permutation_locs_single_field_arr(self.length());
-        // Permutation argument column
-        aux_columns[2][0] = E::ONE;
-        aux_columns[5][0] = E::ONE;
-        for step in 1..num_steps {
-            
-            // if step == 1 {
-            //     println!("Current_row 2*step at col 4 = {:?}", current_row[2*step]);
-            //     println!("Forward perm = {:?}", permutation_locs[step - 1].0[0]);
-            //     println!("backward perm = {:?}", permutation_locs[step - 1].1[0]);
-            // }
-
-            aux_columns[3*step][0] =
-                rand_elements[0] * current_row[2*step].into() + 
-                rand_elements[1] * current_row[fft_width-2].into();
-            
-            aux_columns[3*step+1][0] =
-                rand_elements[0] * current_row[2*step + 1].into() + 
-                rand_elements[1] * permutation_locs[step-1][0];
-            
-            aux_columns[3*step+2][0] = E::ONE;
-        }
-
-        for index in 1..self.length() {            
-            
+        
+        for index in 1..self.length() {
             self.read_row_into(index, &mut current_row);
-            // println!("Current row 2 = {:?}, second last val {:?}", current_row[2], permutation_locs[0]);
-            // println!("Current row 3 = {:?}, permuted val {:?}", current_row[3], current_row[fft_width - 2]);
-
-            // // Aux columns for bit reverse permutation 
+            
             aux_columns[0][index] =
                 rand_elements[0] * current_row[0].into() + rand_elements[1] * current_row[fft_width-2].into();
             aux_columns[1][index] =
                 rand_elements[0] * current_row[1].into() + rand_elements[1] * current_row[fft_width-1].into();
 
-            // let num = aux_columns[0][index - 1] + rand_elements[2];
-            // let denom = aux_columns[1][index - 1] + rand_elements[2];
-
-            // aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
+            let num = aux_columns[0][index - 1] + rand_elements[2];
+            let denom = aux_columns[1][index - 1] + rand_elements[2];
             
-            // // Aux cols for butterfly permutation forward
-            println!("Index = {}", index);
-            // println!("perm = {:?}", permutation_locs[0].0);
-            for step in 1..num_steps {
-                // if step == 2 {
-                //     println!("Current_row at col {} = {:?}", 2*step, current_row[2*step]);
-                //     println!("Current_row at col {} = {:?}", 2*step+1, current_row[2*step+1]);
-                //     println!("Forward perm = {:?}", permutation_locs[step-1].0[index]);
-                // }
-                // println!("Forward step {}", step);
-                if step == 3 {
-                    println!("Val = {:?}, loc = {:?}", current_row[2*step+1], current_row[fft_width - 2]);
-                    println!("Val = {:?}, permuted loc = {:?}", current_row[2*step], permutation_locs[step-1][index]);
-                }
+            aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
+        }   
+        // let permutation_locs: Vec<(Vec<E>, Vec<E>)> = get_fft_permutation_locs_field_arr(self.length());
+    //    let permutation_locs: Vec<Vec<E>> = get_fft_permutation_locs_single_field_arr(self.length());
+    //     // Permutation argument column
+        
+    //     aux_columns[5][0] = E::ONE;
+    //     for step in 1..num_steps {
+            
+    //         // if step == 1 {
+    //         //     println!("Current_row 2*step at col 4 = {:?}", current_row[2*step]);
+    //         //     println!("Forward perm = {:?}", permutation_locs[step - 1].0[0]);
+    //         //     println!("backward perm = {:?}", permutation_locs[step - 1].1[0]);
+    //         // }
+
+    //         aux_columns[3*step][0] =
+    //             rand_elements[0] * current_row[2*step].into() + 
+    //             rand_elements[1] * current_row[fft_width-2].into();
+            
+    //         aux_columns[3*step+1][0] =
+    //             rand_elements[0] * current_row[2*step + 1].into() + 
+    //             rand_elements[1] * permutation_locs[step-1][0];
+            
+    //         aux_columns[3*step+2][0] = E::ONE;
+    //     }
+
+    //     for index in 1..self.length() {            
+            
+    //         self.read_row_into(index, &mut current_row);
+    //         // println!("Current row 2 = {:?}, second last val {:?}", current_row[2], permutation_locs[0]);
+    //         // println!("Current row 3 = {:?}, permuted val {:?}", current_row[3], current_row[fft_width - 2]);
+
+    //         // // Aux columns for bit reverse permutation 
+    //         aux_columns[0][index] =
+    //             rand_elements[0] * current_row[0].into() + rand_elements[1] * current_row[fft_width-2].into();
+    //         aux_columns[1][index] =
+    //             rand_elements[0] * current_row[1].into() + rand_elements[1] * current_row[fft_width-1].into();
+
+    //         // let num = aux_columns[0][index - 1] + rand_elements[2];
+    //         // let denom = aux_columns[1][index - 1] + rand_elements[2];
+
+    //         // aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
+            
+    //         // // Aux cols for butterfly permutation forward
+    //         println!("Index = {}", index);
+    //         // println!("perm = {:?}", permutation_locs[0].0);
+    //         for step in 1..num_steps {
+    //             // if step == 2 {
+    //             //     println!("Current_row at col {} = {:?}", 2*step, current_row[2*step]);
+    //             //     println!("Current_row at col {} = {:?}", 2*step+1, current_row[2*step+1]);
+    //             //     println!("Forward perm = {:?}", permutation_locs[step-1].0[index]);
+    //             // }
+    //             // println!("Forward step {}", step);
+    //             if step == 3 {
+    //                 println!("Val = {:?}, loc = {:?}", current_row[2*step+1], current_row[fft_width - 2]);
+    //                 println!("Val = {:?}, permuted loc = {:?}", current_row[2*step], permutation_locs[step-1][index]);
+    //             }
                 
-                aux_columns[3*step][index] =
-                    rand_elements[0] * current_row[2*step].into() 
-                    + rand_elements[1] * current_row[fft_width-2].into();
-                aux_columns[3*step+1][index] =
-                    rand_elements[0] * current_row[2*step + 1].into() 
-                    + rand_elements[1] * permutation_locs[step-1][index].into();
-            }
+    //             aux_columns[3*step][index] =
+    //                 rand_elements[0] * current_row[2*step].into() 
+    //                 + rand_elements[1] * current_row[fft_width-2].into();
+    //             aux_columns[3*step+1][index] =
+    //                 rand_elements[0] * current_row[2*step + 1].into() 
+    //                 + rand_elements[1] * permutation_locs[step-1][index].into();
+    //         }
             
             
-            // for step in 3..num_steps+1 {
-            //     // if step == 2 {
-            //     //     println!("backward perm = {:?}", permutation_locs[step].1[index]);
-            //     // }
-            //     if step == 3 {
-            //         println!("Backward step {}", step);
-            //         println!("Aux val = {:?}, forward perm = {:?}", aux_columns[3*step][index], current_row[fft_width-2]);
-            //         println!("Aux val = {:?}, inv perm = {:?}", aux_columns[3*step+1][index], permutation_locs[step-2].1[index]);
-            //     }
-            //     // let permuted_pos = permutation_locs[step-1].1[index];
-            //     // println!("Current row 2 = {:?}, second last val {:?}", current_row[2], permutation_locs[step - 1].1[index]);
-            //     // println!("Current row 3 = {:?}, permuted val {:?}\n", current_row[3], current_row[fft_width - 2]);
-            //     // aux_columns[3*step][index] =
-            //     //     aux_columns[3*step][index] + rand_elements[3] * current_row[fft_width-2].into();
-            //     aux_columns[3*step+1][index] =
-            //         aux_columns[3*step+1][index] + rand_elements[1] * permutation_locs[step-2].1[index].into();
-            // }
+    //         // for step in 3..num_steps+1 {
+    //         //     // if step == 2 {
+    //         //     //     println!("backward perm = {:?}", permutation_locs[step].1[index]);
+    //         //     // }
+    //         //     if step == 3 {
+    //         //         println!("Backward step {}", step);
+    //         //         println!("Aux val = {:?}, forward perm = {:?}", aux_columns[3*step][index], current_row[fft_width-2]);
+    //         //         println!("Aux val = {:?}, inv perm = {:?}", aux_columns[3*step+1][index], permutation_locs[step-2].1[index]);
+    //         //     }
+    //         //     // let permuted_pos = permutation_locs[step-1].1[index];
+    //         //     // println!("Current row 2 = {:?}, second last val {:?}", current_row[2], permutation_locs[step - 1].1[index]);
+    //         //     // println!("Current row 3 = {:?}, permuted val {:?}\n", current_row[3], current_row[fft_width - 2]);
+    //         //     // aux_columns[3*step][index] =
+    //         //     //     aux_columns[3*step][index] + rand_elements[3] * current_row[fft_width-2].into();
+    //         //     aux_columns[3*step+1][index] =
+    //         //         aux_columns[3*step+1][index] + rand_elements[1] * permutation_locs[step-2].1[index].into();
+    //         // }
             
-            // // aux_columns[3*num_steps][index] =
-            // //     aux_columns[num_steps][index] + rand_elements[4] * current_row[fft_width-2].into();
-            // // aux_columns[3*num_steps+1][index] =
-            // //     aux_columns[num_steps][index] + rand_elements[4] * current_row[fft_width-1].into();
+    //         // // aux_columns[3*num_steps][index] =
+    //         // //     aux_columns[num_steps][index] + rand_elements[4] * current_row[fft_width-2].into();
+    //         // // aux_columns[3*num_steps+1][index] =
+    //         // //     aux_columns[num_steps][index] + rand_elements[4] * current_row[fft_width-1].into();
 
-            for step in 0..num_steps {
-                let num = aux_columns[3*step][index - 1] + rand_elements[2];
-                let denom = aux_columns[3*step+1][index - 1] + rand_elements[2];
+    //         for step in 0..num_steps {
+    //             let num = aux_columns[3*step][index - 1] + rand_elements[2];
+    //             let denom = aux_columns[3*step+1][index - 1] + rand_elements[2];
 
-                aux_columns[3*step + 2][index] = aux_columns[3*step + 2][index - 1] * num * denom.inv();
-            }
+    //             aux_columns[3*step + 2][index] = aux_columns[3*step + 2][index - 1] * num * denom.inv();
+    //         }
                 
-        }
+        // }
         
         // for fft_step in 1..num_steps+2 {
         //     let forward_bit = {if fft_step != num_steps+1 {E::ONE} else {E::ZERO} };

@@ -55,11 +55,11 @@ impl Air for FFTRapsAir {
         // The constraints for the reverse perm columns
         main_degrees.push(TransitionConstraintDegree::new(1));
         main_degrees.push(TransitionConstraintDegree::new(1));
-        let mut aux_degrees = vec![];//vec![
-        //     TransitionConstraintDegree::new(1), 
-        //     TransitionConstraintDegree::new(1), 
-        //     TransitionConstraintDegree::new(2),
-        // ];
+        let mut aux_degrees = vec![
+            TransitionConstraintDegree::new(1), 
+            TransitionConstraintDegree::new(1), 
+            TransitionConstraintDegree::new(2),
+        ];
 
         // for step in 0..num_fft_steps {
         //     let mut further_aux = vec![
@@ -95,7 +95,7 @@ impl Air for FFTRapsAir {
                 main_degrees,
                 aux_degrees,
                 2*pub_inputs.fft_inputs.len()+1,
-                0,//4,//pub_inputs.fft_inputs.len()-3,
+                2,//4,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
             fft_inputs: pub_inputs.fft_inputs,
@@ -180,7 +180,6 @@ impl Air for FFTRapsAir {
         // // instead directly compute the permutation argument, hence require a single
         // // auxiliary one. For the sake of illustrating RAPs behaviour, we will store
         // // the computed values in additional columns.
-
         let copied_value_1 = random_elements[0] * (main_current[0]).into()
             + random_elements[1] * (main_current[fft_width - 2]).into();
 
@@ -203,85 +202,79 @@ impl Air for FFTRapsAir {
 
         // println!("Periodic values: {:?}, {:?}, {:?}", periodic_values[2*num_steps + 1], 
                     // periodic_values[2*num_steps + 2], periodic_values[2*num_steps + 3]);
-        let new_loc = main_current[fft_width - 2] 
-                        + (periodic_values[2*num_steps + 1])
-                        - periodic_values[2*num_steps + 2] 
-                        + periodic_values[2*num_steps + 3];
+        // let new_loc = main_current[fft_width - 2] 
+        //                 + (periodic_values[2*num_steps + 1])
+        //                 - periodic_values[2*num_steps + 2] 
+        //                 + periodic_values[2*num_steps + 3];
 
-        let copied_value_3 = random_elements[0] * (main_current[2]).into()
-            + random_elements[1] * (main_current[fft_width - 2]).into();
+        // let copied_value_3 = random_elements[0] * (main_current[2]).into()
+        //     + random_elements[1] * (main_current[fft_width - 2]).into();
 
-        result[3] = are_equal(aux_current[3], copied_value_3);
+        // result[3] = are_equal(aux_current[3], copied_value_3);
 
-        let copied_value_4 = random_elements[0] * (main_current[3]).into()
-            + random_elements[1] * (new_loc).into();
+        // let copied_value_4 = random_elements[0] * (main_current[3]).into()
+        //     + random_elements[1] * (new_loc).into();
 
-        result[4] = are_equal(aux_current[4], copied_value_4);
+        // result[4] = are_equal(aux_current[4], copied_value_4);
         
-        // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
-        result.agg_constraint(
-            5,
-            E::ONE,
-            are_equal(
-                aux_next[5] * (aux_current[4] + random_elements[2]),
-                aux_current[5] * (aux_current[3] + random_elements[2]),
-            ),
-        );
+        // // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
+        // result.agg_constraint(
+        //     5,
+        //     E::ONE,
+        //     are_equal(
+        //         aux_next[5] * (aux_current[4] + random_elements[2]),
+        //         aux_current[5] * (aux_current[3] + random_elements[2]),
+        //     ),
+        // );
 
-        for step in 2..num_steps {
-            let new_loc_forward_perm = main_current[fft_width - 2]
-                                        + periodic_values[2*num_steps + 5 * (step-1) + 1]
-                                        - periodic_values[2*num_steps + 5 * (step-1) + 2] 
-                                        + periodic_values[2*num_steps + 5 * (step-1) + 3];
+        // for step in 2..num_steps {
+        //     let new_loc_forward_perm = main_current[fft_width - 2]
+        //                                 + periodic_values[2*num_steps + 5 * (step-1) + 1]
+        //                                 - periodic_values[2*num_steps + 5 * (step-1) + 2] 
+        //                                 + periodic_values[2*num_steps + 5 * (step-1) + 3];
             
-            let mut new_loc_backward_term = F::ZERO;
-            let mut old_loc_backward_term = F::ZERO;
-            if step >= 3 {  
-                new_loc_backward_term = periodic_values[2*num_steps + 5 * (step - 1) + 4]
-                                        - periodic_values[2*num_steps + 5 * (step - 1) + 5] 
-                                        - (F::ONE - periodic_values[num_steps]);
-                // old_loc_backward_perm = main_current[fft_width - 2];
-            }
-            println!("index = {:?}, step = {:?}", main_current[fft_width - 2], step);
+        //     let mut new_loc_backward_term = F::ZERO;
+        //     let mut old_loc_backward_term = F::ZERO;
+        //     if step >= 3 {  
+        //         new_loc_backward_term = periodic_values[2*num_steps + 5 * (step - 1) + 4]
+        //                                 - periodic_values[2*num_steps + 5 * (step - 1) + 5] 
+        //                                 - (F::ONE - periodic_values[num_steps]);
+        //         // old_loc_backward_perm = main_current[fft_width - 2];
+        //     }
+        //     println!("index = {:?}, step = {:?}", main_current[fft_width - 2], step);
             
-            println!("periodics step - 1 = {:?}", 
-                    vec![periodic_values[2*num_steps + 5 * (step - 1) + 1], 
-                    periodic_values[2*num_steps + 5 * (step - 1) + 2], 
-                    periodic_values[2*num_steps + 5 * (step - 1) + 3]]);
-            if step >= 3 {
-                println!("Inv periodics step - 2 = {:?}", 
-                    vec![periodic_values[2*num_steps + 5 * (step - 2) + 4], 
-                    periodic_values[2*num_steps + 5 * (step - 2) + 5], 
-                    (F::ONE - periodic_values[num_steps])]);
-            }
+        //     println!("periodics step - 1 = {:?}", 
+        //             vec![periodic_values[2*num_steps + 5 * (step - 1) + 1], 
+        //             periodic_values[2*num_steps + 5 * (step - 1) + 2], 
+        //             periodic_values[2*num_steps + 5 * (step - 1) + 3]]);
+        //     if step >= 3 {
+        //         println!("Inv periodics step - 2 = {:?}", 
+        //             vec![periodic_values[2*num_steps + 5 * (step - 2) + 4], 
+        //             periodic_values[2*num_steps + 5 * (step - 2) + 5], 
+        //             (F::ONE - periodic_values[num_steps])]);
+        //     }
 
-            let copy_a = random_elements[0] * main_current[2*step].into() 
-                            + random_elements[1] * main_current[fft_width - 2].into();
-                            //+ random_elements[3] * old_loc_backward_perm.into();
-                            // random_elements[3] * new_loc_backward_perm.into();
-            println!("Step = {:?}", step);
-            println!("Original = {:?} New forward perm = {:?}",                      
-                    main_current[fft_width - 2],    
-                    new_loc_forward_perm 
-                    + new_loc_backward_term);
-            // println!("Constraint # {}", 3*step);
-            // println!("Aux current {:?}, copy_a {:?}", aux_current[3*step], copy_a);
+        //     let copy_a = random_elements[0] * main_current[2*step].into() 
+        //                     + random_elements[1] * main_current[fft_width - 2].into();
+        //                     //+ random_elements[3] * old_loc_backward_perm.into();
+        //                     // random_elements[3] * new_loc_backward_perm.into();
+        //     println!("Step = {:?}", step);
+        //     println!("Original = {:?} New forward perm = {:?}",                      
+        //             main_current[fft_width - 2],    
+        //             new_loc_forward_perm 
+        //             + new_loc_backward_term);
+        //     // println!("Constraint # {}", 3*step);
+        //     // println!("Aux current {:?}, copy_a {:?}", aux_current[3*step], copy_a);
 
-            result[3*step] = are_equal(aux_current[3*step], copy_a);
+        //     result[3*step] = are_equal(aux_current[3*step], copy_a);
 
-            let copy_b = random_elements[0] * main_current[2*step+1].into() 
-                            + random_elements[1] * (new_loc_forward_perm
-                            +  new_loc_backward_term).into();
+        //     let copy_b = random_elements[0] * main_current[2*step+1].into() 
+        //                     + random_elements[1] * (new_loc_forward_perm
+        //                     +  new_loc_backward_term).into();
 
-            result[3*step + 1] = are_equal(aux_current[3*step + 1], copy_b);
+        //     result[3*step + 1] = are_equal(aux_current[3*step + 1], copy_b);
 
-        }
-
-
-
-
-
-
+        // }
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -307,18 +300,18 @@ impl Air for FFTRapsAir {
         &self,
         _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
-        // let last_step = self.trace_length() - 1;
+        let last_step = self.trace_length() - 1;
         // let num_steps = get_num_steps(self.trace_length());
-        // let mut output_vec = vec![
-        //     Assertion::single(2, 0, E::ONE),
-        //     Assertion::single(2, last_step, E::ONE)
-        // ];
+        let mut output_vec = vec![
+            Assertion::single(2, 0, E::ONE),
+            Assertion::single(2, last_step, E::ONE)
+        ];
         // for step in 1..num_steps {
         //     output_vec.push(Assertion::single(3*step + 2, 0, E::ONE));
         //     output_vec.push(Assertion::single(3*step + 2, last_step, E::ONE));
         // }
-        // output_vec
-        vec![]
+        output_vec
+        // vec![]
     }
 
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
