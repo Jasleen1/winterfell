@@ -95,7 +95,7 @@ impl Air for FFTRapsAir {
                 main_degrees,
                 aux_degrees,
                 2*pub_inputs.fft_inputs.len()+1,
-                2,//4,//pub_inputs.fft_inputs.len()-3,
+                4*num_fft_steps - 2,//4,//pub_inputs.fft_inputs.len()-3,
                 options,
             ),
             fft_inputs: pub_inputs.fft_inputs,
@@ -301,15 +301,19 @@ impl Air for FFTRapsAir {
         _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
         let last_step = self.trace_length() - 1;
-        // let num_steps = get_num_steps(self.trace_length());
+        let num_steps = get_num_steps(self.trace_length());
         let mut output_vec = vec![
             Assertion::single(2, 0, E::ONE),
             Assertion::single(2, last_step, E::ONE)
         ];
-        // for step in 1..num_steps {
-        //     output_vec.push(Assertion::single(3*step + 2, 0, E::ONE));
-        //     output_vec.push(Assertion::single(3*step + 2, last_step, E::ONE));
-        // }
+        for step in 2..num_steps+1 {
+            output_vec.push(Assertion::single(3*step - 1, 0, E::ONE));
+            output_vec.push(Assertion::single(3*step - 1, last_step, E::ONE));
+        }
+        for step in 2..num_steps+1 {
+            output_vec.push(Assertion::single( 3*num_steps + 3*step - 4, 0, E::ONE));
+            output_vec.push(Assertion::single(3*num_steps + 3*step - 4, last_step, E::ONE));
+        }
         output_vec
         // vec![]
     }

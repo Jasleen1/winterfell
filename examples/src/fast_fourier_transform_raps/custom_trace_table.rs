@@ -117,7 +117,7 @@ impl<B: StarkField> FFTTraceTable<B> {
         // width - 2
         // 3 + 3
         //3 + 3*((width - 4)/2+1)
-        3
+        3 + 2*3*((width - 2)/3 - 1)
     }
 
     // We want to show that the column for each fft step was permuted correctly,
@@ -244,7 +244,21 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         aux_columns[1][0] =
             rand_elements[0] * current_row[1].into() + rand_elements[1] * current_row[fft_width-2].into();
 
+        let backward_permutation_locs: Vec<Vec<E>> = get_fft_perm_rev_locs(self.length());
+
+        for step in 2..num_steps+1 {
+            aux_columns[3*(step-1)][0] = rand_elements[0] * current_row[3*(step - 1)+1].into() + rand_elements[1] * backward_permutation_locs[step - 2][0].into();
+            aux_columns[3*(step-1)+1][0] = rand_elements[0] * current_row[3*(step - 1)+2].into() + rand_elements[1] * current_row[fft_width-2].into();
+            aux_columns[3*(step-1)+2][0] = E::ONE;
+        }
         
+        let forward_permutation_locs: Vec<Vec<E>> = get_fft_perm_forward_locs(self.length());
+
+        for step in 2..num_steps+1 {
+            aux_columns[3*num_steps + 3*(step-2)][0] = rand_elements[0] * current_row[3*(step - 1)-1].into() + rand_elements[1] * forward_permutation_locs[step - 2][0].into();
+            aux_columns[3*num_steps + 3*(step-2)+1][0] = rand_elements[0] * current_row[3*(step - 1)].into() + rand_elements[1] * current_row[fft_width-2].into();
+            aux_columns[3*num_steps + 3*(step-2)+2][0] = E::ONE;
+        }
         // let permutation_locs: Vec<(Vec<E>, Vec<E>)> = get_fft_permutation_locs_field(self.length(), 2);
         // aux_columns[3][0] =
         //     rand_elements[0] * current_row[2].into() + rand_elements[1] * current_row[fft_width-2].into();
@@ -267,6 +281,29 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
             let denom = aux_columns[1][index - 1] + rand_elements[2];
             
             aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
+
+            for step in 2..num_steps+1 {
+                aux_columns[3*(step-1)][index] = rand_elements[0] * current_row[3*(step - 1)+1].into() + rand_elements[1] * backward_permutation_locs[step - 2][index].into();
+                aux_columns[3*(step-1)+1][index] = rand_elements[0] * current_row[3*(step - 1)+2].into() + rand_elements[1] * current_row[fft_width-2].into();
+                
+                let num = aux_columns[3*(step-1)][index - 1] + rand_elements[2];
+                let denom = aux_columns[3*(step-1)+1][index - 1] + rand_elements[2];
+                
+                aux_columns[3*(step-1)+2][index] = aux_columns[3*(step-1)+2][index - 1] * num * denom.inv();
+                // println!("Index of the inverses = {}", 3*(step-1)+2);
+            }
+
+            for step in 2..num_steps+1 {
+                
+                
+                aux_columns[3*num_steps + 3*(step-2)][index] = rand_elements[0] * current_row[3*(step - 1)-1].into() + rand_elements[1] * current_row[fft_width-2].into();
+                aux_columns[3*num_steps + 3*(step-2)+1][index] = rand_elements[0] * current_row[3*(step - 1)].into() + rand_elements[1] * forward_permutation_locs[step - 2][index].into();
+                
+
+                let num = aux_columns[3*num_steps + 3*(step-2)][index - 1] + rand_elements[2];
+                let denom = aux_columns[3*num_steps + 3*(step-2)+1][index - 1] + rand_elements[2];
+                aux_columns[3*num_steps + 3*(step-2)+2][index] = aux_columns[3*num_steps + 3*(step-2)+2][index-1] * num * denom.inv();
+            }
         }   
         // let permutation_locs: Vec<(Vec<E>, Vec<E>)> = get_fft_permutation_locs_field_arr(self.length());
     //    let permutation_locs: Vec<Vec<E>> = get_fft_permutation_locs_single_field_arr(self.length());
@@ -406,9 +443,6 @@ pub(crate) fn get_fft_permutation_locs_field_arr<E: FieldElement>(fft_size: usiz
                 let x_u64: u64 = (*x).try_into().unwrap();
                 E::from(x_u64)
             }).collect::<Vec<E>>();
-            if step == 2 {
-                println!("Step = 2, forward perm = {:?}", forward_perm);
-            }
         }
         if step != 2 {
             let mut usize_locs = get_fft_inv_permutation_locs(fft_size, step-1);
@@ -424,39 +458,32 @@ pub(crate) fn get_fft_permutation_locs_field_arr<E: FieldElement>(fft_size: usiz
 }
 
 
-pub(crate) fn get_fft_permutation_locs_single_field_arr<E: FieldElement>(fft_size: usize) -> Vec<Vec<E>> {
+pub(crate) fn get_fft_perm_rev_locs<E: FieldElement>(fft_size: usize) -> Vec<Vec<E>> {
     let num_fft_steps: usize = log2(fft_size).try_into().unwrap();
     let mut output: Vec<Vec<E>> = vec![];
-    println!("Forward perm at step 2: {:?}", get_fft_permutation_locs(fft_size, 2));
-    for step in 2..num_fft_steps+2 {
-        let mut forward_perm_usize = vec![0; fft_size];
-        let mut forward_perm = vec![E::ZERO; fft_size];
-        if step > 2 && step != num_fft_steps+1 {
-            let usize_locs = get_fft_permutation_locs(fft_size, step);
-            let usize_inv_locs = get_fft_inv_permutation_locs(fft_size, step - 1);
-            for (i, &loc) in usize_inv_locs.iter().enumerate() {
-                forward_perm_usize[i] = usize_locs[loc];
-            }
-            
-            if step == 3 {
-                println!("Step = 3, \nbackward perm = {:?}", usize_inv_locs);
-                println!("Forward perm = {:?}", usize_locs);
-                println!("Full = {:?}", forward_perm_usize);
-            }
-        }
-        else if step == 2 {
-            forward_perm_usize = get_fft_permutation_locs(fft_size, step);
-        }
-        else {
-            let log_fft_size = log2(fft_size);
-            let num_bits: usize = log_fft_size.try_into().unwrap();
-            // This also needs the inverse permutation.
-            let usize_inv_locs = get_fft_permutation_locs(fft_size, step - 1);
-            for (i, &loc) in usize_inv_locs.iter().enumerate() {
-                forward_perm_usize[i] = bit_reverse(loc, num_bits);
-            }
-        }
-        forward_perm = forward_perm_usize.iter_mut().map(|x| {
+    for step in 2..num_fft_steps+1{
+        
+        let mut backward_perm_usize = get_fft_inv_permutation_locs(fft_size, step);
+        
+        
+        let backward_perm = backward_perm_usize.iter_mut().map(|x| {
+            let x_u64: u64 = (*x).try_into().unwrap();
+            E::from(x_u64)
+        }).collect::<Vec<E>>();
+        
+        output.push(backward_perm);
+    }
+    output
+}
+
+pub(crate) fn get_fft_perm_forward_locs<E: FieldElement>(fft_size: usize) -> Vec<Vec<E>> {
+    let num_fft_steps: usize = log2(fft_size).try_into().unwrap();
+    let mut output: Vec<Vec<E>> = vec![];
+    for step in 2..num_fft_steps+1{
+
+        let mut forward_perm_usize = get_fft_inv_permutation_locs(fft_size, step);
+
+        let forward_perm = forward_perm_usize.iter_mut().map(|x| {
             let x_u64: u64 = (*x).try_into().unwrap();
             E::from(x_u64)
         }).collect::<Vec<E>>();
