@@ -71,6 +71,7 @@ impl FFTRapsExample {
         let now = Instant::now();
         let omega = BaseElement::get_root_of_unity(num_fft_inputs.try_into().unwrap());
         let result = simple_iterative_fft(fft_inputs.clone(), omega);
+
         debug!(
             "Computed fft of {} inputs in {} ms",
             num_fft_inputs,
@@ -100,26 +101,10 @@ impl Example for FFTRapsExample {
             ---------------------",
             self.num_fft_inputs
         );
-        // for i in 1..5 {
-        //     println!("\n Running bit rev for {} bits", i);
-        //     let num_bits = i;
-        //     let max_int = 1 << i;
-        //     for j in 0..max_int {
-        //         println!("Bit rev {} = {:?}", j, bit_reverse(j, num_bits));
-        //     }
-        // }
-
-        // for step in 1..5 {
-        //     println!("\nRunning fft permutation for step {}", step);
-        //     let perm_loc = get_fft_permutation_loc(16, step);
-        //     for j in 0..16 {
-        //         println!("Location {} maps to {:?}", j, perm_loc[j]);
-        //     }
-        // }
+        
         // create a prover
         let prover = FFTRapsProver::new(self.options.clone());
 
-        let fft_in = self.fft_inputs.clone();
 
         // generate the execution trace
         let now = Instant::now();
@@ -170,6 +155,7 @@ impl Example for FFTRapsExample {
 
 
 fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
+    println!("Applying bit rev copy");
     let fft_size = state.len();
     let log_fft_size = log2(fft_size);
     let num_bits: usize = log_fft_size.try_into().unwrap();
@@ -183,10 +169,10 @@ fn apply_bit_rev_copy_permutation(state: &mut [BaseElement]) {
 }
 
 fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
-    assert!(step % 2 == 0, "Only even steps have permuations");
+    assert!(step % 3 == 2, "Only 2 (mod 3) steps have permuations");
     let fft_size = state.len();
-    println!("Step number = {}", step/2 + 1);
-    let jump = (1 << (step/2 + 1))/2;
+    let perm_step = (step + 1)/3 + 1;
+    let jump = (1 << perm_step)/2;
     let num_ranges = fft_size / (2*jump);
     let mut next_state = vec![BaseElement::ZERO; fft_size];
     for k in 0..num_ranges {
@@ -196,14 +182,75 @@ fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
             next_state[start_of_range + 2*j + 1] = state[start_of_range + j + jump];
         }
     }
-    if step == 2 {
-        println!("Original for step 1 = {:?}", state);
-        println!("perm for step 1 = {:?}", next_state);
-    }
+    // if perm_step == 2 {
+    //     println!("Original for step 1 = {:?}", state);
+    //     println!("perm for step 1 = {:?}", next_state);
+    // }
     for i in 0..fft_size {
         state[i] = next_state[i];
     }
     
+}
+
+
+
+fn apply_fft_inv_permutation(state: &mut [BaseElement], step: usize) {
+    assert!(step != 0, "Only non-zero steps have inv permuations");
+    assert!(step % 3 == 1, "Only steps of the form 1 (mod 3) have inv permuations");
+    let step_prev = step - 2;
+    let fft_size = state.len();
+    let perm_step = (step_prev + 1)/3 + 1;
+    let jump = (1 << perm_step)/2;
+    let num_ranges = fft_size / (2*jump);
+    let mut next_state = vec![BaseElement::ZERO; fft_size];
+    for k in 0..num_ranges {
+        let start_of_range = k * 2 * jump;
+        
+        for j in 0..jump {
+            next_state[start_of_range + j] = state[start_of_range + 2*j];
+            next_state[start_of_range + j + jump] = state[start_of_range + 2*j + 1];
+        }
+    }
+    
+    for i in 0..fft_size {
+        state[i] = next_state[i];
+    }  
+}
+
+fn fill_fft_indices(state: &mut [BaseElement]) {
+    let fft_size = state.len();
+    let mut count = 0u128;
+    let mut count_usize = 0;
+    while count_usize < fft_size {
+        state[count_usize] = BaseElement::from(count);
+        count_usize += 1;
+        count += 1;
+    }
+}
+
+fn apply_fft_calculation(state: &mut [BaseElement], step: usize, omega: BaseElement) {
+    assert!((step == 1 || step % 3 == 0) , "Only step 1 or every 3rd step has computation steps");
+    let fft_size = state.len();
+    let fft_size_u128: u128 = fft_size.try_into().unwrap();
+    let mut m = 1 << ((step + 1)/2);
+    if step % 3 == 0 {
+        m = 1 << ((step / 3) + 1);
+    }
+    let m_u128: u128 = m.try_into().unwrap();
+    let mut omegas = Vec::<BaseElement>::new();
+    let mut power_of_omega = BaseElement::ONE;
+    let local_omega = omega.exp(fft_size_u128/m_u128);
+    for _ in 0..m {
+        omegas.push(power_of_omega);
+        power_of_omega *= local_omega;
+    }
+    for i in 0..fft_size/2 {
+        let curr_omega = omegas[i % (m/2)];
+        let u = state[2*i];
+        let v = state[2*i+1] * curr_omega;
+        state[2*i] = u + v;
+        state[2*i + 1] = u - v;
+    }
 }
 
 /// This function maps an integer j -> new_location(j) after applying the 
@@ -243,62 +290,6 @@ fn get_fft_inv_permutation_locs(fft_size: usize, step: usize) -> Vec<usize> {
     }
     perm_locs
 }
-
-fn apply_fft_inv_permutation(state: &mut [BaseElement], step: usize) {
-    assert!(step != 0, "Only non-zero steps have inv permuations");
-    assert!(step % 2 == 0, "Only even steps have inv permuations");
-    let step_prev = step - 2;
-    let fft_size = state.len();
-    let jump = (1 << (step_prev/2 + 1))/2;
-    let num_ranges = fft_size / (2*jump);
-    let mut next_state = vec![BaseElement::ZERO; fft_size];
-    for k in 0..num_ranges {
-        let start_of_range = k * 2 * jump;
-        
-        for j in 0..jump {
-            next_state[start_of_range + j] = state[start_of_range + 2*j];
-            next_state[start_of_range + j + jump] = state[start_of_range + 2*j + 1];
-        }
-    }
-    
-    for i in 0..fft_size {
-        state[i] = next_state[i];
-    }  
-}
-
-fn fill_fft_indices(state: &mut [BaseElement]) {
-    let fft_size = state.len();
-    let mut count = 0u128;
-    let mut count_usize = 0;
-    while count_usize < fft_size {
-        state[count_usize] = BaseElement::from(count);
-        count_usize += 1;
-        count += 1;
-    }
-}
-
-fn apply_fft_calculation(state: &mut [BaseElement], step: usize, omega: BaseElement) {
-    assert!(step % 2 == 1, "Only odd steps have computation steps");
-    let fft_size = state.len();
-    let fft_size_u128: u128 = fft_size.try_into().unwrap();
-    let m = 1 << ((step + 1)/2);
-    let m_u128: u128 = m.try_into().unwrap();
-    let mut omegas = Vec::<BaseElement>::new();
-    let mut power_of_omega = BaseElement::ONE;
-    let local_omega = omega.exp(fft_size_u128/m_u128);
-    for _ in 0..m {
-        omegas.push(power_of_omega);
-        power_of_omega *= local_omega;
-    }
-    for i in 0..fft_size/2 {
-        let curr_omega = omegas[i % (m/2)];
-        let u = state[2*i];
-        let v = state[2*i+1] * curr_omega;
-        state[2*i] = u + v;
-        state[2*i + 1] = u - v;
-    }
-}
-
 
 
 /////// Tests for helpers

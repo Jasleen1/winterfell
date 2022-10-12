@@ -41,6 +41,8 @@ fn bit_reverse_copy(input_array: Vec<BaseElement>) -> Vec<BaseElement> {
     output_arr
 }
 
+// bit_reverse(0xb1011, 4) -> 0xb1101
+// bit_reverse(0xb1011, 4) -> 0xb1101
 pub(crate) fn bit_reverse(input_int: usize, num_bits: usize) -> usize {
     let mut output_int = 0;
     let mut input_copy = input_int;
@@ -51,3 +53,4 @@ pub(crate) fn bit_reverse(input_int: usize, num_bits: usize) -> usize {
     }
     return output_int;
 }
+
