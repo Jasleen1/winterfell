@@ -133,13 +133,14 @@ impl Example for FFTRapsExample {
         winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
     }
 
+    // FIXME: Need to make this actually fail
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
-        // let pub_inputs = PublicInputs {
-        //     result: [self.result[1], self.result[0]],
-        // };
-        // winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
-        // unimplemented!()
-        Ok(())
+        let pub_inputs = PublicInputs {
+            result: self.result.clone(),
+            num_inputs: self.num_fft_inputs,
+            fft_inputs: self.fft_inputs.clone(),
+        };
+        winterfell::verify::<FFTRapsAir>(proof, pub_inputs)
     }
 }
 
@@ -173,10 +174,6 @@ fn apply_fft_permutation(state: &mut [BaseElement], step: usize) {
             next_state[start_of_range + 2 * j + 1] = state[start_of_range + j + jump];
         }
     }
-    // if perm_step == 2 {
-    //     println!("Original for step 1 = {:?}", state);
-    //     println!("perm for step 1 = {:?}", next_state);
-    // }
     for i in 0..fft_size {
         state[i] = next_state[i];
     }

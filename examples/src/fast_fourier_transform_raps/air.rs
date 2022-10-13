@@ -211,6 +211,7 @@ impl Air for FFTRapsAir {
             ),
         );
 
+        // This loop contains constraints that enforce that the forward permutations are done correctly.
         for step in 2..num_steps + 1 {
             let new_loc = main_current[fft_width - 2]
                 + (periodic_values[2 * num_steps + 5 * (step - 2) + 1])
@@ -237,6 +238,7 @@ impl Air for FFTRapsAir {
             );
         }
 
+        // This loop contains constraints that enforce that the inverse permutations are done correctly.
         for step in 2..num_steps + 1 {
             let new_loc = main_current[fft_width - 2] - (F::ONE - periodic_values[num_steps])
                 + periodic_values[2 * num_steps + 5 * (step - 2) + 4]
@@ -289,6 +291,9 @@ impl Air for FFTRapsAir {
         &self,
         _aux_rand_elements: &AuxTraceRandElements<E>,
     ) -> Vec<Assertion<E>> {
+        // These assertions are all for checking correctness of permutations.
+        // This means that the 0th position should be E::ONE and the last position should
+        // also be E::ONE.
         let last_step = self.trace_length() - 1;
         let num_steps = get_num_steps(self.trace_length());
         let mut output_vec = vec![
@@ -308,7 +313,6 @@ impl Air for FFTRapsAir {
             ));
         }
         output_vec
-        // vec![]
     }
 
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
@@ -329,7 +333,6 @@ impl Air for FFTRapsAir {
                 let i_u128: u128 = i.try_into().unwrap();
                 local_omega_col[2 * i] = local_omega.exp(i_u128);
             }
-            // println!("Local omega col step {} = {:?}", step, local_omega_col);
             result.push(local_omega_col);
         }
 
@@ -348,6 +351,8 @@ impl Air for FFTRapsAir {
             result.push(bit_vec);
             start_zeros = start_zeros / 2;
         }
+        // At this point, we have filled in 2*num_steps + 1 columns.
+        // Below we fill in columns that take care of the forward and backward permutations.
         for j in 2..num_steps + 1 {
             let jump = (1 << j) / 2;
             let j_u64: u64 = j.try_into().unwrap();
@@ -378,16 +383,18 @@ impl Air for FFTRapsAir {
                 // Increment the field element that keeps count
                 count = count + BaseElement::ONE;
             }
+            // This col is structured like so: [0,..., jump-1]
             result.push(counter_col);
+            // This col is structured like so: [0, ..., 0, jump, ..., jump]
             result.push(jump_col);
+            // This col is structured like so: [0, ..., 0, 1, ..., 1]
             result.push(parity_col);
 
+            // This col is just [0, jump]
             result.push(vec![BaseElement::ZERO, jump_field_elt]);
+            // This col is [0, 0, 1, 1,..., jump-1, jump-1]
             result.push(inv_counter_col);
         }
-
-        // println!("Length of results vector {}", result.len());
-        // println!("Next val in result {:?}", result[num_steps+1]);
         result
     }
 }

@@ -249,9 +249,12 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         aux_columns[1][0] = rand_elements[0] * current_row[1].into()
             + rand_elements[1] * current_row[fft_width - 2].into();
 
+        // This array contains the backward permutation for jump = 2, ..., log(fft_size)
         let backward_permutation_locs: Vec<Vec<E>> = get_fft_perm_rev_locs(self.length());
+        // This array contains the forward permutation for jump = 2, ..., log(fft_size)
         let forward_permutation_locs: Vec<Vec<E>> = get_fft_perm_forward_locs(self.length());
 
+        // These columns will check whether the forward permutation was done correctly
         for step in 2..num_steps + 1 {
             aux_columns[3 * (step - 1)][0] = rand_elements[0]
                 * current_row[3 * (step - 1) - 1].into()
@@ -262,6 +265,7 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
             aux_columns[3 * (step - 1) + 2][0] = E::ONE;
         }
 
+        // These columns will be used to check if the backward permutation was done correctly
         for step in 2..num_steps + 1 {
             aux_columns[3 * num_steps + 3 * (step - 2)][0] = rand_elements[0]
                 * current_row[3 * (step - 1) + 1].into()
@@ -272,18 +276,10 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
             aux_columns[3 * num_steps + 3 * (step - 2) + 2][0] = E::ONE;
         }
 
-        // let permutation_locs: Vec<(Vec<E>, Vec<E>)> = get_fft_permutation_locs_field(self.length(), 2);
-        // aux_columns[3][0] =
-        //     rand_elements[0] * current_row[2].into() + rand_elements[1] * current_row[fft_width-2].into();
-        // aux_columns[4][0] =
-        //     rand_elements[0] * current_row[3].into() + rand_elements[1] * permutation_locs[0];
-
-        // println!("Current row 2 = {:?}, second last val {:?}", current_row[2], permutation_locs[0]);
-        // println!("Current row 3 = {:?}, permuted val {:?}", current_row[3], current_row[fft_width - 2]);
-
         for index in 1..self.length() {
             self.read_row_into(index, &mut current_row);
 
+            // Checking that column 1 is a bit reverse permutation of column 0.
             aux_columns[0][index] = rand_elements[0] * current_row[0].into()
                 + rand_elements[1] * current_row[fft_width - 2].into();
             aux_columns[1][index] = rand_elements[0] * current_row[1].into()
