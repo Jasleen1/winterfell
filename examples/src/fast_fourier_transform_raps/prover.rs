@@ -3,15 +3,14 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use core::num;
 use std::convert::TryInto;
 
-use winterfell::math::{fft, log2};
+use winterfell::math::log2;
 
 use super::{
-    apply_bit_rev_copy_permutation, apply_fft_calculation, apply_fft_inv_permutation,
-    apply_fft_permutation, fill_fft_indices, BaseElement, FFTRapsAir, FFTTraceTable, FieldElement,
-    ProofOptions, Prover, PublicInputs, Trace,
+    apply_bit_rev_copy_permutation, apply_fft_calculation_air, apply_fft_inv_permutation_air,
+    apply_fft_permutation_air, fill_fft_indices, BaseElement, FFTRapsAir, FFTTraceTable,
+    FieldElement, ProofOptions, Prover, PublicInputs, Trace,
 };
 
 // RESCUE PROVER
@@ -45,9 +44,7 @@ impl FFTRapsProver {
 
         trace.fill_cols(
             |state| {
-                for i in 0..trace_length {
-                    state[i] = fft_inputs[i];
-                }
+                state[..trace_length].copy_from_slice(&fft_inputs[..trace_length]);
             },
             |step, state| {
                 // execute the transition function for all steps
@@ -61,7 +58,7 @@ impl FFTRapsProver {
                             apply_bit_rev_copy_permutation(state);
                         }
                         if step >= 3 && step != non_fft_step {
-                            apply_fft_calculation(state, step, omega);
+                            apply_fft_calculation_air(state, step, omega);
                         }
                     }
                     // For each 1 (mod 3) step, except the first,
@@ -69,7 +66,7 @@ impl FFTRapsProver {
                     // For the first step, we would like to do the FFT operation with adjacent values.
                     1 => {
                         if step == 1 {
-                            apply_fft_calculation(state, step, omega);
+                            apply_fft_calculation_air(state, step, omega);
                         } else {
                             assert!(
                                 step <= last_back_permutation_step,
@@ -78,12 +75,12 @@ impl FFTRapsProver {
                                 last_back_permutation_step,
                                 step
                             );
-                            apply_fft_inv_permutation(state, step);
+                            apply_fft_inv_permutation_air(state, step);
                         }
                     }
                     2 => {
                         if step <= last_forward_permutation_step {
-                            apply_fft_permutation(state, step);
+                            apply_fft_permutation_air(state, step);
                         } else {
                             fill_fft_indices(state);
                         }
@@ -96,11 +93,8 @@ impl FFTRapsProver {
         );
         let mut last_trace_col = vec![BaseElement::ONE; trace_length];
         trace.read_col_into(get_results_col_idx(trace_length), &mut last_trace_col);
-        for row in 0..trace_length {
-            debug_assert_eq!(
-                trace.get(get_results_col_idx(trace_length), row),
-                result[row]
-            );
+        for (row, res) in result.iter().enumerate().take(trace_length) {
+            debug_assert_eq!(trace.get(get_results_col_idx(trace_length), row), *res);
         }
 
         trace

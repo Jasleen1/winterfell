@@ -184,12 +184,12 @@ mod tests {
         fn mds_freq_proptest(a in any::<[u64;STATE_WIDTH]>()) {
 
             let mut v1 = [BaseElement::ZERO;STATE_WIDTH];
-            let mut v2;
+
 
             for i in 0..STATE_WIDTH {
                 v1[i] = BaseElement::new(a[i]);
             }
-            v2 = v1.clone();
+            let mut v2 = v1;
 
             apply_mds_naive(&mut v1);
             Rp64_256::apply_mds(&mut v2);

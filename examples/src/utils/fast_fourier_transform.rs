@@ -25,7 +25,7 @@ pub(crate) fn simple_iterative_fft(
                 let v = omega_curr * output_arr[start_pos + j + jump];
                 output_arr[start_pos + j] = u + v;
                 output_arr[start_pos + j + jump] = u - v;
-                omega_curr = omega_curr * local_factor;
+                omega_curr *= local_factor;
             }
         }
     }
@@ -53,5 +53,5 @@ pub(crate) fn bit_reverse(input_int: usize, num_bits: usize) -> usize {
         output_int |= input_copy & 1;
         input_copy >>= 1;
     }
-    return output_int;
+    output_int
 }

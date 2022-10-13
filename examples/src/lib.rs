@@ -6,7 +6,6 @@
 use structopt::StructOpt;
 use winterfell::{FieldExtension, HashFunction, ProofOptions, StarkProof, VerifierError};
 
-pub mod fast_fourier_transform;
 pub mod fast_fourier_transform_raps;
 pub mod fibonacci;
 #[cfg(feature = "std")]
@@ -150,7 +149,7 @@ pub enum ExampleType {
     #[cfg(feature = "std")]
     FFTRaps {
         /// Number of fft inputs; must be a power of two and at least 4
-        #[structopt(short = "n", default_value = "32")]
+        #[structopt(short = "n", default_value = "16")]
         num_fft_inputs: usize,
     },
     /// Compute a root of a Merkle path using Rescue hash function

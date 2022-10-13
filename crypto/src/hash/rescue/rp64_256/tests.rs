@@ -35,7 +35,7 @@ fn mds_inv_test() {
 #[test]
 fn test_alphas() {
     let e: BaseElement = rand_value();
-    let e_exp = e.exp(ALPHA.into());
+    let e_exp = e.exp(ALPHA);
     assert_eq!(e, e_exp.exp(INV_ALPHA));
 }
 

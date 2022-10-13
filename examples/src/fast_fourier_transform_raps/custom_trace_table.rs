@@ -5,19 +5,13 @@
 
 use core_utils::{collections::Vec, uninit_vector};
 use winterfell::{
-    math::{fields::f128::BaseElement, log2, FieldElement, StarkField},
+    math::{log2, FieldElement, StarkField},
     EvaluationFrame, Matrix, Trace, TraceInfo, TraceLayout,
 };
 
-use crate::{
-    fast_fourier_transform_raps::prover::get_num_steps, utils::fast_fourier_transform::bit_reverse,
-};
+use crate::fast_fourier_transform_raps::prover::get_num_steps;
 
-use super::{
-    air::FFTRapsAir,
-    get_fft_inv_permutation_locs, get_fft_permutation_locs,
-    prover::{get_num_cols, FFTRapsProver},
-};
+use super::{get_fft_inv_permutation_locs, get_fft_permutation_locs, prover::get_num_cols};
 
 // RAP TRACE TABLE
 // ================================================================================================
@@ -120,17 +114,13 @@ impl<B: StarkField> FFTTraceTable<B> {
     // We want to show that the column for each fft step was permuted correctly
     // Keeping a column with step numbers for now.
     fn get_aux_col_width_fft(width: usize) -> usize {
-        // width - 2
-        // 3 + 3
-        //3 + 3*((width - 4)/2+1)
         3 + 2 * 3 * ((width - 2) / 3 - 1)
     }
 
     // We want to show that the column for each fft step was permuted correctly,
     // so we'll want terms like alpha_0 * loc(col, step) + alpha_1 * val(col, step) + gamma
-    fn get_num_rand_fft(width: usize) -> usize {
-        // 3 * (width - 2)
-        // 3 + 3*((width - 4)/2+1)
+    // FIXME: Need to check on soundness of using the same random value for multiple columns.
+    fn get_num_rand_fft(_width: usize) -> usize {
         3
     }
 
@@ -188,6 +178,7 @@ impl<B: StarkField> FFTTraceTable<B> {
 
     /// Reads a single col from this execution trace into the provided target.
     pub fn read_col_into(&self, col_idx: usize, target: &mut [B]) {
+        #[allow(clippy::needless_range_loop)]
         for row_idx in 0..self.trace.num_rows() {
             target[row_idx] = self.trace.get(col_idx, row_idx);
         }
@@ -237,7 +228,6 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         let fft_width = get_num_cols(self.length());
         let num_steps = get_num_steps(self.length());
         let mut current_row = unsafe { uninit_vector(self.width()) };
-        // let mut next_row = unsafe { uninit_vector(self.width()) };
         self.read_row_into(0, &mut current_row);
         let mut aux_columns = vec![vec![E::ZERO; self.length()]; self.aux_trace_width()];
 
@@ -254,26 +244,24 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         // This array contains the forward permutation for jump = 2, ..., log(fft_size)
         let forward_permutation_locs: Vec<Vec<E>> = get_fft_perm_forward_locs(self.length());
 
-        // These columns will check whether the forward permutation was done correctly
         for step in 2..num_steps + 1 {
+            // These columns will check whether the forward permutation was done correctly
+            aux_columns[3 * (step - 1) + 2][0] = E::ONE;
             aux_columns[3 * (step - 1)][0] = rand_elements[0]
                 * current_row[3 * (step - 1) - 1].into()
                 + rand_elements[1] * current_row[fft_width - 2].into();
             aux_columns[3 * (step - 1) + 1][0] = rand_elements[0]
                 * current_row[3 * (step - 1)].into()
-                + rand_elements[1] * forward_permutation_locs[step - 2][0].into();
-            aux_columns[3 * (step - 1) + 2][0] = E::ONE;
-        }
+                + rand_elements[1] * forward_permutation_locs[step - 2][0];
 
-        // These columns will be used to check if the backward permutation was done correctly
-        for step in 2..num_steps + 1 {
+            // These columns will be used to check if the backward permutation was done correctly
+            aux_columns[3 * num_steps + 3 * (step - 2) + 2][0] = E::ONE;
             aux_columns[3 * num_steps + 3 * (step - 2)][0] = rand_elements[0]
                 * current_row[3 * (step - 1) + 1].into()
-                + rand_elements[1] * backward_permutation_locs[step - 2][0].into();
+                + rand_elements[1] * backward_permutation_locs[step - 2][0];
             aux_columns[3 * num_steps + 3 * (step - 2) + 1][0] = rand_elements[0]
                 * current_row[3 * (step - 1) + 2].into()
                 + rand_elements[1] * current_row[fft_width - 2].into();
-            aux_columns[3 * num_steps + 3 * (step - 2) + 2][0] = E::ONE;
         }
 
         for index in 1..self.length() {
@@ -290,11 +278,11 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
 
             aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
 
-            // Fill columns for forward permutations
             for step in 2..num_steps + 1 {
+                // Fill columns for forward permutations
                 aux_columns[3 * (step - 1)][index] = rand_elements[0]
                     * current_row[3 * (step - 1) - 1].into()
-                    + rand_elements[1] * forward_permutation_locs[step - 2][index].into();
+                    + rand_elements[1] * forward_permutation_locs[step - 2][index];
                 aux_columns[3 * (step - 1) + 1][index] = rand_elements[0]
                     * current_row[3 * (step - 1)].into()
                     + rand_elements[1] * current_row[fft_width - 2].into();
@@ -304,13 +292,11 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
 
                 aux_columns[3 * (step - 1) + 2][index] =
                     aux_columns[3 * (step - 1) + 2][index - 1] * num * denom.inv();
-            }
 
-            // Fill columns for backward permutations
-            for step in 2..num_steps + 1 {
+                // Fill columns for backward permutations
                 aux_columns[3 * num_steps + 3 * (step - 2)][index] = rand_elements[0]
                     * current_row[3 * (step - 1) + 1].into()
-                    + rand_elements[1] * backward_permutation_locs[step - 2][index].into();
+                    + rand_elements[1] * backward_permutation_locs[step - 2][index];
                 aux_columns[3 * num_steps + 3 * (step - 2) + 1][index] = rand_elements[0]
                     * current_row[3 * (step - 1) + 2].into()
                     + rand_elements[1] * current_row[fft_width - 2].into();
@@ -328,31 +314,15 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
     }
 }
 
+/// Simple helper to fill a column, instead of a row as usual.
 fn update_matrix_col<E: FieldElement>(matrix: &mut Matrix<E>, col_idx: usize, col: &[E]) {
-    for row_idx in 0..matrix.num_rows() {
+    for (row_idx, _) in col.iter().enumerate().take(matrix.num_rows()) {
         matrix.set(col_idx, row_idx, col[row_idx]);
     }
 }
 
-pub(crate) fn get_fft_perm_rev_locs<E: FieldElement>(fft_size: usize) -> Vec<Vec<E>> {
-    let num_fft_steps: usize = log2(fft_size).try_into().unwrap();
-    let mut output: Vec<Vec<E>> = vec![];
-    for step in 2..num_fft_steps + 1 {
-        let mut backward_perm_usize = get_fft_inv_permutation_locs(fft_size, step);
-
-        let backward_perm = backward_perm_usize
-            .iter_mut()
-            .map(|x| {
-                let x_u64: u64 = (*x).try_into().unwrap();
-                E::from(x_u64)
-            })
-            .collect::<Vec<E>>();
-
-        output.push(backward_perm);
-    }
-    output
-}
-
+/// This function generates an array of FFT permutations for iterative FFT steps 2...log(fft_size).
+/// For any vector in the output array, at position i, lies the element representing perm(i).
 pub(crate) fn get_fft_perm_forward_locs<E: FieldElement>(fft_size: usize) -> Vec<Vec<E>> {
     let num_fft_steps: usize = log2(fft_size).try_into().unwrap();
     let mut output: Vec<Vec<E>> = vec![];
@@ -368,6 +338,27 @@ pub(crate) fn get_fft_perm_forward_locs<E: FieldElement>(fft_size: usize) -> Vec
             .collect::<Vec<E>>();
 
         output.push(forward_perm);
+    }
+    output
+}
+
+/// This function generates an array of inverse FFT permutations for iterative FFT steps 2...log(fft_size).
+/// For any vector in the output array, at position i, lies the element representing perm(i).
+pub(crate) fn get_fft_perm_rev_locs<E: FieldElement>(fft_size: usize) -> Vec<Vec<E>> {
+    let num_fft_steps: usize = log2(fft_size).try_into().unwrap();
+    let mut output: Vec<Vec<E>> = vec![];
+    for step in 2..num_fft_steps + 1 {
+        let mut backward_perm_usize = get_fft_inv_permutation_locs(fft_size, step);
+
+        let backward_perm = backward_perm_usize
+            .iter_mut()
+            .map(|x| {
+                let x_u64: u64 = (*x).try_into().unwrap();
+                E::from(x_u64)
+            })
+            .collect::<Vec<E>>();
+
+        output.push(backward_perm);
     }
     output
 }

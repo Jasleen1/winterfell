@@ -6,21 +6,21 @@
 use winterfell::{FieldExtension, HashFunction, ProofOptions};
 
 #[test]
-fn rescue_test_basic_proof_verification() {
-    let rescue_eg = Box::new(super::FFTRapsExample::new(128, build_options(false)));
-    crate::tests::test_basic_proof_verification(rescue_eg);
+fn fft_test_basic_proof_verification() {
+    let fft_eg = Box::new(super::FFTRapsExample::new(32, build_options(false)));
+    crate::tests::test_basic_proof_verification(fft_eg);
 }
 
 #[test]
-fn rescue_test_basic_proof_verification_extension() {
-    let rescue_eg = Box::new(super::FFTRapsExample::new(128, build_options(true)));
-    crate::tests::test_basic_proof_verification(rescue_eg);
+fn fft_test_basic_proof_verification_extension() {
+    let fft_eg = Box::new(super::FFTRapsExample::new(32, build_options(true)));
+    crate::tests::test_basic_proof_verification(fft_eg);
 }
 
 #[test]
-fn rescue_test_basic_proof_verification_fail() {
-    let rescue_eg = Box::new(super::FFTRapsExample::new(128, build_options(false)));
-    crate::tests::test_basic_proof_verification_fail(rescue_eg);
+fn fft_test_basic_proof_verification_fail() {
+    let fft_eg = Box::new(super::FFTRapsExample::new(32, build_options(false)));
+    crate::tests::test_basic_proof_verification_fail(fft_eg);
 }
 
 fn build_options(use_extension_field: bool) -> ProofOptions {

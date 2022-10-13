@@ -3,16 +3,15 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use core::num;
-use std::{convert::TryInto, thread::current, vec};
+use std::{convert::TryInto, vec};
 
 use super::{
     prover::{get_num_cols, get_num_steps, get_results_col_idx},
     BaseElement, ExtensionOf, FieldElement, ProofOptions,
 };
-use crate::utils::{are_equal, not, EvaluationResult};
+use crate::utils::{are_equal, EvaluationResult};
 use winterfell::{
-    math::{fft, log2, StarkField},
+    math::{log2, StarkField},
     Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, Serializable,
     TraceInfo, TransitionConstraintDegree,
 };
@@ -158,7 +157,7 @@ impl Air for FFTRapsAir {
         }
         result[2 * num_steps] = are_equal(current[last_col - 1] + E::ONE, next[last_col - 1]);
 
-        self.evaluate_rev_perm(frame, &periodic_values.clone(), result, last_col);
+        self.evaluate_rev_perm(frame, periodic_values, result, last_col);
     }
 
     fn evaluate_aux_transition<F, E>(
@@ -349,7 +348,7 @@ impl Air for FFTRapsAir {
             let mut one_bit_vec = vec![BaseElement::ONE; start_zeros];
             bit_vec.append(&mut one_bit_vec);
             result.push(bit_vec);
-            start_zeros = start_zeros / 2;
+            start_zeros /= 2;
         }
         // At this point, we have filled in 2*num_steps + 1 columns.
         // Below we fill in columns that take care of the forward and backward permutations.
@@ -381,7 +380,7 @@ impl Air for FFTRapsAir {
                 inv_counter_col.push(count);
                 inv_counter_col.push(count);
                 // Increment the field element that keeps count
-                count = count + BaseElement::ONE;
+                count += BaseElement::ONE;
             }
             // This col is structured like so: [0,..., jump-1]
             result.push(counter_col);
@@ -411,18 +410,23 @@ impl FFTRapsAir {
         let num_steps: usize = log2(self.fft_inputs.len()).try_into().unwrap();
         let mut backward_sum = E::ZERO;
         let mut forward_sum = E::ZERO;
-        let mut backward_counter: u64 = 0;
         let mut forward_counter: u64 = num_steps.try_into().unwrap();
-        for loc in num_steps + 1..2 * num_steps + 1 {
+        // equivalent to for loc in num_steps + 1..2 * num_steps + 1 {
+        // let val = periodic_values[loc] and keeping a running backward counter.
+        for (backward_counter, &val) in (0_u64..).zip(
+            periodic_values
+                .iter()
+                .take(2 * num_steps + 1)
+                .skip(num_steps + 1),
+        ) {
             // Want to make sure we don't go below 0,
             // so we subtract at the start of the loop iteration instead
             // of starting at num_steps - 1.
-            forward_counter = forward_counter - 1;
+            forward_counter -= 1;
             let forward_pow = <E as FieldElement>::PositiveInteger::from(backward_counter);
-            backward_sum = backward_sum + (periodic_values[loc] * E::from(2u128).exp(forward_pow));
+            backward_sum += val * E::from(2u128).exp(forward_pow);
             let backward_pow = <E as FieldElement>::PositiveInteger::from(forward_counter);
-            forward_sum = forward_sum + (periodic_values[loc] * E::from(2u128).exp(backward_pow));
-            backward_counter = backward_counter + 1;
+            forward_sum += val * E::from(2u128).exp(backward_pow);
         }
         result[2 * num_steps + 1] = are_equal(forward_sum, current[last_col - 1]);
         result[2 * num_steps + 2] = are_equal(backward_sum, current[last_col]);
