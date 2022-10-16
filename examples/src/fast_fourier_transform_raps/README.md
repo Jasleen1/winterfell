@@ -99,7 +99,7 @@ Then, we can use these columns, together with the 0th and 1st column to show tha
 #### Proving FFT steps
 The FFT steps themselves are all simple, essentially, we need to check that the elements at positions `2i` and `2i+1` are correctly updated using a multiplicative factor. We use the periodic columns to keep track of the multiplicative factors at each step. No permutation checking is required here.
 
-### Proving forward and backward permutation
+#### Proving forward and backward permutation
 To prove that forward and backward permutations are done correctly, we fortunately have algebraic formulae we could use in conjunction with periodic columns. 
 
 Recall that in the simple FFT algorithm above, at FFT step `s`, the outer loop only accesses contiguous segments of `m = 2^s` elements at a time. The distance between elements accessed together is `jump = m/2`. Since the value at position `start_of_segment + j` and at position `start_of_segment + j + jump` are accessed together, in the forward permutation step, these must end up together. The mapping we end up using is `start_of_segment + j` --> `start_of_segment + 2*j` and `start_of_segment + j + jump` --> `start_of_segment + 2*j + 1`, which allows us to accomodate segment-wise permutations and to have small periodic columns. See the figure below for an illustration:
