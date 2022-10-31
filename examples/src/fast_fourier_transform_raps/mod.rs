@@ -63,7 +63,7 @@ impl FFTRapsExample {
 
         // compute the fft output using an external implementation of iterative FFT
         let now = Instant::now();
-        let omega = BaseElement::get_root_of_unity(num_fft_inputs.try_into().unwrap());
+        let omega = BaseElement::get_root_of_unity(log2(num_fft_inputs));
         let result = simple_iterative_fft(fft_inputs.clone(), omega);
 
         debug!(

@@ -317,10 +317,9 @@ impl Air for FFTRapsAir {
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
         let fft_size = self.fft_inputs.len();
         let fft_size_u128: u128 = fft_size.try_into().unwrap();
-        let fft_size_u32: u32 = fft_size.try_into().unwrap();
         let num_steps: usize = log2(fft_size).try_into().unwrap();
         let mut result = Vec::<Vec<BaseElement>>::new();
-        let omega = BaseElement::get_root_of_unity(fft_size_u32);
+        let omega = BaseElement::get_root_of_unity(log2(fft_size));
         // We want to make sure we arrange it so that the appropriate omega can get multiplied.
         // Since the transition constraint must be identical at each step,
         for step in 0..num_steps {
@@ -339,8 +338,8 @@ impl Air for FFTRapsAir {
         let flags = vec![BaseElement::ONE, BaseElement::ZERO];
         result.push(flags);
 
-        // These are periodic assertions to such that the next num_steps
-        // columns together represent the bit decomposition of the field elts 0-fft_size
+        // These are periodic assertions to show that the next num_steps
+        // columns together represent the bit decomposition of the field elts 0-fft_size-1
         let mut start_zeros = fft_size / 2;
         for _ in 1..num_steps + 1 {
             // For each bit in the indices of FFT inputs

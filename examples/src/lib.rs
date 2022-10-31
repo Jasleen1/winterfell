@@ -149,7 +149,7 @@ pub enum ExampleType {
     #[cfg(feature = "std")]
     FFTRaps {
         /// Number of fft inputs; must be a power of two and at least 4
-        #[structopt(short = "n", default_value = "16")]
+        #[structopt(short = "n", default_value = "2048")]
         num_fft_inputs: usize,
     },
     /// Compute a root of a Merkle path using Rescue hash function
