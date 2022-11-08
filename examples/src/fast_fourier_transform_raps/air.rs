@@ -66,6 +66,13 @@ impl Air for FFTRapsAir {
         // The constraints for the reverse perm columns
         main_degrees.push(TransitionConstraintDegree::new(1));
         main_degrees.push(TransitionConstraintDegree::new(1));
+
+        // This constraints check if the cols containing the bits for the counters are
+        // actually 0 or 1
+        for _ in 0..num_fft_steps {
+            main_degrees.push(TransitionConstraintDegree::new(2));
+        }
+
         let mut aux_degrees = vec![
             TransitionConstraintDegree::new(1),
             TransitionConstraintDegree::new(1),
@@ -162,6 +169,11 @@ impl Air for FFTRapsAir {
             are_equal(current[last_base_col - 1] + E::ONE, next[last_base_col - 1]);
 
         self.evaluate_rev_perm(frame, periodic_values, result, last_base_col);
+
+        for i in 0..num_steps {
+            result[2 * num_steps + 3 + i] = are_equal(current[last_base_col + 1 + i] * current[last_base_col + 1 + i], current[last_base_col + 1 + i]);
+        }
+
     }
 
     fn evaluate_aux_transition<F, E>(
