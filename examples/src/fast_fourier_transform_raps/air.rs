@@ -9,7 +9,10 @@ use super::{
     prover::{get_num_cols, get_num_steps, get_results_col_idx},
     BaseElement, ExtensionOf, FieldElement, ProofOptions,
 };
-use crate::{utils::{are_equal, EvaluationResult}, fast_fourier_transform_raps::prover::get_num_basic_cols};
+use crate::{
+    fast_fourier_transform_raps::prover::get_num_basic_cols,
+    utils::{are_equal, EvaluationResult},
+};
 use winterfell::{
     math::{log2, StarkField},
     Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, Serializable,
@@ -135,7 +138,6 @@ impl Air for FFTRapsAir {
 
         debug_assert_eq!(next.len(), current.len());
         let num_steps: usize = log2(self.fft_inputs.len()).try_into().unwrap();
-        let last_col = get_num_cols(self.fft_inputs.len()) - 1;
         let last_base_col = get_num_basic_cols(self.fft_inputs.len()) - 1;
         // You'll actually only check constraints at even steps, at odd steps you don't do anything
         let compute_flag = periodic_values[num_steps];
@@ -156,7 +158,8 @@ impl Air for FFTRapsAir {
                 result[2 * step - 1] = compute_flag * are_equal(u - v, next[3 * step - 2]);
             }
         }
-        result[2 * num_steps] = are_equal(current[last_base_col - 1] + E::ONE, next[last_base_col - 1]);
+        result[2 * num_steps] =
+            are_equal(current[last_base_col - 1] + E::ONE, next[last_base_col - 1]);
 
         self.evaluate_rev_perm(frame, periodic_values, result, last_base_col);
     }
@@ -214,19 +217,17 @@ impl Air for FFTRapsAir {
 
         // This loop contains constraints that enforce that the forward permutations are done correctly.
         for step in 2..num_steps + 1 {
-
             let step_u64: u64 = step.try_into().unwrap();
-            let jump_field_elt = F::from(2u32).exp(
-                <F as FieldElement>::PositiveInteger::from(step_u64 - 1),
-            );
+            let jump_field_elt =
+                F::from(2u32).exp(<F as FieldElement>::PositiveInteger::from(step_u64 - 1));
             let new_loc = main_current[base_width - 2]
-                + (periodic_values[2 * num_steps + 3 * (step - 2) + 1])
-                - (jump_field_elt * periodic_values[2 * num_steps + 3 * (step - 2) + 2])
-                + periodic_values[2 * num_steps + 3 * (step - 2) + 2];
+                + (periodic_values[num_steps + 3 * (step - 2) + 1])
+                - (jump_field_elt * periodic_values[num_steps + 3 * (step - 2) + 2])
+                + periodic_values[num_steps + 3 * (step - 2) + 2];
 
             let copied_value_1 = random_elements[0] * (main_current[3 * (step - 1) - 1]).into()
                 + random_elements[1] * (new_loc).into();
-            
+
             result[3 * (step - 1)] = are_equal(aux_current[3 * (step - 1)], copied_value_1);
 
             let copied_value_2 = random_elements[0] * (main_current[3 * (step - 1)]).into()
@@ -250,12 +251,9 @@ impl Air for FFTRapsAir {
             let flag = periodic_values[num_steps];
 
             let step_u64: u64 = step.try_into().unwrap();
-            let jump = F::from(2u32).exp(
-                <F as FieldElement>::PositiveInteger::from(step_u64 - 1),
-            );
-            let new_loc = main_current[base_width - 2] - (F::ONE - flag)
-                + (jump * (F::ONE - flag))
-                - periodic_values[2 * num_steps + 3 * (step - 2) + 3];
+            let jump = F::from(2u32).exp(<F as FieldElement>::PositiveInteger::from(step_u64 - 1));
+            let new_loc = main_current[base_width - 2] - (F::ONE - flag) + (jump * (F::ONE - flag))
+                - periodic_values[num_steps + 3 * (step - 2) + 3];
 
             let copied_value_1 = random_elements[0] * (main_current[3 * (step - 1) + 1]).into()
                 + random_elements[1] * (new_loc).into();
@@ -352,18 +350,7 @@ impl Air for FFTRapsAir {
         let flags = vec![BaseElement::ONE, BaseElement::ZERO];
         result.push(flags);
 
-        // These are periodic assertions to show that the next num_steps
-        // columns together represent the bit decomposition of the field elts 0-fft_size-1
-        let mut start_zeros = fft_size / 2;
-        for _ in 1..num_steps + 1 {
-            // For each bit in the indices of FFT inputs
-            let mut bit_vec = vec![BaseElement::ZERO; start_zeros];
-            let mut one_bit_vec = vec![BaseElement::ONE; start_zeros];
-            bit_vec.append(&mut one_bit_vec);
-            result.push(bit_vec);
-            start_zeros /= 2;
-        }
-        // At this point, we have filled in 2*num_steps + 1 columns.
+        // At this point, we have filled in num_steps + 1 columns.
         // Below we fill in columns that take care of the forward and backward permutations.
         for j in 2..num_steps + 1 {
             let jump = (1 << j) / 2;

@@ -91,12 +91,10 @@ impl FFTRapsProver {
                         // we need to be exhaustive with match.
                         _ => {}
                     };
-                }
-                else {
+                } else {
                     let local_step = (step + 1) - basic_cols;
-                    fill_bits_col(state, local_step, trace_length);     
+                    fill_bits_col(state, local_step, trace_length);
                 }
-                
             },
         );
         let mut last_trace_col = vec![BaseElement::ONE; trace_length];
@@ -153,7 +151,6 @@ pub(crate) fn get_num_steps(num_fft_inputs: usize) -> usize {
     log_trace_length
 }
 
-
 fn fill_bits_col(state: &mut [BaseElement], local_step: usize, fft_size: usize) {
     let start_zeros = fft_size / (1 << (local_step + 1));
     let mut bit_vec = vec![BaseElement::ZERO; start_zeros];
@@ -161,7 +158,7 @@ fn fill_bits_col(state: &mut [BaseElement], local_step: usize, fft_size: usize) 
     bit_vec.append(&mut one_bit_vec);
     let bit_vec_len = 2 * start_zeros;
     for i in 0..state.len() {
-        let bit_vec_loc = i% bit_vec_len;
+        let bit_vec_loc = i % bit_vec_len;
         state[i] = bit_vec[bit_vec_loc];
     }
 }

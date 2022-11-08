@@ -11,7 +11,10 @@ use winterfell::{
 
 use crate::fast_fourier_transform_raps::prover::get_num_steps;
 
-use super::{get_fft_inv_permutation_locs, get_fft_permutation_locs, prover::{get_num_cols, get_num_basic_cols}};
+use super::{
+    get_fft_inv_permutation_locs, get_fft_permutation_locs,
+    prover::{get_num_basic_cols, get_num_cols},
+};
 
 // RAP TRACE TABLE
 // ================================================================================================
@@ -225,7 +228,7 @@ impl<B: StarkField> Trace for FFTTraceTable<B> {
         if !aux_segments.is_empty() {
             return None;
         }
-        let fft_width = get_num_basic_cols(self.length());//get_num_cols(self.length());
+        let fft_width = get_num_basic_cols(self.length()); //get_num_cols(self.length());
         let num_steps = get_num_steps(self.length());
         let mut current_row = unsafe { uninit_vector(self.width()) };
         self.read_row_into(0, &mut current_row);
