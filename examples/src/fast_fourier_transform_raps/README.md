@@ -1,5 +1,7 @@
 # Proving and verifying correct computation of the Fast Fourier Transform
 This example is meant to demonstrate the power of permutation checks in efficiently proving the correct computation of a program with data-oblivious, but variable accesses. Fast Fourier Transform (FFT) is such a program, as we explain below.
+
+To run this example, run `cargo run --bin winterfell fft-raps` from the winterfell directory. 
 ## The iterative FFT function 
 This example implements the AIR for a simple iterative FFT using the Cooley-Tukey algorithm. See the [Wikipedia article](https://en.wikipedia.org/wiki/Cooley–Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms) for more info. Also, see the `fast_fourier_transform` file in the `utils` module of this crate for a simple iterative FFT implementation. 
 

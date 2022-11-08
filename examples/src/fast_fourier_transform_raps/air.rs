@@ -9,7 +9,7 @@ use super::{
     prover::{get_num_cols, get_num_steps, get_results_col_idx},
     BaseElement, ExtensionOf, FieldElement, ProofOptions,
 };
-use crate::utils::{are_equal, EvaluationResult};
+use crate::{utils::{are_equal, EvaluationResult}, fast_fourier_transform_raps::prover::get_num_basic_cols};
 use winterfell::{
     math::{log2, StarkField},
     Air, AirContext, Assertion, AuxTraceRandElements, ByteWriter, EvaluationFrame, Serializable,
@@ -136,6 +136,7 @@ impl Air for FFTRapsAir {
         debug_assert_eq!(next.len(), current.len());
         let num_steps: usize = log2(self.fft_inputs.len()).try_into().unwrap();
         let last_col = get_num_cols(self.fft_inputs.len()) - 1;
+        let last_base_col = get_num_basic_cols(self.fft_inputs.len()) - 1;
         // You'll actually only check constraints at even steps, at odd steps you don't do anything
         let compute_flag = periodic_values[num_steps];
 
@@ -155,9 +156,9 @@ impl Air for FFTRapsAir {
                 result[2 * step - 1] = compute_flag * are_equal(u - v, next[3 * step - 2]);
             }
         }
-        result[2 * num_steps] = are_equal(current[last_col - 1] + E::ONE, next[last_col - 1]);
+        result[2 * num_steps] = are_equal(current[last_base_col - 1] + E::ONE, next[last_base_col - 1]);
 
-        self.evaluate_rev_perm(frame, periodic_values, result, last_col);
+        self.evaluate_rev_perm(frame, periodic_values, result, last_base_col);
     }
 
     fn evaluate_aux_transition<F, E>(
@@ -179,8 +180,9 @@ impl Air for FFTRapsAir {
         let random_elements = aux_rand_elements.get_segment_elements(0);
 
         let num_fft_inputs = self.fft_inputs.len();
-        let fft_width = get_num_cols(num_fft_inputs);
+        let num_total_cols = get_num_cols(num_fft_inputs);
         let num_steps = get_num_steps(num_fft_inputs);
+        let base_width = get_num_basic_cols(num_fft_inputs);
         // // We want to enforce that the correct permutation was applied. Because we
         // // want to copy two values per step: the actual value of the input and
         // // its intended index, we group them with random elements into a single
@@ -191,12 +193,12 @@ impl Air for FFTRapsAir {
         // // auxiliary one. For the sake of illustrating RAPs behaviour, we will store
         // // the computed values in additional columns.
         let copied_value_1 = random_elements[0] * (main_current[0]).into()
-            + random_elements[1] * (main_current[fft_width - 2]).into();
+            + random_elements[1] * (main_current[base_width - 2]).into();
 
         result[0] = are_equal(aux_current[0], copied_value_1);
 
         let copied_value_2 = random_elements[0] * (main_current[1]).into()
-            + random_elements[1] * (main_current[fft_width - 1]).into();
+            + random_elements[1] * (main_current[base_width - 1]).into();
 
         result[1] = are_equal(aux_current[1], copied_value_2);
 
@@ -212,17 +214,23 @@ impl Air for FFTRapsAir {
 
         // This loop contains constraints that enforce that the forward permutations are done correctly.
         for step in 2..num_steps + 1 {
-            let new_loc = main_current[fft_width - 2]
-                + (periodic_values[2 * num_steps + 5 * (step - 2) + 1])
-                - periodic_values[2 * num_steps + 5 * (step - 2) + 2]
-                + periodic_values[2 * num_steps + 5 * (step - 2) + 3];
+
+            let step_u64: u64 = step.try_into().unwrap();
+            let jump_field_elt = F::from(2u32).exp(
+                <F as FieldElement>::PositiveInteger::from(step_u64 - 1),
+            );
+            let new_loc = main_current[base_width - 2]
+                + (periodic_values[2 * num_steps + 3 * (step - 2) + 1])
+                - (jump_field_elt * periodic_values[2 * num_steps + 3 * (step - 2) + 2])
+                + periodic_values[2 * num_steps + 3 * (step - 2) + 2];
 
             let copied_value_1 = random_elements[0] * (main_current[3 * (step - 1) - 1]).into()
                 + random_elements[1] * (new_loc).into();
+            
             result[3 * (step - 1)] = are_equal(aux_current[3 * (step - 1)], copied_value_1);
 
             let copied_value_2 = random_elements[0] * (main_current[3 * (step - 1)]).into()
-                + random_elements[1] * (main_current[fft_width - 2]).into();
+                + random_elements[1] * (main_current[base_width - 2]).into();
             result[3 * (step - 1) + 1] = are_equal(aux_current[3 * (step - 1) + 1], copied_value_2);
 
             result.agg_constraint(
@@ -239,9 +247,15 @@ impl Air for FFTRapsAir {
 
         // This loop contains constraints that enforce that the inverse permutations are done correctly.
         for step in 2..num_steps + 1 {
-            let new_loc = main_current[fft_width - 2] - (F::ONE - periodic_values[num_steps])
-                + periodic_values[2 * num_steps + 5 * (step - 2) + 4]
-                - periodic_values[2 * num_steps + 5 * (step - 2) + 5];
+            let flag = periodic_values[num_steps];
+
+            let step_u64: u64 = step.try_into().unwrap();
+            let jump = F::from(2u32).exp(
+                <F as FieldElement>::PositiveInteger::from(step_u64 - 1),
+            );
+            let new_loc = main_current[base_width - 2] - (F::ONE - flag)
+                + (jump * (F::ONE - flag))
+                - periodic_values[2 * num_steps + 3 * (step - 2) + 3];
 
             let copied_value_1 = random_elements[0] * (main_current[3 * (step - 1) + 1]).into()
                 + random_elements[1] * (new_loc).into();
@@ -250,7 +264,7 @@ impl Air for FFTRapsAir {
                 are_equal(aux_current[3 * num_steps + 3 * (step - 2)], copied_value_1);
 
             let copied_value_2 = random_elements[0] * (main_current[3 * (step - 1) + 2]).into()
-                + random_elements[1] * (main_current[fft_width - 2]).into();
+                + random_elements[1] * (main_current[base_width - 2]).into();
             result[3 * num_steps + 3 * (step - 2) + 1] = are_equal(
                 aux_current[3 * num_steps + 3 * (step - 2) + 1],
                 copied_value_2,
@@ -358,11 +372,11 @@ impl Air for FFTRapsAir {
                 <BaseElement as FieldElement>::PositiveInteger::from(j_u64 - 1),
             );
 
-            let mut jump_col = vec![];
-            let mut jump_col_first_half = vec![BaseElement::ZERO; jump];
-            let mut jump_col_second_half = vec![jump_field_elt; jump];
-            jump_col.append(&mut jump_col_first_half);
-            jump_col.append(&mut jump_col_second_half);
+            // let mut jump_col = vec![];
+            // let mut jump_col_first_half = vec![BaseElement::ZERO; jump];
+            // let mut jump_col_second_half = vec![jump_field_elt; jump];
+            // jump_col.append(&mut jump_col_first_half);
+            // jump_col.append(&mut jump_col_second_half);
             let mut parity_col_first_half = vec![BaseElement::ZERO; jump];
             let mut parity_col_second_half = vec![BaseElement::ONE; jump];
             let mut parity_col = vec![];
@@ -384,12 +398,12 @@ impl Air for FFTRapsAir {
             // This col is structured like so: [0,..., jump-1]
             result.push(counter_col);
             // This col is structured like so: [0, ..., 0, jump, ..., jump]
-            result.push(jump_col);
+            // result.push(jump_col);
             // This col is structured like so: [0, ..., 0, 1, ..., 1]
             result.push(parity_col);
 
             // This col is just [0, jump]
-            result.push(vec![BaseElement::ZERO, jump_field_elt]);
+            // result.push(vec![BaseElement::ZERO, jump_field_elt]);
             // This col is [0, 0, 1, 1,..., jump-1, jump-1]
             result.push(inv_counter_col);
         }
@@ -413,10 +427,10 @@ impl FFTRapsAir {
         // equivalent to for loc in num_steps + 1..2 * num_steps + 1 {
         // let val = periodic_values[loc] and keeping a running backward counter.
         for (backward_counter, &val) in (0_u64..).zip(
-            periodic_values
+            current
                 .iter()
-                .take(2 * num_steps + 1)
-                .skip(num_steps + 1),
+                .take(4 * num_steps + 2)
+                .skip(3 * num_steps + 2),
         ) {
             // Want to make sure we don't go below 0,
             // so we subtract at the start of the loop iteration instead
