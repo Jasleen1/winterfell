@@ -62,38 +62,25 @@ impl Air for FFTAir {
         // }
 
         let log_deg_usize: usize = log2(pub_inputs.num_inputs).try_into().unwrap();
-        let num_fft_steps = log_deg_usize + 1;
+        
+        let last_butterfly_step = log_deg_usize;
 
-        for step_count in (num_fft_steps - 1)..num_fft_steps {
-            let m = 1 << step_count;
-            let jump = 1 << (step_count - 1);
-            let num_ranges: usize = pub_inputs.num_inputs / m;
-            let mut local_constraint_degs =
-                vec![TransitionConstraintDegree::new(2); pub_inputs.num_inputs];
-            for k in 0..num_ranges {
-                let start_of_range = k * 2 * jump;
-                for j in 0..jump {
-                    local_constraint_degs[start_of_range + j] =
-                        TransitionConstraintDegree::new(2 + 2 + j);
-                    local_constraint_degs[start_of_range + j + jump] =
-                        TransitionConstraintDegree::new(2 + 2 + j);
-                }
+        let m = 1 << last_butterfly_step;
+        let jump = 1 << (last_butterfly_step - 1);
+        let num_ranges: usize = pub_inputs.num_inputs / m;
+        let mut local_constraint_degs =
+            vec![TransitionConstraintDegree::new(2); pub_inputs.num_inputs];
+        for k in 0..num_ranges {
+            let start_of_range = k * 2 * jump;
+            for j in 0..jump {
+                local_constraint_degs[start_of_range + j] =
+                    TransitionConstraintDegree::new(2 + 2 + j);
+                local_constraint_degs[start_of_range + j + jump] =
+                    TransitionConstraintDegree::new(2 + 2 + j);
             }
-            degrees.append(&mut local_constraint_degs);
         }
-
-        // for step in 1..trace_usize {
-        //     for counter in (0..pub_inputs.num_inputs).step_by(1<<step) {
-        //         for _ in 0..(1<<(step - 1)) {
-        //             let enforce_butterfly_deg_1 = TransitionConstraintDegree::new(1);
-        //             let enforce_butterfly_deg_2 = TransitionConstraintDegree::new(counter/(1<<step) + 1);
-        //             let enforce_butterfly_deg_3 = TransitionConstraintDegree::new(counter/(1<<step) + 1);
-        //             degrees.push(enforce_butterfly_deg_1);
-        //             degrees.push(enforce_butterfly_deg_2);
-        //             degrees.push(enforce_butterfly_deg_3);
-        //         }
-        //     }
-        // }
+        degrees.append(&mut local_constraint_degs);
+        
 
         let omega_deg = TransitionConstraintDegree::new(4);
         degrees.push(omega_deg);
@@ -104,14 +91,8 @@ impl Air for FFTAir {
         let dummy_selector_deg = TransitionConstraintDegree::new(2);
         degrees.push(dummy_selector_deg);
 
-        // let step_count_deg = TransitionConstraintDegree::new(1);
-        // degrees.push(step_count_deg);
-
-        // for _ in 0..log_deg_usize {
-        //     let enforce_selector_deg = TransitionConstraintDegree::new(1);
-        //     degrees.push(enforce_selector_deg);
-        // }
-        // assert_eq!(TRACE_WIDTH, trace_info.width());
+        
+        
         FFTAir {
             context: AirContext::new(trace_info, degrees, options),
             fft_inputs: pub_inputs.fft_inputs,
@@ -131,9 +112,6 @@ impl Air for FFTAir {
     ) {
         let current = frame.current();
         let next = frame.next();
-        // TODO
-        // debug_assert_eq!(TRACE_WIDTH, current.len());
-        // debug_assert_eq!(TRACE_WIDTH, next.len());
         let num_inputs = self.fft_inputs.len();
         let reverse_perm = get_reverse_permutation(num_inputs);
         enforce_round(result, current, next, num_inputs, reverse_perm);
