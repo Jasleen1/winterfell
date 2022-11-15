@@ -149,7 +149,7 @@ pub enum ExampleType {
     #[cfg(feature = "std")]
     FFT {
         /// Degree; must be a power of two
-        #[structopt(short = "n", default_value = "8")]
+        #[structopt(short = "n", default_value = "16")]
         degree: usize,
     },
 }
