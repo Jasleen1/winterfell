@@ -103,12 +103,11 @@ impl FFTProver {
                 col
             );
         }
-        
+
         println!("Assertions passed");
 
         trace
     }
-
 }
 
 impl Prover for FFTProver {
@@ -145,7 +144,6 @@ fn apply_iterative_fft_layer(
     // fill the selector-related information as needed.
     fill_selector_info(state, step + 1, num_fft_inputs);
 
-    
     // Swapping for the butterfly network
     if step == 0 {
         apply_bit_rev_copy_permutation(state, num_fft_inputs);
@@ -296,5 +294,3 @@ pub(crate) fn get_rev_counter_pos(num_fft_inputs: usize, log_num_fft_terms: usiz
 pub(crate) fn get_rev_counter_inv_pos(num_fft_inputs: usize, log_num_fft_terms: usize) -> usize {
     num_fft_inputs + 1 + 1 + log_num_fft_terms + 1 + 1
 }
-
-

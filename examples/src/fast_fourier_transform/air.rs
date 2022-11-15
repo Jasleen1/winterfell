@@ -62,7 +62,7 @@ impl Air for FFTAir {
         // }
 
         let log_deg_usize: usize = log2(pub_inputs.num_inputs).try_into().unwrap();
-        
+
         let last_butterfly_step = log_deg_usize;
 
         let m = 1 << last_butterfly_step;
@@ -80,7 +80,6 @@ impl Air for FFTAir {
             }
         }
         degrees.append(&mut local_constraint_degs);
-        
 
         let omega_deg = TransitionConstraintDegree::new(4);
         degrees.push(omega_deg);
@@ -91,8 +90,6 @@ impl Air for FFTAir {
         let dummy_selector_deg = TransitionConstraintDegree::new(2);
         degrees.push(dummy_selector_deg);
 
-        
-        
         FFTAir {
             context: AirContext::new(trace_info, degrees, options),
             fft_inputs: pub_inputs.fft_inputs,
