@@ -6,9 +6,9 @@
 use super::{
     rescue, Example,
 };
-use crate::{ExampleOptions, utils::print_trace};
+use crate::{ExampleOptions, utils::{print_trace, fast_fourier_transform::simple_iterative_fft}};
 use log::debug;
-use rand_utils::rand_value;
+use rand_utils::rand_array;
 use std::time::Instant;
 use winterfell::{
     math::{fields::f128::BaseElement, get_power_series, log2, FieldElement, StarkField, fft},
@@ -33,7 +33,7 @@ use prover::FFTProver;
 pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
     Box::new(FFTExample::new(
         degree,
-        options.to_proof_options(28, 8),
+        options.to_proof_options(28, 64),
     ))
 }
 
@@ -49,51 +49,46 @@ pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
 // FIXME: Need to add constraints to check for input and output values.
 pub struct FFTExample {
     options: ProofOptions,
-    coefficients: Vec<BaseElement>,
     omega: BaseElement,
-    degree: usize,
-    // output_evals: Vec<BaseElement>,
+    num_fft_inputs: usize,
+    fft_inputs: Vec<BaseElement>,
+    result: Vec<BaseElement>,
 }
 
 impl FFTExample {
-    pub fn new(degree: usize, options: ProofOptions) -> Self {
+    pub fn new(num_fft_inputs: usize, options: ProofOptions) -> Self {
         assert!(
-            degree.is_power_of_two(),
+            num_fft_inputs.is_power_of_two(),
             "number of signatures must be a power of 2"
         );
-        assert!(
-            log2(degree) <= BaseElement::TWO_ADICITY.try_into().unwrap(), 
-            "Provided degree is too large"
-        );
-        // generate appropriately sized omega 
-        let omega = BaseElement::get_root_of_unity(log2(degree)); 
-        // generate appropriately sized coefficients
-        let mut coefficients = Vec::with_capacity(degree);
-        let degree_u128: u128 = degree.try_into().unwrap();
-        let now = Instant::now();
-        for i in 0..degree_u128 {
-            // coefficients.push(rand_value::<BaseElement>());
-            coefficients.push(BaseElement::from(i+1));
+        assert!(num_fft_inputs >= 4, "number of inputs must be at least 4");
+
+
+        let mut fft_inputs = vec![BaseElement::ZERO; num_fft_inputs as usize];
+        for internal_seed in fft_inputs.iter_mut() {
+            *internal_seed = rand_array::<_, 1>()[0];
         }
-        // let output_evals = coefficients.clone();
+
+        // compute the fft output using an external implementation of iterative FFT
+        let now = Instant::now();
+        // generate appropriately sized omega 
+        let omega = BaseElement::get_root_of_unity(log2(num_fft_inputs));
+        let result = simple_iterative_fft(fft_inputs.clone(), omega);
+
         debug!(
             "Generated {} coefficients in {} ms",
-            degree,
+            num_fft_inputs,
             now.elapsed().as_millis()
         );
 
-        let mut coefficients_clone = coefficients.clone();
-        println!("Original coeffs input: {:?}", coefficients);
-        let mut twiddles = fft::get_twiddles(degree);
-        fft::evaluate_poly(&mut coefficients_clone, &mut twiddles);
-        println!("Expected results: {:?}", coefficients_clone);
+        
 
         FFTExample {
             options,
-            coefficients,
             omega,
-            degree,
-            // output_evals,
+            num_fft_inputs,
+            fft_inputs,
+            result,
         }
     }
 }
@@ -105,16 +100,16 @@ impl Example for FFTExample {
     fn prove(&self) -> StarkProof {
         // generate the execution trace
         debug!(
-            "Generating proof for verifying degree {} FFT \n\
+            "Generating proof for computing an FFT on {} inputs\n\
             ---------------------",
-            self.degree,
+            self.num_fft_inputs,
         );
 
         // create a prover
         let prover =
-            FFTProver::new(self.options.clone(), self.degree);
+            FFTProver::new(self.options.clone(), self.num_fft_inputs);
         let now = Instant::now();
-        let trace = prover.build_trace(self.omega, &self.coefficients, self.degree);
+        let trace = prover.build_trace(self.omega, &self.fft_inputs, &self.result);
         let trace_length = trace.length();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
@@ -124,31 +119,28 @@ impl Example for FFTExample {
         );
         // self.output_evals = prover.get_pub_inputs(&trace).output_evals;
         // generate the proof
-        print_trace(&trace, 1, 0, self.degree+3..trace.width());
+        print_trace(&trace, 1, 0, 0..trace.width());
         prover.prove(trace).unwrap()
-        // unimplemented!()
     }
 
     fn verify(&self, proof: StarkProof) -> Result<(), VerifierError> {
         let pub_inputs = PublicInputs {
-            coefficients: self.coefficients.clone(),
-            omega: self.omega,
-            degree: self.degree,
-            // output_evals: self.output_evals,
+            result: self.result.clone(),
+            num_inputs: self.num_fft_inputs,
+            fft_inputs: self.fft_inputs.clone(),
         };
+        
         winterfell::verify::<FFTAir>(proof, pub_inputs)
     }
 
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
-        let mut coefficients = self.coefficients.clone();
-        coefficients.swap(0, 1);
+        let mut wrong_inputs = self.fft_inputs.clone();
+        wrong_inputs[0] -= BaseElement::ONE;
         let pub_inputs = PublicInputs {
-            coefficients,
-            omega: self.omega,
-            degree: self.degree,
-            // output_evals: self.output_evals,
+            result: self.result.clone(),
+            num_inputs: self.num_fft_inputs,
+            fft_inputs: self.fft_inputs.clone(),
         };
         winterfell::verify::<FFTAir>(proof, pub_inputs)
-        // unimplemented!()
     }
 }
