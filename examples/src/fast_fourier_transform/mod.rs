@@ -3,18 +3,18 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use super::{
-    rescue, Example,
+use super::Example;
+use crate::{
+    utils::{fast_fourier_transform::simple_iterative_fft, print_trace},
+    ExampleOptions,
 };
-use crate::{ExampleOptions, utils::{print_trace, fast_fourier_transform::simple_iterative_fft}};
 use log::debug;
 use rand_utils::rand_array;
 use std::time::Instant;
 use winterfell::{
-    math::{fields::f128::BaseElement, get_power_series, log2, FieldElement, StarkField, fft},
+    math::{fields::f128::BaseElement, log2, FieldElement, StarkField},
     ProofOptions, Prover, StarkProof, Trace, TraceTable, VerifierError,
 };
-
 
 mod air;
 use air::{FFTAir, PublicInputs};
@@ -31,10 +31,7 @@ use prover::FFTProver;
 // Field FFT EXAMPLE
 // ================================================================================================
 pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
-    Box::new(FFTExample::new(
-        degree,
-        options.to_proof_options(28, 64),
-    ))
+    Box::new(FFTExample::new(degree, options.to_proof_options(28, 64)))
 }
 
 /*
@@ -63,7 +60,6 @@ impl FFTExample {
         );
         assert!(num_fft_inputs >= 4, "number of inputs must be at least 4");
 
-
         let mut fft_inputs = vec![BaseElement::ZERO; num_fft_inputs as usize];
         for internal_seed in fft_inputs.iter_mut() {
             *internal_seed = rand_array::<_, 1>()[0];
@@ -71,7 +67,7 @@ impl FFTExample {
 
         // compute the fft output using an external implementation of iterative FFT
         let now = Instant::now();
-        // generate appropriately sized omega 
+        // generate appropriately sized omega
         let omega = BaseElement::get_root_of_unity(log2(num_fft_inputs));
         let result = simple_iterative_fft(fft_inputs.clone(), omega);
 
@@ -80,8 +76,6 @@ impl FFTExample {
             num_fft_inputs,
             now.elapsed().as_millis()
         );
-
-        
 
         FFTExample {
             options,
@@ -106,8 +100,7 @@ impl Example for FFTExample {
         );
 
         // create a prover
-        let prover =
-            FFTProver::new(self.options.clone(), self.num_fft_inputs);
+        let prover = FFTProver::new(self.options.clone(), self.num_fft_inputs);
         let now = Instant::now();
         let trace = prover.build_trace(self.omega, &self.fft_inputs, &self.result);
         let trace_length = trace.length();
@@ -129,7 +122,7 @@ impl Example for FFTExample {
             num_inputs: self.num_fft_inputs,
             fft_inputs: self.fft_inputs.clone(),
         };
-        
+
         winterfell::verify::<FFTAir>(proof, pub_inputs)
     }
 

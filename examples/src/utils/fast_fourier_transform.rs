@@ -6,9 +6,7 @@ pub(crate) fn simple_iterative_fft(
     input_array: Vec<BaseElement>,
     omega: BaseElement,
 ) -> Vec<BaseElement> {
-    println!("Input = {:?}", input_array.clone());
     let mut output_arr = bit_reverse_copy(input_array.clone());
-    println!("Step 0 in simple iterative = {:?}", output_arr);
     let fft_size = input_array.len();
     let log_fft_size = log2(fft_size);
     let num_steps: usize = log_fft_size.try_into().unwrap();

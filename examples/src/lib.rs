@@ -6,9 +6,9 @@
 use structopt::StructOpt;
 use winterfell::{FieldExtension, HashFunction, ProofOptions, StarkProof, VerifierError};
 
-pub mod fibonacci;
 #[cfg(feature = "std")]
 pub mod fast_fourier_transform;
+pub mod fibonacci;
 #[cfg(feature = "std")]
 pub mod lamport;
 #[cfg(feature = "std")]

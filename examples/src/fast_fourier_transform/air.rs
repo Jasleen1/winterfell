@@ -8,14 +8,17 @@ use std::vec;
 // use super::{
 //     rescue, SIG_CYCLE_LENGTH as SIG_CYCLE_LEN, TRACE_WIDTH,
 // };
-use crate::utils::{are_equal, is_binary, is_zero, not, EvaluationResult, fast_fourier_transform::bit_reverse};
+use crate::utils::{are_equal, fast_fourier_transform::bit_reverse};
 use winterfell::{
-    math::{fields::f128::BaseElement, FieldElement, StarkField, log2},
+    math::{fields::f128::BaseElement, log2, FieldElement},
     Air, AirContext, Assertion, ByteWriter, EvaluationFrame, ProofOptions, Serializable, TraceInfo,
     TransitionConstraintDegree,
 };
 
-use super::prover::{get_power_of_two_pos, get_rev_counter_pos, get_rev_counter_inv_pos, get_num_main_trace_rows_u64};
+use super::prover::{
+    get_num_main_trace_rows_u64, get_num_trace_rows, get_power_of_two_pos, get_rev_counter_inv_pos,
+    get_rev_counter_pos,
+};
 
 // CONSTANTS
 // ================================================================================================
@@ -37,7 +40,6 @@ impl Serializable for PublicInputs {
     }
 }
 
-
 pub struct FFTAir {
     context: AirContext<BaseElement>,
     fft_inputs: Vec<BaseElement>,
@@ -54,33 +56,35 @@ impl Air for FFTAir {
         // define degrees for all transition constraints
         let mut degrees = Vec::new();
         // TODO
-        let enforce_permutation_deg = TransitionConstraintDegree::new(2);
-        for _ in 0..pub_inputs.num_inputs {
-            degrees.push(enforce_permutation_deg.clone());
-        }
-        
+        // let enforce_permutation_deg = TransitionConstraintDegree::new(2);
+        // for _ in 0..pub_inputs.num_inputs {
+        //     degrees.push(enforce_permutation_deg.clone());
+        // }
 
         let log_deg_usize: usize = log2(pub_inputs.num_inputs).try_into().unwrap();
         let num_fft_steps = log_deg_usize + 1;
 
-        for step_count in 1..num_fft_steps {
-                let m = 1 << step_count;
-                let jump = 1 << (step_count - 1);
-                let num_ranges: usize = (pub_inputs.num_inputs / m).try_into().unwrap();
-                let mut local_constraint_degs = vec![TransitionConstraintDegree::new(2); pub_inputs.num_inputs];
+        for step_count in (num_fft_steps - 1)..num_fft_steps {
+            let m = 1 << step_count;
+            let jump = 1 << (step_count - 1);
+            let num_ranges: usize = pub_inputs.num_inputs / m;
+            let mut local_constraint_degs =
+                vec![TransitionConstraintDegree::new(2); pub_inputs.num_inputs];
             for k in 0..num_ranges {
                 let start_of_range = k * 2 * jump;
                 for j in 0..jump {
-                    local_constraint_degs[start_of_range + j] = TransitionConstraintDegree::new(2 + j);
-                    local_constraint_degs[start_of_range + j + jump] = TransitionConstraintDegree::new(2 + j);
+                    local_constraint_degs[start_of_range + j] =
+                        TransitionConstraintDegree::new(2 + 2 + j);
+                    local_constraint_degs[start_of_range + j + jump] =
+                        TransitionConstraintDegree::new(2 + 2 + j);
                 }
             }
             degrees.append(&mut local_constraint_degs);
-        }   
+        }
 
-        // for step in 1..trace_usize { 
-        //     for counter in (0..pub_inputs.num_inputs).step_by(1<<step) {  
-        //         for _ in 0..(1<<(step - 1)) {      
+        // for step in 1..trace_usize {
+        //     for counter in (0..pub_inputs.num_inputs).step_by(1<<step) {
+        //         for _ in 0..(1<<(step - 1)) {
         //             let enforce_butterfly_deg_1 = TransitionConstraintDegree::new(1);
         //             let enforce_butterfly_deg_2 = TransitionConstraintDegree::new(counter/(1<<step) + 1);
         //             let enforce_butterfly_deg_3 = TransitionConstraintDegree::new(counter/(1<<step) + 1);
@@ -90,11 +94,10 @@ impl Air for FFTAir {
         //         }
         //     }
         // }
-        
-        
-        let omega_deg  = TransitionConstraintDegree::new(4);
+
+        let omega_deg = TransitionConstraintDegree::new(4);
         degrees.push(omega_deg);
-        
+
         let power_of_two_deg = TransitionConstraintDegree::new(3);
         degrees.push(power_of_two_deg);
 
@@ -111,8 +114,8 @@ impl Air for FFTAir {
         // assert_eq!(TRACE_WIDTH, trace_info.width());
         FFTAir {
             context: AirContext::new(trace_info, degrees, options),
-            fft_inputs: pub_inputs.fft_inputs, 
-            result: pub_inputs.result
+            fft_inputs: pub_inputs.fft_inputs,
+            result: pub_inputs.result,
         }
     }
 
@@ -134,29 +137,38 @@ impl Air for FFTAir {
         let num_inputs = self.fft_inputs.len();
         let reverse_perm = get_reverse_permutation(num_inputs);
         enforce_round(result, current, next, num_inputs, reverse_perm);
-        
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         let mut assertions = vec![];
         let num_fft_inputs = self.fft_inputs.len();
+        let full_trace_length = get_num_trace_rows(num_fft_inputs);
         let log_num_fft_inputs: usize = log2(num_fft_inputs).try_into().unwrap();
         let log_num_fft_inputs_u64: u64 = get_num_main_trace_rows_u64(num_fft_inputs);
         let power_of_two_register = get_power_of_two_pos(num_fft_inputs);
-        assertions.push(
-          Assertion::single(power_of_two_register, 0, BaseElement::from(2u64))  
-        );
-        
+        assertions.push(Assertion::single(
+            power_of_two_register,
+            0,
+            BaseElement::from(2u64),
+        ));
+
         let rev_counter_pos = get_rev_counter_pos(num_fft_inputs, log_num_fft_inputs);
-        assertions.push(
-          Assertion::single(rev_counter_pos, 0, BaseElement::from(log_num_fft_inputs_u64))  
-        );
+        assertions.push(Assertion::single(
+            rev_counter_pos,
+            0,
+            BaseElement::from(log_num_fft_inputs_u64),
+        ));
         let rev_counter_inv_pos = get_rev_counter_inv_pos(num_fft_inputs, log_num_fft_inputs);
-        assertions.push(
-            Assertion::single(rev_counter_inv_pos, 0, BaseElement::from(log_num_fft_inputs_u64).inv())  
-          );
+        assertions.push(Assertion::single(
+            rev_counter_inv_pos,
+            0,
+            BaseElement::from(log_num_fft_inputs_u64).inv(),
+        ));
+        for i in 0..num_fft_inputs {
+            assertions.push(Assertion::single(i, full_trace_length - 1, self.result[i]));
+        }
         // assertions.push(
-        //     Assertion::single(power_of_two_register, 1, BaseElement::from(2u64))  
+        //     Assertion::single(power_of_two_register, 1, BaseElement::from(2u64))
         // );
         // let log_degree: usize = log2(self.degree).try_into().unwrap();
         // let total_steps = log_degree + 1;
@@ -167,41 +179,39 @@ impl Air for FFTAir {
         // ];
         // for step_number in 0..total_steps {
         //     // this register is omega^{degree/(1 << step number)}
-        //     assertions.push(Assertion::single(self.degree + 1, 
-        //         step_number, 
+        //     assertions.push(Assertion::single(self.degree + 1,
+        //         step_number,
         //         self.omega.exp((self.degree/(1 << step_number)).try_into().unwrap())));
         // }
         // // The (degree + 2)th register contains the step number
-        // assertions.push(Assertion::single(self.degree + 2, 
-        //     0, 
+        // assertions.push(Assertion::single(self.degree + 2,
+        //     0,
         //     BaseElement::ZERO));
 
         // // These registers hold i - step_number for each possible step i.
         // for step_number in 0..total_steps {
         //     let step_u128: u128 = if step_number == 0 {1} else {0};
-        //     assertions.push(Assertion::single(get_selector_pos(step_number, self.degree), 
-        //         0, 
+        //     assertions.push(Assertion::single(get_selector_pos(step_number, self.degree),
+        //         0,
         //         BaseElement::from(step_u128)));
         // }
 
-        // FIXME: Need one more constraint to check the inverses 
+        // FIXME: Need one more constraint to check the inverses
         // are correct but that may be possible to put in evaluation constraints.
 
-        // // These registers hold i - step_number for each possible step i, 
+        // // These registers hold i - step_number for each possible step i,
         // // so when step_number = the position, the value should be zero.
         // for step_number in 0..last_cycle_step {
-        //     assertions.push(Assertion::single(get_count_diff_pos(step_number, self.degree), 
-        //         step_number, 
+        //     assertions.push(Assertion::single(get_count_diff_pos(step_number, self.degree),
+        //         step_number,
         //         BaseElement::ZERO));
-        //     assertions.push(Assertion::single(get_selector_pos(step_number, self.degree), 
-        //         step_number, 
+        //     assertions.push(Assertion::single(get_selector_pos(step_number, self.degree),
+        //         step_number,
         //         BaseElement::ONE));
         // }
 
         assertions
-
     }
-
 }
 
 // HELPER FUNCTIONS
@@ -219,33 +229,46 @@ fn enforce_round<E: FieldElement + From<BaseElement>>(
         result[pos] = E::ZERO;
     }
     let log_num_fft_inputs: usize = log2(num_fft_inputs).try_into().unwrap();
-    
+
     let rev_counter_pos = get_rev_counter_pos(num_fft_inputs, log_num_fft_inputs);
     let rev_counter_inv_pos = get_rev_counter_inv_pos(num_fft_inputs, log_num_fft_inputs);
 
-    let handle_bit =  E::ONE - current[rev_counter_inv_pos] * current[rev_counter_pos];
-    
-    result[(log_num_fft_inputs + 1) * num_fft_inputs + 2] = are_equal(next[rev_counter_pos], current[rev_counter_pos] *  (E::ONE - current[rev_counter_inv_pos])); 
-        
+    let handle_bit = next[rev_counter_inv_pos] * next[rev_counter_pos];
 
+    result[num_fft_inputs + 2] = are_equal(
+        next[rev_counter_pos],
+        current[rev_counter_pos] * (E::ONE - current[rev_counter_inv_pos]),
+    );
 
-    enforce_0th_round(result, current, next, num_fft_inputs, reverse_perm);
-    enforce_butterfly_round(result, current, next, num_fft_inputs);
+    enforce_0th_round(
+        result,
+        current,
+        next,
+        num_fft_inputs,
+        reverse_perm,
+        handle_bit,
+    );
+    enforce_butterfly_round(result, current, next, num_fft_inputs, handle_bit);
     // result[num_fft_inputs] = are_equal(current[num_fft_inputs], next[num_fft_inputs]);
     let curr_omega = current[num_fft_inputs];
     let next_omega = next[num_fft_inputs];
     let power_of_two_pos = get_power_of_two_pos(num_fft_inputs);
-    result[(log_num_fft_inputs + 1) * num_fft_inputs] = handle_bit * are_equal(curr_omega, next_omega.exp(2u32.try_into().unwrap()));
-    result[(log_num_fft_inputs + 1) * num_fft_inputs + 1] = handle_bit * are_equal(current[power_of_two_pos] * E::from(2u64), next[power_of_two_pos]);
-    
+    result[num_fft_inputs] =
+        handle_bit * are_equal(curr_omega, next_omega.exp(2u32.try_into().unwrap()));
+    result[num_fft_inputs + 1] = handle_bit
+        * are_equal(
+            current[power_of_two_pos] * E::from(2u64),
+            next[power_of_two_pos],
+        );
+
     // r(X) = a(X) - b(omega * X) and if constraint satisfied then this should be 0 on the eval domain.
     // # of points on which r is interpol = trace_len - 1
     // Deg(r) = deg(RHS)
-    // If deg(r) <= trace_len - 1, then if r = 0 on trace_len - 1 points, r must be the zero poly.  
-    // r'(X) = (a(X))^2 - (b(omega * X))^2 = (a(X) - b(X)) * (a(X) + b(X)) 
+    // If deg(r) <= trace_len - 1, then if r = 0 on trace_len - 1 points, r must be the zero poly.
+    // r'(X) = (a(X))^2 - (b(omega * X))^2 = (a(X) - b(X)) * (a(X) + b(X))
     // deg(r') = 2 * max(deg(a), deg(b))
     // result[num_fft_inputs + 2] = are_equal(current[num_fft_inputs + 2] + E::ONE, next[num_fft_inputs + 2]);
-    // // Auxiliary parts 
+    // // Auxiliary parts
     // let log_degree = log2(num_fft_inputs).try_into().unwrap();
     // for i in 0..log_degree+1 {
     //     let selector_pos = get_selector_pos(i, num_fft_inputs);
@@ -256,7 +279,6 @@ fn enforce_round<E: FieldElement + From<BaseElement>>(
     // for i in 0..num_fft_inputs {
     //     result[i] = not(result[i]);
     // }
-
 }
 
 fn enforce_0th_round<E: FieldElement + From<BaseElement>>(
@@ -265,61 +287,61 @@ fn enforce_0th_round<E: FieldElement + From<BaseElement>>(
     next: &[E],
     num_fft_inputs: usize,
     reverse_perm: Vec<usize>,
-) { 
-    let selector = current[get_selector_pos(0, num_fft_inputs)];
+    handle_bit: E,
+) {
+    let selector = handle_bit * current[get_selector_pos(0, num_fft_inputs)];
 
     for i in 0..num_fft_inputs {
         result[i] = selector * are_equal(next[i], current[reverse_perm[i]]);
     }
 }
 
-
-
 fn enforce_butterfly_round<E: FieldElement + From<BaseElement>>(
     result: &mut [E],
     current: &[E],
     next: &[E],
     num_fft_inputs: usize,
+    handle_bit: E,
 ) {
     // let step = current[degree + 2];
-    
+
     let num_steps: usize = (log2(num_fft_inputs) + 1).try_into().unwrap();
     for step in 1..num_steps {
-        let selector = current[get_selector_pos(step, num_fft_inputs)];
-        
+        let selector = handle_bit * current[get_selector_pos(step, num_fft_inputs)];
+
         let curr_omega = next[num_fft_inputs];
-        
+
         let m = 1 << step;
-        let jump = 1 << (step - 1); 
-        let num_ranges: usize = (num_fft_inputs / m).try_into().unwrap();
+        let jump = 1 << (step - 1);
+        let num_ranges: usize = num_fft_inputs / m;
         for k in 0..num_ranges {
             // let mut running_omega = E::ONE;
             let start_of_range = k * 2 * jump;
-            for j_usize in 0..jump {  
+            for j_usize in 0..jump {
                 let j_u64: u64 = j_usize.try_into().unwrap();
                 // let jump = 1 << step;
-                // let gap = 1 << (step - 1);   
+                // let gap = 1 << (step - 1);
                 // let j_64: u64 = (pos % jump).try_into().unwrap();
 
                 // let j = E::PositiveInteger::from(j_usize.try_into().unwrap());
                 let u = current[start_of_range + j_usize];
-                let v = current[start_of_range + j_usize + jump] * (curr_omega.exp(E::PositiveInteger::from(j_u64)));
-                result[(step) * num_fft_inputs + start_of_range + j_usize] = selector * (are_equal(next[start_of_range + j_usize], u + v));
-                    // current[start_of_range + j_usize] 
-                    // + (current[start_of_range + j_usize + jump] * (curr_omega.exp(E::PositiveInteger::from(j_u64))))));
-                result[(step) * num_fft_inputs + start_of_range + j_usize + jump] = selector * are_equal(next[start_of_range + j_usize + jump], u - v);
+                let v = current[start_of_range + j_usize + jump]
+                    * (curr_omega.exp(E::PositiveInteger::from(j_u64)));
+                result[start_of_range + j_usize] +=
+                    selector * (are_equal(next[start_of_range + j_usize], u + v));
+                // current[start_of_range + j_usize]
+                // + (current[start_of_range + j_usize + jump] * (curr_omega.exp(E::PositiveInteger::from(j_u64))))));
+                result[start_of_range + j_usize + jump] +=
+                    selector * are_equal(next[start_of_range + j_usize + jump], u - v)
                 // running_omega = running_omega * curr_omega;
-                    
             }
         }
-    }   
-    
+    }
 }
 
 fn get_selector_pos(i: usize, num_fft_inputs: usize) -> usize {
     num_fft_inputs + 2 + i
 }
-
 
 // #[test]
 // fn test_get_selector_pos() {
@@ -329,31 +351,9 @@ fn get_selector_pos(i: usize, num_fft_inputs: usize) -> usize {
 //     assert!(get_selector_pos(1, 16) == 20);
 // }
 
-fn get_previous_selector_pos(i: usize, degree: usize, log_degree: usize) -> usize {
-    if i != 0 {
-        degree + 3 + i - 1
-    }
-    else {
-        // Get the last bit in the array of selectors
-        degree + 3 + log_degree
-    }
-}
-
-
-
 // fn get_selector_pos(i: usize, degree: usize) -> usize {
-    // degree + 3 + 3*i + 2
+// degree + 3 + 3*i + 2
 // }
-
-fn reverse(index: usize, log_degree: u32) -> usize {
-    let mut return_index = 0;
-    for i in 0..log_degree {
-        if index & (1 << i) != 0 {
-            return_index = return_index | (1 << (log_degree - 1 - i));
-        }
-    }
-    return_index
-}
 
 fn get_reverse_permutation(size: usize) -> Vec<usize> {
     let log_size = log2(size);
@@ -371,9 +371,7 @@ fn get_reverse_permutation(size: usize) -> Vec<usize> {
 }
 
 fn swap<T: Copy>(pos1: usize, pos2: usize, state: &mut [T]) {
-    let temp = state[pos1];
-    state[pos1] = state[pos2];
-    state[pos2] = temp;
+    state.swap(pos1, pos2)
 }
 
 // #[rustfmt::skip]
@@ -439,4 +437,3 @@ fn swap<T: Copy>(pos1: usize, pos2: usize, state: &mut [T]) {
 //     result.agg_constraint(16, flag * m1_bit, not(are_equal(current[18] + current[10], next[18]));
 //     result.agg_constraint(17, flag * m1_bit, not(are_equal(current[19] + current[11], next[19]));
 // }
-

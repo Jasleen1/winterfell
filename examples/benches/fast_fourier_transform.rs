@@ -9,7 +9,7 @@ use std::time::Duration;
 use winterfell::{FieldExtension, HashFunction, ProofOptions};
 
 // Use SIZE s.t. Log2(SIZE) + 1 is a power of 2
-const SIZES: [usize; 1] = [128];//, 128, 128];
+const SIZES: [usize; 1] = [128]; //, 128, 128];
 
 // cargo run -- -b 16 fft -n 8
 fn fast_fourier_transform(c: &mut Criterion) {
