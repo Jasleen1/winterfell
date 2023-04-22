@@ -41,7 +41,6 @@ impl<B: StarkField> AirContext<B> {
             !transition_constraint_degrees.is_empty(),
             "at least one transition constraint degree must be specified"
         );
-
         // determine minimum blowup factor needed to evaluate transition constraints by taking
         // the blowup factor of the highest degree constraint
         let mut ce_blowup_factor = 0;

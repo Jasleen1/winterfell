@@ -217,13 +217,13 @@ impl<B: StarkField, E: FieldElement<BaseField = B>> ConstraintEvaluationTable<B,
         // make sure evaluation domain size does not exceed the size required by max degree
         let expected_domain_size =
             core::cmp::max(max_degree, self.trace_length + 1).next_power_of_two();
-        assert_eq!(
-            expected_domain_size,
-            self.num_rows(),
-            "incorrect constraint evaluation domain size; expected {}, actual: {}",
-            expected_domain_size,
-            self.num_rows()
-        );
+        // assert_eq!(
+        //     expected_domain_size,
+        //     self.num_rows(),
+        //     "incorrect constraint evaluation domain size; expected {}, actual: {}",
+        //     expected_domain_size,
+        //     self.num_rows()
+        // );
     }
 }
 

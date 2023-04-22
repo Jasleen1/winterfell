@@ -10,7 +10,7 @@ use crate::{
 };
 use log::debug;
 use rand_utils::rand_array;
-use std::time::Instant;
+use std::{time::Instant, cmp::max};
 use winterfell::{
     math::{fields::f128::BaseElement, log2, FieldElement, StarkField},
     ProofOptions, Prover, StarkProof, Trace, TraceTable, VerifierError,
@@ -31,7 +31,8 @@ use prover::FFTProver;
 // Field FFT EXAMPLE
 // ================================================================================================
 pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
-    Box::new(FFTExample::new(degree, options.to_proof_options(28, 64)))
+    let b = max(degree, 64);
+    Box::new(FFTExample::new(degree, options.to_proof_options(28, b)))
 }
 
 /*
@@ -59,7 +60,6 @@ impl FFTExample {
             "number of signatures must be a power of 2"
         );
         assert!(num_fft_inputs >= 4, "number of inputs must be at least 4");
-
         let mut fft_inputs = vec![BaseElement::ZERO; num_fft_inputs as usize];
         for internal_seed in fft_inputs.iter_mut() {
             *internal_seed = rand_array::<_, 1>()[0];
@@ -76,7 +76,6 @@ impl FFTExample {
             num_fft_inputs,
             now.elapsed().as_millis()
         );
-
         FFTExample {
             options,
             omega,

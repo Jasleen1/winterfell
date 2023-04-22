@@ -94,6 +94,7 @@ impl<B: StarkField> StarkDomain<B> {
 
     /// Returns the size of the low-degree extension domain.
     pub fn lde_domain_size(&self) -> usize {
+        
         self.ce_domain_size() * self.ce_to_lde_blowup()
     }
 
