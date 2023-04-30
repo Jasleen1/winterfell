@@ -28,7 +28,6 @@ pub(crate) fn simple_iterative_fft(
                 omega_curr *= local_factor;
             }
         }
-        println!("Step {} in simple iterative = {:?}", step, output_arr);
     }
     output_arr
 }
