@@ -10,7 +10,7 @@ use crate::{
 };
 use log::debug;
 use rand_utils::rand_array;
-use std::{time::Instant, cmp::max};
+use std::{cmp::max, time::Instant};
 use winterfell::{
     math::{fields::f128::BaseElement, log2, FieldElement, StarkField},
     ProofOptions, Prover, StarkProof, Trace, TraceTable, VerifierError,
@@ -30,9 +30,12 @@ use prover::FFTProver;
 
 // Field FFT EXAMPLE
 // ================================================================================================
-pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
+pub fn get_example(options: &ExampleOptions, degree: usize) -> Result<Box<dyn Example>, String> {
     let b = max(degree, 32);
-    Box::new(FFTExample::new(degree, options.to_proof_options(28, b)))
+    Ok(Box::new(FFTExample::new(
+        degree,
+        options.to_proof_options(28, b),
+    )))
 }
 
 /*

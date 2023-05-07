@@ -29,7 +29,7 @@ pub struct QuadExtension<B: ExtensibleField<2>>(B, B);
 
 impl<B: ExtensibleField<2>> QuadExtension<B> {
     /// Returns a new extension element instantiated from the provided base elements.
-    pub fn new(a: B, b: B) -> Self {
+    pub const fn new(a: B, b: B) -> Self {
         Self(a, b)
     }
 
@@ -43,15 +43,23 @@ impl<B: ExtensibleField<2>> QuadExtension<B> {
     /// of the source vector.
     fn base_to_quad_vector(source: Vec<B>) -> Vec<Self> {
         debug_assert!(
-            source.len() % 2 == 0,
+            source.len() % Self::EXTENSION_DEGREE == 0,
             "source vector length must be divisible by two, but was {}",
             source.len()
         );
         let mut v = core::mem::ManuallyDrop::new(source);
         let p = v.as_mut_ptr();
-        let len = v.len() / 2;
-        let cap = v.capacity() / 2;
+        let len = v.len() / Self::EXTENSION_DEGREE;
+        let cap = v.capacity() / Self::EXTENSION_DEGREE;
         unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
+    }
+
+    /// Returns an array of base field elements comprising this extension field element.
+    ///
+    /// The order of abase elements in the returned array is the same as the order in which
+    /// the elements are provided to the [QuadExtension::new()] constructor.
+    pub const fn to_base_elements(self) -> [B; 2] {
+        [self.0, self.1]
     }
 }
 
@@ -59,14 +67,25 @@ impl<B: ExtensibleField<2>> FieldElement for QuadExtension<B> {
     type PositiveInteger = B::PositiveInteger;
     type BaseField = B;
 
-    const ELEMENT_BYTES: usize = B::ELEMENT_BYTES * 2;
+    const EXTENSION_DEGREE: usize = 2;
+
+    const ELEMENT_BYTES: usize = B::ELEMENT_BYTES * Self::EXTENSION_DEGREE;
     const IS_CANONICAL: bool = B::IS_CANONICAL;
     const ZERO: Self = Self(B::ZERO, B::ZERO);
     const ONE: Self = Self(B::ONE, B::ZERO);
 
+    // ALGEBRA
+    // --------------------------------------------------------------------------------------------
+
     #[inline]
     fn double(self) -> Self {
         Self(self.0.double(), self.1.double())
+    }
+
+    #[inline]
+    fn square(self) -> Self {
+        let a = <B as ExtensibleField<2>>::square([self.0, self.1]);
+        Self(a[0], a[1])
     }
 
     #[inline]
@@ -90,6 +109,38 @@ impl<B: ExtensibleField<2>> FieldElement for QuadExtension<B> {
         let result = <B as ExtensibleField<2>>::frobenius([self.0, self.1]);
         Self(result[0], result[1])
     }
+
+    // BASE ELEMENT CONVERSIONS
+    // --------------------------------------------------------------------------------------------
+
+    fn base_element(&self, i: usize) -> Self::BaseField {
+        match i {
+            0 => self.0,
+            1 => self.1,
+            _ => panic!("element index must be smaller than 2, but was {i}"),
+        }
+    }
+
+    fn slice_as_base_elements(elements: &[Self]) -> &[Self::BaseField] {
+        let ptr = elements.as_ptr();
+        let len = elements.len() * Self::EXTENSION_DEGREE;
+        unsafe { slice::from_raw_parts(ptr as *const Self::BaseField, len) }
+    }
+
+    fn slice_from_base_elements(elements: &[Self::BaseField]) -> &[Self] {
+        assert!(
+            elements.len() % Self::EXTENSION_DEGREE == 0,
+            "number of base elements must be divisible by 2, but was {}",
+            elements.len()
+        );
+
+        let ptr = elements.as_ptr();
+        let len = elements.len() / Self::EXTENSION_DEGREE;
+        unsafe { slice::from_raw_parts(ptr as *const Self, len) }
+    }
+
+    // SERIALIZATION / DESERIALIZATION
+    // --------------------------------------------------------------------------------------------
 
     fn elements_as_bytes(elements: &[Self]) -> &[u8] {
         unsafe {
@@ -121,16 +172,13 @@ impl<B: ExtensibleField<2>> FieldElement for QuadExtension<B> {
         Ok(slice::from_raw_parts(p as *const Self, len))
     }
 
+    // UTILITIES
+    // --------------------------------------------------------------------------------------------
+
     fn zeroed_vector(n: usize) -> Vec<Self> {
         // get twice the number of base elements, and re-interpret them as quad field elements
-        let result = B::zeroed_vector(n * 2);
+        let result = B::zeroed_vector(n * Self::EXTENSION_DEGREE);
         Self::base_to_quad_vector(result)
-    }
-
-    fn as_base_elements(elements: &[Self]) -> &[Self::BaseField] {
-        let ptr = elements.as_ptr();
-        let len = elements.len() * 2;
-        unsafe { slice::from_raw_parts(ptr as *const Self::BaseField, len) }
     }
 }
 
@@ -441,7 +489,7 @@ mod tests {
 
         assert_eq!(
             expected,
-            QuadExtension::<BaseElement>::as_base_elements(&elements)
+            QuadExtension::<BaseElement>::slice_as_base_elements(&elements)
         );
     }
 }

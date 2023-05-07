@@ -1,3 +1,8 @@
+// Copyright (c) Facebook, Inc. and its affiliates.
+//
+// This source code is licensed under the MIT license found in the
+// LICENSE file in the root directory of this source tree.
+
 use super::{DeserializationError, SliceReader, Vec};
 use core::iter::FusedIterator;
 use math::FieldElement;
@@ -5,8 +10,8 @@ use math::FieldElement;
 // CONSTANTS
 // ================================================================================================
 
-const MAX_ROWS: usize = 255;
-const MAX_COLS: usize = 255;
+const MAX_ROWS: usize = 65535;
+const MAX_COLS: usize = 65535;
 
 // TABLE
 // ================================================================================================
@@ -29,8 +34,8 @@ impl<E: FieldElement> Table<E> {
     ///
     /// # Panics
     /// Panics if:
-    /// * Specified number of rows is 0 or greater than 255.
-    /// * Specified number of columns is 0 or greater than 255.
+    /// * Specified number of rows is 0 or greater than 65535.
+    /// * Specified number of columns is 0 or greater than 65535.
     /// * Provided bytes do not encode valid field elements required to fill the table.
     pub fn from_bytes(
         bytes: &[u8],
@@ -40,16 +45,12 @@ impl<E: FieldElement> Table<E> {
         assert!(num_rows > 0, "number of rows must be greater than 0");
         assert!(
             num_rows < MAX_ROWS,
-            "number of rows cannot exceed {}, but was {}",
-            MAX_ROWS,
-            num_rows
+            "number of rows cannot exceed {MAX_ROWS}, but was {num_rows}"
         );
         assert!(num_cols > 0, "number of columns must be greater than 0");
         assert!(
             num_cols < MAX_ROWS,
-            "number of columns cannot exceed {}, but was {}",
-            MAX_COLS,
-            num_cols
+            "number of columns cannot exceed {MAX_COLS}, but was {num_cols}"
         );
 
         let mut reader = SliceReader::new(bytes);

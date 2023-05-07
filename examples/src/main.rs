@@ -31,38 +31,45 @@ fn main() {
     // instantiate and prepare the example
     let example = match options.example {
         ExampleType::Fib { sequence_length } => {
-            fibonacci::fib2::get_example(options, sequence_length)
+            fibonacci::fib2::get_example(&options, sequence_length)
         }
         ExampleType::Fib8 { sequence_length } => {
-            fibonacci::fib8::get_example(options, sequence_length)
+            fibonacci::fib8::get_example(&options, sequence_length)
         }
         ExampleType::Mulfib { sequence_length } => {
-            fibonacci::mulfib2::get_example(options, sequence_length)
+            fibonacci::mulfib2::get_example(&options, sequence_length)
         }
         ExampleType::Mulfib8 { sequence_length } => {
-            fibonacci::mulfib8::get_example(options, sequence_length)
+            fibonacci::mulfib8::get_example(&options, sequence_length)
         }
-        ExampleType::Vdf { num_steps } => vdf::regular::get_example(options, num_steps),
-        ExampleType::VdfExempt { num_steps } => vdf::exempt::get_example(options, num_steps),
-        ExampleType::Rescue { chain_length } => rescue::get_example(options, chain_length),
+        ExampleType::FibSmall { sequence_length } => {
+            fibonacci::fib_small::get_example(&options, sequence_length)
+        }
+        ExampleType::Vdf { num_steps } => vdf::regular::get_example(&options, num_steps),
+        ExampleType::VdfExempt { num_steps } => vdf::exempt::get_example(&options, num_steps),
+        ExampleType::Rescue { chain_length } => rescue::get_example(&options, chain_length),
         #[cfg(feature = "std")]
-        ExampleType::RescueRaps { chain_length } => rescue_raps::get_example(options, chain_length),
+        ExampleType::RescueRaps { chain_length } => {
+            rescue_raps::get_example(&options, chain_length)
+        }
         #[cfg(feature = "std")]
-        ExampleType::Merkle { tree_depth } => merkle::get_example(options, tree_depth),
+        ExampleType::Merkle { tree_depth } => merkle::get_example(&options, tree_depth),
         #[cfg(feature = "std")]
         ExampleType::LamportA { num_signatures } => {
-            lamport::aggregate::get_example(options, num_signatures)
+            lamport::aggregate::get_example(&options, num_signatures)
         }
         #[cfg(feature = "std")]
         ExampleType::LamportT { num_signers } => {
-            lamport::threshold::get_example(options, num_signers)
+            lamport::threshold::get_example(&options, num_signers)
         }
         #[cfg(feature = "std")]
-        ExampleType::FFT { degree } => fast_fourier_transform::get_example(options, degree),
-    };
+        ExampleType::FFT { degree } => fast_fourier_transform::get_example(&options, degree),
+    }
+    .expect("The example failed to initialize.");
 
     // generate proof
     let now = Instant::now();
+    let example = example.as_ref();
     let proof = example.prove();
     debug!(
         "---------------------\nProof generated in {} ms",
@@ -71,7 +78,20 @@ fn main() {
 
     let proof_bytes = proof.to_bytes();
     debug!("Proof size: {:.1} KB", proof_bytes.len() as f64 / 1024f64);
-    debug!("Proof security: {} bits", proof.security_level(true));
+    let conjectured_security_level = options.get_proof_security_level(&proof, true);
+
+    #[cfg(feature = "std")]
+    {
+        let proven_security_level = options.get_proof_security_level(&proof, false);
+        debug!(
+            "Proof security: {} bits ({} proven)",
+            conjectured_security_level, proven_security_level,
+        );
+    }
+
+    #[cfg(not(feature = "std"))]
+    debug!("Proof security: {} bits", conjectured_security_level);
+
     #[cfg(feature = "std")]
     debug!(
         "Proof hash: {}",

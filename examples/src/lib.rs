@@ -4,7 +4,11 @@
 // LICENSE file in the root directory of this source tree.
 
 use structopt::StructOpt;
-use winterfell::{FieldExtension, HashFunction, ProofOptions, StarkProof, VerifierError};
+use winterfell::{
+    crypto::hashers::{GriffinJive64_256, Rp64_256, RpJive64_256},
+    math::fields::f128::BaseElement,
+    FieldExtension, ProofOptions, StarkProof, VerifierError,
+};
 
 #[cfg(feature = "std")]
 pub mod fast_fourier_transform;
@@ -24,6 +28,10 @@ mod tests;
 
 // TYPES AND INTERFACES
 // ================================================================================================
+
+pub type Blake3_192 = winterfell::crypto::hashers::Blake3_192<BaseElement>;
+pub type Blake3_256 = winterfell::crypto::hashers::Blake3_256<BaseElement>;
+pub type Sha3_256 = winterfell::crypto::hashers::Sha3_256<BaseElement>;
 
 pub trait Example {
     fn prove(&self) -> StarkProof;
@@ -66,31 +74,52 @@ pub struct ExampleOptions {
 }
 
 impl ExampleOptions {
-    pub fn to_proof_options(&self, q: usize, b: usize) -> ProofOptions {
+    pub fn to_proof_options(&self, q: usize, b: usize) -> (ProofOptions, HashFunction) {
         let num_queries = self.num_queries.unwrap_or(q);
         let blowup_factor = self.blowup_factor.unwrap_or(b);
         let field_extension = match self.field_extension {
             1 => FieldExtension::None,
             2 => FieldExtension::Quadratic,
             3 => FieldExtension::Cubic,
-            val => panic!("'{}' is not a valid field extension option", val),
+            val => panic!("'{val}' is not a valid field extension option"),
         };
+
         let hash_fn = match self.hash_fn.as_str() {
             "blake3_192" => HashFunction::Blake3_192,
             "blake3_256" => HashFunction::Blake3_256,
             "sha3_256" => HashFunction::Sha3_256,
-            val => panic!("'{}' is not a valid hash function option", val),
+            "rp64_256" => HashFunction::Rp64_256,
+            "rp_jive64_256" => HashFunction::RpJive64_256,
+            "griffin_jive64_256" => HashFunction::GriffinJive64_256,
+            val => panic!("'{val}' is not a valid hash function option"),
         };
 
-        ProofOptions::new(
-            num_queries,
-            blowup_factor,
-            self.grinding_factor,
+        (
+            ProofOptions::new(
+                num_queries,
+                blowup_factor,
+                self.grinding_factor,
+                field_extension,
+                self.folding_factor,
+                31,
+            ),
             hash_fn,
-            field_extension,
-            self.folding_factor,
-            256,
         )
+    }
+
+    /// Returns security level of the input proof in bits.
+    pub fn get_proof_security_level(&self, proof: &StarkProof, conjectured: bool) -> usize {
+        let security_level = match self.hash_fn.as_str() {
+            "blake3_192" => proof.security_level::<Blake3_192>(conjectured),
+            "blake3_256" => proof.security_level::<Blake3_256>(conjectured),
+            "sha3_256" => proof.security_level::<Sha3_256>(conjectured),
+            "rp64_256" => proof.security_level::<Rp64_256>(conjectured),
+            "rp_jive64_256" => proof.security_level::<RpJive64_256>(conjectured),
+            "griffin_jive64_256" => proof.security_level::<GriffinJive64_256>(conjectured),
+            val => panic!("'{val}' is not a valid hash function option"),
+        };
+
+        security_level as usize
     }
 }
 
@@ -119,6 +148,12 @@ pub enum ExampleType {
     Mulfib8 {
         /// Length of Fibonacci sequence; must be a power of two
         #[structopt(short = "n", default_value = "1048576")]
+        sequence_length: usize,
+    },
+    /// Compute a Fibonacci sequence using trace table with 2 registers in `f64` field.
+    FibSmall {
+        /// Length of Fibonacci sequence; must be a power of two
+        #[structopt(short = "n", default_value = "65536")]
         sequence_length: usize,
     },
     /// Execute a simple VDF function
@@ -174,4 +209,46 @@ pub enum ExampleType {
         #[structopt(short = "n", default_value = "32")]
         degree: usize,
     },
+}
+
+/// Defines a set of hash functions available for the provided examples. Some examples may not
+/// support all listed hash functions.
+///
+/// Choice of a hash function has a direct impact on proof generation time, proof size, and proof
+/// soundness. In general, sounds of the proof is bounded by the collision resistance of the hash
+/// function used by the protocol.
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum HashFunction {
+    /// BLAKE3 hash function with 192 bit output.
+    ///
+    /// When this function is used in the STARK protocol, proof security cannot exceed 96 bits.
+    Blake3_192,
+
+    /// BLAKE3 hash function with 256 bit output.
+    ///
+    /// When this function is used in the STARK protocol, proof security cannot exceed 128 bits.
+    Blake3_256,
+
+    /// SHA3 hash function with 256 bit output.
+    ///
+    /// When this function is used in the STARK protocol, proof security cannot exceed 128 bits.
+    Sha3_256,
+
+    /// Rescue Prime hash function with 256 bit output. It only works in `f64` field.
+    ///
+    /// When this function is used in the STARK protocol, proof security cannot exceed 128 bits.
+    Rp64_256,
+
+    /// Rescue Prime hash function with 256 bit output. It only works in `f64` field.
+    /// This instance uses the Jive compression mode in Merkle trees.
+    ///
+    /// When this function is used in the STARK protocol, proof security cannot exceed 128 bits.
+    RpJive64_256,
+
+    /// Griffin hash function with 256 bit output. It only works in `f64` field.
+    /// This instance uses the Jive compression mode in Merkle trees.
+    ///
+    /// When this function is used in the STARK protocol, proof security cannot exceed 128 bits.
+    GriffinJive64_256,
 }

@@ -5,7 +5,7 @@
 
 //! An implementation of a 64-bit STARK-friendly prime field with modulus $2^{64} - 2^{32} + 1$
 //! using Montgomery representation.
-//! Our implementation follows https://eprint.iacr.org/2022/274.pdf and is constant-time.
+//! Our implementation follows <https://eprint.iacr.org/2022/274.pdf> and is constant-time.
 //!
 //! This field supports very fast modular arithmetic and has a number of other attractive
 //! properties, including:
@@ -39,18 +39,16 @@ const M: u64 = 0xFFFFFFFF00000001;
 /// 2^128 mod M; this is used for conversion of elements into Montgomery representation.
 const R2: u64 = 0xFFFFFFFE00000001;
 
-/// 2^32 root of unity
-const G: u64 = 1753635133440165772;
-
 /// Number of bytes needed to represent field element
 const ELEMENT_BYTES: usize = core::mem::size_of::<u64>();
 
 // FIELD ELEMENT
 // ================================================================================================
 
-/// Represents base field element in the field.
+/// Represents base field element in the field using Montgomery representation.
 ///
-/// Internal values are stored in the range [0, 2^64). The backing type is `u64`.
+/// Internal values represent x * R mod M where R = 2^64 mod M and x in [0, M).
+/// The backing type is `u64` but the internal values are always in the range [0, M).
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BaseElement(u64);
 impl BaseElement {
@@ -80,17 +78,35 @@ impl BaseElement {
         let x3 = x2 * self;
         x3 * x4
     }
+
+    /// Multiplies an element that is less than 2^32 by a field element. This implementation
+    /// is faster as it avoids the use of Montgomery reduction.
+    #[inline(always)]
+    pub fn mul_small(self, rhs: u32) -> Self {
+        let s = (self.inner() as u128) * (rhs as u128);
+        let s_hi = (s >> 64) as u64;
+        let s_lo = s as u64;
+        let z = (s_hi << 32) - s_hi;
+        let (res, over) = s_lo.overflowing_add(z);
+
+        BaseElement::from_mont(res.wrapping_add(0u32.wrapping_sub(over as u32) as u64))
+    }
 }
 
 impl FieldElement for BaseElement {
     type PositiveInteger = u64;
     type BaseField = Self;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     const ZERO: Self = Self::new(0);
     const ONE: Self = Self::new(1);
 
     const ELEMENT_BYTES: usize = ELEMENT_BYTES;
     const IS_CANONICAL: bool = false;
+
+    // ALGEBRA
+    // --------------------------------------------------------------------------------------------
 
     #[inline]
     fn double(self) -> Self {
@@ -151,6 +167,27 @@ impl FieldElement for BaseElement {
         Self(self.0)
     }
 
+    // BASE ELEMENT CONVERSIONS
+    // --------------------------------------------------------------------------------------------
+
+    fn base_element(&self, i: usize) -> Self::BaseField {
+        match i {
+            0 => *self,
+            _ => panic!("element index must be 0, but was {i}"),
+        }
+    }
+
+    fn slice_as_base_elements(elements: &[Self]) -> &[Self::BaseField] {
+        elements
+    }
+
+    fn slice_from_base_elements(elements: &[Self::BaseField]) -> &[Self] {
+        elements
+    }
+
+    // SERIALIZATION / DESERIALIZATION
+    // --------------------------------------------------------------------------------------------
+
     fn elements_as_bytes(elements: &[Self]) -> &[u8] {
         // TODO: take endianness into account.
         let p = elements.as_ptr();
@@ -178,6 +215,9 @@ impl FieldElement for BaseElement {
         Ok(slice::from_raw_parts(p as *const Self, len))
     }
 
+    // UTILITIES
+    // --------------------------------------------------------------------------------------------
+
     fn zeroed_vector(n: usize) -> Vec<Self> {
         // this uses a specialized vector initialization code which requests zero-filled memory
         // from the OS; unfortunately, this works only for built-in types and we can't use
@@ -191,10 +231,6 @@ impl FieldElement for BaseElement {
         let len = v.len();
         let cap = v.capacity();
         unsafe { Vec::from_raw_parts(p as *mut Self, len, cap) }
-    }
-
-    fn as_base_elements(elements: &[Self]) -> &[Self::BaseField] {
-        elements
     }
 }
 
@@ -215,18 +251,34 @@ impl StarkField for BaseElement {
     /// True
     const TWO_ADICITY: u32 = 32;
 
-    /// sage: k = (MODULUS - 1) / 2^32 \
-    /// sage: GF(MODULUS).primitive_element()^k \
-    /// 1753635133440165772
-    const TWO_ADIC_ROOT_OF_UNITY: Self = Self::new(G);
+    /// Root of unity for domain of 2^32 elements. This root of unity is selected because
+    /// it implies that the generator for domain of size 64 is 8. This is attractive because
+    /// it allows replacing some multiplications with shifts (e.g., for NTT computations).
+    ///
+    /// sage: Fp = GF(MODULUS) \
+    /// sage: g = Fp(7277203076849721926) \
+    /// sage: g^(2^32) \
+    /// 1 \
+    /// sage: [int(g^(2^i) == 1) for i in range(1,32)]
+    /// [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    const TWO_ADIC_ROOT_OF_UNITY: Self = Self::new(7277203076849721926);
 
     fn get_modulus_le_bytes() -> Vec<u8> {
         M.to_le_bytes().to_vec()
     }
 
+    // Converts a field element in Montgomery form to canonical form. That is, given x, it computes
+    // x/2^64 modulo M. This is exactly what mont_red_cst does only that it does it more efficiently
+    // using the fact that a field element in Montgomery form is stored as a u64 and thus one can
+    // use this to simplify mont_red_cst in this case.
     #[inline]
     fn as_int(&self) -> Self::PositiveInteger {
-        mont_red_cst(self.0 as u128)
+        let x = self.0;
+        let (a, e) = x.overflowing_add(x << 32);
+        let b = a.wrapping_sub(a >> 32).wrapping_sub(e as u64);
+
+        let (r, c) = 0u64.overflowing_sub(b);
+        r.wrapping_sub(0u32.wrapping_sub(c as u32) as u64)
     }
 }
 
@@ -360,6 +412,19 @@ impl ExtensibleField<2> for BaseElement {
     }
 
     #[inline(always)]
+    fn square(a: [Self; 2]) -> [Self; 2] {
+        let a0 = a[0];
+        let a1 = a[1];
+
+        let a1_sq = a1.square();
+
+        let out0 = a0.square() - a1_sq.double();
+        let out1 = (a0 * a1).double() + a1_sq;
+
+        [out0, out1]
+    }
+
+    #[inline(always)]
     fn mul_base(a: [Self; 2], b: Self) -> [Self; 2] {
         // multiplying an extension field element by a base field element requires just 2
         // multiplications in the base field.
@@ -404,6 +469,22 @@ impl ExtensibleField<3> for BaseElement {
             a0b1_a1b0_a1b2_a2b1_a2b2,
             a0b2_a1b1_a2b0_a2b2,
         ]
+    }
+
+    #[inline(always)]
+    fn square(a: [Self; 3]) -> [Self; 3] {
+        let a0 = a[0];
+        let a1 = a[1];
+        let a2 = a[2];
+
+        let a2_sq = a2.square();
+        let a1_a2 = a1 * a2;
+
+        let out0 = a0.square() + a1_a2.double();
+        let out1 = (a0 * a1 + a1_a2).double() + a2_sq;
+        let out2 = (a0 * a2).double() + a1.square() + a2_sq;
+
+        [out0, out1, out2]
     }
 
     #[inline(always)]
@@ -500,11 +581,10 @@ impl<'a> TryFrom<&'a [u8]> for BaseElement {
         let value = bytes
             .try_into()
             .map(u64::from_le_bytes)
-            .map_err(|error| DeserializationError::UnknownError(format!("{}", error)))?;
+            .map_err(|error| DeserializationError::UnknownError(format!("{error}")))?;
         if value >= M {
             return Err(DeserializationError::InvalidValue(format!(
-                "invalid field element: value {} is greater than or equal to the field modulus",
-                value
+                "invalid field element: value {value} is greater than or equal to the field modulus"
             )));
         }
         Ok(Self::new(value))
@@ -525,7 +605,7 @@ impl AsBytes for BaseElement {
 impl Serializable for BaseElement {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         // convert from Montgomery representation into canonical representation
-        target.write_u8_slice(&self.as_int().to_le_bytes());
+        target.write_bytes(&self.as_int().to_le_bytes());
     }
 }
 
@@ -534,8 +614,7 @@ impl Deserializable for BaseElement {
         let value = source.read_u64()?;
         if value >= M {
             return Err(DeserializationError::InvalidValue(format!(
-                "invalid field element: value {} is greater than or equal to the field modulus",
-                value
+                "invalid field element: value {value} is greater than or equal to the field modulus"
             )));
         }
         Ok(Self::new(value))

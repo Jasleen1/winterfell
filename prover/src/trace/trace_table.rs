@@ -3,9 +3,9 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use super::{Matrix, Trace};
+use super::{ColMatrix, Trace};
 use air::{EvaluationFrame, TraceInfo, TraceLayout};
-use math::{log2, FieldElement, StarkField};
+use math::{FieldElement, StarkField};
 use utils::{collections::Vec, uninit_vector};
 
 #[cfg(not(feature = "concurrent"))]
@@ -61,7 +61,7 @@ const MIN_FRAGMENT_LENGTH: usize = 2;
 /// semantics of the [TraceTable::fill()] method.
 pub struct TraceTable<B: StarkField> {
     layout: TraceLayout,
-    trace: Matrix<B>,
+    trace: ColMatrix<B>,
     meta: Vec<u8>,
 }
 
@@ -76,8 +76,8 @@ impl<B: StarkField> TraceTable<B> {
     ///
     /// # Panics
     /// Panics if:
-    /// * `width` is zero or greater than 255.
-    /// * `length` is smaller than 8, greater than biggest multiplicative subgroup in the field
+    /// * `width` is zero or greater than 65535.
+    /// * `length` is smaller than 4, greater than biggest multiplicative subgroup in the field
     ///   `B`, or is not a power of two.
     pub fn new(width: usize, length: usize) -> Self {
         Self::with_meta(width, length, vec![])
@@ -91,8 +91,8 @@ impl<B: StarkField> TraceTable<B> {
     ///
     /// # Panics
     /// Panics if:
-    /// * `width` is zero or greater than 255.
-    /// * `length` is smaller than 8, greater than the biggest multiplicative subgroup in the
+    /// * `width` is zero or greater than 65535.
+    /// * `length` is smaller than 4, greater than the biggest multiplicative subgroup in the
     ///   field `B`, or is not a power of two.
     /// * Length of `meta` is greater than 65535;
     pub fn with_meta(width: usize, length: usize, meta: Vec<u8>) -> Self {
@@ -117,10 +117,10 @@ impl<B: StarkField> TraceTable<B> {
             "execution trace length must be a power of 2"
         );
         assert!(
-            log2(length) <= B::TWO_ADICITY,
+            length.ilog2() <= B::TWO_ADICITY,
             "execution trace length cannot exceed 2^{} steps, but was 2^{}",
             B::TWO_ADICITY,
-            log2(length)
+            length.ilog2()
         );
         assert!(
             meta.len() <= TraceInfo::MAX_META_LENGTH,
@@ -132,7 +132,7 @@ impl<B: StarkField> TraceTable<B> {
         let columns = unsafe { (0..width).map(|_| uninit_vector(length)).collect() };
         Self {
             layout: TraceLayout::new(width, [0], [0]),
-            trace: Matrix::new(columns),
+            trace: ColMatrix::new(columns),
             meta,
         }
     }
@@ -168,10 +168,10 @@ impl<B: StarkField> TraceTable<B> {
             "execution trace length must be a power of 2"
         );
         assert!(
-            log2(trace_length) <= B::TWO_ADICITY,
+            trace_length.ilog2() <= B::TWO_ADICITY,
             "execution trace length cannot exceed 2^{} steps, but was 2^{}",
             B::TWO_ADICITY,
-            log2(trace_length)
+            trace_length.ilog2()
         );
         for column in columns.iter().skip(1) {
             assert_eq!(
@@ -183,7 +183,7 @@ impl<B: StarkField> TraceTable<B> {
 
         Self {
             layout: TraceLayout::new(columns.len(), [0], [0]),
-            trace: Matrix::new(columns),
+            trace: ColMatrix::new(columns),
             meta: vec![],
         }
     }
@@ -227,10 +227,10 @@ impl<B: StarkField> TraceTable<B> {
     ///   - index of the last updated row (starting with 0).
     ///   - a mutable reference to the last updated state; the contents of the state are copied
     ///     into the next row of the trace after the closure returns.
-    pub fn fill<I, U>(&mut self, init: I, update: U)
+    pub fn fill<I, U>(&mut self, init: I, mut update: U)
     where
-        I: Fn(&mut [B]),
-        U: Fn(usize, &mut [B]),
+        I: FnOnce(&mut [B]),
+        U: FnMut(usize, &mut [B]),
     {
         let mut state = vec![B::ZERO; self.main_trace_width()];
         init(&mut state);
@@ -284,9 +284,7 @@ impl<B: StarkField> TraceTable<B> {
     fn build_fragments(&mut self, fragment_length: usize) -> Vec<TraceTableFragment<B>> {
         assert!(
             fragment_length >= MIN_FRAGMENT_LENGTH,
-            "fragment length must be at least {}, but was {}",
-            MIN_FRAGMENT_LENGTH,
-            fragment_length
+            "fragment length must be at least {MIN_FRAGMENT_LENGTH}, but was {fragment_length}"
         );
         assert!(
             fragment_length <= self.length(),
@@ -366,15 +364,15 @@ impl<B: StarkField> Trace for TraceTable<B> {
         self.trace.read_row_into(next_row_idx, frame.next_mut());
     }
 
-    fn main_segment(&self) -> &Matrix<B> {
+    fn main_segment(&self) -> &ColMatrix<B> {
         &self.trace
     }
 
     fn build_aux_segment<E>(
         &mut self,
-        _aux_segments: &[Matrix<E>],
+        _aux_segments: &[ColMatrix<E>],
         _rand_elements: &[E],
-    ) -> Option<Matrix<E>>
+    ) -> Option<ColMatrix<E>>
     where
         E: FieldElement<BaseField = Self::BaseField>,
     {
@@ -439,10 +437,10 @@ impl<'a, B: StarkField> TraceTableFragment<'a, B> {
     ///   - index of the last updated row (starting with 0).
     ///   - a mutable reference to the last updated state; the contents of the state are copied
     ///     into the next row of the fragment after the closure returns.
-    pub fn fill<I, T>(&mut self, init_state: I, update_state: T)
+    pub fn fill<I, T>(&mut self, init_state: I, mut update_state: T)
     where
-        I: Fn(&mut [B]),
-        T: Fn(usize, &mut [B]),
+        I: FnOnce(&mut [B]),
+        T: FnMut(usize, &mut [B]),
     {
         let mut state = vec![B::ZERO; self.width()];
         init_state(&mut state);

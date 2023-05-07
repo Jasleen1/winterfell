@@ -3,6 +3,7 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+use math::{StarkField, ToElements};
 use utils::{
     collections::Vec, string::ToString, ByteReader, ByteWriter, Deserializable,
     DeserializationError, Serializable,
@@ -30,14 +31,14 @@ pub struct TraceInfo {
 }
 
 impl TraceInfo {
-    /// Smallest allowed execution trace length; currently set at 8.
-    pub const MIN_TRACE_LENGTH: usize = 8;
-    /// Maximum number of columns in an execution trace (across all segments); currently set at 255.
-    pub const MAX_TRACE_WIDTH: usize = 255;
+    /// Smallest allowed execution trace length; currently set at 4.
+    pub const MIN_TRACE_LENGTH: usize = 4;
+    /// Maximum number of columns in an execution trace (across all segments); currently set at 65535.
+    pub const MAX_TRACE_WIDTH: usize = 65535;
     /// Maximum number of bytes in trace metadata; currently set at 65535.
     pub const MAX_META_LENGTH: usize = 65535;
-    /// Maximum number of random elements per auxiliary trace segment; currently set to 255.
-    pub const MAX_RAND_SEGMENT_ELEMENTS: usize = 255;
+    /// Maximum number of random elements per auxiliary trace segment; currently set to 65535.
+    pub const MAX_RAND_SEGMENT_ELEMENTS: usize = 65535;
 
     // CONSTRUCTORS
     // --------------------------------------------------------------------------------------------
@@ -48,8 +49,8 @@ impl TraceInfo {
     ///
     /// # Panics
     /// Panics if:
-    /// * Trace width is zero or greater than 255.
-    /// * Trace length is smaller than 8 or is not a power of two.
+    /// * Trace width is zero or greater than 65535.
+    /// * Trace length is smaller than 4 or is not a power of two.
     pub fn new(width: usize, length: usize) -> Self {
         Self::with_meta(width, length, vec![])
     }
@@ -60,8 +61,8 @@ impl TraceInfo {
     ///
     /// # Panics
     /// Panics if:
-    /// * Trace width is zero or greater than 255.
-    /// * Trace length is smaller than 8 or is not a power of two.
+    /// * Trace width is zero or greater than 25655355.
+    /// * Trace length is smaller than 4 or is not a power of two.
     /// * Length of `meta` is greater than 65535;
     pub fn with_meta(width: usize, length: usize, meta: Vec<u8>) -> Self {
         assert!(width > 0, "trace width must be greater than 0");
@@ -74,8 +75,8 @@ impl TraceInfo {
     /// # Panics
     /// Panics if:
     /// * The width of the first trace segment is zero.
-    /// * Total width of all trace segments is greater than 255.
-    /// * Trace length is smaller than 8 or is not a power of two.
+    /// * Total width of all trace segments is greater than 65535.
+    /// * Trace length is smaller than 4 or is not a power of two.
     pub fn new_multi_segment(layout: TraceLayout, length: usize, meta: Vec<u8>) -> Self {
         assert!(
             length >= Self::MIN_TRACE_LENGTH,
@@ -85,8 +86,7 @@ impl TraceInfo {
         );
         assert!(
             length.is_power_of_two(),
-            "trace length must be a power of two, but was {}",
-            length
+            "trace length must be a power of two, but was {length}"
         );
         assert!(
             meta.len() <= Self::MAX_META_LENGTH,
@@ -113,7 +113,7 @@ impl TraceInfo {
 
     /// Returns the total number of columns in an execution trace.
     ///
-    /// This is guaranteed to be between 1 and 255.
+    /// This is guaranteed to be between 1 and 65535.
     pub fn width(&self) -> usize {
         self.layout.main_trace_width() + self.layout().aux_trace_width()
     }
@@ -170,11 +170,11 @@ impl TraceLayout {
     /// # Panics
     /// Panics if:
     /// * Width of the main trace segment is set to zero.
-    /// * Sum of all segment widths exceeds 255.
+    /// * Sum of all segment widths exceeds 65535.
     /// * A zero entry in auxiliary segment width array is followed by a non-zero entry.
     /// * Number of random elements for an auxiliary trace segment of non-zero width is set to zero.
     /// * Number of random elements for an auxiliary trace segment of zero width is set to non-zero.
-    /// * Number of random elements for any auxiliary trace segment is greater than 255.
+    /// * Number of random elements for any auxiliary trace segment is greater than 65535.
     pub fn new(
         main_width: usize,
         aux_widths: [usize; NUM_AUX_SEGMENTS],
@@ -235,7 +235,7 @@ impl TraceLayout {
 
     /// Returns the number of columns in the main segment of an execution trace.
     ///
-    /// This is guaranteed to be between 1 and 255.
+    /// This is guaranteed to be between 1 and 65535.
     pub fn main_trace_width(&self) -> usize {
         self.main_segment_width
     }
@@ -266,6 +266,32 @@ impl TraceLayout {
     pub fn get_aux_segment_rand_elements(&self, segment_idx: usize) -> usize {
         // TODO: panic if segment_idx is not within num_aux_segments
         self.aux_segment_rands[segment_idx]
+    }
+}
+
+impl<E: StarkField> ToElements<E> for TraceLayout {
+    fn to_elements(&self) -> Vec<E> {
+        let mut result = Vec::new();
+
+        // main segment width, number of auxiliary segments, and parameters of the first auxiliary
+        // segment (if present) go into the first field element; we assume that each parameter can
+        // be encoded in 8 bits (which is enforced by the constructor)
+        let mut buf = self.main_segment_width as u32;
+        buf = (buf << 8) | self.num_aux_segments as u32;
+        if self.num_aux_segments == 1 {
+            buf = (buf << 8) | self.aux_segment_widths[0] as u32;
+            buf = (buf << 8) | self.aux_segment_rands[0] as u32;
+        }
+        result.push(E::from(buf));
+
+        // parameters of all subsequent auxiliary segments go into additional elements
+        for i in 1..self.num_aux_segments {
+            buf = self.aux_segment_widths[i] as u32;
+            buf = (buf << 8) | self.aux_segment_rands[i] as u32;
+            result.push(E::from(buf));
+        }
+
+        result
     }
 }
 
@@ -352,5 +378,43 @@ impl Deserializable for TraceLayout {
         }
 
         Ok(TraceLayout::new(main_width, aux_widths, aux_rands))
+    }
+}
+
+// TESTS
+// ================================================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::{ToElements, TraceLayout};
+    use math::fields::f64::BaseElement;
+
+    #[test]
+    fn trace_layout_to_elements() {
+        // --- test trace with only main segment ------------------------------
+        let main_width = 20;
+        let num_aux_segments = 0;
+
+        let expected = u32::from_le_bytes([num_aux_segments, main_width as u8, 0, 0]);
+        let expected = vec![BaseElement::from(expected)];
+
+        let layout = TraceLayout::new(main_width, [0], [0]);
+        assert_eq!(expected, layout.to_elements());
+
+        // --- test trace with one auxiliary segment --------------------------
+        let main_width = 20;
+        let num_aux_segments = 1;
+        let aux_width = 9;
+        let aux_rands = 12;
+
+        let expected = u32::from_le_bytes([aux_rands, aux_width, num_aux_segments, main_width]);
+        let expected = vec![BaseElement::from(expected)];
+
+        let layout = TraceLayout::new(
+            main_width as usize,
+            [aux_width as usize],
+            [aux_rands as usize],
+        );
+        assert_eq!(expected, layout.to_elements());
     }
 }

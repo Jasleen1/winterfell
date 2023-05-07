@@ -3,8 +3,8 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use super::{Matrix, StarkDomain};
-use math::{polynom, FieldElement, StarkField};
+use super::ColMatrix;
+use math::{polynom, FieldElement};
 use utils::{collections::Vec, uninit_vector};
 
 // COMPOSITION POLYNOMIAL
@@ -13,7 +13,7 @@ use utils::{collections::Vec, uninit_vector};
 /// to trace_length. Thus, for example, if the composition polynomial has degree 2N - 1, where N
 /// is the trace length, it will be stored as two columns of size N (each of degree N - 1).
 pub struct CompositionPoly<E: FieldElement> {
-    data: Matrix<E>,
+    data: ColMatrix<E>,
 }
 
 impl<E: FieldElement> CompositionPoly<E> {
@@ -26,8 +26,7 @@ impl<E: FieldElement> CompositionPoly<E> {
         );
         assert!(
             trace_length.is_power_of_two(),
-            "trace length must be a power of 2, but was {}",
-            trace_length
+            "trace length must be a power of 2, but was {trace_length}"
         );
         assert!(
             trace_length < coefficients.len(),
@@ -44,7 +43,7 @@ impl<E: FieldElement> CompositionPoly<E> {
         let polys = transpose(coefficients, num_columns);
 
         CompositionPoly {
-            data: Matrix::new(polys),
+            data: ColMatrix::new(polys),
         }
     }
 
@@ -68,31 +67,16 @@ impl<E: FieldElement> CompositionPoly<E> {
         self.column_len() - 1
     }
 
-    // LOW-DEGREE EXTENSION
-    // --------------------------------------------------------------------------------------------
-    /// Evaluates the columns of the composition polynomial over the specified LDE domain and
-    /// returns the result.
-    pub fn evaluate<B>(&self, domain: &StarkDomain<B>) -> Matrix<E>
-    where
-        B: StarkField,
-        E: FieldElement<BaseField = B>,
-    {
-        assert_eq!(
-            self.column_len(),
-            domain.trace_length(),
-            "inconsistent trace domain size; expected {}, but received {}",
-            self.column_len(),
-            domain.trace_length()
-        );
-
-        self.data.evaluate_columns_over(domain)
-    }
-
     /// Returns evaluations of all composition polynomial columns at point z^m, where m is
     /// the number of column polynomials.
     pub fn evaluate_at(&self, z: E) -> Vec<E> {
         let z_m = z.exp((self.num_columns() as u32).into());
         self.data.evaluate_columns_at(z_m)
+    }
+
+    /// Returns a reference to the matrix of individual column polynomials.
+    pub fn data(&self) -> &ColMatrix<E> {
+        &self.data
     }
 
     /// Transforms this composition polynomial into a vector of individual column polynomials.

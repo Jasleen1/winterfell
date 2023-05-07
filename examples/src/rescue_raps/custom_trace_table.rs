@@ -5,8 +5,8 @@
 
 use core_utils::{collections::Vec, uninit_vector};
 use winterfell::{
-    math::{log2, FieldElement, StarkField},
-    EvaluationFrame, Matrix, Trace, TraceInfo, TraceLayout,
+    math::{FieldElement, StarkField},
+    ColMatrix, EvaluationFrame, Trace, TraceInfo, TraceLayout,
 };
 
 // RAP TRACE TABLE
@@ -29,7 +29,7 @@ use winterfell::{
 /// parameter which can be an arbitrary sequence of bytes up to 64KB in size.
 pub struct RapTraceTable<B: StarkField> {
     layout: TraceLayout,
-    trace: Matrix<B>,
+    trace: ColMatrix<B>,
     meta: Vec<u8>,
 }
 
@@ -44,8 +44,8 @@ impl<B: StarkField> RapTraceTable<B> {
     ///
     /// # Panics
     /// Panics if:
-    /// * `width` is zero or greater than 255.
-    /// * `length` is smaller than 8, greater than biggest multiplicative subgroup in the field
+    /// * `width` is zero or greater than 65535.
+    /// * `length` is smaller than 4, greater than biggest multiplicative subgroup in the field
     ///   `B`, or is not a power of two.
     pub fn new(width: usize, length: usize) -> Self {
         Self::with_meta(width, length, vec![])
@@ -59,7 +59,7 @@ impl<B: StarkField> RapTraceTable<B> {
     ///
     /// # Panics
     /// Panics if:
-    /// * `width` is zero or greater than 255.
+    /// * `width` is zero or greater than 65535.
     /// * `length` is smaller than 8, greater than the biggest multiplicative subgroup in the
     ///   field `B`, or is not a power of two.
     /// * Length of `meta` is greater than 65535;
@@ -85,10 +85,10 @@ impl<B: StarkField> RapTraceTable<B> {
             "execution trace length must be a power of 2"
         );
         assert!(
-            log2(length) <= B::TWO_ADICITY,
+            length.ilog2() <= B::TWO_ADICITY,
             "execution trace length cannot exceed 2^{} steps, but was 2^{}",
             B::TWO_ADICITY,
-            log2(length)
+            length.ilog2()
         );
         assert!(
             meta.len() <= TraceInfo::MAX_META_LENGTH,
@@ -100,7 +100,7 @@ impl<B: StarkField> RapTraceTable<B> {
         let columns = unsafe { (0..width).map(|_| uninit_vector(length)).collect() };
         Self {
             layout: TraceLayout::new(width, [3], [3]),
-            trace: Matrix::new(columns),
+            trace: ColMatrix::new(columns),
             meta,
         }
     }
@@ -182,15 +182,15 @@ impl<B: StarkField> Trace for RapTraceTable<B> {
         self.trace.read_row_into(next_row_idx, frame.next_mut());
     }
 
-    fn main_segment(&self) -> &Matrix<B> {
+    fn main_segment(&self) -> &ColMatrix<B> {
         &self.trace
     }
 
     fn build_aux_segment<E>(
         &mut self,
-        aux_segments: &[Matrix<E>],
+        aux_segments: &[ColMatrix<E>],
         rand_elements: &[E],
-    ) -> Option<Matrix<E>>
+    ) -> Option<ColMatrix<E>>
     where
         E: FieldElement<BaseField = Self::BaseField>,
     {
@@ -232,6 +232,6 @@ impl<B: StarkField> Trace for RapTraceTable<B> {
             aux_columns[2][index] = aux_columns[2][index - 1] * num * denom.inv();
         }
 
-        Some(Matrix::new(aux_columns))
+        Some(ColMatrix::new(aux_columns))
     }
 }

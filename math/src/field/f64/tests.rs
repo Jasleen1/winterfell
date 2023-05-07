@@ -85,6 +85,17 @@ fn mul() {
 }
 
 #[test]
+fn mul_small() {
+    // test overflow
+    let m = BaseElement::MODULUS;
+    let t = BaseElement::from(m - 1);
+    let a = u32::MAX;
+    let expected = BaseElement::new(a as u64) * t;
+
+    assert_eq!(expected, t.mul_small(a));
+}
+
+#[test]
 fn exp() {
     let a = BaseElement::ZERO;
     assert_eq!(a.exp(0), BaseElement::ONE);
@@ -114,6 +125,11 @@ fn element_as_int() {
     let v = u64::MAX;
     let e = BaseElement::new(v);
     assert_eq!(v % super::M, e.as_int());
+
+    let e1 = BaseElement::new(0);
+    let e2 = BaseElement::new(M);
+    assert_eq!(e1.as_int(), e2.as_int());
+    assert_eq!(e1.as_int(), 0);
 }
 
 #[test]
@@ -422,6 +438,16 @@ proptest! {
     }
 
     #[test]
+    fn mul_small_proptest(a in any::<u64>(), b in any::<u32>()) {
+        let v1 = BaseElement::from(a);
+        let v2 = b;
+        let result = v1.mul_small(v2);
+
+        let expected = (((a as u128) * (b as u128)) % super::M as u128) as u64;
+        prop_assert_eq!(expected, result.as_int());
+    }
+
+    #[test]
     fn double_proptest(x in any::<u64>()) {
         let v = BaseElement::from(x);
         let result = v.double();
@@ -476,6 +502,14 @@ proptest! {
         prop_assert_eq!(expected, a * b);
     }
 
+    #[test]
+    fn quad_square_proptest(a0 in any::<u64>(), a1 in any::<u64>()) {
+        let a = QuadExtension::<BaseElement>::new(BaseElement::from(a0), BaseElement::from(a1));
+        let expected = a * a;
+
+        prop_assert_eq!(expected, a.square());
+    }
+
     // CUBIC EXTENSION
     // --------------------------------------------------------------------------------------------
     #[test]
@@ -489,5 +523,13 @@ proptest! {
             CubeExtension::<BaseElement>::ONE
         };
         prop_assert_eq!(expected, a * b);
+    }
+
+    #[test]
+    fn cube_square_proptest(a0 in any::<u64>(), a1 in any::<u64>(), a2 in any::<u64>()) {
+        let a = CubeExtension::<BaseElement>::new(BaseElement::from(a0), BaseElement::from(a1), BaseElement::from(a2));
+        let expected = a * a;
+
+        prop_assert_eq!(expected, a.square());
     }
 }

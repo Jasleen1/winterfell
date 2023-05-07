@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.6.3 (2023-05-03)
+* Sped up proof verification using batch inverse (#190).
+* Updated `ConstraintCommitment` to use `RowMatrix` internally (#191).
+* Sped up FRI prover via more efficient `get_inv_offsets` implementation (#193).
+* Exposed `build_segments()` method publicly (#194).
+
+## 0.6.2 (2023-04-15)
+* Updated `MerkleTree` and matrix structs to make them more suitable for HW acceleration (#185).
+* Replaced `log2()` usage with native `.ilog2()` (#186).
+
+## 0.6.1 (2023-03-29)
+* Disabled proven security estimation in `no-std` context.
+
+## 0.6.0 (2023-03-24)
+* Implemented more efficient remainder handling in FRI (#139)
+* Removed term involving conjugate OOD challenge z from deep composition polynomial (#166).
+* Added `FieldElement::EXTENSION_DEGREE` constant.
+* Added `FieldElement::base_element` and `FieldElement::slice_from_base_elements` methods.
+* [BREAKING] Renamed `FieldElement::as_base_elements` into `FieldElement::slice_as_base_elements`.
+* Added `Matrix::num_base_cols` and `Matrix::get_base_element` methods.
+* [BREAKING] Renamed `Matrix` into `ColMatrix`.
+* [BREAKING] Replaced `ColMatrix` with `RowMatrix` to hold LDE trace in the prover (#168).
+* Updated conjectured security computation and added estimation of proven security (#151).
+* Changed root of unity for `f64` field (#169).
+* Implemented reduction of public inputs and proof context to field elements (#172).
+* [BREAKING] Replaced `RandomCoin` struct with a trait (#176).
+
+## 0.5.1 (2023-02-20)
+* Fix no-std build for winter-utils (#153)
+
+## 0.5.0 (2023-02-20)
+* [BREAKING]: Refactored prover/verifier to take hash function as a generic parameter (#111).
+* Introduced `FftInputs` trait (#124).
+* Optimized `as_int()` method for `f64` field (#127, #146).
+* Improved FRI remainder commitment methodology (#128).
+* Added new arithmetization-friendly hash functions: Griffin and Rescue Prime Jive (#129).
+* Fixed panic in prover when debugging with concurrent feature enabled (#130, #132).
+* Added variable-time exponentiation option to `f64` field (#134).
+* Optimized squaring for degree 2 and 3 extension fields of `f64` field (#138).
+* Simplified conversion to base elements for degree 2 and 3 extension field elements (#147).
+* Made closure types less restrictive for `TraceTable::fill()` (#149).
+* [BREAKING] Refactored serialization/deserialization traits (#150).
+
+## 0.4.2 (2022-11-14)
+* Removed most exponentiations from the constraint evaluation step for the Prover.
+
 ## 0.4.1 (2022-10-24)
 * Increased transition constraint exemption limit by 1.
 * Implemented custom doubling for `f64` and `f62` field.
