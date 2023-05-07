@@ -31,7 +31,7 @@ use prover::FFTProver;
 // Field FFT EXAMPLE
 // ================================================================================================
 pub fn get_example(options: ExampleOptions, degree: usize) -> Box<dyn Example> {
-    let b = max(degree, 64);
+    let b = max(degree, 32);
     Box::new(FFTExample::new(degree, options.to_proof_options(28, b)))
 }
 

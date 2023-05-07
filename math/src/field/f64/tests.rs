@@ -3,10 +3,8 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use super::{
-    AsBytes, BaseElement, DeserializationError, FieldElement, Serializable, StarkField, E, M,
-};
-use crate::field::{CubeExtension, QuadExtension};
+use super::{BaseElement, DeserializationError, FieldElement, Serializable, StarkField, M};
+use crate::field::{CubeExtension, ExtensionOf, QuadExtension};
 use core::convert::TryFrom;
 use num_bigint::BigUint;
 use proptest::prelude::*;
@@ -31,11 +29,6 @@ fn add() {
     let t = BaseElement::new(M - 1);
     assert_eq!(BaseElement::ZERO, t + BaseElement::ONE);
     assert_eq!(BaseElement::ONE, t + BaseElement::new(2));
-
-    // test non-canonical representation
-    let a = BaseElement::new(M - 1) + BaseElement::new(E);
-    let expected = ((((M - 1 + E) as u128) * 2) % (M as u128)) as u64;
-    assert_eq!(expected, (a + a).as_int());
 }
 
 #[test]
@@ -96,14 +89,17 @@ fn exp() {
     let a = BaseElement::ZERO;
     assert_eq!(a.exp(0), BaseElement::ONE);
     assert_eq!(a.exp(1), BaseElement::ZERO);
+    assert_eq!(a.exp7(), BaseElement::ZERO);
 
     let a = BaseElement::ONE;
     assert_eq!(a.exp(0), BaseElement::ONE);
     assert_eq!(a.exp(1), BaseElement::ONE);
     assert_eq!(a.exp(3), BaseElement::ONE);
+    assert_eq!(a.exp7(), BaseElement::ONE);
 
     let a: BaseElement = rand_value();
     assert_eq!(a.exp(3), a * a * a);
+    assert_eq!(a.exp(7), a.exp7());
 }
 
 #[test]
@@ -129,10 +125,6 @@ fn equals() {
     assert_eq!(a, b);
     assert_eq!(a.as_int(), b.as_int());
     assert_eq!(a.to_bytes(), b.to_bytes());
-
-    // but their internal representation is not
-    assert_ne!(a.0, b.0);
-    assert_ne!(a.as_bytes(), b.as_bytes());
 }
 
 // ROOTS OF UNITY
@@ -272,6 +264,16 @@ fn quad_mul() {
 }
 
 #[test]
+fn quad_mul_base() {
+    let a = <QuadExtension<BaseElement>>::new(rand_value(), rand_value());
+    let b0 = rand_value();
+    let b = <QuadExtension<BaseElement>>::new(b0, BaseElement::ZERO);
+
+    let expected = a * b;
+    assert_eq!(expected, a.mul_base(b0));
+}
+
+#[test]
 fn quad_conjugate() {
     let m = BaseElement::MODULUS;
 
@@ -361,6 +363,16 @@ fn cube_mul() {
         BaseElement::new(21824696736),
     );
     assert_eq!(expected, a * b);
+}
+
+#[test]
+fn cube_mul_base() {
+    let a = <CubeExtension<BaseElement>>::new(rand_value(), rand_value(), rand_value());
+    let b0 = rand_value();
+    let b = <CubeExtension<BaseElement>>::new(b0, BaseElement::ZERO, BaseElement::ZERO);
+
+    let expected = a * b;
+    assert_eq!(expected, a.mul_base(b0));
 }
 
 // RANDOMIZED TESTS

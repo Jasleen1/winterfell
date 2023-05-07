@@ -91,7 +91,7 @@ impl Air for FFTAir {
         degrees.push(dummy_selector_deg);
 
         FFTAir {
-            context: AirContext::new(trace_info, degrees, options),
+            context: AirContext::new(trace_info, degrees, pub_inputs.num_inputs + 3, options),
             fft_inputs: pub_inputs.fft_inputs,
             result: pub_inputs.result,
         }
