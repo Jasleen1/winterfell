@@ -3,14 +3,14 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
-use std::vec;
+use std::{marker::PhantomData, vec};
 
 // use super::{
 //     rescue, SIG_CYCLE_LENGTH as SIG_CYCLE_LEN, TRACE_WIDTH,
 // };
 use crate::utils::{are_equal, fast_fourier_transform::bit_reverse};
 use winterfell::{
-    math::{fields::f128::BaseElement, log2, FieldElement},
+    math::{fields::f128::BaseElement, log2, FieldElement, ToElements},
     Air, AirContext, Assertion, ByteWriter, EvaluationFrame, ProofOptions, Serializable, TraceInfo,
     TransitionConstraintDegree,
 };
@@ -28,15 +28,31 @@ use super::prover::{
 // ================================================================================================
 
 #[derive(Clone)]
-pub struct PublicInputs {
+pub struct PublicInputs<E: FieldElement + From<BaseElement>> {
     pub num_inputs: usize,
     pub fft_inputs: Vec<BaseElement>,
     pub result: Vec<BaseElement>,
+    pub _phantom_e: PhantomData<E>,
 }
 
-impl Serializable for PublicInputs {
+impl<E: FieldElement + From<BaseElement>> Serializable for PublicInputs<E> {
     fn write_into<W: ByteWriter>(&self, target: &mut W) {
         target.write(&self.result[..]);
+    }
+}
+
+impl<E: FieldElement + From<BaseElement>> ToElements<E> for PublicInputs<E> {
+    fn to_elements(&self) -> Vec<E> {
+        let mut elts = Vec::<E>::new();
+        let num_inputs_u64: u64 = self.num_inputs.try_into().unwrap();
+        elts.push(E::from(num_inputs_u64));
+        for elt in self.fft_inputs.iter() {
+            elts.push(E::from(*elt));
+        }
+        for elt in self.result.iter() {
+            elts.push(E::from(*elt));
+        }
+        elts
     }
 }
 
@@ -48,11 +64,15 @@ pub struct FFTAir {
 
 impl Air for FFTAir {
     type BaseField = BaseElement;
-    type PublicInputs = PublicInputs;
+    type PublicInputs = PublicInputs<BaseElement>;
 
     // CONSTRUCTOR
     // --------------------------------------------------------------------------------------------
-    fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
+    fn new(
+        trace_info: TraceInfo,
+        pub_inputs: PublicInputs<BaseElement>,
+        options: ProofOptions,
+    ) -> Self {
         // define degrees for all transition constraints
         let mut degrees = Vec::new();
         // TODO

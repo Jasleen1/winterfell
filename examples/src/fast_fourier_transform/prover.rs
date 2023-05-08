@@ -3,6 +3,8 @@
 // This source code is licensed under the MIT license found in the
 // LICENSE file in the root directory of this source tree.
 
+use std::marker::PhantomData;
+
 use crate::utils::fast_fourier_transform::bit_reverse;
 
 use super::{
@@ -11,7 +13,11 @@ use super::{
 
 #[cfg(feature = "concurrent")]
 use winterfell::iterators::*;
-use winterfell::{math::log2, Trace};
+use winterfell::{
+    crypto::{DefaultRandomCoin, ElementHasher},
+    math::log2,
+    Trace,
+};
 
 // CONSTANTS
 // ================================================================================================
@@ -21,17 +27,19 @@ use winterfell::{math::log2, Trace};
 // FFT PROVER
 // ================================================================================================
 
-pub struct FFTProver {
+pub struct FFTProver<H: ElementHasher> {
     options: ProofOptions,
     num_main_trace_rows: usize,
+    _hasher: PhantomData<H>,
 }
 
-impl FFTProver {
+impl<H: ElementHasher> FFTProver<H> {
     pub fn new(options: ProofOptions, num_fft_inputs: usize) -> Self {
         let num_main_trace_rows = get_num_main_trace_rows(num_fft_inputs);
         Self {
             options,
             num_main_trace_rows,
+            _hasher: PhantomData,
         }
     }
 
@@ -110,12 +118,17 @@ impl FFTProver {
     }
 }
 
-impl Prover for FFTProver {
+impl<H: ElementHasher> Prover for FFTProver<H>
+where
+    H: ElementHasher<BaseField = BaseElement>,
+{
     type BaseField = BaseElement;
     type Air = FFTAir;
+    type HashFn = H;
     type Trace = TraceTable<BaseElement>;
+    type RandomCoin = DefaultRandomCoin<Self::HashFn>;
 
-    fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs {
+    fn get_pub_inputs(&self, trace: &Self::Trace) -> PublicInputs<BaseElement> {
         let last_fft_state = get_results_row_idx(self.num_main_trace_rows);
         let num_inputs = get_num_fft_inputs(self.num_main_trace_rows);
         let mut fft_input_vec = vec![BaseElement::ONE; trace.width()];
@@ -126,6 +139,7 @@ impl Prover for FFTProver {
             num_inputs,
             fft_inputs: fft_input_vec[..num_inputs].to_vec(),
             result: fft_output_vec[..num_inputs].to_vec(),
+            _phantom_e: PhantomData,
         }
     }
     fn options(&self) -> &ProofOptions {

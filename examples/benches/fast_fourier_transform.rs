@@ -4,9 +4,10 @@
 // LICENSE file in the root directory of this source tree.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use examples::{fast_fourier_transform, Example};
+use examples::HashFunction;
+use examples::{fast_fourier_transform, Blake3_256, Example};
 use std::time::Duration;
-use winterfell::{FieldExtension, HashFunction, ProofOptions};
+use winterfell::{FieldExtension, ProofOptions};
 
 // Use SIZE s.t. Log2(SIZE) + 1 is a power of 2
 const SIZES: [usize; 1] = [128]; //, 128, 128];
@@ -17,18 +18,10 @@ fn fast_fourier_transform(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(20));
 
-    let options = ProofOptions::new(
-        32,
-        32,
-        0,
-        HashFunction::Blake3_256,
-        FieldExtension::None,
-        4,
-        256,
-    );
+    let options = ProofOptions::new(32, 32, 0, FieldExtension::None, 4, 256);
 
     for &size in SIZES.iter() {
-        let fft = fast_fourier_transform::FFTExample::new(size, options.clone());
+        let fft = fast_fourier_transform::FFTExample::<Blake3_256>::new(size, options.clone());
         group.bench_function(BenchmarkId::from_parameter(size), |bench| {
             bench.iter(|| fft.prove());
         });

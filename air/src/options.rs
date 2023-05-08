@@ -17,7 +17,7 @@ use utils::{
 const MAX_NUM_QUERIES: usize = 255;
 
 const MIN_BLOWUP_FACTOR: usize = 2;
-const MAX_BLOWUP_FACTOR: usize = 128;
+const MAX_BLOWUP_FACTOR: usize = 512;
 
 const MAX_GRINDING_FACTOR: u32 = 32;
 

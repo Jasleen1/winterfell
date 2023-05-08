@@ -6,12 +6,13 @@
 use super::Example;
 use crate::{
     utils::{fast_fourier_transform::simple_iterative_fft, print_trace},
-    ExampleOptions,
+    Blake3_192, Blake3_256, ExampleOptions, HashFunction, Sha3_256,
 };
 use log::debug;
 use rand_utils::rand_array;
-use std::{cmp::max, time::Instant};
+use std::{cmp::max, marker::PhantomData, time::Instant};
 use winterfell::{
+    crypto::{DefaultRandomCoin, ElementHasher},
     math::{fields::f128::BaseElement, log2, FieldElement, StarkField},
     ProofOptions, Prover, StarkProof, Trace, TraceTable, VerifierError,
 };
@@ -31,11 +32,14 @@ use prover::FFTProver;
 // Field FFT EXAMPLE
 // ================================================================================================
 pub fn get_example(options: &ExampleOptions, degree: usize) -> Result<Box<dyn Example>, String> {
-    let b = max(degree, 32);
-    Ok(Box::new(FFTExample::new(
-        degree,
-        options.to_proof_options(28, b),
-    )))
+    let b = max(degree, 64);
+    let (options, hash_fn) = options.to_proof_options(28, b);
+    match hash_fn {
+        HashFunction::Blake3_192 => Ok(Box::new(FFTExample::<Blake3_192>::new(degree, options))),
+        HashFunction::Blake3_256 => Ok(Box::new(FFTExample::<Blake3_256>::new(degree, options))),
+        HashFunction::Sha3_256 => Ok(Box::new(FFTExample::<Sha3_256>::new(degree, options))),
+        _ => Err("The specified hash function cannot be used with this example.".to_string()),
+    }
 }
 
 /*
@@ -48,15 +52,16 @@ pub fn get_example(options: &ExampleOptions, degree: usize) -> Result<Box<dyn Ex
     """
 */
 // FIXME: Need to add constraints to check for input and output values.
-pub struct FFTExample {
+pub struct FFTExample<H: ElementHasher> {
     options: ProofOptions,
     omega: BaseElement,
     num_fft_inputs: usize,
     fft_inputs: Vec<BaseElement>,
     result: Vec<BaseElement>,
+    _hasher: PhantomData<H>,
 }
 
-impl FFTExample {
+impl<H: ElementHasher> FFTExample<H> {
     pub fn new(num_fft_inputs: usize, options: ProofOptions) -> Self {
         assert!(
             num_fft_inputs.is_power_of_two(),
@@ -85,6 +90,7 @@ impl FFTExample {
             num_fft_inputs,
             fft_inputs,
             result,
+            _hasher: PhantomData,
         }
     }
 }
@@ -92,7 +98,10 @@ impl FFTExample {
 // EXAMPLE IMPLEMENTATION
 // ================================================================================================
 
-impl Example for FFTExample {
+impl<H: ElementHasher> Example for FFTExample<H>
+where
+    H: ElementHasher<BaseField = BaseElement>,
+{
     fn prove(&self) -> StarkProof {
         // generate the execution trace
         debug!(
@@ -102,7 +111,7 @@ impl Example for FFTExample {
         );
 
         // create a prover
-        let prover = FFTProver::new(self.options.clone(), self.num_fft_inputs);
+        let prover = FFTProver::<H>::new(self.options.clone(), self.num_fft_inputs);
         let now = Instant::now();
         let trace = prover.build_trace(self.omega, &self.fft_inputs, &self.result);
         let trace_length = trace.length();
@@ -114,7 +123,7 @@ impl Example for FFTExample {
         );
         // self.output_evals = prover.get_pub_inputs(&trace).output_evals;
         // generate the proof
-        print_trace(&trace, 1, 0, 0..trace.width());
+        // print_trace(&trace, 1, 0, 0..trace.width());
         prover.prove(trace).unwrap()
     }
 
@@ -123,9 +132,10 @@ impl Example for FFTExample {
             result: self.result.clone(),
             num_inputs: self.num_fft_inputs,
             fft_inputs: self.fft_inputs.clone(),
+            _phantom_e: PhantomData,
         };
 
-        winterfell::verify::<FFTAir>(proof, pub_inputs)
+        winterfell::verify::<FFTAir, H, DefaultRandomCoin<H>>(proof, pub_inputs)
     }
 
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
@@ -135,7 +145,8 @@ impl Example for FFTExample {
             result: self.result.clone(),
             num_inputs: self.num_fft_inputs,
             fft_inputs: self.fft_inputs.clone(),
+            _phantom_e: PhantomData,
         };
-        winterfell::verify::<FFTAir>(proof, pub_inputs)
+        winterfell::verify::<FFTAir, H, DefaultRandomCoin<H>>(proof, pub_inputs)
     }
 }
