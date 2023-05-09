@@ -101,7 +101,14 @@ fn main() {
     // verify the proof
     debug!("---------------------");
     let parsed_proof = StarkProof::from_bytes(&proof_bytes).unwrap();
-    assert_eq!(proof, parsed_proof);
+    // assert_eq!(proof, parsed_proof);
+    assert_eq!(proof.context, parsed_proof.context, "Context not eq");
+    assert_eq!(proof.commitments, parsed_proof.commitments, "Commitments not eq");
+    assert_eq!(proof.trace_queries, parsed_proof.trace_queries, "Trace queries not eq");
+    assert_eq!(proof.constraint_queries, parsed_proof.constraint_queries, "Constraint queries not eq");
+    assert_eq!(proof.ood_frame, parsed_proof.ood_frame, "ood frame not eq");
+    assert_eq!(proof.fri_proof, parsed_proof.fri_proof, "fri proofs not eq");
+    assert_eq!(proof.pow_nonce, parsed_proof.pow_nonce, "pow_nonce not eq");
     let now = Instant::now();
     match example.verify(proof) {
         Ok(_) => debug!(
