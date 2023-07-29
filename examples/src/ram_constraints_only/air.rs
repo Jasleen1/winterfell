@@ -75,12 +75,14 @@ impl Air for RamConstraintsAir {
         let log_steps_usize: usize = log2(public_inputs.num_ram_steps.try_into().unwrap())
             .try_into()
             .unwrap();
-        let main_degrees =
-            vec![TransitionConstraintDegree::new(2); log_locs_usize + log_steps_usize];
+        let mut transition_constraint_degrees =
+            vec![TransitionConstraintDegree::new(2); log_locs_usize + log_steps_usize + 1];
+        transition_constraint_degrees.push(TransitionConstraintDegree::new(2));
+        transition_constraint_degrees.push(TransitionConstraintDegree::new(2));
         // let aux_degrees = vec![];
         // assert_eq!(TRACE_WIDTH + 3, trace_info.width());
         RamConstraintsAir {
-            context: AirContext::new(trace_info, main_degrees, 1, options),
+            context: AirContext::new(trace_info, transition_constraint_degrees, 1, options),
             public_inputs,
         }
     }
@@ -112,62 +114,29 @@ impl Air for RamConstraintsAir {
             );
         }
 
-        // // expected state width is 2*4 field elements
-        // debug_assert_eq!(TRACE_WIDTH, current.len());
-        // debug_assert_eq!(TRACE_WIDTH, next.len());
+        // Check that op is also bits
+        result.agg_constraint(
+            log_locs_usize + log_steps_usize,
+            E::ONE,
+            are_equal(current[1] * current[1], current[1]),
+        );
+        
+        // Check that you can correctly compute the function 
+        // f(loc_i, loc_{i+1}) = {1 if  they are equal, 0 otherwise}
+        result.agg_constraint(
+            log_locs_usize + log_steps_usize + 1, 
+            E::ONE, 
+            are_equal(current[4 + log_locs_usize + log_steps_usize] * current[4 + log_locs_usize + log_steps_usize + 1], E::ONE)
+        );
 
-        // split periodic values into hash_flag, absorption flag and Rescue round constants
-        // let hash_flag = periodic_values[0];
-        // let absorption_flag = periodic_values[1];
-        // let ark = &periodic_values[2..];
-
-        // when hash_flag = 1, constraints for Rescue round are enforced (steps 0 to 14)
-        // Enforcing the round for the first hash chain
-        // rescue::enforce_round(
-        //     &mut result[..STATE_WIDTH],
-        //     &current[..STATE_WIDTH],
-        //     &next[..STATE_WIDTH],
-        //     ark,
-        //     hash_flag,
-        // );
-
-        // // Enforcing the round for the second hash chain
-        // rescue::enforce_round(
-        //     &mut result[STATE_WIDTH..],
-        //     &current[STATE_WIDTH..],
-        //     &next[STATE_WIDTH..],
-        //     ark,
-        //     hash_flag,
-        // );
-
-        // When absorbing the additional seeds (step 14), we do not verify correctness of the
-        // rate registers. Instead, we only verify that capacity registers have not
-        // changed. When computing the permutation argument, we will recompute the permuted
-        // values from the contiguous rows.
-        // At step 15, we enforce that the whole hash states are copied to the next step,
-        // enforcing that the values added to the capacity registers at step 14 and used in the
-        // permutation argument are the ones being used in the next hashing sequence.
-        // result.agg_constraint(2, absorption_flag, are_equal(current[2], next[2]));
-        // result.agg_constraint(3, absorption_flag, are_equal(current[3], next[3]));
-
-        // result.agg_constraint(6, absorption_flag, are_equal(current[6], next[6]));
-        // result.agg_constraint(7, absorption_flag, are_equal(current[7], next[7]));
-
-        // // when hash_flag + absorption_flag = 0, constraints for copying hash values to the
-        // // next step are enforced.
-        // let copy_flag = not(hash_flag + absorption_flag);
-        // enforce_hash_copy(
-        //     &mut result[..STATE_WIDTH],
-        //     &current[..STATE_WIDTH],
-        //     &next[..STATE_WIDTH],
-        //     copy_flag,
-        // );
-        // enforce_hash_copy(
-        //     &mut result[STATE_WIDTH..],
-        //     &current[STATE_WIDTH..],
-        //     &next[STATE_WIDTH..],
-        //     copy_flag,
-        // );
+        // Check that you can correctly compute the function 
+        // f(val_i, val_{i+1}) = {1 if  they are equal, 0 otherwise}
+        result.agg_constraint(
+            log_locs_usize + log_steps_usize + 2, 
+            E::ONE, 
+            are_equal(current[4 + log_locs_usize + log_steps_usize + 2] * current[4 + log_locs_usize + log_steps_usize + 3], E::ONE)
+        );
+        
     }
 
     fn evaluate_aux_transition<F, E>(
