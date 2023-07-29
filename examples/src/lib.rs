@@ -17,6 +17,8 @@ pub mod fibonacci;
 pub mod lamport;
 #[cfg(feature = "std")]
 pub mod merkle;
+#[cfg(feature = "std")]
+pub mod ram_constraints_only;
 pub mod rescue;
 #[cfg(feature = "std")]
 pub mod rescue_raps;
@@ -208,6 +210,16 @@ pub enum ExampleType {
         /// Degree; must be a power of two
         #[structopt(short = "n", default_value = "32")]
         degree: usize,
+    },
+    /// Compute a RAM of a given size and check its consistency
+    #[cfg(feature = "std")]
+    RamConstraints {
+        /// Locs; must be a power of two
+        #[structopt(short = "l", default_value = "8")]
+        num_ram_locs: usize,
+        /// Steps; must be a power of two
+        #[structopt(short = "s", default_value = "32")]
+        num_steps: usize,
     },
 }
 

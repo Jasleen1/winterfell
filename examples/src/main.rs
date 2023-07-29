@@ -9,7 +9,10 @@ use std::time::Instant;
 use structopt::StructOpt;
 use winterfell::StarkProof;
 
-use examples::{fast_fourier_transform, fibonacci, rescue, vdf, ExampleOptions, ExampleType};
+use examples::{
+    fast_fourier_transform, fibonacci, ram_constraints_only, rescue, vdf, ExampleOptions,
+    ExampleType,
+};
 #[cfg(feature = "std")]
 use examples::{lamport, merkle, rescue_raps};
 
@@ -64,6 +67,11 @@ fn main() {
         }
         #[cfg(feature = "std")]
         ExampleType::FFT { degree } => fast_fourier_transform::get_example(&options, degree),
+        #[cfg(feature = "std")]
+        ExampleType::RamConstraints {
+            num_steps,
+            num_ram_locs,
+        } => ram_constraints_only::get_example(&options, num_steps, num_ram_locs),
     }
     .expect("The example failed to initialize.");
 
@@ -103,9 +111,18 @@ fn main() {
     let parsed_proof = StarkProof::from_bytes(&proof_bytes).unwrap();
     // assert_eq!(proof, parsed_proof);
     assert_eq!(proof.context, parsed_proof.context, "Context not eq");
-    assert_eq!(proof.commitments, parsed_proof.commitments, "Commitments not eq");
-    assert_eq!(proof.trace_queries, parsed_proof.trace_queries, "Trace queries not eq");
-    assert_eq!(proof.constraint_queries, parsed_proof.constraint_queries, "Constraint queries not eq");
+    assert_eq!(
+        proof.commitments, parsed_proof.commitments,
+        "Commitments not eq"
+    );
+    assert_eq!(
+        proof.trace_queries, parsed_proof.trace_queries,
+        "Trace queries not eq"
+    );
+    assert_eq!(
+        proof.constraint_queries, parsed_proof.constraint_queries,
+        "Constraint queries not eq"
+    );
     assert_eq!(proof.ood_frame, parsed_proof.ood_frame, "ood frame not eq");
     assert_eq!(proof.fri_proof, parsed_proof.fri_proof, "fri proofs not eq");
     assert_eq!(proof.pow_nonce, parsed_proof.pow_nonce, "pow_nonce not eq");
