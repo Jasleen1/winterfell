@@ -36,7 +36,7 @@ pub fn get_example(
     num_ram_steps: usize,
     num_locs: usize,
 ) -> Result<Box<dyn Example>, String> {
-    let (options, hash_fn) = options.to_proof_options(42, 4);
+    let (options, hash_fn) = options.to_proof_options(42, 64);
 
     assert!(num_locs.is_power_of_two());
     assert!(num_ram_steps.is_power_of_two());

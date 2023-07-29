@@ -79,6 +79,10 @@ impl Air for RamConstraintsAir {
             vec![TransitionConstraintDegree::new(2); log_locs_usize + log_steps_usize + 1];
         transition_constraint_degrees.push(TransitionConstraintDegree::new(2));
         transition_constraint_degrees.push(TransitionConstraintDegree::new(2));
+        transition_constraint_degrees.push(TransitionConstraintDegree::new(5));
+        transition_constraint_degrees.push(TransitionConstraintDegree::new(1));
+
+        transition_constraint_degrees.push(TransitionConstraintDegree::new(4 * log_steps_usize));
         // let aux_degrees = vec![];
         // assert_eq!(TRACE_WIDTH + 3, trace_info.width());
         RamConstraintsAir {
@@ -94,7 +98,7 @@ impl Air for RamConstraintsAir {
     fn evaluate_transition<E: FieldElement + From<Self::BaseField>>(
         &self,
         frame: &EvaluationFrame<E>,
-        periodic_values: &[E],
+        _periodic_values: &[E],
         result: &mut [E],
     ) {
         let current = frame.current();
@@ -118,105 +122,100 @@ impl Air for RamConstraintsAir {
         result.agg_constraint(
             log_locs_usize + log_steps_usize,
             E::ONE,
-            are_equal(current[1] * current[1], current[1]),
+            are_equal(next[1] * next[1], next[1]),
         );
-        
-        // Check that you can correctly compute the function 
+
+        // Check that you can correctly compute the function
         // f(loc_i, loc_{i+1}) = {1 if  they are equal, 0 otherwise}
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 1, 
-            E::ONE, 
-            are_equal(current[4 + log_locs_usize + log_steps_usize] * current[4 + log_locs_usize + log_steps_usize + 1], E::ONE)
+            log_locs_usize + log_steps_usize + 1,
+            E::ONE,
+            are_equal(
+                current[4 + log_locs_usize + log_steps_usize]
+                    * current[4 + log_locs_usize + log_steps_usize + 1],
+                E::ONE,
+            ),
         );
 
-        // Check that you can correctly compute the function 
+        // Check that you can correctly compute the function
         // f(val_i, val_{i+1}) = {1 if  they are equal, 0 otherwise}
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 2, 
-            E::ONE, 
-            are_equal(current[4 + log_locs_usize + log_steps_usize + 2] * current[4 + log_locs_usize + log_steps_usize + 3], E::ONE)
+            log_locs_usize + log_steps_usize + 2,
+            E::ONE,
+            are_equal(
+                current[4 + log_locs_usize + log_steps_usize + 2]
+                    * current[4 + log_locs_usize + log_steps_usize + 3],
+                E::ONE,
+            ),
         );
-        
-    }
 
-    fn evaluate_aux_transition<F, E>(
-        &self,
-        main_frame: &EvaluationFrame<F>,
-        aux_frame: &EvaluationFrame<E>,
-        periodic_values: &[F],
-        aux_rand_elements: &AuxTraceRandElements<E>,
-        result: &mut [E],
-    ) where
-        F: FieldElement<BaseField = Self::BaseField>,
-        E: FieldElement<BaseField = Self::BaseField> + ExtensionOf<F>,
-    {
-        // let main_current = main_frame.current();
-        // let main_next = main_frame.next();
+        // Check that at any step (loc_i = loc_{i+1}) implies (op_{i+1} = write) OR (val_i = val_{i + 1})
+        // this is equivalent to checking not(loc_i = loc_{i+1}) OR (op_{i+1} = write) OR (val_i = val_{i + 1})
+        result.agg_constraint(
+            log_locs_usize + log_steps_usize + 3,
+            E::ONE,
+            are_equal(
+                compute_or(
+                    compute_or(
+                        E::ONE.sub(compute_f(
+                            current[2],
+                            next[2],
+                            next[4 + log_locs_usize + log_steps_usize],
+                        )),
+                        E::ONE.sub(are_equal(next[1], E::ONE)),
+                    ),
+                    compute_f(
+                        current[3],
+                        next[3],
+                        next[4 + log_locs_usize + log_steps_usize + 2],
+                    ),
+                ),
+                E::ONE,
+            ),
+        );
+        //
+        // Check that we have the correct decomposition of the RAM step indices
+        result.agg_constraint(
+            log_locs_usize + log_steps_usize + 4,
+            E::ONE,
+            are_equal(
+                current[0],
+                compute_from_bit_decomp(
+                    &current[4 + log_locs_usize..4 + log_locs_usize + log_steps_usize],
+                ),
+            ),
+        );
 
-        // let aux_current = aux_frame.current();
-        // let aux_next = aux_frame.next();
-
-        // let random_elements = aux_rand_elements.get_segment_elements(0);
-
-        // let absorption_flag = periodic_values[1];
-
-        // // We want to enforce that the absorbed values of the first hash chain are a
-        // // permutation of the absorbed values of the second one. Recall that the type
-        // // for both seed and permuted_seed (the arrays being hashed into the chain), was
-        // // [[BaseElement; 2]] and we never permute any of the internal arrays, since
-        // // each [BaseElement; 2] represents the capacity registers for a single link in the
-        // // hash chain. Due to this, we want to copy two values per hash chain at iteration
-        // // (namely, the two capacity registers). To reduce the number of auxiliary registers needed
-        // // to represent each link, we group them with random elements into a single cell via
-        // // α_0 * c_0 + α_1 * c_1, where c_i is computed as next_i - current_i.
-
-        // // Note that the reason we use next_i - current_i is that we are
-        // // absorbing the new seed by adding it to the output of the previous hash.
-
-        // // Note that storing the copied values into two auxiliary columns. One could
-        // // instead directly compute the permutation argument, hence require a single
-        // // auxiliary one. For the sake of illustrating RAPs behaviour, we will store
-        // // the computed values in additional columns.
-
-        // let copied_value_1 = random_elements[0] * (main_next[0] - main_current[0]).into()
-        //     + random_elements[1] * (main_next[1] - main_current[1]).into();
-
-        // let copied_value_2 = random_elements[0] * (main_next[4] - main_current[4]).into()
-        //     + random_elements[1] * (main_next[5] - main_current[5]).into();
-
-        // result.agg_constraint(
-        //     1,
-        //     absorption_flag.into(),
-        //     are_equal(aux_current[1], copied_value_2),
-        // );
-
-        // // Enforce that the permutation argument column scales at each step by (aux[0] + γ) / (aux[1] + γ).
-        // result.agg_constraint(
-        //     2,
-        //     E::ONE,
-        //     are_equal(
-        //         aux_next[2] * (aux_current[1] + random_elements[2]),
-        //         aux_current[2] * (aux_current[0] + random_elements[2]),
-        //     ),
-        // );
+        // Check that [(l_i = l_{i+1}) AND (t_{i} < t_{i + 1})] OR [l_{i+1} = l_i + 1]
+        // This reduces to checking (compute_f(l_i, l_{i+1}, .) * greater_than(t_next, t_curr)) +
+        //  (1 - compute_f(l_i, l_{i+1}, .) * (l_{i+1} - l_i))
+        let f_val = compute_f(
+            current[2],
+            next[2],
+            next[4 + log_locs_usize + log_steps_usize],
+        );
+        result.agg_constraint(
+            log_locs_usize + log_steps_usize + 5,
+            E::ONE,
+            are_equal(
+                E::ONE,
+                (f_val.mul(bit_vec_gt(
+                    &next[4 + log_locs_usize..4 + log_locs_usize + log_steps_usize],
+                    &current[4 + log_locs_usize..4 + log_locs_usize + log_steps_usize],
+                )))
+                .add((E::ONE.sub(f_val)).mul(next[2].sub(current[2]))),
+            ),
+        );
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
         // Assert starting and ending values of the hash chain
-        let last_step = self.trace_length() - 1;
+        // let last_step = self.trace_length() - 1;
         vec![Assertion::single(2, 0, BaseElement::ZERO)]
     }
 
-    fn get_aux_assertions<E: FieldElement + From<Self::BaseField>>(
-        &self,
-        _aux_rand_elements: &AuxTraceRandElements<E>,
-    ) -> Vec<Assertion<E>> {
-        let last_step = self.trace_length() - 1;
-        vec![]
-    }
-
     fn get_periodic_column_values(&self) -> Vec<Vec<Self::BaseField>> {
-        let mut result = vec![];
+        let result = vec![];
         // let mut absorption_column = vec![BaseElement::ZERO; CYCLE_LENGTH];
         // absorption_column[14] = BaseElement::ONE;
         // result.push(absorption_column);
@@ -230,19 +229,47 @@ impl Air for RamConstraintsAir {
 // HELPER EVALUATORS
 // ------------------------------------------------------------------------------------------------
 
-/// when flag = 1, enforces that the next state of the computation is defined like so:
-/// - the first two registers are equal to the values from the previous step
-/// - the other two registers are not restrained, they could be arbitrary elements,
-///   until the RAP columns enforces that they are a permutation of the two final registers
-///   of the other parallel chain
-fn enforce_hash_copy<E: FieldElement>(result: &mut [E], current: &[E], next: &[E], flag: E) {
-    result.agg_constraint(0, flag, are_equal(current[0], next[0]));
-    result.agg_constraint(1, flag, are_equal(current[1], next[1]));
-    result.agg_constraint(2, flag, are_equal(current[2], next[2]));
-    result.agg_constraint(3, flag, are_equal(current[3], next[3]));
+fn compute_or<E: FieldElement>(a: E, b: E) -> E {
+    a.add(b).sub(a.mul(b))
 }
 
-// fn enforce_bits<E: FieldElement>(result: &mut [E], current: &[E], next: &[E], flag: E) {
-//     result.(0, flag, are_equal(current[0], next[0]));
+fn compute_f<E: FieldElement>(a: E, b: E, c: E) -> E {
+    E::ONE.sub(c.mul(a.sub(b)))
+}
 
-// }
+fn compute_from_bit_decomp<E: FieldElement>(decompositon: &[E]) -> E {
+    let mut sum = E::ZERO;
+    for (pow, &elt) in decompositon.iter().enumerate() {
+        sum = sum.add(elt.mul(E::from(1u64 << pow)));
+    }
+    sum
+}
+
+fn bit_greater_than<E: FieldElement>(a: E, b: E) -> E {
+    // outputs 1 if a > b and 0 otherwise. Must check that a and b are bits elsewhere
+    // degree 2
+    a.mul(E::ONE.sub(b))
+}
+
+fn bit_equals<E: FieldElement>(a: E, b: E) -> E {
+    // outputs 1 if a = b and 0 otherwise. Must check that a and b are bits elsewhere
+    // degree 2
+    (a.mul(b)).add((E::ONE.sub(a)).mul(E::ONE.sub(b)))
+}
+
+fn bit_vec_gt<E: FieldElement>(a: &[E], b: &[E]) -> E {
+    // outputs 1 if the integer computed using [`compute_from_bit_decomp`]
+    // from a is greater than the int computed the same way from b.
+    // assumes a and b are both the same length!
+    // Also assumes that a and b are bot non-empty.
+    let n = a.len();
+    if a.len() == 1 {
+       bit_greater_than(a[n - 1], b[n - 1])
+    } else {
+        // if a[n-1]>b[n-1], we'll return 1, if a[n-1] == b[n-1], we'll recurse
+        compute_or(
+            bit_greater_than(a[n - 1], b[n - 1]),
+            bit_equals(b[n - 1], a[n - 1]).mul(bit_vec_gt(&a[0..n - 1], &b[0..n - 1])),
+        )
+    }
+}
