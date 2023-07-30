@@ -7,30 +7,33 @@ use super::Blake3_256;
 use winterfell::{FieldExtension, ProofOptions};
 
 #[test]
-fn rescue_test_basic_proof_verification() {
-    let rescue_eg = Box::new(super::RescueRapsExample::<Blake3_256>::new(
+fn pointer_chase_test_basic_proof_verification() {
+    let pointer_chase_eg = Box::new(super::PointerChasingCompExample::<Blake3_256>::new(
+        16,
         128,
         build_options(false),
     ));
-    crate::tests::test_basic_proof_verification(rescue_eg);
+    crate::tests::test_basic_proof_verification(pointer_chase_eg);
 }
 
 #[test]
-fn rescue_test_basic_proof_verification_extension() {
-    let rescue_eg = Box::new(super::RescueRapsExample::<Blake3_256>::new(
+fn pointer_chase_test_basic_proof_verification_extension() {
+    let pointer_chase_eg = Box::new(super::PointerChasingCompExample::<Blake3_256>::new(
+        16,
         128,
         build_options(true),
     ));
-    crate::tests::test_basic_proof_verification(rescue_eg);
+    crate::tests::test_basic_proof_verification(pointer_chase_eg);
 }
 
 #[test]
-fn rescue_test_basic_proof_verification_fail() {
-    let rescue_eg = Box::new(super::RescueRapsExample::<Blake3_256>::new(
+fn pointer_chase_test_basic_proof_verification_fail() {
+    let pointer_chase_eg = Box::new(super::PointerChasingCompExample::<Blake3_256>::new(
+        16,
         128,
         build_options(false),
     ));
-    crate::tests::test_basic_proof_verification_fail(rescue_eg);
+    crate::tests::test_basic_proof_verification_fail(pointer_chase_eg);
 }
 
 fn build_options(use_extension_field: bool) -> ProofOptions {

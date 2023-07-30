@@ -80,10 +80,10 @@ impl<H: ElementHasher> RamConstraintsExample<H> {
         );
         assert!(num_locs <= num_ram_steps, "Want more steps than locations");
 
+        // compute a valid ram
+        let now = Instant::now();
         let valid_ram = compute_valid_ram(num_locs, num_ram_steps);
 
-        // compute the sequence of hashes using external implementation of Rescue hash
-        let now = Instant::now();
         debug!(
             "Computed a RAM example for {} locations and {} steps in {} ms",
             num_locs,

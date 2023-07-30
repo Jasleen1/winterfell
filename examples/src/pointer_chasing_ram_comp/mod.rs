@@ -7,23 +7,20 @@ use crate::{Blake3_192, Blake3_256, Example, ExampleOptions, HashFunction, Sha3_
 use core::marker::PhantomData;
 use log::debug;
 use rand_utils::rand_array;
-use std::time::Instant;
+use std::{num, time::Instant};
 use winterfell::{
     crypto::{DefaultRandomCoin, ElementHasher},
     math::{fields::f128::BaseElement, ExtensionOf, FieldElement},
     ProofOptions, Prover, StarkProof, Trace, VerifierError,
 };
 
-mod custom_trace_table;
-pub use custom_trace_table::RapTraceTable;
-
 use super::rescue::rescue::{self, STATE_WIDTH};
 
 mod air;
-use air::{PublicInputs, RescueRapsAir};
+use air::{PointerChasingComponentAir, PublicInputs};
 
 mod prover;
-use prover::RescueRapsProver;
+use prover::PointerChasingComponentProver;
 
 #[cfg(test)]
 mod tests;
@@ -40,66 +37,65 @@ const TRACE_WIDTH: usize = 4 * 2;
 
 pub fn get_example(
     options: &ExampleOptions,
-    chain_length: usize,
+    num_locs: usize,
+    num_steps: usize,
 ) -> Result<Box<dyn Example>, String> {
     let (options, hash_fn) = options.to_proof_options(42, 4);
 
     match hash_fn {
-        HashFunction::Blake3_192 => Ok(Box::new(RescueRapsExample::<Blake3_192>::new(
-            chain_length,
-            options,
+        HashFunction::Blake3_192 => Ok(Box::new(PointerChasingCompExample::<Blake3_192>::new(
+            num_locs, num_steps, options,
         ))),
-        HashFunction::Blake3_256 => Ok(Box::new(RescueRapsExample::<Blake3_256>::new(
-            chain_length,
-            options,
+        HashFunction::Blake3_256 => Ok(Box::new(PointerChasingCompExample::<Blake3_256>::new(
+            num_locs, num_steps, options,
         ))),
-        HashFunction::Sha3_256 => Ok(Box::new(RescueRapsExample::<Sha3_256>::new(
-            chain_length,
-            options,
+        HashFunction::Sha3_256 => Ok(Box::new(PointerChasingCompExample::<Sha3_256>::new(
+            num_locs, num_steps, options,
         ))),
         _ => Err("The specified hash function cannot be used with this example.".to_string()),
     }
 }
 
-pub struct RescueRapsExample<H: ElementHasher> {
+pub struct PointerChasingCompExample<H: ElementHasher> {
     options: ProofOptions,
-    chain_length: usize,
-    seeds: Vec<[BaseElement; 2]>,
-    permuted_seeds: Vec<[BaseElement; 2]>,
-    result: [[BaseElement; 2]; 2],
+    num_locs: usize,
+    num_steps: usize,
+    inputs: [usize; 2],
+    result: BaseElement,
     _hasher: PhantomData<H>,
 }
 
-impl<H: ElementHasher> RescueRapsExample<H> {
-    pub fn new(chain_length: usize, options: ProofOptions) -> Self {
+impl<H: ElementHasher> PointerChasingCompExample<H> {
+    pub fn new(num_steps: usize, num_locs: usize, options: ProofOptions) -> Self {
         assert!(
-            chain_length.is_power_of_two(),
-            "chain length must a power of 2"
+            num_locs.is_power_of_two(),
+            "number of locations must a power of 2"
         );
-        assert!(chain_length > 2, "chain length must be at least 4");
+        assert!(
+            num_steps.is_power_of_two(),
+            "number of RAM steps must a power of 2"
+        );
+        assert!(num_locs <= num_steps, "Want more steps than locations");
 
-        let mut seeds = vec![[BaseElement::ZERO; 2]; chain_length];
-        for internal_seed in seeds.iter_mut() {
-            *internal_seed = rand_array();
-        }
-        let mut permuted_seeds = seeds[2..].to_vec();
-        permuted_seeds.push(seeds[0]);
-        permuted_seeds.push(seeds[1]);
+        // let mut seeds: [BaseElement; _] = [BaseElement::ZERO; 2];
+        // seeds = rand_array();
+        let inputs = [3, 0];
 
         // compute the sequence of hashes using external implementation of Rescue hash
         let now = Instant::now();
-        let result = compute_permuted_hash_chains(&seeds, &permuted_seeds);
+        let result = usize_to_field(plain_pointer_chase(num_locs, num_steps, inputs));
         debug!(
-            "Computed two permuted chains of {} Rescue hashes in {} ms",
-            chain_length,
+            "Computed result of {} steps with {} locs in {} ms",
+            num_steps,
+            num_locs,
             now.elapsed().as_millis(),
         );
-
-        RescueRapsExample {
+        println!("Plaintext result = {}", result);
+        PointerChasingCompExample {
             options,
-            chain_length,
-            seeds,
-            permuted_seeds,
+            num_locs,
+            num_steps,
+            inputs,
             result,
             _hasher: PhantomData,
         }
@@ -109,24 +105,28 @@ impl<H: ElementHasher> RescueRapsExample<H> {
 // EXAMPLE IMPLEMENTATION
 // ================================================================================================
 
-impl<H: ElementHasher> Example for RescueRapsExample<H>
+impl<H: ElementHasher> Example for PointerChasingCompExample<H>
 where
     H: ElementHasher<BaseField = BaseElement>,
 {
     fn prove(&self) -> StarkProof {
         // generate the execution trace
         debug!(
-            "Generating proof for computing a chain of {} Rescue hashes\n\
+            "Generating proof for {} calculations on a memory of size {}\n\
             ---------------------",
-            self.chain_length
+            self.num_steps, self.num_locs
         );
 
         // create a prover
-        let prover = RescueRapsProver::<H>::new(self.options.clone());
+        let mut prover = PointerChasingComponentProver::<H>::new(
+            self.options.clone(),
+            self.num_locs,
+            self.num_steps,
+        );
 
         // generate the execution trace
         let now = Instant::now();
-        let trace = prover.build_trace(&self.seeds, &self.permuted_seeds, self.result);
+        let trace = prover.build_trace(self.inputs[0], self.inputs[1]);
         let trace_length = trace.length();
         debug!(
             "Generated execution trace of {} registers and 2^{} steps in {} ms",
@@ -142,15 +142,19 @@ where
     fn verify(&self, proof: StarkProof) -> Result<(), VerifierError> {
         let pub_inputs = PublicInputs {
             result: self.result,
+            num_locs: self.num_locs,
+            num_steps: self.num_steps,
         };
-        winterfell::verify::<RescueRapsAir, H, DefaultRandomCoin<H>>(proof, pub_inputs)
+        winterfell::verify::<PointerChasingComponentAir, H, DefaultRandomCoin<H>>(proof, pub_inputs)
     }
 
     fn verify_with_wrong_inputs(&self, proof: StarkProof) -> Result<(), VerifierError> {
         let pub_inputs = PublicInputs {
-            result: [self.result[1], self.result[0]],
+            result: self.result + BaseElement::ONE,
+            num_locs: self.num_locs,
+            num_steps: self.num_steps,
         };
-        winterfell::verify::<RescueRapsAir, H, DefaultRandomCoin<H>>(proof, pub_inputs)
+        winterfell::verify::<PointerChasingComponentAir, H, DefaultRandomCoin<H>>(proof, pub_inputs)
     }
 }
 
@@ -187,4 +191,31 @@ fn apply_rescue_round_parallel(multi_state: &mut [BaseElement], step: usize) {
     for state in multi_state.chunks_mut(STATE_WIDTH) {
         rescue::apply_round(state, step)
     }
+}
+
+fn plain_pointer_chase(num_locs: usize, num_steps: usize, inputs: [usize; 2]) -> usize {
+    let mut running_state = (0..num_locs).collect::<Vec<usize>>();
+    running_state[0] = running_state[0] + inputs[0];
+    running_state[1] = running_state[1] + inputs[1];
+    let mut next_loc = next_loc_function(running_state[num_locs - 1], num_locs);
+    let mut init_state = running_state[num_locs - 1];
+    for step in 0..num_steps {
+        let next_val = (init_state + running_state[next_loc]) % num_locs;
+        // println!("Loc = {:?}, Next val = {:?}", next_loc, next_val);
+        running_state[next_loc] = next_val;
+        if step < num_steps - 1 {
+            next_loc = next_loc_function(next_val, num_locs);
+            init_state = next_val;
+        }
+    }
+    running_state[next_loc]
+}
+
+fn next_loc_function(val: usize, num_locs: usize) -> usize {
+    (3 * val + 1) % num_locs
+}
+
+fn usize_to_field(val: usize) -> BaseElement {
+    let out: u128 = val.try_into().unwrap();
+    BaseElement::from(out)
 }

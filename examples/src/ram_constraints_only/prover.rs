@@ -43,7 +43,7 @@ impl<H: ElementHasher> RamConstraintProver<H> {
         trace.fill(
             |state| {
                 // initialize the original values
-                state[0] = BaseElement::from(valid_ram[0][0]);
+                state[0] = BaseElement::from(valid_ram[0][0]) + BaseElement::ZERO;
                 state[1] = BaseElement::from(99u64);
                 state[2] = BaseElement::from(valid_ram[0][2]);
                 state[3] = BaseElement::from(valid_ram[0][3]);

@@ -18,6 +18,8 @@ pub mod lamport;
 #[cfg(feature = "std")]
 pub mod merkle;
 #[cfg(feature = "std")]
+pub mod pointer_chasing_ram_comp;
+#[cfg(feature = "std")]
 pub mod ram_constraints_only;
 pub mod rescue;
 #[cfg(feature = "std")]
@@ -217,6 +219,14 @@ pub enum ExampleType {
         /// Locs; must be a power of two
         #[structopt(short = "l", default_value = "8")]
         num_ram_locs: usize,
+        /// Steps; must be a power of two
+        #[structopt(short = "s", default_value = "32")]
+        num_steps: usize,
+    },
+    PointerChasingComp {
+        /// Locs; must be a power of two
+        #[structopt(short = "l", default_value = "8")]
+        num_locs: usize,
         /// Steps; must be a power of two
         #[structopt(short = "s", default_value = "32")]
         num_steps: usize,

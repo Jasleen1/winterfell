@@ -10,8 +10,8 @@ use structopt::StructOpt;
 use winterfell::StarkProof;
 
 use examples::{
-    fast_fourier_transform, fibonacci, ram_constraints_only, rescue, vdf, ExampleOptions,
-    ExampleType,
+    fast_fourier_transform, fibonacci, pointer_chasing_ram_comp, ram_constraints_only, rescue, vdf,
+    ExampleOptions, ExampleType,
 };
 #[cfg(feature = "std")]
 use examples::{lamport, merkle, rescue_raps};
@@ -72,6 +72,10 @@ fn main() {
             num_steps,
             num_ram_locs,
         } => ram_constraints_only::get_example(&options, num_steps, num_ram_locs),
+        ExampleType::PointerChasingComp {
+            num_steps,
+            num_locs,
+        } => pointer_chasing_ram_comp::get_example(&options, num_steps, num_locs),
     }
     .expect("The example failed to initialize.");
 
