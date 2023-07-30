@@ -37,7 +37,7 @@ impl<H: ElementHasher> RamConstraintProver<H> {
         let trace_length = self.num_ram_steps;
         let log_ram_steps_usize: usize = log2(self.num_ram_steps).try_into().unwrap();
         let log_ram_locs_usize: usize = log2(self.num_locs).try_into().unwrap();
-        let trace_width = 4 + log_ram_locs_usize + log_ram_steps_usize + 4;
+        let trace_width = 4 + log_ram_steps_usize + 4;
         let mut trace = TraceTable::new(trace_width, trace_length);
 
         trace.fill(
@@ -48,26 +48,26 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                 state[2] = BaseElement::from(valid_ram[0][2]);
                 state[3] = BaseElement::from(valid_ram[0][3]);
 
-                // initialize bit decomp of location
-                for i in 0..log_ram_locs_usize {
-                    let ith_bit = (valid_ram[0][2] >> i) & 1;
-                    state[4 + i] = BaseElement::from(ith_bit);
-                }
+                // // initialize bit decomp of location
+                // for i in 0..log_ram_locs_usize {
+                //     let ith_bit = (valid_ram[0][2] >> i) & 1;
+                //     state[4 + i] = BaseElement::from(ith_bit);
+                // }
                 // initialize the bit decomposition of the size
                 for i in 0..log_ram_steps_usize {
                     let ith_bit = (valid_ram[0][0] >> i) & 1;
-                    state[4 + log_ram_locs_usize + i] = BaseElement::from(ith_bit);
+                    state[4 + i] = BaseElement::from(ith_bit);
                 }
                 // These are just throw-aways in the initial step
                 let loc_equality_terms =
                     Self::compute_equality_cols(BaseElement::from(valid_ram[0][2]));
-                state[4 + log_ram_locs_usize + log_ram_steps_usize] = loc_equality_terms[0];
-                state[4 + log_ram_locs_usize + log_ram_steps_usize + 1] = loc_equality_terms[1];
+                state[4 + log_ram_steps_usize] = loc_equality_terms[0];
+                state[4 + log_ram_steps_usize + 1] = loc_equality_terms[1];
 
                 let val_equality_terms =
                     Self::compute_equality_cols(BaseElement::from(valid_ram[0][3]));
-                state[4 + log_ram_locs_usize + log_ram_steps_usize + 2] = val_equality_terms[0];
-                state[4 + log_ram_locs_usize + log_ram_steps_usize + 3] = val_equality_terms[1];
+                state[4 + log_ram_steps_usize + 2] = val_equality_terms[0];
+                state[4 + log_ram_steps_usize + 3] = val_equality_terms[1];
             },
             |step, state| {
                 // execute the transition function for all steps
@@ -81,15 +81,15 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                 // val_t
                 state[3] = BaseElement::from(valid_ram[step + 1][3]);
 
-                // initialize bit decomp of location
-                for i in 0..log_ram_locs_usize {
-                    let ith_bit = (valid_ram[step + 1][2] >> i) & 1;
-                    state[4 + i] = BaseElement::from(ith_bit);
-                }
+                // // initialize bit decomp of location
+                // for i in 0..log_ram_locs_usize {
+                //     let ith_bit = (valid_ram[step + 1][2] >> i) & 1;
+                //     state[4 + i] = BaseElement::from(ith_bit);
+                // }
                 // initialize the bit decomposition of the size
                 for i in 0..log_ram_steps_usize {
                     let ith_bit = (valid_ram[step + 1][0] >> i) & 1;
-                    state[4 + log_ram_locs_usize + i] = BaseElement::from(ith_bit);
+                    state[4 + i] = BaseElement::from(ith_bit);
                 }
 
                 let loc_equality_terms = Self::compute_equality_cols(
@@ -97,15 +97,15 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                         - BaseElement::from(valid_ram[step + 1][2]),
                 );
 
-                state[4 + log_ram_locs_usize + log_ram_steps_usize] = loc_equality_terms[0];
-                state[4 + log_ram_locs_usize + log_ram_steps_usize + 1] = loc_equality_terms[1];
+                state[4 + log_ram_steps_usize] = loc_equality_terms[0];
+                state[4 + log_ram_steps_usize + 1] = loc_equality_terms[1];
 
                 let val_equality_terms = Self::compute_equality_cols(
                     BaseElement::from(valid_ram[step][3])
                         - BaseElement::from(valid_ram[step + 1][3]),
                 );
-                state[4 + log_ram_locs_usize + log_ram_steps_usize + 2] = val_equality_terms[0];
-                state[4 + log_ram_locs_usize + log_ram_steps_usize + 3] = val_equality_terms[1];
+                state[4 + log_ram_steps_usize + 2] = val_equality_terms[0];
+                state[4 + log_ram_steps_usize + 3] = val_equality_terms[1];
             },
         );
 

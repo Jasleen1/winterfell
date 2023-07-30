@@ -76,7 +76,7 @@ impl Air for RamConstraintsAir {
             .try_into()
             .unwrap();
         let mut transition_constraint_degrees =
-            vec![TransitionConstraintDegree::new(2); log_locs_usize + log_steps_usize + 1];
+            vec![TransitionConstraintDegree::new(2); log_steps_usize + 1];
         transition_constraint_degrees.push(TransitionConstraintDegree::new(2));
         transition_constraint_degrees.push(TransitionConstraintDegree::new(2));
         transition_constraint_degrees.push(TransitionConstraintDegree::new(5));
@@ -110,7 +110,7 @@ impl Air for RamConstraintsAir {
         let log_steps_usize: usize = log2(self.public_inputs.num_ram_steps.try_into().unwrap())
             .try_into()
             .unwrap();
-        for i in 4..(4 + log_locs_usize + log_steps_usize) {
+        for i in 4..(4 + log_steps_usize) {
             result.agg_constraint(
                 i - 4,
                 E::ONE,
@@ -120,7 +120,7 @@ impl Air for RamConstraintsAir {
 
         // Check that op is also bits
         result.agg_constraint(
-            log_locs_usize + log_steps_usize,
+            log_steps_usize,
             E::ONE,
             are_equal(next[1] * next[1], next[1]),
         );
@@ -128,11 +128,10 @@ impl Air for RamConstraintsAir {
         // Check that you can correctly compute the function
         // f(loc_i, loc_{i+1}) = {1 if  they are equal, 0 otherwise}
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 1,
+            log_steps_usize + 1,
             E::ONE,
             are_equal(
-                current[4 + log_locs_usize + log_steps_usize]
-                    * current[4 + log_locs_usize + log_steps_usize + 1],
+                current[4 + log_steps_usize] * current[4 + log_steps_usize + 1],
                 E::ONE,
             ),
         );
@@ -140,11 +139,10 @@ impl Air for RamConstraintsAir {
         // Check that you can correctly compute the function
         // f(val_i, val_{i+1}) = {1 if  they are equal, 0 otherwise}
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 2,
+            log_steps_usize + 2,
             E::ONE,
             are_equal(
-                current[4 + log_locs_usize + log_steps_usize + 2]
-                    * current[4 + log_locs_usize + log_steps_usize + 3],
+                current[4 + log_steps_usize + 2] * current[4 + log_steps_usize + 3],
                 E::ONE,
             ),
         );
@@ -152,23 +150,15 @@ impl Air for RamConstraintsAir {
         // Check that at any step (loc_i = loc_{i+1}) implies (op_{i+1} = write) OR (val_i = val_{i + 1})
         // this is equivalent to checking not(loc_i = loc_{i+1}) OR (op_{i+1} = write) OR (val_i = val_{i + 1})
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 3,
+            log_steps_usize + 3,
             E::ONE,
             are_equal(
                 compute_or(
                     compute_or(
-                        E::ONE.sub(compute_f(
-                            current[2],
-                            next[2],
-                            next[4 + log_locs_usize + log_steps_usize],
-                        )),
+                        E::ONE.sub(compute_f(current[2], next[2], next[4 + log_steps_usize])),
                         E::ONE.sub(are_equal(next[1], E::ONE)),
                     ),
-                    compute_f(
-                        current[3],
-                        next[3],
-                        next[4 + log_locs_usize + log_steps_usize + 2],
-                    ),
+                    compute_f(current[3], next[3], next[4 + log_steps_usize + 2]),
                 ),
                 E::ONE,
             ),
@@ -176,32 +166,26 @@ impl Air for RamConstraintsAir {
         //
         // Check that we have the correct decomposition of the RAM step indices
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 4,
+            log_steps_usize + 4,
             E::ONE,
             are_equal(
                 current[0],
-                compute_from_bit_decomp(
-                    &current[4 + log_locs_usize..4 + log_locs_usize + log_steps_usize],
-                ),
+                compute_from_bit_decomp(&current[4..4 + log_steps_usize]),
             ),
         );
 
         // Check that [(l_i = l_{i+1}) AND (t_{i} < t_{i + 1})] OR [l_{i+1} = l_i + 1]
         // This reduces to checking (compute_f(l_i, l_{i+1}, .) * greater_than(t_next, t_curr)) +
         //  (1 - compute_f(l_i, l_{i+1}, .) * (l_{i+1} - l_i))
-        let f_val = compute_f(
-            current[2],
-            next[2],
-            next[4 + log_locs_usize + log_steps_usize],
-        );
+        let f_val = compute_f(current[2], next[2], next[4 + log_steps_usize]);
         result.agg_constraint(
-            log_locs_usize + log_steps_usize + 5,
+            log_steps_usize + 5,
             E::ONE,
             are_equal(
                 E::ONE,
                 (f_val.mul(bit_vec_gt(
-                    &next[4 + log_locs_usize..4 + log_locs_usize + log_steps_usize],
-                    &current[4 + log_locs_usize..4 + log_locs_usize + log_steps_usize],
+                    &next[4..4 + log_steps_usize],
+                    &current[4..4 + log_steps_usize],
                 )))
                 .add((E::ONE.sub(f_val)).mul(next[2].sub(current[2]))),
             ),
@@ -264,7 +248,7 @@ fn bit_vec_gt<E: FieldElement>(a: &[E], b: &[E]) -> E {
     // Also assumes that a and b are bot non-empty.
     let n = a.len();
     if a.len() == 1 {
-       bit_greater_than(a[n - 1], b[n - 1])
+        bit_greater_than(a[n - 1], b[n - 1])
     } else {
         // if a[n-1]>b[n-1], we'll return 1, if a[n-1] == b[n-1], we'll recurse
         compute_or(
