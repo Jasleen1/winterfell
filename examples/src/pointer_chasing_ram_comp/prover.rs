@@ -5,7 +5,7 @@
 
 use std::num;
 
-use winterfell::TraceTable;
+use winterfell::{math::log2, TraceTable};
 
 use crate::utils::print_trace;
 
@@ -47,7 +47,8 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
         self.running_state[0] = self.running_state[0] + input_1;
         self.running_state[1] = self.running_state[1] + input_2;
 
-        let mut trace = TraceTable::new(3, 2 * self.num_steps);
+        let log_num_locs: usize = log2(self.num_locs).try_into().unwrap();
+        let mut trace = TraceTable::new(3 + log_num_locs + 1, 2 * self.num_steps);
 
         let init_val = self.current_val;
         let next_loc = self.get_next_loc(init_val);
@@ -59,6 +60,10 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
                 state[0] = usize_to_field(next_loc);
                 state[1] = usize_to_field(next_val);
                 state[2] = usize_to_field(init_val);
+                for i in 0..log_num_locs {
+                    state[3 + i] = usize_to_field(((3 * init_val + 1) >> i) & 1);
+                }
+                state[3 + log_num_locs] = usize_to_field((3 * init_val + 1) >> log_num_locs);
             },
             |step, state| {
                 // execute the transition function for all steps
@@ -79,16 +84,20 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
                     let next_loc = self.get_next_loc(self.current_val);
                     let next_val = self.running_state[next_loc];
 
-                    // initialize original chain
                     state[0] = usize_to_field(next_loc);
                     state[2] = state[1];
                     state[1] = usize_to_field(next_val);
+                    for i in 0..log_num_locs {
+                        state[3 + i] = usize_to_field(((3 * self.current_val + 1) >> i) & 1);
+                    }
+                    state[3 + log_num_locs] =
+                        usize_to_field((3 * self.current_val + 1) >> log_num_locs);
                     // state[2] = usize_to_field(self.current_val);
                     // self.current_val = next_val;
                 }
             },
         );
-        // print_trace(&trace, 1, 0, 0..3);
+        // print_trace(&trace, 1, 0, 0..trace.width());
         trace
     }
 
