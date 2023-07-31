@@ -8,7 +8,7 @@ use super::{
     BaseElement, ExtensionOf, FieldElement, ProofOptions, CYCLE_LENGTH, TRACE_WIDTH,
 };
 use crate::{
-    pointer_chasing_ram_comp::usize_to_field,
+    pointer_chasing_naive::usize_to_field,
     utils::{are_equal, not, EvaluationResult},
 };
 use core_utils::flatten_slice_elements;
@@ -19,7 +19,8 @@ use winterfell::{
 };
 
 
-// Pointer Chasing Computation Component AIR
+
+// Naive Pointer Chasing AIR
 // ================================================================================================
 
 pub struct PublicInputs {
@@ -57,15 +58,13 @@ impl Air for PointerChasingComponentAir {
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
         let log_num_locs: usize = log2(pub_inputs.num_locs).try_into().unwrap();
 
-        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1, vec![2]); 4];
+        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1, vec![2]); 2];
 
-        // main_degrees.push(TransitionConstraintDegree::new(1));
+        main_degrees.push(TransitionConstraintDegree::new(1));
         for _ in 0..log_num_locs {
             main_degrees.push(TransitionConstraintDegree::new(2));
         }
-        // main_degrees.push(TransitionConstraintDegree::new(1));
-        main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2]));
-        main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2]));
+        main_degrees.push(TransitionConstraintDegree::new(1));
 
         PointerChasingComponentAir {
             context: AirContext::new(trace_info, main_degrees, 2, options),
@@ -105,12 +104,10 @@ impl Air for PointerChasingComponentAir {
         for i in 0..log_num_locs {
             sum = sum + (current[3 + i] * (E::from(1u64 << i)));
         }
-        result.agg_constraint(2, E::ONE - periodic_values[0], are_equal(current[0], sum));
-        result.agg_constraint(3, periodic_values[0], are_equal(current[1], sum));
-
+        result.agg_constraint(2, E::ONE, are_equal(current[0], sum));
         for loc in 0..log_num_locs {
             result.agg_constraint(
-                4 + loc,
+                3 + loc,
                 E::ONE,
                 are_equal(current[3 + loc] * current[3 + loc], current[3 + loc]),
             );
@@ -120,20 +117,10 @@ impl Air for PointerChasingComponentAir {
         for i in 0..log_num_locs + 1 {
             sum_2 = sum_2 + (current[3 + i] * (E::from(1u64 << i)));
         }
-
         result.agg_constraint(
-            4 + log_num_locs,
-            E::ONE - periodic_values[0],
+            2,
+            E::ONE,
             are_equal((E::from(3u64) * current[2]) + E::ONE, sum_2),
-        );
-        let mut sum_3 = E::ZERO;
-        for i in 0..log_num_locs + 1 {
-            sum_3 = sum_3 + (next[3 + i] * (E::from(1u64 << i)));
-        }
-        result.agg_constraint(
-            4 + log_num_locs + 1,
-            E::ONE - periodic_values[0],
-            are_equal( current[1] + current[2], sum_3),
         );
         // result.agg_constraint(
         //     3,

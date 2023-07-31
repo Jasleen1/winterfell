@@ -20,6 +20,8 @@ pub mod merkle;
 #[cfg(feature = "std")]
 pub mod pointer_chasing_ram_comp;
 #[cfg(feature = "std")]
+pub mod pointer_chasing_naive;
+#[cfg(feature = "std")]
 pub mod ram_constraints_only;
 pub mod rescue;
 #[cfg(feature = "std")]

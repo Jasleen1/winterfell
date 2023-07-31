@@ -48,7 +48,7 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
         self.running_state[1] = self.running_state[1] + input_2;
 
         let log_num_locs: usize = log2(self.num_locs).try_into().unwrap();
-        let mut trace = TraceTable::new(3 + log_num_locs + 1, 2 * self.num_steps);
+        let mut trace = TraceTable::new(3 + log_num_locs + 1 + 2 * (self.num_locs + 1), 2 * self.num_steps);
 
         let init_val = self.current_val;
         let next_loc = self.get_next_loc(init_val);
@@ -71,19 +71,15 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
                     // Write case
                     let loc = self.get_next_loc(self.current_val);
                     let prev_val = self.current_val;
-                    let other_term = self.running_state[loc];
                     self.apply_plain_write_step(prev_val, loc);
                     let next_val = self.running_state[loc];
 
                     self.current_val = next_val;
-                    
+
+                    // state[0] = state[0];
                     state[1] = usize_to_field(next_val);
-                    for i in 0..log_num_locs {
-                        state[3 + i] = usize_to_field(((prev_val + other_term) >> i) & 1);
-                    }
-                    state[3 + log_num_locs] =
-                        usize_to_field((prev_val + other_term) >> log_num_locs);
-                  
+                    // state[2] = state[2];
+                    // self.current_val = next_val;
                 } else {
                     let next_loc = self.get_next_loc(self.current_val);
                     let next_val = self.running_state[next_loc];
@@ -96,12 +92,45 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
                     }
                     state[3 + log_num_locs] =
                         usize_to_field((3 * self.current_val + 1) >> log_num_locs);
-                    
+                    // state[2] = usize_to_field(self.current_val);
+                    // self.current_val = next_val;
                 }
             },
         );
         // print_trace(&trace, 1, 0, 0..trace.width());
         trace
+    }
+
+    // fn apply_next_loc_function(step: usize, state: &mut [BaseElement]) {
+    //     if step % 2 == 0 {
+    //         state[0] = Self::next_loc_function(state[2]);
+    //     } else {
+    //         state[0] = state[0];
+    //     }
+    // }
+
+    fn next_loc_function(val: BaseElement) -> BaseElement {
+        val
+    }
+
+    // fn apply_combine_fn(step: usize, state: &mut [BaseElement]) {
+    //     if step % 2 == 0 {
+    //         state[1] = state[2];
+    //     } else {
+    //         state[0] = state[0];
+    //     }
+    // }
+
+    fn get_raw_state_at(&self, step: usize, loc: usize, input_1: usize, input_2: usize) {
+        let mut state = 0..self.num_locs;
+    }
+
+    fn permutation_loc_fn_plain(input: usize) -> usize {
+        input
+    }
+
+    fn permutation_loc_fn_field(input: BaseElement) -> BaseElement {
+        input
     }
 
     fn apply_plain_write_step(&mut self, previous_val: usize, read_loc: usize) {
