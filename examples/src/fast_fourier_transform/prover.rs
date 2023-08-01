@@ -112,7 +112,7 @@ impl<H: ElementHasher> FFTProver<H> {
             );
         }
 
-        println!("Assertions passed");
+        // println!("Assertions passed");
 
         trace
     }
