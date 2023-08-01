@@ -12,15 +12,17 @@ use winterfell::{
 
 #[cfg(feature = "std")]
 pub mod fast_fourier_transform;
+#[cfg(feature = "std")]
+pub mod fast_fourier_transform_raps;
 pub mod fibonacci;
 #[cfg(feature = "std")]
 pub mod lamport;
 #[cfg(feature = "std")]
 pub mod merkle;
 #[cfg(feature = "std")]
-pub mod pointer_chasing_ram_comp;
-#[cfg(feature = "std")]
 pub mod pointer_chasing_naive;
+#[cfg(feature = "std")]
+pub mod pointer_chasing_ram_comp;
 #[cfg(feature = "std")]
 pub mod ram_constraints_only;
 pub mod rescue;
@@ -214,6 +216,13 @@ pub enum ExampleType {
         /// Degree; must be a power of two
         #[structopt(short = "n", default_value = "32")]
         degree: usize,
+    },
+    /// Compute an FFT of a given degree with a RAM
+    #[cfg(feature = "std")]
+    FFTRaps {
+        /// Number of fft inputs; must be a power of two and at least 4
+        #[structopt(short = "n", default_value = "8")]
+        num_fft_inputs: usize,
     },
     /// Compute a RAM of a given size and check its consistency
     #[cfg(feature = "std")]

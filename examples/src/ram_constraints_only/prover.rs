@@ -61,13 +61,11 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                     state[4 + i] = BaseElement::from(ith_bit);
                 }
                 // These are just throw-aways in the initial step
-                let loc_equality_terms =
-                    compute_equality_cols(BaseElement::from(valid_ram[0][2]));
+                let loc_equality_terms = compute_equality_cols(BaseElement::from(valid_ram[0][2]));
                 state[4 + log_ram_steps_usize] = loc_equality_terms[0];
                 state[4 + log_ram_steps_usize + 1] = loc_equality_terms[1];
 
-                let val_equality_terms =
-                    compute_equality_cols(BaseElement::from(valid_ram[0][3]));
+                let val_equality_terms = compute_equality_cols(BaseElement::from(valid_ram[0][3]));
                 state[4 + log_ram_steps_usize + 2] = val_equality_terms[0];
                 state[4 + log_ram_steps_usize + 3] = val_equality_terms[1];
             },
@@ -119,11 +117,7 @@ impl<H: ElementHasher> RamConstraintProver<H> {
 
         trace
     }
-
-    
 }
-
-
 
 impl<H: ElementHasher> Prover for RamConstraintProver<H>
 where

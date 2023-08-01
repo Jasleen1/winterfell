@@ -5,7 +5,8 @@
 
 use super::{
     rescue::{self, STATE_WIDTH},
-    BaseElement, ExtensionOf, FieldElement, ProofOptions, CYCLE_LENGTH, TRACE_WIDTH, usize_to_field,
+    usize_to_field, BaseElement, ExtensionOf, FieldElement, ProofOptions, CYCLE_LENGTH,
+    TRACE_WIDTH,
 };
 use crate::{
     pointer_chasing_naive::usize_to_base_elt,
@@ -17,7 +18,6 @@ use winterfell::{
     Air, AirContext, Assertion, AuxTraceRandElements, EvaluationFrame, TraceInfo,
     TransitionConstraintDegree,
 };
-
 
 // Pointer Chasing Computation Component AIR
 // ================================================================================================
@@ -77,7 +77,7 @@ impl Air for PointerChasingComponentAir {
             main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2]));
             main_degrees.push(TransitionConstraintDegree::with_cycles(3, vec![2]));
         }
-        
+
         PointerChasingComponentAir {
             context: AirContext::new(trace_info, main_degrees, 2, options),
             num_locs: pub_inputs.num_locs,
@@ -144,7 +144,7 @@ impl Air for PointerChasingComponentAir {
         result.agg_constraint(
             4 + log_num_locs + 1,
             E::ONE - periodic_values[0],
-            are_equal( current[1] + current[2], sum_3),
+            are_equal(current[1] + current[2], sum_3),
         );
 
         for loc in 0..self.num_locs {
@@ -152,32 +152,52 @@ impl Air for PointerChasingComponentAir {
             result.agg_constraint(
                 4 + log_num_locs + 2 + loc,
                 E::ONE,
-                are_equal( current[3 + log_num_locs + 1 + (3 * loc) + 1] * current[3 + log_num_locs + 1 + (3 * loc) + 2], E::ONE),
+                are_equal(
+                    current[3 + log_num_locs + 1 + (3 * loc) + 1]
+                        * current[3 + log_num_locs + 1 + (3 * loc) + 2],
+                    E::ONE,
+                ),
             );
         }
 
         let mut sum_4 = E::ZERO;
         for loc in 0..self.num_locs {
             let loc_field = usize_to_field::<E>(loc);
-            sum_4 = sum_4 + current[3 + log_num_locs + 1 + (3 * loc)] * (E::ONE - ((loc_field - current[0]) * current[3 + log_num_locs + 1 + (3 * loc) + 1]));
+            sum_4 = sum_4
+                + current[3 + log_num_locs + 1 + (3 * loc)]
+                    * (E::ONE
+                        - ((loc_field - current[0])
+                            * current[3 + log_num_locs + 1 + (3 * loc) + 1]));
         }
         // println!("Counting: {}", 4 + log_num_locs + 2 + self.num_locs);
-        result.agg_constraint(4 + log_num_locs + self.num_locs + 2, E::ONE, are_equal(sum_4, current[1]));
+        result.agg_constraint(
+            4 + log_num_locs + self.num_locs + 2,
+            E::ONE,
+            are_equal(sum_4, current[1]),
+        );
 
         for loc in 0..self.num_locs {
             let loc_field = usize_to_field::<E>(loc);
             // println!("Counting: {}", 4 + log_num_locs + 3 + self.num_locs + 2*loc);
             // println!("Counting: {}", 4 + log_num_locs + 3 + self.num_locs + 2*loc + 1);
-            result.agg_constraint(4 + log_num_locs + self.num_locs + 3 + 2*loc, 
-                periodic_values[0], 
-                are_equal(current[3 + log_num_locs + 1 + (3 * loc)], next[3 + log_num_locs + 1 + (3 * loc)])
+            result.agg_constraint(
+                4 + log_num_locs + self.num_locs + 3 + 2 * loc,
+                periodic_values[0],
+                are_equal(
+                    current[3 + log_num_locs + 1 + (3 * loc)],
+                    next[3 + log_num_locs + 1 + (3 * loc)],
+                ),
             );
-            result.agg_constraint(4 + log_num_locs + self.num_locs + 3 + 2*loc + 1, 
-                E::ONE - periodic_values[0], 
-                ((loc_field - current[0]) * current[3 + log_num_locs + 1 + (3 * loc) + 1]) * are_equal(current[3 + log_num_locs + 1 + (3 * loc)], next[3 + log_num_locs + 1 + (3 * loc)])
+            result.agg_constraint(
+                4 + log_num_locs + self.num_locs + 3 + 2 * loc + 1,
+                E::ONE - periodic_values[0],
+                ((loc_field - current[0]) * current[3 + log_num_locs + 1 + (3 * loc) + 1])
+                    * are_equal(
+                        current[3 + log_num_locs + 1 + (3 * loc)],
+                        next[3 + log_num_locs + 1 + (3 * loc)],
+                    ),
             );
         }
-        
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {

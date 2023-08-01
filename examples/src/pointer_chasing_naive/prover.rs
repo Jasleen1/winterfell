@@ -50,14 +50,16 @@ impl<H: ElementHasher> PointerChasingNaiveProver<H> {
         self.running_state[1] = self.running_state[1] + input_2;
 
         let log_num_locs: usize = log2(self.num_locs).try_into().unwrap();
-        let mut trace = TraceTable::new(3 + log_num_locs + 1 + 3 * (self.num_locs), 2 * self.num_steps);
-        
+        let mut trace = TraceTable::new(
+            3 + log_num_locs + 1 + 3 * (self.num_locs),
+            2 * self.num_steps,
+        );
+
         let init_state = self.running_state.clone();
         let num_locs = self.num_locs;
         let init_val = self.current_val;
         let next_loc = self.get_next_loc(init_val);
         let next_val = self.running_state[next_loc];
-        
 
         trace.fill(
             |state| {
@@ -72,13 +74,11 @@ impl<H: ElementHasher> PointerChasingNaiveProver<H> {
 
                 for loc in 0..num_locs {
                     state[3 + log_num_locs + 1 + (3 * loc)] = usize_to_base_elt(init_state[loc]);
-                    let [f_diff, aux_diff] = compute_equality_cols(usize_to_base_elt(loc) - state[0]);
+                    let [f_diff, aux_diff] =
+                        compute_equality_cols(usize_to_base_elt(loc) - state[0]);
                     state[3 + log_num_locs + 1 + (3 * loc) + 1] = f_diff;
                     state[3 + log_num_locs + 1 + (3 * loc) + 2] = aux_diff;
-                    
-                } 
-                
-                
+                }
             },
             |step, state| {
                 // execute the transition function for all steps
@@ -91,26 +91,23 @@ impl<H: ElementHasher> PointerChasingNaiveProver<H> {
                     let next_val = self.running_state[loc];
 
                     self.current_val = next_val;
-                    
+
                     state[1] = usize_to_base_elt(next_val);
-                    
+
                     for i in 0..log_num_locs {
                         state[3 + i] = usize_to_base_elt(((prev_val + other_term) >> i) & 1);
                     }
                     state[3 + log_num_locs] =
                         usize_to_base_elt((prev_val + other_term) >> log_num_locs);
-                    
+
                     for loc in 0..self.num_locs {
-                        state[3 + log_num_locs + 1 + (3 * loc)] = usize_to_base_elt(self.running_state[loc]);
-                        let [f_diff, aux_diff] = compute_equality_cols(usize_to_base_elt(loc) - state[0]);
+                        state[3 + log_num_locs + 1 + (3 * loc)] =
+                            usize_to_base_elt(self.running_state[loc]);
+                        let [f_diff, aux_diff] =
+                            compute_equality_cols(usize_to_base_elt(loc) - state[0]);
                         state[3 + log_num_locs + 1 + (3 * loc) + 1] = f_diff;
                         state[3 + log_num_locs + 1 + (3 * loc) + 2] = aux_diff;
-                        
-                       
-                    } 
-
-                    
-                  
+                    }
                 } else {
                     let next_loc = self.get_next_loc(self.current_val);
                     let next_val = self.running_state[next_loc];
@@ -123,18 +120,19 @@ impl<H: ElementHasher> PointerChasingNaiveProver<H> {
                     }
                     state[3 + log_num_locs] =
                         usize_to_base_elt((3 * self.current_val + 1) >> log_num_locs);
-                    
+
                     for loc in 0..self.num_locs {
-                        state[3 + log_num_locs + 1 + (3 * loc)] = usize_to_base_elt(self.running_state[loc]);
-                        let [f_diff, aux_diff] = compute_equality_cols(usize_to_base_elt(loc) - state[0]);
+                        state[3 + log_num_locs + 1 + (3 * loc)] =
+                            usize_to_base_elt(self.running_state[loc]);
+                        let [f_diff, aux_diff] =
+                            compute_equality_cols(usize_to_base_elt(loc) - state[0]);
                         state[3 + log_num_locs + 1 + (3 * loc) + 1] = f_diff;
                         state[3 + log_num_locs + 1 + (3 * loc) + 2] = aux_diff;
-                    } 
-                    
+                    }
                 }
             },
         );
-        print_trace(&trace, 1, 0, trace.width()-9..trace.width()-6);//0..trace.width());
+        print_trace(&trace, 1, 0, trace.width() - 9..trace.width() - 6); //0..trace.width());
         trace
     }
 

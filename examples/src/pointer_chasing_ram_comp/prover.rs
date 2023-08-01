@@ -76,14 +76,13 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
                     let next_val = self.running_state[loc];
 
                     self.current_val = next_val;
-                    
+
                     state[1] = usize_to_field(next_val);
                     for i in 0..log_num_locs {
                         state[3 + i] = usize_to_field(((prev_val + other_term) >> i) & 1);
                     }
                     state[3 + log_num_locs] =
                         usize_to_field((prev_val + other_term) >> log_num_locs);
-                  
                 } else {
                     let next_loc = self.get_next_loc(self.current_val);
                     let next_val = self.running_state[next_loc];
@@ -96,7 +95,6 @@ impl<H: ElementHasher> PointerChasingComponentProver<H> {
                     }
                     state[3 + log_num_locs] =
                         usize_to_field((3 * self.current_val + 1) >> log_num_locs);
-                    
                 }
             },
         );

@@ -18,7 +18,6 @@ use winterfell::{
     TransitionConstraintDegree,
 };
 
-
 // Pointer Chasing Computation Component AIR
 // ================================================================================================
 
@@ -133,7 +132,7 @@ impl Air for PointerChasingComponentAir {
         result.agg_constraint(
             4 + log_num_locs + 1,
             E::ONE - periodic_values[0],
-            are_equal( current[1] + current[2], sum_3),
+            are_equal(current[1] + current[2], sum_3),
         );
         // result.agg_constraint(
         //     3,

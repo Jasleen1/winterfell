@@ -10,8 +10,8 @@ use structopt::StructOpt;
 use winterfell::StarkProof;
 
 use examples::{
-    fast_fourier_transform, fibonacci, pointer_chasing_ram_comp, ram_constraints_only, rescue, vdf,
-    ExampleOptions, ExampleType, pointer_chasing_naive,
+    fast_fourier_transform, fast_fourier_transform_raps, fibonacci, pointer_chasing_naive,
+    pointer_chasing_ram_comp, ram_constraints_only, rescue, vdf, ExampleOptions, ExampleType,
 };
 #[cfg(feature = "std")]
 use examples::{lamport, merkle, rescue_raps};
@@ -67,6 +67,10 @@ fn main() {
         }
         #[cfg(feature = "std")]
         ExampleType::FFT { degree } => fast_fourier_transform::get_example(&options, degree),
+        #[cfg(feature = "std")]
+        ExampleType::FFTRaps { num_fft_inputs } => {
+            fast_fourier_transform_raps::get_example(&options, num_fft_inputs)
+        }
         #[cfg(feature = "std")]
         ExampleType::RamConstraints {
             num_steps,
