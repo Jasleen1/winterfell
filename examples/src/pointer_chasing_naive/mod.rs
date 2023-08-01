@@ -20,7 +20,7 @@ mod air;
 use air::{PointerChasingComponentAir, PublicInputs};
 
 mod prover;
-use prover::PointerChasingComponentProver;
+use prover::PointerChasingNaiveProver;
 
 #[cfg(test)]
 mod tests;
@@ -43,20 +43,20 @@ pub fn get_example(
     let (options, hash_fn) = options.to_proof_options(42, 4);
 
     match hash_fn {
-        HashFunction::Blake3_192 => Ok(Box::new(PointerChasingCompExample::<Blake3_192>::new(
+        HashFunction::Blake3_192 => Ok(Box::new(PointerChasingNaiveExample::<Blake3_192>::new(
             num_locs, num_steps, options,
         ))),
-        HashFunction::Blake3_256 => Ok(Box::new(PointerChasingCompExample::<Blake3_256>::new(
+        HashFunction::Blake3_256 => Ok(Box::new(PointerChasingNaiveExample::<Blake3_256>::new(
             num_locs, num_steps, options,
         ))),
-        HashFunction::Sha3_256 => Ok(Box::new(PointerChasingCompExample::<Sha3_256>::new(
+        HashFunction::Sha3_256 => Ok(Box::new(PointerChasingNaiveExample::<Sha3_256>::new(
             num_locs, num_steps, options,
         ))),
         _ => Err("The specified hash function cannot be used with this example.".to_string()),
     }
 }
 
-pub struct PointerChasingCompExample<H: ElementHasher> {
+pub struct PointerChasingNaiveExample<H: ElementHasher> {
     options: ProofOptions,
     num_locs: usize,
     num_steps: usize,
@@ -65,7 +65,7 @@ pub struct PointerChasingCompExample<H: ElementHasher> {
     _hasher: PhantomData<H>,
 }
 
-impl<H: ElementHasher> PointerChasingCompExample<H> {
+impl<H: ElementHasher> PointerChasingNaiveExample<H> {
     pub fn new(num_steps: usize, num_locs: usize, options: ProofOptions) -> Self {
         assert!(
             num_locs.is_power_of_two(),
@@ -79,11 +79,11 @@ impl<H: ElementHasher> PointerChasingCompExample<H> {
 
         // let mut seeds: [BaseElement; _] = [BaseElement::ZERO; 2];
         // seeds = rand_array();
-        let inputs = [3, 0];
+        let inputs = [1, 2];
 
         // compute the sequence of hashes using external implementation of Rescue hash
         let now = Instant::now();
-        let result = usize_to_field(plain_pointer_chase(num_locs, num_steps, inputs));
+        let result = usize_to_base_elt(plain_pointer_chase(num_locs, num_steps, inputs));
         debug!(
             "Computed result of {} steps with {} locs in {} ms",
             num_steps,
@@ -91,7 +91,7 @@ impl<H: ElementHasher> PointerChasingCompExample<H> {
             now.elapsed().as_millis(),
         );
         println!("Plaintext result = {}", result);
-        PointerChasingCompExample {
+        PointerChasingNaiveExample {
             options,
             num_locs,
             num_steps,
@@ -105,7 +105,7 @@ impl<H: ElementHasher> PointerChasingCompExample<H> {
 // EXAMPLE IMPLEMENTATION
 // ================================================================================================
 
-impl<H: ElementHasher> Example for PointerChasingCompExample<H>
+impl<H: ElementHasher> Example for PointerChasingNaiveExample<H>
 where
     H: ElementHasher<BaseField = BaseElement>,
 {
@@ -118,7 +118,7 @@ where
         );
 
         // create a prover
-        let mut prover = PointerChasingComponentProver::<H>::new(
+        let mut prover = PointerChasingNaiveProver::<H>::new(
             self.options.clone(),
             self.num_locs,
             self.num_steps,
@@ -215,7 +215,12 @@ fn next_loc_function(val: usize, num_locs: usize) -> usize {
     (3 * val + 1) % num_locs
 }
 
-fn usize_to_field(val: usize) -> BaseElement {
+fn usize_to_base_elt(val: usize) -> BaseElement {
     let out: u128 = val.try_into().unwrap();
     BaseElement::from(out)
+}
+
+fn usize_to_field<E: FieldElement>(val: usize) -> E {
+    let out: u128 = val.try_into().unwrap();
+    E::from(out)
 }

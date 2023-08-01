@@ -5,10 +5,10 @@
 
 use super::{
     rescue::{self, STATE_WIDTH},
-    BaseElement, ExtensionOf, FieldElement, ProofOptions, CYCLE_LENGTH, TRACE_WIDTH,
+    BaseElement, ExtensionOf, FieldElement, ProofOptions, CYCLE_LENGTH, TRACE_WIDTH, usize_to_field,
 };
 use crate::{
-    pointer_chasing_naive::usize_to_field,
+    pointer_chasing_naive::usize_to_base_elt,
     utils::{are_equal, not, EvaluationResult},
 };
 use core_utils::flatten_slice_elements;
@@ -19,8 +19,7 @@ use winterfell::{
 };
 
 
-
-// Naive Pointer Chasing AIR
+// Pointer Chasing Computation Component AIR
 // ================================================================================================
 
 pub struct PublicInputs {
@@ -36,8 +35,8 @@ impl ToElements<BaseElement> for PublicInputs {
         // out.push(self.result);
         // out
         let mut out = vec![self.result];
-        out.push(usize_to_field(self.num_locs));
-        out.push(usize_to_field(self.num_steps));
+        out.push(usize_to_base_elt(self.num_locs));
+        out.push(usize_to_base_elt(self.num_steps));
         out
     }
 }
@@ -58,14 +57,27 @@ impl Air for PointerChasingComponentAir {
     fn new(trace_info: TraceInfo, pub_inputs: PublicInputs, options: ProofOptions) -> Self {
         let log_num_locs: usize = log2(pub_inputs.num_locs).try_into().unwrap();
 
-        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1, vec![2]); 2];
+        let mut main_degrees = vec![TransitionConstraintDegree::with_cycles(1, vec![2]); 4];
 
-        main_degrees.push(TransitionConstraintDegree::new(1));
+        // main_degrees.push(TransitionConstraintDegree::new(1));
         for _ in 0..log_num_locs {
             main_degrees.push(TransitionConstraintDegree::new(2));
         }
-        main_degrees.push(TransitionConstraintDegree::new(1));
+        // main_degrees.push(TransitionConstraintDegree::new(1));
+        main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2]));
+        main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2]));
 
+        for _ in 0..pub_inputs.num_locs {
+            main_degrees.push(TransitionConstraintDegree::new(2));
+        }
+
+        main_degrees.push(TransitionConstraintDegree::new(3));
+
+        for _ in 0..pub_inputs.num_locs {
+            main_degrees.push(TransitionConstraintDegree::with_cycles(1, vec![2]));
+            main_degrees.push(TransitionConstraintDegree::with_cycles(3, vec![2]));
+        }
+        
         PointerChasingComponentAir {
             context: AirContext::new(trace_info, main_degrees, 2, options),
             num_locs: pub_inputs.num_locs,
@@ -104,10 +116,12 @@ impl Air for PointerChasingComponentAir {
         for i in 0..log_num_locs {
             sum = sum + (current[3 + i] * (E::from(1u64 << i)));
         }
-        result.agg_constraint(2, E::ONE, are_equal(current[0], sum));
+        result.agg_constraint(2, E::ONE - periodic_values[0], are_equal(current[0], sum));
+        result.agg_constraint(3, periodic_values[0], are_equal(current[1], sum));
+
         for loc in 0..log_num_locs {
             result.agg_constraint(
-                3 + loc,
+                4 + loc,
                 E::ONE,
                 are_equal(current[3 + loc] * current[3 + loc], current[3 + loc]),
             );
@@ -117,15 +131,53 @@ impl Air for PointerChasingComponentAir {
         for i in 0..log_num_locs + 1 {
             sum_2 = sum_2 + (current[3 + i] * (E::from(1u64 << i)));
         }
+
         result.agg_constraint(
-            2,
-            E::ONE,
+            4 + log_num_locs,
+            E::ONE - periodic_values[0],
             are_equal((E::from(3u64) * current[2]) + E::ONE, sum_2),
         );
-        // result.agg_constraint(
-        //     3,
-        //     E::ONE - periodic_values[0],
-        //     are_equal(current[0], apply_next_loc_function(current[2])));
+        let mut sum_3 = E::ZERO;
+        for i in 0..log_num_locs + 1 {
+            sum_3 = sum_3 + (next[3 + i] * (E::from(1u64 << i)));
+        }
+        result.agg_constraint(
+            4 + log_num_locs + 1,
+            E::ONE - periodic_values[0],
+            are_equal( current[1] + current[2], sum_3),
+        );
+
+        for loc in 0..self.num_locs {
+            // println!("Counting: {}", 4 + log_num_locs + 2 + loc);
+            result.agg_constraint(
+                4 + log_num_locs + 2 + loc,
+                E::ONE,
+                are_equal( current[3 + log_num_locs + 1 + (3 * loc) + 1] * current[3 + log_num_locs + 1 + (3 * loc) + 2], E::ONE),
+            );
+        }
+
+        let mut sum_4 = E::ZERO;
+        for loc in 0..self.num_locs {
+            let loc_field = usize_to_field::<E>(loc);
+            sum_4 = sum_4 + current[3 + log_num_locs + 1 + (3 * loc)] * (E::ONE - ((loc_field - current[0]) * current[3 + log_num_locs + 1 + (3 * loc) + 1]));
+        }
+        // println!("Counting: {}", 4 + log_num_locs + 2 + self.num_locs);
+        result.agg_constraint(4 + log_num_locs + self.num_locs + 2, E::ONE, are_equal(sum_4, current[1]));
+
+        for loc in 0..self.num_locs {
+            let loc_field = usize_to_field::<E>(loc);
+            // println!("Counting: {}", 4 + log_num_locs + 3 + self.num_locs + 2*loc);
+            // println!("Counting: {}", 4 + log_num_locs + 3 + self.num_locs + 2*loc + 1);
+            result.agg_constraint(4 + log_num_locs + self.num_locs + 3 + 2*loc, 
+                periodic_values[0], 
+                are_equal(current[3 + log_num_locs + 1 + (3 * loc)], next[3 + log_num_locs + 1 + (3 * loc)])
+            );
+            result.agg_constraint(4 + log_num_locs + self.num_locs + 3 + 2*loc + 1, 
+                E::ONE - periodic_values[0], 
+                ((loc_field - current[0]) * current[3 + log_num_locs + 1 + (3 * loc) + 1]) * are_equal(current[3 + log_num_locs + 1 + (3 * loc)], next[3 + log_num_locs + 1 + (3 * loc)])
+            );
+        }
+        
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -133,7 +185,7 @@ impl Air for PointerChasingComponentAir {
         let last_step = self.trace_length() - 1;
         vec![
             // Initial capacity registers must be set to zero
-            Assertion::single(2, 0, usize_to_field(self.num_locs - 1)),
+            Assertion::single(2, 0, usize_to_base_elt(self.num_locs - 1)),
             // Final rate registers (digests) should be equal to
             // the provided public input
             Assertion::single(1, last_step, self.result),

@@ -233,6 +233,14 @@ pub enum ExampleType {
         #[structopt(short = "s", default_value = "32")]
         num_steps: usize,
     },
+    PointerChasingNaive {
+        /// Locs; must be a power of two
+        #[structopt(short = "l", default_value = "8")]
+        num_locs: usize,
+        /// Steps; must be a power of two
+        #[structopt(short = "s", default_value = "32")]
+        num_steps: usize,
+    },
 }
 
 /// Defines a set of hash functions available for the provided examples. Some examples may not

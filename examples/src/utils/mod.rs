@@ -55,6 +55,15 @@ impl<E: FieldElement> EvaluationResult<E> for Vec<E> {
     }
 }
 
+pub fn compute_equality_cols<E: FieldElement>(elt: E) -> [E; 2] {
+    if elt == E::ZERO {
+        [E::ONE, E::ONE]
+    } else {
+        let inverse = elt.inv();
+        [inverse, elt]
+    }
+}
+
 // OTHER FUNCTIONS
 // ================================================================================================
 

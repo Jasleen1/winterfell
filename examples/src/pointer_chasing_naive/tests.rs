@@ -8,7 +8,7 @@ use winterfell::{FieldExtension, ProofOptions};
 
 #[test]
 fn pointer_chase_test_basic_proof_verification() {
-    let pointer_chase_eg = Box::new(super::PointerChasingCompExample::<Blake3_256>::new(
+    let pointer_chase_eg = Box::new(super::PointerChasingNaiveExample::<Blake3_256>::new(
         16,
         128,
         build_options(false),
@@ -18,7 +18,7 @@ fn pointer_chase_test_basic_proof_verification() {
 
 #[test]
 fn pointer_chase_test_basic_proof_verification_extension() {
-    let pointer_chase_eg = Box::new(super::PointerChasingCompExample::<Blake3_256>::new(
+    let pointer_chase_eg = Box::new(super::PointerChasingNaiveExample::<Blake3_256>::new(
         16,
         128,
         build_options(true),
@@ -28,7 +28,7 @@ fn pointer_chase_test_basic_proof_verification_extension() {
 
 #[test]
 fn pointer_chase_test_basic_proof_verification_fail() {
-    let pointer_chase_eg = Box::new(super::PointerChasingCompExample::<Blake3_256>::new(
+    let pointer_chase_eg = Box::new(super::PointerChasingNaiveExample::<Blake3_256>::new(
         16,
         128,
         build_options(false),

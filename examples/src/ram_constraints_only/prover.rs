@@ -5,6 +5,8 @@
 
 use winterfell::{math::log2, TraceTable};
 
+use crate::utils::compute_equality_cols;
+
 use super::{
     BaseElement, DefaultRandomCoin, ElementHasher, FieldElement, PhantomData, ProofOptions, Prover,
     PublicInputs, RamConstraintsAir, Trace,
@@ -43,7 +45,7 @@ impl<H: ElementHasher> RamConstraintProver<H> {
         trace.fill(
             |state| {
                 // initialize the original values
-                state[0] = BaseElement::from(valid_ram[0][0]) + BaseElement::ZERO;
+                state[0] = BaseElement::from(valid_ram[0][0]);
                 state[1] = BaseElement::from(99u64);
                 state[2] = BaseElement::from(valid_ram[0][2]);
                 state[3] = BaseElement::from(valid_ram[0][3]);
@@ -60,12 +62,12 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                 }
                 // These are just throw-aways in the initial step
                 let loc_equality_terms =
-                    Self::compute_equality_cols(BaseElement::from(valid_ram[0][2]));
+                    compute_equality_cols(BaseElement::from(valid_ram[0][2]));
                 state[4 + log_ram_steps_usize] = loc_equality_terms[0];
                 state[4 + log_ram_steps_usize + 1] = loc_equality_terms[1];
 
                 let val_equality_terms =
-                    Self::compute_equality_cols(BaseElement::from(valid_ram[0][3]));
+                    compute_equality_cols(BaseElement::from(valid_ram[0][3]));
                 state[4 + log_ram_steps_usize + 2] = val_equality_terms[0];
                 state[4 + log_ram_steps_usize + 3] = val_equality_terms[1];
             },
@@ -92,7 +94,7 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                     state[4 + i] = BaseElement::from(ith_bit);
                 }
 
-                let loc_equality_terms = Self::compute_equality_cols(
+                let loc_equality_terms = compute_equality_cols(
                     BaseElement::from(valid_ram[step][2])
                         - BaseElement::from(valid_ram[step + 1][2]),
                 );
@@ -100,7 +102,7 @@ impl<H: ElementHasher> RamConstraintProver<H> {
                 state[4 + log_ram_steps_usize] = loc_equality_terms[0];
                 state[4 + log_ram_steps_usize + 1] = loc_equality_terms[1];
 
-                let val_equality_terms = Self::compute_equality_cols(
+                let val_equality_terms = compute_equality_cols(
                     BaseElement::from(valid_ram[step][3])
                         - BaseElement::from(valid_ram[step + 1][3]),
                 );
@@ -118,15 +120,10 @@ impl<H: ElementHasher> RamConstraintProver<H> {
         trace
     }
 
-    fn compute_equality_cols(elt: BaseElement) -> [BaseElement; 2] {
-        if elt == BaseElement::ZERO {
-            [BaseElement::ONE, BaseElement::ONE]
-        } else {
-            let inverse = elt.inv();
-            [inverse, elt]
-        }
-    }
+    
 }
+
+
 
 impl<H: ElementHasher> Prover for RamConstraintProver<H>
 where
