@@ -11,7 +11,12 @@ use crate::{
 
 use log::debug;
 use rand_utils::rand_array;
-use std::{cmp::{max, min}, convert::TryInto, marker::PhantomData, time::Instant};
+use std::{
+    cmp::{max, min},
+    convert::TryInto,
+    marker::PhantomData,
+    time::Instant,
+};
 use winterfell::{
     crypto::{DefaultRandomCoin, ElementHasher},
     math::{fields::f128::BaseElement, log2, ExtensionOf, FieldElement, StarkField},
@@ -36,7 +41,7 @@ mod tests;
 // ================================================================================================
 
 pub fn get_example(options: &ExampleOptions, degree: usize) -> Result<Box<dyn Example>, String> {
-    let b = 4;//min(512, max(degree, 64));
+    let b = 4; //min(512, max(degree, 64));
     let (options, hash_fn) = options.to_proof_options(28, b);
     match hash_fn {
         HashFunction::Blake3_192 => {

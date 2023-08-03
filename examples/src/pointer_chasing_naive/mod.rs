@@ -44,13 +44,13 @@ pub fn get_example(
 
     match hash_fn {
         HashFunction::Blake3_192 => Ok(Box::new(PointerChasingNaiveExample::<Blake3_192>::new(
-            num_locs, num_steps, options,
+            num_steps, num_locs, options,
         ))),
         HashFunction::Blake3_256 => Ok(Box::new(PointerChasingNaiveExample::<Blake3_256>::new(
-            num_locs, num_steps, options,
+            num_steps, num_locs, options,
         ))),
         HashFunction::Sha3_256 => Ok(Box::new(PointerChasingNaiveExample::<Sha3_256>::new(
-            num_locs, num_steps, options,
+            num_steps, num_locs, options,
         ))),
         _ => Err("The specified hash function cannot be used with this example.".to_string()),
     }
