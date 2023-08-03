@@ -132,7 +132,7 @@ impl<H: ElementHasher> PointerChasingNaiveProver<H> {
                 }
             },
         );
-        print_trace(&trace, 1, 0, trace.width() - 9..trace.width() - 6); //0..trace.width());
+        // print_trace(&trace, 1, 0, trace.width() - 9..trace.width() - 6); //0..trace.width());
         trace
     }
 

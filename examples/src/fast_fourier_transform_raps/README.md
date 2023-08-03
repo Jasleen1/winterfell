@@ -5,7 +5,6 @@ To run this example, run `cargo run --bin winterfell fft-raps` from the winterfe
 ## The iterative FFT function 
 This example implements the AIR for a simple iterative FFT using the Cooley-Tukey algorithm. See the [Wikipedia article](https://en.wikipedia.org/wiki/Cooley–Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms) for more info. Also, see the `fast_fourier_transform` file in the `utils` module of this crate for a simple iterative FFT implementation. 
 
-
 The reason that implementing iterative FFT is interesting is because it is an algorithm that proceeds in steps, where each step is data-oblivious but has a distinct access pattern from other steps. This pattern is similar to other data oblivious algorithms, such as bitonic sorting and other kinds of algorithms often used as part of cryptographic constructions. 
 
 In particular, iterative FFT implementations consist of the following steps:
